@@ -1,0 +1,31 @@
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.booproj
+*.unityproj
+*.apk
+*.unitypackage
+.vs/
+.vscode/
+.idea/
+crashlytics-buildid.txt
+
+# VRChat Creator Companion / ALCOM resolves these from Packages/vpm-manifest.json
+/Packages/com.vrchat.*/
+/Packages/vpm-manifest.json.bak
+
+# UdonSharp per-machine caches
+/Assets/SerializedUdonPrograms/
+/Assets/SerializedUdonPrograms.meta
+/Assets/UdonSharp/
