@@ -116,6 +116,8 @@ namespace WizardsVRC.EditorTools
             var hud = UdonSharpUndo.AddComponent<PlayerHUD>(Child(systems.transform, "PlayerHUD", Vector3.zero).gameObject);
             var cardDb = UdonSharpUndo.AddComponent<CardDatabase>(Child(systems.transform, "CardDatabase", Vector3.zero).gameObject);
             var deckPages = UdonSharpUndo.AddComponent<DeckPages>(Child(systems.transform, "DeckPages", Vector3.zero).gameObject);
+            var battle = UdonSharpUndo.AddComponent<BattleManager>(Child(systems.transform, "BattleManager", Vector3.zero).gameObject);
+            var battleClient = UdonSharpUndo.AddComponent<BattleClient>(Child(systems.transform, "BattleClient", Vector3.zero).gameObject);
 
             teleporter.defaultTarget = hubSpawn;
             saveManager.scratch = scratchData;
@@ -136,6 +138,13 @@ namespace WizardsVRC.EditorTools
             deckPages.playerState = playerState;
             deckPages.cardDatabase = cardDb;
             book.deckPages = deckPages;
+            battle.cardDatabase = cardDb;
+            battle.client = battleClient;
+            battleClient.manager = battle;
+            battleClient.playerState = playerState;
+            battleClient.itemDatabase = itemDb;
+            battleClient.cardDatabase = cardDb;
+            battleClient.hubReturn = hubSpawn;
 
             BuildSelectCanvasContents(selectCanvas, selectUI);
             BuildHubCanvasContents(hubCanvas, selectUI, book);
@@ -144,8 +153,10 @@ namespace WizardsVRC.EditorTools
             Transform hubRoot = hubSpawn.parent;
             var chest = BuildLootChest(hubRoot, playerState, itemDb);
             var pedestal = BuildBackpackPedestal(hubRoot, book);
+            var queuePad = BuildQueuePad(hubRoot, battleClient);
+            BuildArena(battleClient);
 
-            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages })
+            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, battle, battleClient, queuePad })
             {
                 UdonSharpEditorUtility.CopyProxyToUdon(b);
                 EditorUtility.SetDirty(b);
@@ -177,7 +188,7 @@ namespace WizardsVRC.EditorTools
         {
             Directory.CreateDirectory(ProgramsDir);
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -685,6 +696,177 @@ namespace WizardsVRC.EditorTools
             relay.target = book;
             relay.eventName = "ToggleBook";
             return relay;
+        }
+
+        // ================================================================== combat
+
+        private static readonly Vector3 ArenaOrigin = new Vector3(0f, 0f, 400f);
+
+        private static BattleQueuePad BuildQueuePad(Transform hubRoot, BattleClient client)
+        {
+            Vector3 pos = new Vector3(8f, 0f, 4f);
+            var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pad.name = "ArenaTeleporterPad";
+            pad.transform.SetParent(hubRoot, false);
+            pad.transform.localPosition = pos + new Vector3(0, 0.05f, 0);
+            pad.transform.localScale = new Vector3(3f, 0.05f, 3f);
+            pad.GetComponent<Renderer>().sharedMaterial = Mat("ArenaPad", new Color(0.55f, 0.3f, 0.85f));
+
+            var trigger = new GameObject("ArenaQueueTrigger");
+            trigger.transform.SetParent(hubRoot, false);
+            trigger.transform.localPosition = pos + new Vector3(0, 1f, 0);
+            var box = trigger.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.size = new Vector3(2.6f, 2f, 2.6f);
+            var queue = UdonSharpUndo.AddComponent<BattleQueuePad>(trigger);
+            queue.client = client;
+
+            client.padLabel = WorldText(hubRoot, "ArenaPadLabel", pos + new Vector3(0, 2.6f, 0), Quaternion.LookRotation(new Vector3(pos.x, 0, pos.z)),
+                new Vector2(700, 200), 0.004f, "Boss Arena Teleporter", 48);
+            return queue;
+        }
+
+        private static void BuildArena(BattleClient client)
+        {
+            var root = new GameObject("BossArena").transform;
+            root.position = ArenaOrigin;
+            Block(root, "Ground", new Vector3(0, -0.25f, 0), new Vector3(70, 0.5f, 70), Mat("ArenaGround", new Color(0.3f, 0.28f, 0.33f)));
+            Material stone = Mat("ArenaStone", new Color(0.45f, 0.42f, 0.48f));
+            for (int i = 0; i < 4; i++)
+            {
+                float x = i % 2 == 0 ? -26f : 26f, z = i < 2 ? -26f : 26f;
+                Block(root, "Pillar" + i, new Vector3(x, 4f, z), new Vector3(2f, 8f, 2f), stone);
+            }
+
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ring.name = "DuelRing";
+            ring.transform.SetParent(root, false);
+            ring.transform.localPosition = new Vector3(0, 0.02f, 0);
+            ring.transform.localScale = new Vector3(10f, 0.02f, 10f);
+            ring.GetComponent<Renderer>().sharedMaterial = Mat("DuelRing", new Color(0.85f, 0.75f, 0.35f));
+            Object.DestroyImmediate(ring.GetComponent<Collider>());
+            Material seatMat = Mat("DuelSeat", new Color(0.35f, 0.25f, 0.6f));
+
+            int slots = BattleManager.SLOTS, side = BattleManager.SIDE;
+            client.seats = new Transform[slots];
+            client.overheadLabels = new Text[slots];
+            client.monsterBodies = new GameObject[side];
+            for (int s = 0; s < slots; s++)
+            {
+                bool monster = s >= side;
+                int i = s % side;
+                Vector3 pos = new Vector3(-2.7f + i * 1.8f, 0.05f, monster ? 3.2f : -3.2f);
+                Transform seat = Child(root, (monster ? "MonsterSpot" : "WizardSeat") + i, pos);
+                seat.localRotation = Quaternion.Euler(0, monster ? 180f : 0f, 0);
+                client.seats[s] = seat;
+
+                var marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                marker.name = "Marker";
+                marker.transform.SetParent(seat, false);
+                marker.transform.localScale = new Vector3(1f, 0.02f, 1f);
+                marker.GetComponent<Renderer>().sharedMaterial = seatMat;
+                Object.DestroyImmediate(marker.GetComponent<Collider>());
+
+                float labelHeight = 2.5f;
+                if (monster)
+                {
+                    bool boss = i == 0;
+                    var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                    body.name = boss ? "Boss" : "Minion" + i;
+                    body.transform.SetParent(seat, false);
+                    float scale = boss ? 1.7f : 1f;
+                    body.transform.localPosition = new Vector3(0, scale, 0);
+                    body.transform.localScale = Vector3.one * scale;
+                    body.GetComponent<Renderer>().sharedMaterial = boss ? Mat("BossBody", new Color(0.25f, 0.2f, 0.3f)) : Mat("MinionBody", new Color(0.75f, 0.65f, 0.3f));
+                    Object.DestroyImmediate(body.GetComponent<Collider>());
+                    body.SetActive(false);
+                    client.monsterBodies[i] = body;
+                    labelHeight = boss ? 4f : 2.6f;
+                }
+                client.overheadLabels[s] = WorldText(root, "Label" + s, pos + new Vector3(0, labelHeight, 0), Quaternion.identity,
+                    new Vector2(600, 160), 0.004f, "", 36);
+            }
+
+            client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 5.2f, 7f), Quaternion.identity, new Vector2(1600, 420), 0.005f, "", 52);
+
+            var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            orb.name = "SpellOrb";
+            orb.transform.SetParent(root, false);
+            orb.transform.localScale = Vector3.one * 0.35f;
+            Material orbMat = Mat("SpellOrb", new Color(1f, 0.9f, 0.5f));
+            orbMat.EnableKeyword("_EMISSION");
+            orbMat.SetColor("_EmissionColor", new Color(1f, 0.8f, 0.3f) * 2f);
+            orb.GetComponent<Renderer>().sharedMaterial = orbMat;
+            Object.DestroyImmediate(orb.GetComponent<Collider>());
+            orb.SetActive(false);
+            client.orb = orb.transform;
+
+            BuildHandPanel(root, client);
+            ring.SetActive(false);
+            client.ring = ring;
+        }
+
+        private static void BuildHandPanel(Transform arenaRoot, BattleClient client)
+        {
+            UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(client);
+            var canvasGo = new GameObject("HandCanvas", typeof(RectTransform));
+            canvasGo.transform.SetParent(arenaRoot, false);
+            MakeWorldCanvas(canvasGo, new Vector2(1400, 760), new Vector3(0, 1.2f, -2.4f), 0.0006f);
+            RectTransform root = (RectTransform)canvasGo.transform;
+            client.handRoot = canvasGo;
+
+            Panel(root, "Background", Vector2.zero, new Vector2(1400, 760), new Color(0.08f, 0.07f, 0.12f, 0.85f));
+            client.partyLabel = Label(root, "Party", new Vector2(-370, 235), new Vector2(620, 270), "", 21, TextAnchor.UpperLeft);
+            client.statusLabel = Label(root, "Status", new Vector2(330, 235), new Vector2(700, 270), "", 26, TextAnchor.UpperLeft);
+
+            int hand = BattleClient.HAND_SIZE;
+            client.cardImages = new Image[hand];
+            client.cardNames = new Text[hand];
+            client.cardInfos = new Text[hand];
+            for (int i = 0; i < hand; i++)
+            {
+                GameObject b = Button(root, "Card" + i, new Vector2(-570 + i * 190, -25), new Vector2(180, 250), "", Color.gray, target, "Card" + i);
+                client.cardImages[i] = b.GetComponent<Image>();
+                client.cardNames[i] = Label(b.transform, "Name", new Vector2(0, 85), new Vector2(170, 70), "", 23, TextAnchor.MiddleCenter);
+                client.cardInfos[i] = Label(b.transform, "Info", new Vector2(0, -40), new Vector2(170, 160), "", 17, TextAnchor.UpperCenter);
+                b.SetActive(false);
+            }
+
+            int slots = BattleManager.SLOTS;
+            client.targetButtons = new GameObject[slots];
+            client.targetLabels = new Text[slots];
+            for (int t = 0; t < slots; t++)
+            {
+                Color c = t < BattleManager.SIDE ? new Color(0.25f, 0.45f, 0.3f) : new Color(0.55f, 0.22f, 0.2f);
+                GameObject b = Button(root, "Target" + t, new Vector2(-612 + t * 175, -200), new Vector2(165, 70), "", c, target, "Target" + t);
+                Text label = b.GetComponentInChildren<Text>();
+                label.fontSize = 20;
+                client.targetLabels[t] = label;
+                client.targetButtons[t] = b;
+                b.SetActive(false);
+            }
+
+            Button(root, "Pass", new Vector2(-160, -310), new Vector2(260, 70), "Pass", new Color(0.3f, 0.35f, 0.5f), target, "Pass");
+            GameObject discard = Button(root, "Discard", new Vector2(160, -310), new Vector2(260, 70), "Discard", new Color(0.4f, 0.3f, 0.25f), target, "ToggleDiscard");
+            client.discardImage = discard.GetComponent<Image>();
+            canvasGo.SetActive(false);
+        }
+
+        /// <summary>Non-interactive world-space uGUI text (scripts can't change TextMesh text in Udon).</summary>
+        private static Text WorldText(Transform parent, string name, Vector3 localPos, Quaternion rot, Vector2 size, float scale, string text, int fontSize)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            go.AddComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            var rt = (RectTransform)go.transform;
+            rt.sizeDelta = size;
+            rt.localPosition = localPos;
+            rt.localRotation = rot;
+            rt.localScale = Vector3.one * scale;
+            Text label = Label(go.transform, "Text", Vector2.zero, size, text, fontSize, TextAnchor.MiddleCenter);
+            var outline = label.gameObject.AddComponent<Outline>();
+            outline.effectColor = Color.black;
+            return label;
         }
 
         // ================================================================== builders
