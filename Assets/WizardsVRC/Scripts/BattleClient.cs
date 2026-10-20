@@ -30,7 +30,7 @@ namespace WizardsVRC
         public Transform orb;
         public Transform[] stagingSpots;
         public Transform arenaCenter;
-        public float engageRadius = 11f;
+        public float engageRadius = 14f;
         public Transform clockHand;
         public Text clockLabel;
         [Tooltip("One glowing ring per seat, coloured by the school of whoever sits there.")]
