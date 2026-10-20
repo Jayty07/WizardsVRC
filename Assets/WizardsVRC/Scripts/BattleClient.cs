@@ -28,6 +28,11 @@ namespace WizardsVRC
         public Text bannerLabel;
         public Text padLabel;
         public Transform orb;
+        public Transform[] stagingSpots;
+        public Transform arenaCenter;
+        public float engageRadius = 11f;
+        public Transform clockHand;
+        public Text clockLabel;
 
         [Header("Hand panel")]
         public GameObject handRoot;
@@ -45,6 +50,9 @@ namespace WizardsVRC
 
         private bool _inBattle;
         private int _slot = -1;
+        private bool _seated;
+        private float _nextEngage;
+        private int _clockActor = -1;
         private int _battleSeen;
         private int _roundSeen;
         private int _phaseSeen;
@@ -124,18 +132,21 @@ namespace WizardsVRC
             if (ring != null) ring.SetActive(active);
             for (int m = 0; m < BattleManager.SIDE; m++)
                 if (monsterBodies != null && m < monsterBodies.Length && monsterBodies[m] != null)
-                    monsterBodies[m].SetActive(active && manager.Alive(BattleManager.SIDE + m));
+                    monsterBodies[m].SetActive(phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m));
 
             VRCPlayerApi local = Networking.LocalPlayer;
             int mySlot = Utilities.IsValid(local) ? manager.FindWizardSlot(local.playerId) : -1;
 
-            if (phase == BattleManager.PHASE_JOINING && manager.battleId != _battleSeen)
+            if ((phase == BattleManager.PHASE_ROAMING || phase == BattleManager.PHASE_JOINING) && manager.battleId != _battleSeen)
             {
                 _battleSeen = manager.battleId;
                 _roundSeen = 0;
+                _clockActor = -1;
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
-                if (mySlot >= 0) EnterBattle(mySlot);
+                if (mySlot >= 0) ArriveAtArena(mySlot);
+                SetBanner("");
             }
+            if (phase >= BattleManager.PHASE_JOINING && phase <= BattleManager.PHASE_PLAYBACK && _inBattle && !_seated) TakeSeat();
 
             if (phase == BattleManager.PHASE_PLANNING && manager.round != _roundSeen)
             {
@@ -185,15 +196,25 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ battle enter / leave
 
-        private void EnterBattle(int slot)
+        private void ArriveAtArena(int slot)
         {
             VRCPlayerApi local = Networking.LocalPlayer;
             if (!Utilities.IsValid(local) || playerState == null || !playerState.HasCharacter()) return;
             _inBattle = true;
+            _seated = false;
             _slot = slot;
+            Transform spot = stagingSpots != null && slot < stagingSpots.Length && stagingSpots[slot] != null ? stagingSpots[slot] : seats[slot];
+            local.TeleportTo(spot.position, spot.rotation);
+        }
+
+        private void TakeSeat()
+        {
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (!Utilities.IsValid(local) || playerState == null || !playerState.HasCharacter()) return;
+            _seated = true;
             CharacterData c = playerState.current;
 
-            Transform seat = seats[slot];
+            Transform seat = seats[_slot];
             local.TeleportTo(seat.position, seat.rotation);
             local.Immobilize(true);
 
@@ -221,6 +242,7 @@ namespace WizardsVRC
         {
             if (!_inBattle) return;
             _inBattle = false;
+            _seated = false;
             _slot = -1;
             if (handRoot != null) handRoot.SetActive(false);
             VRCPlayerApi local = Networking.LocalPlayer;
@@ -358,6 +380,7 @@ namespace WizardsVRC
 
             int group = manager.actGroup[_playIndex];
             int actor = manager.actActor[_playIndex];
+            _clockActor = actor;
             int card = manager.actCard[_playIndex];
             int kind = manager.actKind[_playIndex];
             string text = manager.SlotName(actor);
@@ -401,8 +424,48 @@ namespace WizardsVRC
             orb.gameObject.SetActive(true);
         }
 
+        private void UpdateClock()
+        {
+            if (clockHand == null || arenaCenter == null) return;
+            int phase = manager.phase;
+            float target;
+            string label;
+            if (phase == BattleManager.PHASE_PLANNING)
+            {
+                float left = Mathf.Clamp01((manager.phaseEndMs - manager.Now()) / (manager.planningSeconds * 1000f));
+                target = 360f * (1f - left);
+                label = "Choose your spells\n" + manager.SecondsLeft().ToString() + "s";
+            }
+            else if (phase == BattleManager.PHASE_PLAYBACK && _clockActor >= 0 && _clockActor < seats.Length)
+            {
+                Vector3 d = arenaCenter.InverseTransformPoint(seats[_clockActor].position);
+                target = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
+                label = manager.SlotName(_clockActor) + "'s turn";
+            }
+            else
+            {
+                target = 0f;
+                label = phase == BattleManager.PHASE_JOINING ? "Battle!" : "";
+            }
+            Quaternion want = Quaternion.Euler(0f, target, 0f);
+            clockHand.localRotation = phase == BattleManager.PHASE_PLANNING ? want : Quaternion.RotateTowards(clockHand.localRotation, want, 540f * Time.deltaTime);
+            if (clockLabel != null) clockLabel.text = label;
+        }
+
         private void Update()
         {
+            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) UpdateClock();
+            if (_inBattle && !_seated && manager != null && manager.phase == BattleManager.PHASE_ROAMING && arenaCenter != null && Time.time >= _nextEngage)
+            {
+                VRCPlayerApi me = Networking.LocalPlayer;
+                Vector3 p = me.GetPosition() - arenaCenter.position;
+                p.y = 0f;
+                if (p.magnitude <= engageRadius)
+                {
+                    _nextEngage = Time.time + 1f;
+                    manager.RequestEngage();
+                }
+            }
             if (orb != null && orb.gameObject.activeSelf)
             {
                 float t = (Time.time - _orbStart) / (manager.actionSeconds * 0.6f);
@@ -439,7 +502,7 @@ namespace WizardsVRC
             for (int s = 0; s < BattleManager.SLOTS; s++)
             {
                 if (overheadLabels == null || s >= overheadLabels.Length || overheadLabels[s] == null) continue;
-                overheadLabels[s].text = manager.Occupied(s) && manager.phase >= BattleManager.PHASE_JOINING ? SlotLine(s, false) : "";
+                overheadLabels[s].text = manager.Occupied(s) && manager.phase >= (s < BattleManager.SIDE ? BattleManager.PHASE_JOINING : BattleManager.PHASE_ROAMING) ? SlotLine(s, false) : "";
             }
             if (partyLabel != null)
             {

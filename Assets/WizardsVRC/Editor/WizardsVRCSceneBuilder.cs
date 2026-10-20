@@ -738,13 +738,70 @@ namespace WizardsVRC.EditorTools
                 Block(root, "Pillar" + i, new Vector3(x, 4f, z), new Vector3(2f, 8f, 2f), stone);
             }
 
-            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            ring.name = "DuelRing";
+            var ring = new GameObject("DuelRing");
             ring.transform.SetParent(root, false);
-            ring.transform.localPosition = new Vector3(0, 0.02f, 0);
-            ring.transform.localScale = new Vector3(10f, 0.02f, 10f);
-            ring.GetComponent<Renderer>().sharedMaterial = Mat("DuelRing", new Color(0.85f, 0.75f, 0.35f));
-            Object.DestroyImmediate(ring.GetComponent<Collider>());
+            Material ringMat = Mat("DuelRing", new Color(0.95f, 0.8f, 0.35f));
+            ringMat.EnableKeyword("_EMISSION");
+            ringMat.SetColor("_EmissionColor", new Color(0.9f, 0.7f, 0.25f) * 1.5f);
+            const int segments = 48;
+            const float radius = 5.2f;
+            for (int k = 0; k < segments; k++)
+            {
+                float ang = k * 360f / segments;
+                var seg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                seg.name = "Segment" + k;
+                seg.transform.SetParent(ring.transform, false);
+                seg.transform.localRotation = Quaternion.Euler(0, ang, 0);
+                seg.transform.localPosition = seg.transform.localRotation * new Vector3(0, 0.04f, radius);
+                seg.transform.localScale = new Vector3(2f * Mathf.PI * radius / segments + 0.02f, 0.06f, 0.18f);
+                seg.GetComponent<Renderer>().sharedMaterial = ringMat;
+                Object.DestroyImmediate(seg.GetComponent<Collider>());
+            }
+
+            // Turn clock in the middle of the ring: the hand sweeps the planning timer, then points at each caster.
+            var clock = Child(ring.transform, "TurnClock", Vector3.zero);
+            client.arenaCenter = clock;
+            var face = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            face.name = "Face";
+            face.transform.SetParent(clock, false);
+            face.transform.localPosition = new Vector3(0, 0.03f, 0);
+            face.transform.localScale = new Vector3(1.6f, 0.03f, 1.6f);
+            face.GetComponent<Renderer>().sharedMaterial = Mat("ClockFace", new Color(0.15f, 0.13f, 0.22f));
+            Object.DestroyImmediate(face.GetComponent<Collider>());
+            for (int k = 0; k < 12; k++)
+            {
+                var tick = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                tick.name = "Tick" + k;
+                tick.transform.SetParent(clock, false);
+                tick.transform.localRotation = Quaternion.Euler(0, k * 30f, 0);
+                tick.transform.localPosition = tick.transform.localRotation * new Vector3(0, 0.07f, 0.68f);
+                tick.transform.localScale = new Vector3(0.04f, 0.03f, k % 3 == 0 ? 0.16f : 0.08f);
+                tick.GetComponent<Renderer>().sharedMaterial = ringMat;
+                Object.DestroyImmediate(tick.GetComponent<Collider>());
+            }
+            var hand = Child(clock, "Hand", new Vector3(0, 0.09f, 0));
+            var needle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            needle.name = "Needle";
+            needle.transform.SetParent(hand, false);
+            needle.transform.localPosition = new Vector3(0, 0, 0.3f);
+            needle.transform.localScale = new Vector3(0.07f, 0.04f, 0.6f);
+            needle.GetComponent<Renderer>().sharedMaterial = ringMat;
+            Object.DestroyImmediate(needle.GetComponent<Collider>());
+            client.clockHand = hand;
+            client.clockLabel = WorldText(ring.transform, "ClockLabel", new Vector3(0, 1.1f, 0), Quaternion.identity, new Vector2(700, 160), 0.004f, "", 44);
+
+            client.stagingSpots = new Transform[BattleManager.SIDE];
+            for (int k = 0; k < BattleManager.SIDE; k++)
+                client.stagingSpots[k] = Child(root, "ArrivalSpot" + k, new Vector3(-22f, 0.05f, -9f + k * 1.5f));
+            for (int k = 0; k < BattleManager.SIDE; k++)
+                client.stagingSpots[k].localRotation = Quaternion.Euler(0, 90f, 0);
+            var arrivalPad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            arrivalPad.name = "ArrivalPad";
+            arrivalPad.transform.SetParent(root, false);
+            arrivalPad.transform.localPosition = new Vector3(-22f, 0.02f, -6.75f);
+            arrivalPad.transform.localScale = new Vector3(3.5f, 0.02f, 6f);
+            arrivalPad.GetComponent<Renderer>().sharedMaterial = Mat("ArenaPad", new Color(0.55f, 0.3f, 0.85f));
+            Object.DestroyImmediate(arrivalPad.GetComponent<Collider>());
             Material seatMat = Mat("DuelSeat", new Color(0.35f, 0.25f, 0.6f));
 
             int slots = BattleManager.SLOTS, side = BattleManager.SIDE;
