@@ -495,16 +495,15 @@ namespace WizardsVRC.EditorTools
             go.transform.localScale = new Vector3(1.2f, 0.7f, 0.8f);
             go.GetComponent<Renderer>().sharedMaterial = Mat("Chest", new Color(0.5f, 0.32f, 0.15f));
 
-            var label = new GameObject("ChestLabel");
-            label.transform.SetParent(hubRoot, false);
-            label.transform.localPosition = new Vector3(-5f, 1.4f, 10f);
-            var tm = label.AddComponent<TextMesh>();
-            tm.anchor = TextAnchor.MiddleCenter;
-            tm.alignment = TextAlignment.Center;
-            tm.characterSize = 0.06f;
-            tm.fontSize = 48;
-            tm.color = Color.white;
-            tm.text = "Practice Chest";
+            // uGUI Text, not TextMesh: TextMesh.text is not exposed to Udon. No raycaster, so it never blocks clicks.
+            var labelGo = new GameObject("ChestLabel", typeof(RectTransform));
+            labelGo.transform.SetParent(hubRoot, false);
+            labelGo.AddComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            var labelRt = (RectTransform)labelGo.transform;
+            labelRt.sizeDelta = new Vector2(600, 200);
+            labelRt.localPosition = new Vector3(-5f, 1.5f, 10f);
+            labelRt.localScale = Vector3.one * 0.004f;
+            var tm = Label(labelGo.transform, "Text", Vector2.zero, new Vector2(600, 200), "Practice Chest", 56, TextAnchor.MiddleCenter);
 
             var chest = UdonSharpUndo.AddComponent<LootChest>(go);
             chest.playerState = playerState;
