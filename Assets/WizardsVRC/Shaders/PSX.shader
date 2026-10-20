@@ -7,8 +7,8 @@ Shader "WizardsVRC/PSX"
         _Color ("Color", Color) = (1,1,1,1)
         _MainTex ("Texture", 2D) = "white" {}
         _EmissionColor ("Emission", Color) = (0,0,0,0)
-        _SnapRes ("Vertex Snap Resolution", Float) = 220
-        _Affine ("Affine Warp (0-1)", Range(0,1)) = 0.5
+        _SnapRes ("Vertex Snap Resolution (0 = off)", Float) = 900
+        _Affine ("Affine Warp (0-1)", Range(0,1)) = 0.2
     }
     SubShader
     {
@@ -57,7 +57,8 @@ Shader "WizardsVRC/PSX"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float4 clip = UnityObjectToClipPos(v.vertex);
                 float w = max(clip.w, 0.0001);
-                clip.xy = round(clip.xy / w * _SnapRes) / _SnapRes * w;
+                if (_SnapRes > 0)
+                    clip.xy = round(clip.xy / w * _SnapRes) / _SnapRes * w;
                 o.pos = clip;
                 float2 uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.uv = uv;
