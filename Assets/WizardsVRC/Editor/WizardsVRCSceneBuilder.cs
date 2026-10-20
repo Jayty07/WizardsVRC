@@ -385,8 +385,11 @@ namespace WizardsVRC.EditorTools
             book.nameLabel = InkLabel(left, "Name", new Vector2(0, 450), new Vector2(800, 60), "Name", 44, TextAnchor.MiddleCenter);
             book.infoLabel = InkLabel(left, "Info", new Vector2(0, 395), new Vector2(800, 45), "Level 1", 30, TextAnchor.MiddleCenter);
             book.goldLabel = InkLabel(left, "Gold", new Vector2(0, 350), new Vector2(800, 45), "Gold: 0", 30, TextAnchor.MiddleCenter);
-            Panel(left, "Portrait", new Vector2(0, 60), new Vector2(200, 420), new Color(0.75f, 0.68f, 0.55f));
-            InkLabel(left, "PortraitLabel", new Vector2(0, 60), new Vector2(190, 100), "(wizard)", 26, TextAnchor.MiddleCenter);
+            Panel(left, "PortraitFrame", new Vector2(0, 60), new Vector2(214, 434), new Color(0.45f, 0.3f, 0.18f));
+            RectTransform portrait = Rect(left, "Portrait", new Vector2(0, 60), new Vector2(200, 420));
+            var portraitImage = portrait.gameObject.AddComponent<RawImage>();
+            portraitImage.raycastTarget = false;
+            portraitImage.texture = BuildPortraitCamera(book);
 
             Vector2[] slotPos =
             {
@@ -454,6 +457,40 @@ namespace WizardsVRC.EditorTools
             details.gameObject.SetActive(false);
 
             canvasGo.SetActive(false);
+        }
+
+        /// <summary>
+        /// Camera that films the local avatar for the book's portrait. VRChat draws a full copy of the local avatar
+        /// (head included) on the MirrorReflection layer; rendering only that layer shows just the player.
+        /// </summary>
+        private static RenderTexture BuildPortraitCamera(InventoryBook book)
+        {
+            Directory.CreateDirectory(MaterialsDir);
+            string path = MaterialsDir + "/AvatarPortrait.renderTexture";
+            var rt = AssetDatabase.LoadAssetAtPath<RenderTexture>(path);
+            if (rt == null)
+            {
+                rt = new RenderTexture(256, 512, 24, RenderTextureFormat.ARGB32);
+                AssetDatabase.CreateAsset(rt, path);
+            }
+
+            int mirrorLayer = LayerMask.NameToLayer("MirrorReflection");
+            if (mirrorLayer < 0) mirrorLayer = 18;
+
+            var camGo = new GameObject("PortraitCamera");
+            camGo.transform.SetParent(book.transform, false);
+            var cam = camGo.AddComponent<Camera>();
+            cam.targetTexture = rt;
+            cam.cullingMask = 1 << mirrorLayer;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.75f, 0.68f, 0.55f, 1f);
+            cam.fieldOfView = 40f;
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 10f;
+            cam.depth = -10f;
+            camGo.SetActive(false);
+            book.portraitCamera = cam;
+            return rt;
         }
 
         private static Text InkLabel(Transform parent, string name, Vector2 pos, Vector2 size, string text, int fontSize, TextAnchor anchor)
