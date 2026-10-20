@@ -16,6 +16,8 @@ namespace WizardsVRC
         public const int EFFECT_HEAL = 1;
         public const int EFFECT_WARD = 2;
         public const int EFFECT_EMPOWER = 3;
+        public const int EFFECT_DRAIN = 4;
+        public const int EFFECT_FOCUS = 5;
 
         /// <summary>Max cards per deck and max copies of one card per deck.</summary>
         public const int DECK_MAX = 20;
@@ -55,7 +57,13 @@ namespace WizardsVRC
         [HideInInspector] public int[] effects =
         {
             0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 1, 0,
-            0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  2, 1, 3, 3,
+            0, 0, 0, 4,  0, 0, 0, 0,  0, 0, 0, 0,  2, 1, 3, 5,
+        };
+        /// <summary>1 = hits every enemy (damage) or every ally (heal).</summary>
+        [HideInInspector] public int[] aoe =
+        {
+            0, 0, 1, 0,  0, 0, 1, 0,  0, 0, 1, 0,  0, 0, 1, 0,
+            0, 0, 1, 0,  0, 0, 0, 0,  0, 0, 1, 0,  0, 0, 0, 0,
         };
         [HideInInspector] public string[] names =
         {
@@ -108,6 +116,19 @@ namespace WizardsVRC
             return i < 0 ? 1 : levelReqs[i];
         }
 
+        public int GetPipCost(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : pipCosts[i]; }
+        public int GetAccuracy(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : accuracies[i]; }
+        public int GetPower(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : powers[i]; }
+        public int GetEffect(int cardId) { int i = IndexOf(cardId); return i < 0 ? EFFECT_DAMAGE : effects[i]; }
+        public bool IsAoe(int cardId) { int i = IndexOf(cardId); return i >= 0 && aoe[i] != 0; }
+
+        /// <summary>True for heals and buffs (target your own side), false for attacks.</summary>
+        public bool TargetsAllies(int cardId)
+        {
+            int e = GetEffect(cardId);
+            return e == EFFECT_HEAL || e == EFFECT_WARD || e == EFFECT_EMPOWER || e == EFFECT_FOCUS;
+        }
+
         public string SchoolName(int school)
         {
             return school >= 0 && school < schoolNames.Length ? schoolNames[school] : "General";
@@ -135,10 +156,12 @@ namespace WizardsVRC
             int p = powers[i];
             switch (effects[i])
             {
-                case EFFECT_DAMAGE: return "Deals " + p.ToString() + " " + SchoolName(schools[i]) + " damage.";
-                case EFFECT_HEAL: return "Heals " + p.ToString() + " health.";
-                case EFFECT_WARD: return "Blocks the next " + p.ToString() + "% of damage taken.";
-                case EFFECT_EMPOWER: return "Next spell gains +" + p.ToString() + "%" + (cardId == 203 ? " accuracy." : " damage.");
+                case EFFECT_DAMAGE: return "Deals " + p.ToString() + " " + SchoolName(schools[i]) + " damage" + (aoe[i] != 0 ? " to all enemies." : ".");
+                case EFFECT_HEAL: return "Heals " + p.ToString() + " health" + (aoe[i] != 0 ? " to all allies." : ".");
+                case EFFECT_WARD: return "Blocks " + p.ToString() + "% of the next hit taken.";
+                case EFFECT_EMPOWER: return "Next attack deals +" + p.ToString() + "% damage.";
+                case EFFECT_DRAIN: return "Deals " + p.ToString() + " " + SchoolName(schools[i]) + " damage and heals you for half.";
+                case EFFECT_FOCUS: return "Next spell gains +" + p.ToString() + "% accuracy.";
                 default: return "";
             }
         }
