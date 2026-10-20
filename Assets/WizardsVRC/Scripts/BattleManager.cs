@@ -17,11 +17,13 @@ namespace WizardsVRC
     {
         public const int PHASE_IDLE = 0;
         public const int PHASE_QUEUE = 1;
-        public const int PHASE_JOINING = 2;
-        public const int PHASE_PLANNING = 3;
-        public const int PHASE_PLAYBACK = 4;
-        public const int PHASE_VICTORY = 5;
-        public const int PHASE_DEFEAT = 6;
+        /// <summary>Party is at the arena edge; the fight starts when a wizard walks into the monsters' detection range.</summary>
+        public const int PHASE_ROAMING = 2;
+        public const int PHASE_JOINING = 3;
+        public const int PHASE_PLANNING = 4;
+        public const int PHASE_PLAYBACK = 5;
+        public const int PHASE_VICTORY = 6;
+        public const int PHASE_DEFEAT = 7;
 
         public const int SIDE = 4;
         public const int SLOTS = 8;
@@ -41,6 +43,7 @@ namespace WizardsVRC
         [Header("Timing (seconds)")]
         public int queueSeconds = 15;
         public int joinSeconds = 8;
+        public int roamSeconds = 300;
         public int planningSeconds = 30;
         public int endSeconds = 8;
         public float actionSeconds = 1.6f;
@@ -188,6 +191,22 @@ namespace WizardsVRC
             }
         }
 
+        public void RequestEngage()
+        {
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (!Utilities.IsValid(local)) return;
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetEngage), local.playerId);
+        }
+
+        [NetworkCallable]
+        public void NetEngage(int playerId)
+        {
+            if (!Networking.IsOwner(gameObject) || phase != PHASE_ROAMING || FindWizardSlot(playerId) < 0) return;
+            phase = PHASE_JOINING;
+            phaseEndMs = Now() + joinSeconds * 1000;
+            Publish();
+        }
+
         [NetworkCallable]
         public void NetQueueLeave(int playerId)
         {
@@ -327,8 +346,8 @@ namespace WizardsVRC
             round = 0;
             actCount = 0;
             firstSide = Random.Range(0, 2);
-            phase = PHASE_JOINING;
-            phaseEndMs = Now() + joinSeconds * 1000;
+            phase = PHASE_ROAMING;
+            phaseEndMs = Now() + roamSeconds * 1000;
             Publish();
         }
 
