@@ -174,7 +174,12 @@ namespace WizardsVRC.EditorTools
             foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
-                if (AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath) != null) continue;
+                var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
+                if (existing != null)
+                {
+                    MarkScriptVersionCurrent(existing);
+                    continue;
+                }
                 var script = AssetDatabase.LoadAssetAtPath<MonoScript>(ScriptsDir + "/" + name + ".cs");
                 if (script == null)
                 {
@@ -184,14 +189,24 @@ namespace WizardsVRC.EditorTools
                 var program = ScriptableObject.CreateInstance<UdonSharpProgramAsset>();
                 program.sourceCsScript = script;
                 AssetDatabase.CreateAsset(program, assetPath);
+                MarkScriptVersionCurrent(program);
                 created = true;
             }
-            if (created)
-            {
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-            }
+            AssetDatabase.SaveAssets();
+            if (created) AssetDatabase.Refresh();
             UdonSharpProgramAsset.CompileAllCsPrograms(true);
+        }
+
+        /// <summary>
+        /// New program assets start at ScriptVersion.Unknown and UdonSharp only bumps it in a deferred upgrade pass,
+        /// so CopyProxyToUdon would throw "outdated script version" when the builder runs right after creating them.
+        /// Our scripts already use current-format serialization, so no source upgrade is needed.
+        /// </summary>
+        private static void MarkScriptVersionCurrent(UdonSharpProgramAsset program)
+        {
+            if (program.ScriptVersion >= UdonSharpProgramVersion.CurrentVersion) return;
+            program.ScriptVersion = UdonSharpProgramVersion.CurrentVersion;
+            EditorUtility.SetDirty(program);
         }
 
         // ================================================================== select room
