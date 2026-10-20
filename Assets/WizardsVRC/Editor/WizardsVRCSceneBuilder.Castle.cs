@@ -9,6 +9,29 @@ namespace WizardsVRC.EditorTools
     public static partial class WizardsVRCSceneBuilder
     {
         private const string MeshesDir = "Assets/WizardsVRC/Meshes";
+        private const string ShakePrefKey = "WizardsVRC.PsxShake";
+        private const float PsxAffine = 0.2f;
+
+        // Vertex-snap grid for the PSX shader: higher = finer, subtler wobble; 0 = off.
+        private static float PsxShake { get { return EditorPrefs.GetFloat(ShakePrefKey, 900f); } }
+
+        [MenuItem("WizardsVRC/PSX Shake/Off")] private static void ShakeOff() { SetShake(0f); }
+        [MenuItem("WizardsVRC/PSX Shake/Subtle (default)")] private static void ShakeSubtle() { SetShake(900f); }
+        [MenuItem("WizardsVRC/PSX Shake/Strong (retro)")] private static void ShakeStrong() { SetShake(320f); }
+
+        private static void SetShake(float res)
+        {
+            EditorPrefs.SetFloat(ShakePrefKey, res);
+            foreach (string guid in AssetDatabase.FindAssets("PSX_ t:Material", new[] { MaterialsDir }))
+            {
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
+                if (mat == null || !mat.HasProperty("_SnapRes")) continue;
+                mat.SetFloat("_SnapRes", res);
+                mat.SetFloat("_Affine", PsxAffine);
+                EditorUtility.SetDirty(mat);
+            }
+            AssetDatabase.SaveAssets();
+        }
         private static System.Random _rng;
 
         // ------------------------------------------------------------ atmosphere
@@ -372,6 +395,8 @@ namespace WizardsVRC.EditorTools
             mat.mainTexture = NoiseTexture();
             mat.mainTextureScale = new Vector2(tiling, tiling);
             mat.SetColor("_EmissionColor", emission);
+            mat.SetFloat("_SnapRes", PsxShake);
+            mat.SetFloat("_Affine", PsxAffine);
             if (emission.maxColorComponent > 0f) mat.EnableKeyword("_EMISSION");
             EditorUtility.SetDirty(mat);
             return mat;
