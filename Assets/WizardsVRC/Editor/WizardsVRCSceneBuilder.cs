@@ -118,6 +118,8 @@ namespace WizardsVRC.EditorTools
             var hud = UdonSharpUndo.AddComponent<PlayerHUD>(Child(systems.transform, "PlayerHUD", Vector3.zero).gameObject);
             var cardDb = UdonSharpUndo.AddComponent<CardDatabase>(Child(systems.transform, "CardDatabase", Vector3.zero).gameObject);
             var deckPages = UdonSharpUndo.AddComponent<DeckPages>(Child(systems.transform, "DeckPages", Vector3.zero).gameObject);
+            var questPages = UdonSharpUndo.AddComponent<QuestPages>(Child(systems.transform, "QuestPages", Vector3.zero).gameObject);
+            questPages.playerState = playerState;
             var battle = UdonSharpUndo.AddComponent<BattleManager>(Child(systems.transform, "BattleManager", Vector3.zero).gameObject);
             var battleClient = UdonSharpUndo.AddComponent<BattleClient>(Child(systems.transform, "BattleClient", Vector3.zero).gameObject);
 
@@ -141,6 +143,7 @@ namespace WizardsVRC.EditorTools
             deckPages.playerState = playerState;
             deckPages.cardDatabase = cardDb;
             book.deckPages = deckPages;
+            book.questPages = questPages;
             battle.cardDatabase = cardDb;
             battle.client = battleClient;
             battleClient.manager = battle;
@@ -151,7 +154,7 @@ namespace WizardsVRC.EditorTools
 
             BuildSelectCanvasContents(selectCanvas, selectUI);
             BuildHubCanvasContents(hubCanvas, selectUI, book);
-            BuildInventoryBook(book, hud, deckPages);
+            BuildInventoryBook(book, hud, deckPages, questPages);
             BuildHud(hud);
             Transform hubRoot = hubSpawn.parent;
             var chest = BuildLootChest(hubRoot, playerState, itemDb);
@@ -164,11 +167,15 @@ namespace WizardsVRC.EditorTools
             var questManager = (QuestManager)quests[0];
             selectUI.questManager = questManager;
             hud.questManager = questManager;
+            questPages.questManager = questManager;
+            var questGuide = BuildQuestGuide(systems.transform, playerState, questManager, (CutscenePlayer)cutscenes[0], battleClient,
+                interior.exitDoor, hubRoot.Find("KeepEntrance"));
+            questPages.questGuide = questGuide;
 
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
             toSync.AddRange(quests);
             toSync.AddRange(learning);
-            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, battle, battleClient, queuePad }) toSync.Add(b);
+            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, battle, battleClient, queuePad, questPages, questGuide }) toSync.Add(b);
             foreach (var b in toSync)
             {
                 UdonSharpEditorUtility.CopyProxyToUdon(b);
@@ -201,7 +208,7 @@ namespace WizardsVRC.EditorTools
         {
             Directory.CreateDirectory(ProgramsDir);
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -355,7 +362,7 @@ namespace WizardsVRC.EditorTools
         private static readonly Color Parchment = new Color(0.93f, 0.87f, 0.72f);
         private static readonly Color Ink = new Color(0.22f, 0.15f, 0.08f);
 
-        private static void BuildInventoryBook(InventoryBook book, PlayerHUD hud, DeckPages deck)
+        private static void BuildInventoryBook(InventoryBook book, PlayerHUD hud, DeckPages deck, QuestPages quests)
         {
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(book);
             UdonBehaviour hudTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(hud);
@@ -373,6 +380,7 @@ namespace WizardsVRC.EditorTools
             RectTransform left = Panel(backpackView, "LeftPage", new Vector2(-445, 0), new Vector2(850, 1020), Parchment);
             RectTransform right = Panel(backpackView, "RightPage", new Vector2(445, 0), new Vector2(850, 1020), Parchment);
             BuildDeckPages(root, book, deck, hud);
+            BuildQuestPages(root, book, quests);
             Panel(root, "Spine", Vector2.zero, new Vector2(30, 1060), new Color(0.22f, 0.12f, 0.06f));
 
             GameObject packTab = Button(root, "BackpackTab", new Vector2(935, 380), new Vector2(80, 130), "Pack", new Color(0.85f, 0.65f, 0.3f), target, "ShowBackpack");
@@ -381,6 +389,9 @@ namespace WizardsVRC.EditorTools
             GameObject deckTab = Button(root, "DeckTab", new Vector2(935, 235), new Vector2(80, 130), "Deck", new Color(0.45f, 0.3f, 0.18f), target, "ShowDeck");
             deckTab.GetComponentInChildren<Text>().fontSize = 22;
             book.deckTabImage = deckTab.GetComponent<Image>();
+            GameObject questTab = Button(root, "QuestTab", new Vector2(935, 90), new Vector2(80, 130), "Quests", new Color(0.45f, 0.3f, 0.18f), target, "ShowQuests");
+            questTab.GetComponentInChildren<Text>().fontSize = 18;
+            book.questTabImage = questTab.GetComponent<Image>();
 
             // ---- left page: character, paper-doll slots, stats
             book.nameLabel = InkLabel(left, "Name", new Vector2(0, 450), new Vector2(800, 60), "Name", 44, TextAnchor.MiddleCenter);

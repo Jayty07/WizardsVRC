@@ -49,6 +49,9 @@ namespace WizardsVRC
         public int[] lootTable = { 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51 };
 
         private bool _inBattle;
+
+        public bool IsInBattle() { return _inBattle; }
+
         private int _slot = -1;
         private bool _seated;
         private float _nextEngage;
