@@ -733,6 +733,8 @@ namespace WizardsVRC.EditorTools
         private const float DuelCircleRadius = 9.3f;
         // Matches the seat sockets painted at 200/256 of the disc radius in DuelCircle.png.
         private const float DuelSeatRadius = DuelCircleRadius * 200f / 256f;
+        private static readonly string[] FxKindNames = { "Shield", "Blade", "Trap" };
+        private static readonly float[] FxHeights = { 1.1f, 2.15f, 0.12f };
         private static readonly float[] MonsterSeatAngles = { 337.5f, 22.5f, 292.5f, 67.5f };
 
         private static Texture2D PixelTexture(string path)
@@ -859,6 +861,19 @@ namespace WizardsVRC.EditorTools
             for (int k = 0; k < SchoolLabels.Length; k++)
                 client.seatSchoolMats[k] = CutoutMat("DuelSeat" + SchoolLabels[k], seatTex, SchoolColors[k], SchoolColors[k] * 1.6f);
             client.seatRings = new Renderer[BattleManager.SLOTS];
+            // Shields (chest height), blades (over the head) and traps (at the feet) orbit each seat while they're active.
+            client.fxMats = new Material[SchoolLabels.Length + 1];
+            for (int k = 0; k <= SchoolLabels.Length; k++)
+            {
+                Color c = k < SchoolLabels.Length ? SchoolColors[k] : new Color(0.85f, 0.85f, 0.9f);
+                Material fm = Mat("DuelFx" + (k < SchoolLabels.Length ? SchoolLabels[k] : "General"), c);
+                fm.EnableKeyword("_EMISSION");
+                fm.SetColor("_EmissionColor", c * 1.3f);
+                client.fxMats[k] = fm;
+            }
+            int fxMax = BattleManager.FX_MAX;
+            client.fxOrbits = new Transform[BattleManager.SLOTS * 3];
+            client.fxIcons = new Renderer[BattleManager.SLOTS * 3 * fxMax];
 
             int slots = BattleManager.SLOTS, side = BattleManager.SIDE;
             client.seats = new Transform[slots];
@@ -899,6 +914,28 @@ namespace WizardsVRC.EditorTools
                 }
                 client.overheadLabels[s] = WorldText(root, "Label" + s, pos + new Vector3(0, labelHeight, 0), Quaternion.identity,
                     new Vector2(600, 160), 0.004f, "", 36);
+
+                float fxScale = monster && i == 0 ? 1.7f : 1f;
+                for (int kind = 0; kind < 3; kind++)
+                {
+                    Transform orbit = Child(ring.transform, "Fx" + FxKindNames[kind] + s, pos + new Vector3(0, FxHeights[kind] * fxScale, 0));
+                    orbit.localScale = Vector3.one * fxScale;
+                    client.fxOrbits[s * 3 + kind] = orbit;
+                    for (int k = 0; k < fxMax; k++)
+                    {
+                        var icon = GameObject.CreatePrimitive(kind == 0 ? PrimitiveType.Cylinder : PrimitiveType.Cube);
+                        icon.name = FxKindNames[kind] + k;
+                        icon.transform.SetParent(orbit, false);
+                        icon.transform.localScale = kind == 0 ? new Vector3(0.3f, 0.015f, 0.3f)
+                            : (kind == 1 ? new Vector3(0.06f, 0.42f, 0.025f) : new Vector3(0.24f, 0.02f, 0.24f));
+                        var ir = icon.GetComponent<Renderer>();
+                        ir.sharedMaterial = client.fxMats[SchoolLabels.Length];
+                        ir.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                        Object.DestroyImmediate(icon.GetComponent<Collider>());
+                        icon.SetActive(false);
+                        client.fxIcons[(s * 3 + kind) * fxMax + k] = ir;
+                    }
+                }
             }
 
             client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 5.2f, 7f), Quaternion.identity, new Vector2(1600, 420), 0.005f, "", 52);

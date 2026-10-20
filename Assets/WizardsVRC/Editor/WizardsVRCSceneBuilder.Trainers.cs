@@ -69,12 +69,12 @@ namespace WizardsVRC.EditorTools
             trainer.rowInfo = new Text[rows];
             for (int r = 0; r < rows; r++)
             {
-                GameObject b = Button(tr, "Row" + r, new Vector2(-330, 280 - r * 95), new Vector2(660, 85), "", Color.gray, tTarget, "Row" + r);
+                GameObject b = Button(tr, "Row" + r, new Vector2(-330, 295 - r * 66), new Vector2(660, 60), "", Color.gray, tTarget, "Row" + r);
                 Text nameText = b.GetComponentInChildren<Text>();
                 nameText.alignment = TextAnchor.MiddleLeft;
                 nameText.rectTransform.offsetMin = new Vector2(20, 0);
-                nameText.fontSize = 30;
-                Text info = Label(b.transform, "Info", new Vector2(110, 0), new Vector2(420, 80), "", 22, TextAnchor.MiddleRight);
+                nameText.fontSize = 24;
+                Text info = Label(b.transform, "Info", new Vector2(110, 0), new Vector2(420, 58), "", 19, TextAnchor.MiddleRight);
                 trainer.rowRoots[r] = b;
                 trainer.rowIcons[r] = b.GetComponent<Image>();
                 trainer.rowNames[r] = nameText;
