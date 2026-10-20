@@ -238,6 +238,49 @@ namespace WizardsVRC
             return true;
         }
 
+        // ------------------------------------------------------------------ deck helpers
+
+        public int DeckCount(int deck)
+        {
+            EnsureArrays();
+            if (deck < 0 || deck >= DECK_COUNT) return 0;
+            return Mathf.Min(deckLengths[deck], DECK_SIZE);
+        }
+
+        public int CountInDeck(int deck, int cardId)
+        {
+            int len = DeckCount(deck);
+            int n = 0;
+            for (int i = 0; i < len; i++)
+                if (deckCards[deck * DECK_SIZE + i] == cardId) n++;
+            return n;
+        }
+
+        public bool AddToDeck(int deck, int cardId)
+        {
+            int len = DeckCount(deck);
+            if (deck < 0 || deck >= DECK_COUNT || len >= DECK_SIZE || cardId <= 0 || cardId > 65535) return false;
+            deckCards[deck * DECK_SIZE + len] = (ushort)cardId;
+            deckLengths[deck] = (byte)(len + 1);
+            return true;
+        }
+
+        /// <summary>Removes the last copy of cardId from the deck, keeping the list packed.</summary>
+        public bool RemoveFromDeck(int deck, int cardId)
+        {
+            int len = DeckCount(deck);
+            int baseIndex = deck * DECK_SIZE;
+            for (int i = len - 1; i >= 0; i--)
+            {
+                if (deckCards[baseIndex + i] != cardId) continue;
+                for (int j = i; j < len - 1; j++) deckCards[baseIndex + j] = deckCards[baseIndex + j + 1];
+                deckCards[baseIndex + len - 1] = 0;
+                deckLengths[deck] = (byte)(len - 1);
+                return true;
+            }
+            return false;
+        }
+
         // ------------------------------------------------------------------ serialize
 
         public byte[] Serialize()

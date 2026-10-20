@@ -25,6 +25,13 @@ namespace WizardsVRC
         public float openDistance = 0.85f;
         public KeyCode toggleKey = KeyCode.B;
 
+        [Header("Bookmark tabs")]
+        public GameObject backpackView;
+        public GameObject deckView;
+        public DeckPages deckPages;
+        public Image backpackTabImage;
+        public Image deckTabImage;
+
         [Header("Avatar portrait")]
         [Tooltip("Renders the local avatar (MirrorReflection layer) into the left page's portrait. Only active while the book is open.")]
         public Camera portraitCamera;
@@ -69,6 +76,7 @@ namespace WizardsVRC
         private int _selSlot = -1;
 
         private bool _open;
+        private bool _deckMode;
 
         private void Start()
         {
@@ -80,7 +88,36 @@ namespace WizardsVRC
         {
             if (Input.GetKeyDown(toggleKey)) ToggleBook();
             if (_open && (playerState == null || !playerState.HasCharacter())) CloseBook();
-            if (_open) UpdatePortraitCamera();
+            if (_open && !_deckMode) UpdatePortraitCamera();
+        }
+
+        // ------------------------------------------------------------------ bookmark tabs
+
+        public void ShowBackpack()
+        {
+            _deckMode = false;
+            ApplyView();
+            Refresh();
+        }
+
+        public void ShowDeck()
+        {
+            _deckMode = true;
+            ApplyView();
+            if (deckPages != null) deckPages.Open();
+        }
+
+        private void ApplyView()
+        {
+            if (backpackView != null) backpackView.SetActive(!_deckMode);
+            if (deckView != null) deckView.SetActive(_deckMode);
+            if (backpackTabImage != null) backpackTabImage.color = _deckMode ? _tabOff : _tabOn;
+            if (deckTabImage != null) deckTabImage.color = _deckMode ? _tabOn : _tabOff;
+            if (_open)
+            {
+                if (!_deckMode) UpdatePortraitCamera();
+                SetPortraitActive(!_deckMode);
+            }
         }
 
         // ------------------------------------------------------------------ avatar portrait
@@ -133,11 +170,11 @@ namespace WizardsVRC
             }
             _open = true;
             bookRoot.SetActive(true);
-            UpdatePortraitCamera();
-            SetPortraitActive(true);
             ClearSelection();
             SetStatus("");
-            Refresh();
+            ApplyView();
+            if (_deckMode && deckPages != null) deckPages.Open();
+            else Refresh();
         }
 
         public void CloseBook()

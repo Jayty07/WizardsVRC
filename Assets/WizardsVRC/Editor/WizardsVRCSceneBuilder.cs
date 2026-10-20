@@ -113,6 +113,8 @@ namespace WizardsVRC.EditorTools
             var itemDb = UdonSharpUndo.AddComponent<ItemDatabase>(Child(systems.transform, "ItemDatabase", Vector3.zero).gameObject);
             var book = UdonSharpUndo.AddComponent<InventoryBook>(Child(systems.transform, "InventoryBook", Vector3.zero).gameObject);
             var hud = UdonSharpUndo.AddComponent<PlayerHUD>(Child(systems.transform, "PlayerHUD", Vector3.zero).gameObject);
+            var cardDb = UdonSharpUndo.AddComponent<CardDatabase>(Child(systems.transform, "CardDatabase", Vector3.zero).gameObject);
+            var deckPages = UdonSharpUndo.AddComponent<DeckPages>(Child(systems.transform, "DeckPages", Vector3.zero).gameObject);
 
             teleporter.defaultTarget = hubSpawn;
             saveManager.scratch = scratchData;
@@ -130,16 +132,19 @@ namespace WizardsVRC.EditorTools
             book.itemDatabase = itemDb;
             hud.playerState = playerState;
             hud.itemDatabase = itemDb;
+            deckPages.playerState = playerState;
+            deckPages.cardDatabase = cardDb;
+            book.deckPages = deckPages;
 
             BuildSelectCanvasContents(selectCanvas, selectUI);
             BuildHubCanvasContents(hubCanvas, selectUI, book);
-            BuildInventoryBook(book, hud);
+            BuildInventoryBook(book, hud, deckPages);
             BuildHud(hud);
             Transform hubRoot = hubSpawn.parent;
             var chest = BuildLootChest(hubRoot, playerState, itemDb);
             var pedestal = BuildBackpackPedestal(hubRoot, book);
 
-            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal })
+            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages })
             {
                 UdonSharpEditorUtility.CopyProxyToUdon(b);
                 EditorUtility.SetDirty(b);
@@ -171,7 +176,7 @@ namespace WizardsVRC.EditorTools
         {
             Directory.CreateDirectory(ProgramsDir);
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -365,21 +370,32 @@ namespace WizardsVRC.EditorTools
         private static readonly Color Parchment = new Color(0.93f, 0.87f, 0.72f);
         private static readonly Color Ink = new Color(0.22f, 0.15f, 0.08f);
 
-        private static void BuildInventoryBook(InventoryBook book, PlayerHUD hud)
+        private static void BuildInventoryBook(InventoryBook book, PlayerHUD hud, DeckPages deck)
         {
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(book);
             UdonBehaviour hudTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(hud);
 
             var canvasGo = new GameObject("BookCanvas", typeof(RectTransform));
             canvasGo.transform.SetParent(book.transform, false);
-            MakeWorldCanvas(canvasGo, new Vector2(1800, 1100), Vector3.zero, 0.0006f);
+            // Wider than the cover so the bookmark tabs on the right edge are inside the VRCUiShape collider.
+            MakeWorldCanvas(canvasGo, new Vector2(1960, 1100), Vector3.zero, 0.0006f);
             RectTransform root = (RectTransform)canvasGo.transform;
             book.bookRoot = canvasGo;
 
             Panel(root, "Cover", Vector2.zero, new Vector2(1800, 1100), new Color(0.36f, 0.2f, 0.1f));
-            RectTransform left = Panel(root, "LeftPage", new Vector2(-445, 0), new Vector2(850, 1020), Parchment);
-            RectTransform right = Panel(root, "RightPage", new Vector2(445, 0), new Vector2(850, 1020), Parchment);
+            RectTransform backpackView = Rect(root, "BackpackView", Vector2.zero, new Vector2(1800, 1100));
+            book.backpackView = backpackView.gameObject;
+            RectTransform left = Panel(backpackView, "LeftPage", new Vector2(-445, 0), new Vector2(850, 1020), Parchment);
+            RectTransform right = Panel(backpackView, "RightPage", new Vector2(445, 0), new Vector2(850, 1020), Parchment);
+            BuildDeckPages(root, book, deck, hud);
             Panel(root, "Spine", Vector2.zero, new Vector2(30, 1060), new Color(0.22f, 0.12f, 0.06f));
+
+            GameObject packTab = Button(root, "BackpackTab", new Vector2(935, 380), new Vector2(80, 130), "Pack", new Color(0.85f, 0.65f, 0.3f), target, "ShowBackpack");
+            packTab.GetComponentInChildren<Text>().fontSize = 22;
+            book.backpackTabImage = packTab.GetComponent<Image>();
+            GameObject deckTab = Button(root, "DeckTab", new Vector2(935, 235), new Vector2(80, 130), "Deck", new Color(0.45f, 0.3f, 0.18f), target, "ShowDeck");
+            deckTab.GetComponentInChildren<Text>().fontSize = 22;
+            book.deckTabImage = deckTab.GetComponent<Image>();
 
             // ---- left page: character, paper-doll slots, stats
             book.nameLabel = InkLabel(left, "Name", new Vector2(0, 450), new Vector2(800, 60), "Name", 44, TextAnchor.MiddleCenter);
@@ -491,6 +507,90 @@ namespace WizardsVRC.EditorTools
             camGo.SetActive(false);
             book.portraitCamera = cam;
             return rt;
+        }
+
+        private static void BuildDeckPages(RectTransform root, InventoryBook book, DeckPages deck, PlayerHUD hud)
+        {
+            UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(deck);
+            UdonBehaviour bookTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(book);
+            Color tabOff = new Color(0.45f, 0.3f, 0.18f);
+
+            RectTransform view = Rect(root, "DeckView", Vector2.zero, new Vector2(1800, 1100));
+            book.deckView = view.gameObject;
+            RectTransform left = Panel(view, "LeftPage", new Vector2(-445, 0), new Vector2(850, 1020), Parchment);
+            RectTransform right = Panel(view, "RightPage", new Vector2(445, 0), new Vector2(850, 1020), Parchment);
+
+            // ---- left page: deck
+            InkLabel(left, "Title", new Vector2(0, 450), new Vector2(800, 55), "Deck", 40, TextAnchor.MiddleCenter);
+            deck.deckTabImages = new Image[CharacterData.DECK_COUNT];
+            for (int d = 0; d < CharacterData.DECK_COUNT; d++)
+            {
+                GameObject b = Button(left, "Deck" + d, new Vector2(-200 + d * 200, 385), new Vector2(180, 55), "Deck " + (d + 1), tabOff, target, "Deck" + d);
+                b.GetComponentInChildren<Text>().fontSize = 24;
+                deck.deckTabImages[d] = b.GetComponent<Image>();
+            }
+            deck.deckTitle = InkLabel(left, "DeckTitle", new Vector2(0, 320), new Vector2(800, 45), "", 28, TextAnchor.MiddleCenter);
+
+            int deckCells = DeckPages.DECK_CELLS;
+            deck.deckCellRoots = new GameObject[deckCells];
+            deck.deckCellIcons = new Image[deckCells];
+            deck.deckCellNames = new Text[deckCells];
+            deck.deckCellCounts = new Text[deckCells];
+            for (int i = 0; i < deckCells; i++)
+            {
+                int col = i % 4, row = i / 4;
+                GameObject b = Button(left, "DeckCell" + i, new Vector2(-300 + col * 200, 230 - row * 125), new Vector2(185, 110), "", Color.gray, target, "DeckCell" + i);
+                Text nameText = b.GetComponentInChildren<Text>();
+                nameText.fontSize = 20;
+                Text countText = Label(b.transform, "Count", new Vector2(55, 35), new Vector2(70, 32), "", 22, TextAnchor.UpperRight);
+                deck.deckCellRoots[i] = b;
+                deck.deckCellIcons[i] = b.GetComponent<Image>();
+                deck.deckCellNames[i] = nameText;
+                deck.deckCellCounts[i] = countText;
+            }
+            deck.statusLabel = InkLabel(left, "Status", new Vector2(0, -360), new Vector2(800, 50), "", 26, TextAnchor.MiddleCenter);
+            Button(left, "Close", new Vector2(-250, -460), new Vector2(220, 65), "Close", new Color(0.45f, 0.25f, 0.15f), bookTarget, "CloseBook");
+
+            // ---- right page: spellbook
+            InkLabel(right, "Title", new Vector2(0, 450), new Vector2(800, 55), "Spellbook", 40, TextAnchor.MiddleCenter);
+            string[] filters = { "All", "School", "General" };
+            deck.filterImages = new Image[filters.Length];
+            for (int f = 0; f < filters.Length; f++)
+            {
+                GameObject b = Button(right, "Filter" + f, new Vector2(-200 + f * 200, 385), new Vector2(180, 55), filters[f], tabOff, target, "Filter" + f);
+                Text t = b.GetComponentInChildren<Text>();
+                t.fontSize = 24;
+                if (f == DeckPages.FILTER_SCHOOL) deck.schoolFilterLabel = t;
+                deck.filterImages[f] = b.GetComponent<Image>();
+            }
+
+            int bookCells = DeckPages.BOOK_CELLS;
+            deck.bookCellRoots = new GameObject[bookCells];
+            deck.bookCellIcons = new Image[bookCells];
+            deck.bookCellNames = new Text[bookCells];
+            for (int i = 0; i < bookCells; i++)
+            {
+                int col = i % 4, row = i / 4;
+                GameObject b = Button(right, "BookCell" + i, new Vector2(-300 + col * 200, 270 - row * 165), new Vector2(185, 150), "", Color.gray, target, "BookCell" + i);
+                Text nameText = b.GetComponentInChildren<Text>();
+                nameText.fontSize = 22;
+                deck.bookCellRoots[i] = b;
+                deck.bookCellIcons[i] = b.GetComponent<Image>();
+                deck.bookCellNames[i] = nameText;
+            }
+            Button(right, "PrevPage", new Vector2(-300, -180), new Vector2(150, 60), "<", tabOff, target, "PrevPage");
+            deck.pageLabel = InkLabel(right, "Page", new Vector2(0, -180), new Vector2(420, 50), "Page 1 / 1", 26, TextAnchor.MiddleCenter);
+            Button(right, "NextPage", new Vector2(300, -180), new Vector2(150, 60), ">", tabOff, target, "NextPage");
+
+            RectTransform details = Panel(right, "Details", new Vector2(0, -360), new Vector2(810, 270), new Color(0.82f, 0.74f, 0.58f));
+            deck.detailsPanel = details.gameObject;
+            deck.detailName = InkLabel(details, "SpellName", new Vector2(-110, 100), new Vector2(570, 50), "", 30, TextAnchor.MiddleLeft);
+            deck.detailBody = InkLabel(details, "SpellBody", new Vector2(-110, -25), new Vector2(570, 190), "", 22, TextAnchor.UpperLeft);
+            deck.addButton = Button(details, "Add", new Vector2(300, 40), new Vector2(180, 70), "Add", new Color(0.25f, 0.5f, 0.3f), target, "AddSelected");
+            deck.removeButton = Button(details, "Remove", new Vector2(300, -55), new Vector2(180, 70), "Remove", new Color(0.55f, 0.25f, 0.2f), target, "RemoveSelected");
+            details.gameObject.SetActive(false);
+
+            view.gameObject.SetActive(false);
         }
 
         private static Text InkLabel(Transform parent, string name, Vector2 pos, Vector2 size, string text, int fontSize, TextAnchor anchor)
