@@ -707,7 +707,7 @@ namespace WizardsVRC.EditorTools
 
         private static BattleQueuePad BuildQueuePad(Transform hubRoot, BattleClient client)
         {
-            Vector3 pos = new Vector3(8f, 0f, 4f);
+            Vector3 pos = new Vector3(30f, 0.06f, 4f);
             var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pad.name = "ArenaTeleporterPad";
             pad.transform.SetParent(hubRoot, false);
