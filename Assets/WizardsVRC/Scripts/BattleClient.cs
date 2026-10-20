@@ -33,6 +33,11 @@ namespace WizardsVRC
         public float engageRadius = 11f;
         public Transform clockHand;
         public Text clockLabel;
+        [Tooltip("One glowing ring per seat, coloured by the school of whoever sits there.")]
+        public Renderer[] seatRings;
+        [Tooltip("Indexed by School.")]
+        public Material[] seatSchoolMats;
+        public Material seatEmptyMat;
 
         [Header("Hand panel")]
         public GameObject handRoot;
@@ -134,6 +139,7 @@ namespace WizardsVRC
             int phase = manager.phase;
             bool active = phase >= BattleManager.PHASE_JOINING;
             if (ring != null) ring.SetActive(active);
+            if (active) UpdateSeatRings();
             for (int m = 0; m < BattleManager.SIDE; m++)
                 if (monsterBodies != null && m < monsterBodies.Length && monsterBodies[m] != null)
                     monsterBodies[m].SetActive(phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m));
@@ -446,6 +452,20 @@ namespace WizardsVRC
             _orbStart = Time.time;
             orb.position = _orbFrom;
             orb.gameObject.SetActive(true);
+        }
+
+        private void UpdateSeatRings()
+        {
+            if (seatRings == null) return;
+            for (int s = 0; s < seatRings.Length && s < BattleManager.SLOTS; s++)
+            {
+                Renderer r = seatRings[s];
+                if (r == null) continue;
+                int sc = manager.school[s];
+                Material m = manager.slotIds[s] != 0 && seatSchoolMats != null && sc >= 0 && sc < seatSchoolMats.Length
+                    ? seatSchoolMats[sc] : seatEmptyMat;
+                if (m != null && r.sharedMaterial != m) r.sharedMaterial = m;
+            }
         }
 
         private void UpdateClock()

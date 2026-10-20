@@ -729,6 +729,60 @@ namespace WizardsVRC.EditorTools
             if (found > 0) Debug.Log("[WizardsVRC] Attached " + found + " spell animation(s) from " + SpellAnimationDir);
         }
 
+        private const string TexturesDir = "Assets/WizardsVRC/Textures";
+        private const float DuelCircleRadius = 6.2f;
+        // Matches the seat sockets painted at 200/256 of the disc radius in DuelCircle.png.
+        private const float DuelSeatRadius = DuelCircleRadius * 200f / 256f;
+        private static readonly float[] MonsterSeatAngles = { 337.5f, 22.5f, 292.5f, 67.5f };
+
+        private static Texture2D PixelTexture(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer != null && (importer.filterMode != FilterMode.Point || !importer.alphaIsTransparency))
+            {
+                importer.filterMode = FilterMode.Point;
+                importer.alphaIsTransparency = true;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.mipmapEnabled = false;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        private static Material CutoutMat(string name, Texture2D tex, Color color, Color emission)
+        {
+            Material mat = Mat(name, color);
+            mat.mainTexture = tex;
+            mat.SetFloat("_Mode", 1f);
+            mat.SetFloat("_Cutoff", 0.5f);
+            mat.SetOverrideTag("RenderType", "TransparentCutout");
+            mat.EnableKeyword("_ALPHATEST_ON");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest;
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", emission);
+            mat.SetTexture("_EmissionMap", tex);
+            mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        /// <summary>A flat textured quad lying on the ground (texture top = +Z).</summary>
+        private static GameObject FlatDecal(Transform parent, string name, Vector3 localPos, float size, Material mat)
+        {
+            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quad.name = name;
+            quad.transform.SetParent(parent, false);
+            quad.transform.localPosition = localPos;
+            quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            quad.transform.localScale = new Vector3(size, size, 1f);
+            var r = quad.GetComponent<Renderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            Object.DestroyImmediate(quad.GetComponent<Collider>());
+            return quad;
+        }
+
         private static void BuildArena(BattleClient client)
         {
             var root = new GameObject("BossArena").transform;
@@ -746,20 +800,10 @@ namespace WizardsVRC.EditorTools
             Material ringMat = Mat("DuelRing", new Color(0.95f, 0.8f, 0.35f));
             ringMat.EnableKeyword("_EMISSION");
             ringMat.SetColor("_EmissionColor", new Color(0.9f, 0.7f, 0.25f) * 1.5f);
-            const int segments = 48;
-            const float radius = 5.2f;
-            for (int k = 0; k < segments; k++)
-            {
-                float ang = k * 360f / segments;
-                var seg = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                seg.name = "Segment" + k;
-                seg.transform.SetParent(ring.transform, false);
-                seg.transform.localRotation = Quaternion.Euler(0, ang, 0);
-                seg.transform.localPosition = seg.transform.localRotation * new Vector3(0, 0.04f, radius);
-                seg.transform.localScale = new Vector3(2f * Mathf.PI * radius / segments + 0.02f, 0.06f, 0.18f);
-                seg.GetComponent<Renderer>().sharedMaterial = ringMat;
-                Object.DestroyImmediate(seg.GetComponent<Collider>());
-            }
+            // Duel circle: rune band, 8 seat sockets and a central sigil, painted on one flat disc.
+            Texture2D circleTex = PixelTexture(TexturesDir + "/DuelCircle.png");
+            FlatDecal(ring.transform, "CircleDisc", new Vector3(0, 0.02f, 0), DuelCircleRadius * 2f,
+                CutoutMat("DuelCircle", circleTex, Color.white, new Color(0.35f, 0.35f, 0.4f)));
 
             // Turn clock in the middle of the ring: the hand sweeps the planning timer, then points at each caster.
             var clock = Child(ring.transform, "TurnClock", Vector3.zero);
@@ -806,7 +850,13 @@ namespace WizardsVRC.EditorTools
             arrivalPad.transform.localScale = new Vector3(3.5f, 0.02f, 6f);
             arrivalPad.GetComponent<Renderer>().sharedMaterial = Mat("ArenaPad", new Color(0.55f, 0.3f, 0.85f));
             Object.DestroyImmediate(arrivalPad.GetComponent<Collider>());
-            Material seatMat = Mat("DuelSeat", new Color(0.35f, 0.25f, 0.6f));
+            Texture2D seatTex = PixelTexture(TexturesDir + "/DuelSeatRing.png");
+            Material seatEmpty = CutoutMat("DuelSeatEmpty", seatTex, new Color(0.45f, 0.42f, 0.5f), new Color(0.08f, 0.08f, 0.1f));
+            client.seatEmptyMat = seatEmpty;
+            client.seatSchoolMats = new Material[SchoolLabels.Length];
+            for (int k = 0; k < SchoolLabels.Length; k++)
+                client.seatSchoolMats[k] = CutoutMat("DuelSeat" + SchoolLabels[k], seatTex, SchoolColors[k], SchoolColors[k] * 1.6f);
+            client.seatRings = new Renderer[BattleManager.SLOTS];
 
             int slots = BattleManager.SLOTS, side = BattleManager.SIDE;
             client.seats = new Transform[slots];
@@ -816,17 +866,18 @@ namespace WizardsVRC.EditorTools
             {
                 bool monster = s >= side;
                 int i = s % side;
-                Vector3 pos = new Vector3(-2.7f + i * 1.8f, 0.05f, monster ? 3.2f : -3.2f);
+                // 8 seats evenly round the circle: wizards on the south half (left to right), monsters facing them
+                // on the north half, boss in the middle-left seat.
+                float ang = monster ? MonsterSeatAngles[i] : 247.5f - 45f * i;
+                Vector3 dir = Quaternion.Euler(0, ang, 0) * Vector3.forward;
+                Vector3 pos = dir * DuelSeatRadius + new Vector3(0, 0.05f, 0);
                 Transform seat = Child(root, (monster ? "MonsterSpot" : "WizardSeat") + i, pos);
-                seat.localRotation = Quaternion.Euler(0, monster ? 180f : 0f, 0);
+                seat.localRotation = Quaternion.LookRotation(-dir, Vector3.up);
                 client.seats[s] = seat;
 
-                var marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                marker.name = "Marker";
-                marker.transform.SetParent(seat, false);
-                marker.transform.localScale = new Vector3(1f, 0.02f, 1f);
-                marker.GetComponent<Renderer>().sharedMaterial = seatMat;
-                Object.DestroyImmediate(marker.GetComponent<Collider>());
+                GameObject marker = FlatDecal(seat, "SeatRing", new Vector3(0, -0.02f, 0), 1.75f, seatEmpty);
+                marker.transform.SetParent(ring.transform, true);
+                client.seatRings[s] = marker.GetComponent<Renderer>();
 
                 float labelHeight = 2.5f;
                 if (monster)
