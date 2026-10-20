@@ -730,7 +730,7 @@ namespace WizardsVRC.EditorTools
         }
 
         private const string TexturesDir = "Assets/WizardsVRC/Textures";
-        private const float DuelCircleRadius = 6.2f;
+        private const float DuelCircleRadius = 9.3f;
         // Matches the seat sockets painted at 200/256 of the disc radius in DuelCircle.png.
         private const float DuelSeatRadius = DuelCircleRadius * 200f / 256f;
         private static readonly float[] MonsterSeatAngles = { 337.5f, 22.5f, 292.5f, 67.5f };
@@ -808,6 +808,8 @@ namespace WizardsVRC.EditorTools
             // Turn clock in the middle of the ring: the hand sweeps the planning timer, then points at each caster.
             var clock = Child(ring.transform, "TurnClock", Vector3.zero);
             client.arenaCenter = clock;
+            clock.localScale = Vector3.one * 1.5f;
+            client.engageRadius = DuelCircleRadius + 5f;
             AttachSpellAnimations(root, client.cardDatabase);
             var face = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             face.name = "Face";
