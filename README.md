@@ -45,6 +45,11 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/PlayerState.cs` | Live character (source of truth) + autosave |
 | `Assets/WizardsVRC/Scripts/TeleportHelper.cs` | `TeleportTo(Transform)` via `VRCPlayerApi.TeleportTo` |
 | `Assets/WizardsVRC/Scripts/CharacterSelectUI.cs` | Slot panels, school picker, delete confirm, teleport to hub |
+| `Assets/WizardsVRC/Scripts/ItemDatabase.cs` | Placeholder item definitions (category, level/school req, stat bonuses) + stat totals |
+| `Assets/WizardsVRC/Scripts/InventoryBook.cs` | Backpack book: equipment slots + stats (left page), tabbed paged item grid + Equip/Unequip (right page) |
+| `Assets/WizardsVRC/Scripts/PlayerHUD.cs` | Head-following HUD: name, level, health, mana, gold |
+| `Assets/WizardsVRC/Scripts/LootChest.cs` | Test chest in the hub: random item + gold per click |
+| `Assets/WizardsVRC/Scripts/EventRelay.cs` | Interact → `SendCustomEvent` on a target (backpack pedestal) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.cs` | Generates the scene and wires all references/buttons |
 
 ## Scene
@@ -55,7 +60,10 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 - `SelectRoom` (y = -500) — closed room, light, spawn point, world-space canvas (`VRCUiShape`) with 4 slot panels,
   school picker, delete confirmation.
 - `Hub` (origin) — ground, plaza, landing pad + `HubSpawn`, NPC placeholder, "Change Character" board.
-- `Systems` — `SaveManager`, `PlayerState`, `TeleportHelper`, `ActiveCharacter` / `ScratchCharacter` (`CharacterData`).
+- `Hub` also has a **Practice Chest** (random loot for testing) and a **Backpack pedestal**.
+- `Systems` — `SaveManager`, `PlayerState`, `TeleportHelper`, `ActiveCharacter` / `ScratchCharacter` (`CharacterData`),
+  `ItemDatabase`, `InventoryBook` (book canvas opens in front of you: **B** on desktop, hub button, or pedestal),
+  `PlayerHUD`.
 
 ## Save format
 

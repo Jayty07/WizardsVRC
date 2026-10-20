@@ -95,11 +95,15 @@ namespace WizardsVRC
             for (int i = 0; i < DECK_COUNT; i++) deckLengths[i] = 0;
             for (int i = 0; i < QUEST_SLOTS; i++) questProgress[i] = 0;
 
-            // Placeholder starter kit: item 1 = training staff, item 2 = apprentice robe, item 10 = minor potion.
+            // Starter kit (see ItemDatabase): staff + robe equipped; potions, hat and boots in the backpack.
             equipped[EQUIP_WEAPON] = 1;
             equipped[EQUIP_BODY] = 2;
             inventoryItemIds[0] = 10;
             inventoryCounts[0] = 3;
+            inventoryItemIds[1] = 3;
+            inventoryCounts[1] = 1;
+            inventoryItemIds[2] = 4;
+            inventoryCounts[2] = 1;
 
             // Starter deck: four copies of the school's basic spell (card id = 100 + school * 10).
             ushort basicSpell = (ushort)(100 + (int)newSchool * 10);
@@ -166,6 +170,72 @@ namespace WizardsVRC
                 chars[i] = (c == '|' || c == ',' || c < ' ') ? '_' : c;
             }
             return new string(chars);
+        }
+
+        // ------------------------------------------------------------------ inventory helpers
+
+        /// <summary>Inventory index holding itemId, or -1.</summary>
+        public int FindItem(int itemId)
+        {
+            EnsureArrays();
+            if (itemId <= 0) return -1;
+            for (int i = 0; i < INVENTORY_SLOTS; i++)
+                if (inventoryItemIds[i] == itemId && inventoryCounts[i] > 0) return i;
+            return -1;
+        }
+
+        /// <summary>Number of inventory entries in use (entries are kept packed at the front).</summary>
+        public int UsedInventorySlots()
+        {
+            EnsureArrays();
+            int used = 0;
+            for (int i = 0; i < INVENTORY_SLOTS; i++)
+                if (inventoryItemIds[i] != 0 && inventoryCounts[i] > 0) used = i + 1;
+            return used;
+        }
+
+        /// <summary>Adds to an existing stack (max 255) or the first free entry. False if full.</summary>
+        public bool AddItem(int itemId, int count)
+        {
+            EnsureArrays();
+            if (itemId <= 0 || itemId > 65535 || count <= 0) return false;
+            int existing = FindItem(itemId);
+            if (existing >= 0 && inventoryCounts[existing] + count <= 255)
+            {
+                inventoryCounts[existing] = (byte)(inventoryCounts[existing] + count);
+                return true;
+            }
+            for (int i = 0; i < INVENTORY_SLOTS; i++)
+            {
+                if (inventoryItemIds[i] == 0 || inventoryCounts[i] == 0)
+                {
+                    inventoryItemIds[i] = (ushort)itemId;
+                    inventoryCounts[i] = (byte)Mathf.Min(count, 255);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>Removes count from the entry at index, packing the list when an entry empties.</summary>
+        public bool RemoveItemAt(int index, int count)
+        {
+            EnsureArrays();
+            if (index < 0 || index >= INVENTORY_SLOTS || inventoryCounts[index] < count || count <= 0) return false;
+            int left = inventoryCounts[index] - count;
+            if (left > 0)
+            {
+                inventoryCounts[index] = (byte)left;
+                return true;
+            }
+            for (int i = index; i < INVENTORY_SLOTS - 1; i++)
+            {
+                inventoryItemIds[i] = inventoryItemIds[i + 1];
+                inventoryCounts[i] = inventoryCounts[i + 1];
+            }
+            inventoryItemIds[INVENTORY_SLOTS - 1] = 0;
+            inventoryCounts[INVENTORY_SLOTS - 1] = 0;
+            return true;
         }
 
         // ------------------------------------------------------------------ serialize
