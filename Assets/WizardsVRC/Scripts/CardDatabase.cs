@@ -5,7 +5,8 @@ namespace WizardsVRC
 {
     /// <summary>
     /// Static spell card definitions (placeholder fantasy spells). School cards use id 100 + school * 10 + k;
-    /// general cards (any school) are 200+. Parallel arrays indexed by definition index.
+    /// general cards (any school) are 200+. Parallel arrays indexed by definition index; each school has 7 spells
+    /// (rows of 7 below, levels 1/2/3/5/8/12/16) and the last row is the general spells.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CardDatabase : UdonSharpBehaviour
@@ -26,54 +27,102 @@ namespace WizardsVRC
         // id, school (-1 general), level req, pip cost, accuracy %, power, effect
         [HideInInspector] public int[] ids =
         {
-            100, 101, 102, 103,  110, 111, 112, 113,  120, 121, 122, 123,  130, 131, 132, 133,
-            140, 141, 142, 143,  150, 151, 152, 153,  160, 161, 162, 163,  200, 201, 202, 203,
+            100, 101, 102, 103, 104, 105, 106,
+            110, 111, 112, 113, 114, 115, 116,
+            120, 121, 122, 123, 124, 125, 126,
+            130, 131, 132, 133, 134, 135, 136,
+            140, 141, 142, 143, 144, 145, 146,
+            150, 151, 152, 153, 154, 155, 156,
+            160, 161, 162, 163, 164, 165, 166,
+            200, 201, 202, 203,
         };
         [HideInInspector] public int[] schools =
         {
-            0, 0, 0, 0,  1, 1, 1, 1,  2, 2, 2, 2,  3, 3, 3, 3,
-            4, 4, 4, 4,  5, 5, 5, 5,  6, 6, 6, 6,  -1, -1, -1, -1,
+            0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1,
+            2, 2, 2, 2, 2, 2, 2,
+            3, 3, 3, 3, 3, 3, 3,
+            4, 4, 4, 4, 4, 4, 4,
+            5, 5, 5, 5, 5, 5, 5,
+            6, 6, 6, 6, 6, 6, 6,
+            -1, -1, -1, -1,
         };
         [HideInInspector] public int[] levelReqs =
         {
-            1, 2, 3, 5,  1, 2, 3, 5,  1, 2, 3, 5,  1, 2, 3, 5,
-            1, 2, 3, 5,  1, 2, 3, 5,  1, 2, 3, 5,  1, 2, 3, 4,
+            1, 2, 3, 5, 8, 12, 16,
+            1, 2, 3, 5, 8, 12, 16,
+            1, 2, 3, 5, 8, 12, 16,
+            1, 2, 3, 5, 8, 12, 16,
+            1, 2, 3, 5, 8, 12, 16,
+            1, 2, 3, 5, 8, 12, 16,
+            1, 2, 3, 5, 8, 12, 16,
+            1, 2, 3, 4,
         };
         [HideInInspector] public int[] pipCosts =
         {
-            1, 2, 3, 4,  1, 2, 3, 4,  1, 2, 3, 4,  1, 2, 2, 4,
-            1, 2, 3, 4,  1, 2, 3, 4,  1, 2, 3, 4,  0, 1, 0, 0,
+            1, 2, 3, 4, 1, 5, 6,
+            1, 2, 3, 4, 1, 5, 6,
+            1, 2, 3, 4, 1, 5, 6,
+            1, 2, 2, 4, 0, 5, 6,
+            1, 2, 3, 4, 1, 5, 6,
+            1, 2, 3, 4, 1, 5, 6,
+            1, 2, 3, 4, 0, 5, 6,
+            0, 1, 0, 0,
         };
         [HideInInspector] public int[] accuracies =
         {
-            75, 75, 75, 75,  80, 80, 80, 80,  70, 70, 70, 70,  90, 90, 90, 90,
-            85, 85, 85, 85,  80, 80, 80, 80,  85, 85, 85, 85,  100, 100, 100, 100,
+            75, 75, 75, 75, 100, 75, 75,
+            80, 80, 80, 80, 100, 80, 80,
+            70, 70, 70, 70, 100, 70, 70,
+            90, 90, 90, 90, 100, 90, 90,
+            85, 85, 85, 85, 100, 85, 85,
+            80, 80, 80, 80, 100, 80, 80,
+            85, 85, 85, 85, 100, 85, 85,
+            100, 100, 100, 100,
         };
         [HideInInspector] public int[] powers =
         {
-            80, 160, 250, 380,  70, 140, 220, 330,  100, 200, 300, 450,  60, 200, 120, 300,
-            65, 130, 210, 300,  75, 150, 230, 340,  70, 145, 225, 335,  30, 100, 25, 15,
+            80, 160, 250, 380, 35, 420, 380,
+            70, 140, 220, 330, 50, 400, 360,
+            100, 200, 300, 450, 45, 560, 480,
+            60, 200, 120, 300, 30, 380, 260,
+            65, 130, 210, 300, 40, 400, 360,
+            75, 150, 230, 340, 45, 430, 370,
+            70, 145, 225, 335, 40, 420, 380,
+            30, 100, 25, 15,
         };
         [HideInInspector] public int[] effects =
         {
-            0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 1, 0,
-            0, 0, 0, 4,  0, 0, 0, 0,  0, 0, 0, 0,  2, 1, 3, 5,
+            0, 0, 0, 0, 3, 0, 0,
+            0, 0, 0, 0, 2, 0, 0,
+            0, 0, 0, 0, 3, 0, 0,
+            0, 1, 1, 0, 5, 0, 1,
+            0, 0, 0, 4, 2, 4, 0,
+            0, 0, 0, 0, 2, 0, 0,
+            0, 0, 0, 0, 5, 0, 4,
+            2, 1, 3, 5,
         };
         /// <summary>1 = hits every enemy (damage) or every ally (heal).</summary>
         [HideInInspector] public int[] aoe =
         {
-            0, 0, 1, 0,  0, 0, 1, 0,  0, 0, 1, 0,  0, 0, 1, 0,
-            0, 0, 1, 0,  0, 0, 0, 0,  0, 0, 1, 0,  0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0, 1,
+            0, 0, 1, 0, 0, 0, 1,
+            0, 0, 1, 0, 0, 0, 1,
+            0, 0, 1, 0, 0, 0, 1,
+            0, 0, 1, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0,
         };
         [HideInInspector] public string[] names =
         {
-            "Ember Bolt", "Flame Lash", "Cinder Storm", "Inferno Pillar",
-            "Frost Shard", "Rime Spear", "Glacier Fall", "Hoarfrost Nova",
-            "Spark Jolt", "Arc Lance", "Thunderclap", "Tempest Crown",
-            "Thornlash", "Verdant Bloom", "Rejuvenate", "Grove Guardian",
-            "Shade Touch", "Grave Chill", "Wither", "Soul Siphon",
-            "Phantom Strike", "Mirage Blade", "Golem Fist", "Legend's Echo",
-            "Prism Spark", "Arcane Scale", "Harmonic Pulse", "Equilibrium Ruin",
+            "Ember Bolt", "Flame Lash", "Cinder Storm", "Inferno Pillar", "Kindling Rite", "Blazing Wyrm", "Sunfire Cataclysm",
+            "Frost Shard", "Rime Spear", "Glacier Fall", "Hoarfrost Nova", "Frostward", "Frozen Colossus", "Winter's Wrath",
+            "Spark Jolt", "Arc Lance", "Thunderclap", "Tempest Crown", "Static Charge", "Skyfall Leviathan", "Maelstrom Eye",
+            "Thornlash", "Verdant Bloom", "Rejuvenate", "Grove Guardian", "Seedling Blessing", "Wildwood Stampede", "Bloom of Renewal",
+            "Shade Touch", "Grave Chill", "Wither", "Soul Siphon", "Veil of Dread", "Bone Dragon", "Requiem of Ash",
+            "Phantom Strike", "Mirage Blade", "Golem Fist", "Legend's Echo", "Mirror Image", "Stone Basilisk", "Fabled Hydra",
+            "Prism Spark", "Arcane Scale", "Harmonic Pulse", "Equilibrium Ruin", "Equanimity", "Sandstorm Sphinx", "Grand Convergence",
             "Ward", "Mend", "Empower", "Steady Mind",
         };
 
@@ -84,6 +133,12 @@ namespace WizardsVRC
             new Color(0.35f, 0.75f, 0.35f), new Color(0.3f, 0.3f, 0.3f), new Color(0.85f, 0.7f, 0.2f),
             new Color(0.75f, 0.6f, 0.4f),
         };
+        /// <summary>
+        /// Optional cast cinematic per card (same index as <see cref="ids"/>; null = default spell orb). The scene builder fills
+        /// this from prefabs in Assets/WizardsVRC/SpellAnimations named "&lt;id&gt;.prefab" or "&lt;Spell Name&gt;.prefab".
+        /// </summary>
+        public GameObject[] spellAnimations;
+
         private Color _generalColor = new Color(0.6f, 0.6f, 0.65f);
 
         public int Count() { return ids.Length; }
@@ -120,6 +175,12 @@ namespace WizardsVRC
         public int GetAccuracy(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : accuracies[i]; }
         public int GetPower(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : powers[i]; }
         public int GetEffect(int cardId) { int i = IndexOf(cardId); return i < 0 ? EFFECT_DAMAGE : effects[i]; }
+        public GameObject GetAnimation(int cardId)
+        {
+            int i = IndexOf(cardId);
+            return i < 0 || spellAnimations == null || i >= spellAnimations.Length ? null : spellAnimations[i];
+        }
+
         public bool IsAoe(int cardId) { int i = IndexOf(cardId); return i >= 0 && aoe[i] != 0; }
 
         /// <summary>True for heals and buffs (target your own side), false for attacks.</summary>
