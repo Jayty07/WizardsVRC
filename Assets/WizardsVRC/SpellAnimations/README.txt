@@ -14,6 +14,8 @@ id   school    spell
 104  Fire      Kindling Rite
 105  Fire      Blazing Wyrm
 106  Fire      Sunfire Cataclysm
+107  Fire      Ember Aegis
+108  Fire      Cinder Snare
 110  Ice       Frost Shard
 111  Ice       Rime Spear
 112  Ice       Glacier Fall
@@ -21,6 +23,8 @@ id   school    spell
 114  Ice       Frostward
 115  Ice       Frozen Colossus
 116  Ice       Winter's Wrath
+117  Ice       Rime Edge
+118  Ice       Frost Snare
 120  Storm     Spark Jolt
 121  Storm     Arc Lance
 122  Storm     Thunderclap
@@ -28,6 +32,8 @@ id   school    spell
 124  Storm     Static Charge
 125  Storm     Skyfall Leviathan
 126  Storm     Maelstrom Eye
+127  Storm     Storm Aegis
+128  Storm     Thunder Snare
 130  Life      Thornlash
 131  Life      Verdant Bloom
 132  Life      Rejuvenate
@@ -35,6 +41,9 @@ id   school    spell
 134  Life      Seedling Blessing
 135  Life      Wildwood Stampede
 136  Life      Bloom of Renewal
+137  Life      Verdant Aegis
+138  Life      Thorn Edge
+139  Life      Bramble Snare
 140  Death     Shade Touch
 141  Death     Grave Chill
 142  Death     Wither
@@ -42,6 +51,8 @@ id   school    spell
 144  Death     Veil of Dread
 145  Death     Bone Dragon
 146  Death     Requiem of Ash
+147  Death     Grave Edge
+148  Death     Hex Snare
 150  Myth      Phantom Strike
 151  Myth      Mirage Blade
 152  Myth      Golem Fist
@@ -49,6 +60,8 @@ id   school    spell
 154  Myth      Mirror Image
 155  Myth      Stone Basilisk
 156  Myth      Fabled Hydra
+157  Myth      Fable Edge
+158  Myth      Mirage Snare
 160  Balance   Prism Spark
 161  Balance   Arcane Scale
 162  Balance   Harmonic Pulse
@@ -56,7 +69,12 @@ id   school    spell
 164  Balance   Equanimity
 165  Balance   Sandstorm Sphinx
 166  Balance   Grand Convergence
-200  General   Ward
+167  Balance   Balance Aegis
+168  Balance   Scale Edge
+169  Balance   Sand Snare
+170  Balance   Elemental Tri-Blade
+171  Balance   Spirit Tri-Blade
+200  General   Tower Ward
 201  General   Mend
 202  General   Empower
 203  General   Steady Mind

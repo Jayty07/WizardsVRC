@@ -39,6 +39,17 @@ namespace WizardsVRC
         public Material[] seatSchoolMats;
         public Material seatEmptyMat;
 
+        [Header("Shields / blades / traps orbiting each seat")]
+        [Tooltip("Index slot * 3 + kind (0 shields, 1 blades, 2 traps).")]
+        public Transform[] fxOrbits;
+        [Tooltip("Index (slot * 3 + kind) * BattleManager.FX_MAX + k.")]
+        public Renderer[] fxIcons;
+        [Tooltip("Indexed by School; the last entry is for General (any school).")]
+        public Material[] fxMats;
+
+        private float[] _fxRadius = { 0.75f, 0.45f, 0.9f };
+        private float[] _fxSpin = { 70f, -110f, 45f };
+
         [Header("Hand panel")]
         public GameObject handRoot;
         public Image[] cardImages;
@@ -139,7 +150,7 @@ namespace WizardsVRC
             int phase = manager.phase;
             bool active = phase >= BattleManager.PHASE_JOINING;
             if (ring != null) ring.SetActive(active);
-            if (active) UpdateSeatRings();
+            if (active) { UpdateSeatRings(); UpdateFx(); }
             for (int m = 0; m < BattleManager.SIDE; m++)
                 if (monsterBodies != null && m < monsterBodies.Length && monsterBodies[m] != null)
                     monsterBodies[m].SetActive(phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m));
@@ -419,8 +430,10 @@ namespace WizardsVRC
         private string BuffName(int card)
         {
             int e = cardDatabase.GetEffect(card);
-            if (e == CardDatabase.EFFECT_WARD) return "a Ward";
-            if (e == CardDatabase.EFFECT_EMPOWER) return "Empower";
+            if (e == CardDatabase.EFFECT_WARD) return "a shield";
+            if (e == CardDatabase.EFFECT_EMPOWER) return "a blade";
+            if (e == CardDatabase.EFFECT_TRIBLADE) return "3 blades";
+            if (e == CardDatabase.EFFECT_TRAP) return "a trap";
             return "Focus";
         }
 
@@ -452,6 +465,43 @@ namespace WizardsVRC
             _orbStart = Time.time;
             orb.position = _orbFrom;
             orb.gameObject.SetActive(true);
+        }
+
+        private void UpdateFx()
+        {
+            if (fxIcons == null || fxOrbits == null || fxMats == null || fxMats.Length == 0) return;
+            int max = BattleManager.FX_MAX;
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+            {
+                for (int kind = 0; kind < 3; kind++)
+                {
+                    int[] arr = kind == 0 ? manager.shields : (kind == 1 ? manager.blades : manager.traps);
+                    int n = manager.Occupied(s) ? manager.FxCount(arr, s) : 0;
+                    for (int k = 0; k < max; k++)
+                    {
+                        int idx = (s * 3 + kind) * max + k;
+                        if (idx >= fxIcons.Length || fxIcons[idx] == null) continue;
+                        Renderer r = fxIcons[idx];
+                        bool on = k < n;
+                        if (r.gameObject.activeSelf != on) r.gameObject.SetActive(on);
+                        if (!on) continue;
+                        int f = manager.FxSchool(arr[s * max + k]);
+                        int mi = f < 0 || f >= fxMats.Length - 1 ? fxMats.Length - 1 : f;
+                        if (fxMats.Length > 0 && r.sharedMaterial != fxMats[mi]) r.sharedMaterial = fxMats[mi];
+                        float ang = k * 360f / n;
+                        Quaternion around = Quaternion.Euler(0f, ang, 0f);
+                        r.transform.localPosition = around * Vector3.forward * _fxRadius[kind];
+                        r.transform.localRotation = kind == 0 ? around * Quaternion.Euler(90f, 0f, 0f) : (kind == 1 ? around : around * Quaternion.Euler(0f, 45f, 0f));
+                    }
+                }
+            }
+        }
+
+        private void SpinFx()
+        {
+            if (fxOrbits == null) return;
+            for (int i = 0; i < fxOrbits.Length; i++)
+                if (fxOrbits[i] != null) fxOrbits[i].localRotation = Quaternion.Euler(0f, Time.time * _fxSpin[i % 3], 0f);
         }
 
         private void UpdateSeatRings()
@@ -498,7 +548,7 @@ namespace WizardsVRC
 
         private void Update()
         {
-            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) UpdateClock();
+            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); }
             if (_inBattle && !_seated && manager != null && manager.phase == BattleManager.PHASE_ROAMING && arenaCenter != null && Time.time >= _nextEngage)
             {
                 VRCPlayerApi me = Networking.LocalPlayer;
@@ -565,8 +615,10 @@ namespace WizardsVRC
         {
             string line = manager.SlotName(s) + (compact ? "  " : "\n") + _shownHp[s].ToString() + " / " + manager.maxHp[s].ToString() + " HP";
             line += "  " + manager.pips[s].ToString() + " pips";
-            if (manager.ward[s] > 0) line += "  Ward";
-            if (manager.charm[s] > 0) line += "  Empowered";
+            int sh = manager.FxCount(manager.shields, s), bl = manager.FxCount(manager.blades, s), tr = manager.FxCount(manager.traps, s);
+            if (sh > 0) line += "  Shields " + sh.ToString();
+            if (bl > 0) line += "  Blades " + bl.ToString();
+            if (tr > 0) line += "  Traps " + tr.ToString();
             if (s < BattleManager.SIDE && manager.phase == BattleManager.PHASE_PLANNING && manager.Alive(s)) line += manager.locked[s] != 0 ? "  (ready)" : "  (choosing)";
             if (_shownHp[s] <= 0) line += "  (defeated)";
             return line;

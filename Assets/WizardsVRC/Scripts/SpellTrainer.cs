@@ -13,7 +13,7 @@ namespace WizardsVRC
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SpellTrainer : UdonSharpBehaviour
     {
-        public const int ROWS = 7;
+        public const int ROWS = 12;
 
         public PlayerState playerState;
         public CardDatabase cardDatabase;
@@ -62,6 +62,11 @@ namespace WizardsVRC
         public void Row4() { Select(4); }
         public void Row5() { Select(5); }
         public void Row6() { Select(6); }
+        public void Row7() { Select(7); }
+        public void Row8() { Select(8); }
+        public void Row9() { Select(9); }
+        public void Row10() { Select(10); }
+        public void Row11() { Select(11); }
 
         private void Start()
         {
@@ -74,10 +79,11 @@ namespace WizardsVRC
             _school = school;
             _selected = -1;
             _count = 0;
-            for (int k = 0; k < ROWS; k++)
+            int n = cardDatabase.Count();
+            for (int i = 0; i < n && _count < ROWS; i++)
             {
-                int id = 100 + school * 10 + k;
-                if (cardDatabase.IndexOf(id) >= 0) _ids[_count++] = id;
+                int id = cardDatabase.IdAt(i);
+                if (cardDatabase.GetSchool(id) == school) _ids[_count++] = id;
             }
 
             VRCPlayerApi local = Networking.LocalPlayer;

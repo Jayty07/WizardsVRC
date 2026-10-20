@@ -30,6 +30,7 @@ namespace WizardsVRC
         public const int BOSS_SLOT = 4;
         public const int MAX_ACTIONS = 40;
         public const int MAX_PIPS = 7;
+        public const int FX_MAX = 6;
 
         public const int KIND_PASS = 0;
         public const int KIND_FIZZLE = 1;
@@ -78,8 +79,13 @@ namespace WizardsVRC
         [UdonSynced] public int[] dmgPct = new int[SLOTS];
         [UdonSynced] public int[] resistPct = new int[SLOTS];
         [UdonSynced] public int[] accPct = new int[SLOTS];
-        [UdonSynced] public int[] charm = new int[SLOTS];
-        [UdonSynced] public int[] ward = new int[SLOTS];
+        /// <summary>
+        /// Per-slot shields, blades and traps: FX_MAX entries per slot (slot * FX_MAX + k), packed by <see cref="PackFx"/>,
+        /// kept compacted (empties at the end, oldest first). 0 = empty.
+        /// </summary>
+        [UdonSynced] public int[] shields = new int[SLOTS * FX_MAX];
+        [UdonSynced] public int[] blades = new int[SLOTS * FX_MAX];
+        [UdonSynced] public int[] traps = new int[SLOTS * FX_MAX];
         [UdonSynced] public int[] focus = new int[SLOTS];
         [UdonSynced] public int[] locked = new int[SLOTS];
 
@@ -98,6 +104,7 @@ namespace WizardsVRC
         private int[] _pickCard = new int[SLOTS];
         private int[] _pickTarget = new int[SLOTS];
         private int[] _targets = new int[SIDE];
+        private int[] _usedSrc = new int[FX_MAX];
 
         // ------------------------------------------------------------------ helpers (all clients)
 
@@ -137,6 +144,21 @@ namespace WizardsVRC
         {
             int n = 0;
             for (int s = SIDE; s < SLOTS; s++) if (Occupied(s)) n++;
+            return n;
+        }
+
+        // ------------------------------------------------------------------ shields / blades / traps
+
+        /// <summary>Packs one shield/blade/trap: source card id, school it applies to (-1 = any), percent.</summary>
+        public int PackFx(int cardId, int fxSchool, int pct) { return cardId * 10000 + (fxSchool + 1) * 1000 + Mathf.Clamp(pct, 0, 999); }
+        public int FxCard(int v) { return v / 10000; }
+        public int FxSchool(int v) { return (v / 1000) % 10 - 1; }
+        public int FxPct(int v) { return v % 1000; }
+
+        public int FxCount(int[] arr, int s)
+        {
+            int n = 0;
+            for (int k = 0; k < FX_MAX; k++) if (arr[s * FX_MAX + k] != 0) n++;
             return n;
         }
 
@@ -325,8 +347,9 @@ namespace WizardsVRC
             for (int s = 0; s < SLOTS; s++)
             {
                 slotIds[s] = 0; hp[s] = 0; maxHp[s] = 0; pips[s] = 0; school[s] = 0; level[s] = 1;
-                dmgPct[s] = 0; resistPct[s] = 0; accPct[s] = 0; charm[s] = 0; ward[s] = 0; focus[s] = 0; locked[s] = 0;
+                dmgPct[s] = 0; resistPct[s] = 0; accPct[s] = 0; focus[s] = 0; locked[s] = 0;
             }
+            for (int k = 0; k < SLOTS * FX_MAX; k++) { shields[k] = 0; blades[k] = 0; traps[k] = 0; }
             for (int i = 0; i < SIDE; i++)
             {
                 if (queueIds[i] == 0) continue;
@@ -478,26 +501,40 @@ namespace WizardsVRC
             {
                 int enemySide = 1 - mySide;
                 int n = CollectTargets(aoe, target, enemySide);
+                int spellSchool = cardDatabase.GetSchool(cardId);
+                // Blades are used once per cast (even when it hits every enemy); traps and shields once per target hit.
+                int bladeMul = UseFx(blades, s, spellSchool, true);
                 int total = 0;
                 for (int k = 0; k < n; k++)
                 {
                     int t = _targets[k];
                     int amount = power * Random.Range(90, 111) / 100;
-                    amount = amount * (100 + dmgPct[s] + charm[s]) / 100;
-                    amount = amount * (100 - ward[t]) / 100;
+                    amount = amount * (100 + dmgPct[s]) / 100;
+                    amount = amount * bladeMul / 100;
+                    amount = amount * UseFx(traps, t, spellSchool, true) / 100;
+                    amount = amount * UseFx(shields, t, spellSchool, false) / 100;
                     amount = amount * (100 - resistPct[t]) / 100;
                     if (amount < 1) amount = 1;
-                    ward[t] = 0;
                     hp[t] = Mathf.Max(0, hp[t] - amount);
                     total += amount;
                     AddAct(group, s, t, cardId, KIND_DAMAGE, amount);
                 }
-                charm[s] = 0;
                 if (effect == CardDatabase.EFFECT_DRAIN && total > 0)
                 {
                     int heal = Mathf.Min(total / 2, maxHp[s] - hp[s]);
                     hp[s] += heal;
                     AddAct(group, s, s, cardId, KIND_HEAL, heal);
+                }
+                return;
+            }
+
+            if (effect == CardDatabase.EFFECT_TRAP)
+            {
+                int tn = CollectTargets(aoe, target, 1 - mySide);
+                for (int k = 0; k < tn; k++)
+                {
+                    AddFx(traps, _targets[k], PackFx(cardId, cardDatabase.TrapSchool(cardId), power));
+                    AddAct(group, s, _targets[k], cardId, KIND_BUFF, power);
                 }
                 return;
             }
@@ -514,12 +551,64 @@ namespace WizardsVRC
                 }
                 else
                 {
-                    if (effect == CardDatabase.EFFECT_WARD) ward[t] = Mathf.Min(90, power);
-                    else if (effect == CardDatabase.EFFECT_EMPOWER) charm[t] = Mathf.Min(200, charm[t] + power);
+                    if (effect == CardDatabase.EFFECT_WARD) AddFx(shields, t, PackFx(cardId, cardDatabase.ShieldSchool(cardId), power));
+                    else if (effect == CardDatabase.EFFECT_EMPOWER) AddFx(blades, t, PackFx(cardId, cardDatabase.BladeSchool(cardId), power));
+                    else if (effect == CardDatabase.EFFECT_TRIBLADE)
+                    {
+                        int first = cardDatabase.TriBladeFirstSchool(cardId);
+                        for (int j = 0; j < 3; j++) AddFx(blades, t, PackFx(cardId, first + j, power));
+                    }
                     else focus[t] = Mathf.Min(100, focus[t] + power);
                     AddAct(group, s, t, cardId, KIND_BUFF, power);
                 }
             }
+        }
+
+        /// <summary>Adds an entry to the slot's list; when it's full the oldest entry is dropped.</summary>
+        private void AddFx(int[] arr, int s, int packed)
+        {
+            int b = s * FX_MAX;
+            int n = FxCount(arr, s);
+            if (n >= FX_MAX)
+            {
+                for (int k = 0; k < FX_MAX - 1; k++) arr[b + k] = arr[b + k + 1];
+                n = FX_MAX - 1;
+            }
+            arr[b + n] = packed;
+        }
+
+        /// <summary>
+        /// Uses every entry on slot s that applies to spellSchool, at most one per source spell (two copies of the same
+        /// shield don't stack, two different shields do). Returns the combined damage multiplier in percent:
+        /// boosts (blades, traps) multiply by (100 + pct), shields by (100 - pct).
+        /// </summary>
+        private int UseFx(int[] arr, int s, int spellSchool, bool boost)
+        {
+            int b = s * FX_MAX;
+            int mul = 100;
+            int used = 0;
+            for (int k = 0; k < FX_MAX; k++)
+            {
+                int v = arr[b + k];
+                if (v == 0) continue;
+                int f = FxSchool(v);
+                if (f != CardDatabase.ANY_SCHOOL && f != spellSchool) continue;
+                int src = FxCard(v);
+                bool dup = false;
+                for (int u = 0; u < used; u++) if (_usedSrc[u] == src) dup = true;
+                if (dup) continue;
+                _usedSrc[used++] = src;
+                mul = boost ? mul * (100 + FxPct(v)) / 100 : mul * Mathf.Max(0, 100 - FxPct(v)) / 100;
+                arr[b + k] = 0;
+            }
+            int w = 0;
+            for (int k = 0; k < FX_MAX; k++)
+            {
+                int v = arr[b + k];
+                arr[b + k] = 0;
+                if (v != 0) arr[b + w++] = v;
+            }
+            return mul;
         }
 
         private int CollectTargets(bool aoe, int target, int side)
