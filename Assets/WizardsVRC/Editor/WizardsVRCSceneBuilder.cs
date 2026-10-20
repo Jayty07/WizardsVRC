@@ -54,7 +54,8 @@ namespace WizardsVRC.EditorTools
         public static void RebuildFromMenu()
         {
             if (File.Exists(ScenePath) && !EditorUtility.DisplayDialog("Rebuild MainWorld",
-                    "This replaces " + ScenePath + " with a freshly generated scene. Continue?", "Rebuild", "Cancel"))
+                    "This replaces " + ScenePath + " with a freshly generated scene.\n\nAnything inside the \"" + MyChangesName
+                    + "\" object is kept. Everything else you changed by hand is lost. Continue?", "Rebuild", "Cancel"))
                 return;
             BuildScene();
         }
@@ -65,6 +66,7 @@ namespace WizardsVRC.EditorTools
 
             ConfigureProject();
             if (!EnsureProgramAssets()) return;
+            BackUpMyChanges();
 
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -181,6 +183,8 @@ namespace WizardsVRC.EditorTools
                 UdonSharpEditorUtility.CopyProxyToUdon(b);
                 EditorUtility.SetDirty(b);
             }
+
+            RestoreMyChanges(scene);
 
             Directory.CreateDirectory("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
