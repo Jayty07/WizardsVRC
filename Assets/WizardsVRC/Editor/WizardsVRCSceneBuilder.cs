@@ -20,7 +20,7 @@ namespace WizardsVRC.EditorTools
     /// and can be re-run from the menu: WizardsVRC > Rebuild MainWorld Scene.
     /// </summary>
     [InitializeOnLoad]
-    public static class WizardsVRCSceneBuilder
+    public static partial class WizardsVRCSceneBuilder
     {
         public const string ScenePath = "Assets/Scenes/MainWorld.unity";
         private const string ScriptsDir = "Assets/WizardsVRC/Scripts";
@@ -81,6 +81,7 @@ namespace WizardsVRC.EditorTools
             RenderSettings.ambientSkyColor = new Color(0.55f, 0.6f, 0.75f);
             RenderSettings.ambientEquatorColor = new Color(0.4f, 0.4f, 0.45f);
             RenderSettings.ambientGroundColor = new Color(0.2f, 0.18f, 0.15f);
+            SetupPsxAtmosphere(sunLight);
 
             // ---------------- world descriptor
             var world = new GameObject("VRCWorld");
@@ -343,8 +344,7 @@ namespace WizardsVRC.EditorTools
         {
             var root = new GameObject("Hub").transform;
 
-            Block(root, "Ground", new Vector3(0, -0.25f, 0), new Vector3(60, 0.5f, 60), Mat("HubGround", new Color(0.32f, 0.45f, 0.28f)));
-            Block(root, "Plaza", new Vector3(0, 0.02f, 8), new Vector3(16, 0.1f, 16), Mat("HubPlaza", new Color(0.55f, 0.52f, 0.47f)));
+            BuildCastle(root);
 
             var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pad.name = "SpawnLandingPad";
