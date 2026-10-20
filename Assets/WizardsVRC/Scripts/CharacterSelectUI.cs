@@ -38,6 +38,7 @@ namespace WizardsVRC
         private string[] _lastNames = { "Ashgrove", "Brightwater", "Cinderfall", "Duskmantle", "Emberly", "Frostvale", "Gloomwick", "Hollowmere", "Ironbloom", "Moonbrook", "Ravenshade", "Starfield", "Stormcaller", "Thornwood", "Willowind" };
 
         private int _pendingSlot = -1;
+        private bool _promptWhenReady;
 
         private void Start()
         {
@@ -54,6 +55,35 @@ namespace WizardsVRC
         {
             SetStatus("Choose a character");
             RefreshSlots();
+            if (_promptWhenReady) PromptSchool();
+        }
+
+        /// <summary>
+        /// Called after the Headmaster's greeting. New players (no saved characters) go straight to the school picker;
+        /// returning players are asked to choose a character.
+        /// </summary>
+        public void PromptSchool()
+        {
+            if (!CanAct())
+            {
+                _promptWhenReady = true;
+                return;
+            }
+            _promptWhenReady = false;
+            if (playerState.HasCharacter()) return;
+            int empty = -1;
+            int used = 0;
+            for (int i = 0; i < SaveManager.SLOT_COUNT; i++)
+            {
+                if (saveManager.HasSlot(i)) used++;
+                else if (empty < 0) empty = i;
+            }
+            if (used == 0 && empty >= 0)
+            {
+                OpenPicker(empty);
+                SetStatus("The Headmaster asks: which school calls to you?");
+            }
+            else SetStatus("Welcome back! Choose a character");
         }
 
         public void OnSaveMetaChanged()

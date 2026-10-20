@@ -155,8 +155,11 @@ namespace WizardsVRC.EditorTools
             var pedestal = BuildBackpackPedestal(hubRoot, book);
             var queuePad = BuildQueuePad(hubRoot, battleClient);
             BuildArena(battleClient);
+            var cutscenes = BuildCutscenes(systems.transform, selectUI);
 
-            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, battle, battleClient, queuePad })
+            var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
+            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, battle, battleClient, queuePad }) toSync.Add(b);
+            foreach (var b in toSync)
             {
                 UdonSharpEditorUtility.CopyProxyToUdon(b);
                 EditorUtility.SetDirty(b);
@@ -188,7 +191,7 @@ namespace WizardsVRC.EditorTools
         {
             Directory.CreateDirectory(ProgramsDir);
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Cutscene", "CutscenePlayer", "IntroFlow" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -924,6 +927,206 @@ namespace WizardsVRC.EditorTools
             var outline = label.gameObject.AddComponent<Outline>();
             outline.effectColor = Color.black;
             return label;
+        }
+
+        // ================================================================== cutscenes
+
+        private static readonly Vector3 FilmSetOrigin = new Vector3(0f, -800f, 0f);
+        private const string VoiceDir = "Assets/WizardsVRC/Audio/Voice";
+
+        private static readonly string[] IntroLines =
+        {
+            "Long ago, the first wizards bound the magic of the world into seven schools.",
+            "Fire, the school of passion, burns away all that stands before it.",
+            "Ice, the school of endurance, holds firm like the oldest glacier.",
+            "Storm, the school of wild power, strikes with thunder and fury.",
+            "Life, the school of growth, mends all that has been broken.",
+            "Death, the school of shadow, draws strength from what is lost.",
+            "Myth, the school of legend, calls forth creatures of story.",
+            "Balance, the school of harmony, weaves every magic together.",
+            "And now, a new wizard arrives. Welcome to Wizards VRC.",
+        };
+
+        private static readonly string[] HeadmasterLines =
+        {
+            "Ah, there you are! Welcome, young wizard, to the Academy of the Seven Schools.",
+            "I am Headmaster Greymantle. Many students have walked through these doors, and every one of them began just as you do now.",
+            "A wizard's journey starts with a single choice: the school of magic that calls to them.",
+            "So tell me, which school will you study? Choose wisely!",
+        };
+
+        private static readonly string[] SchoolLabels = { "Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance" };
+        private static readonly Color[] SchoolColors =
+        {
+            new Color(0.95f, 0.35f, 0.15f), new Color(0.55f, 0.85f, 1f), new Color(0.65f, 0.4f, 0.95f), new Color(0.4f, 0.9f, 0.4f),
+            new Color(0.35f, 0.3f, 0.4f), new Color(0.95f, 0.8f, 0.25f), new Color(0.85f, 0.6f, 0.4f),
+        };
+
+        /// <summary>Film sets (far below the world), the in-front-of-player video screen, and the intro cutscenes.</summary>
+        private static UdonSharpBehaviour[] BuildCutscenes(Transform systems, CharacterSelectUI selectUI)
+        {
+            var player = UdonSharpUndo.AddComponent<CutscenePlayer>(Child(systems, "CutscenePlayer", Vector3.zero).gameObject);
+            var flow = UdonSharpUndo.AddComponent<IntroFlow>(Child(systems, "IntroFlow", Vector3.zero).gameObject);
+            var sets = new GameObject("FilmSets").transform;
+            sets.position = FilmSetOrigin;
+
+            // ---- school showcase: seven monuments in a circle
+            var showcase = Child(sets, "SchoolShowcase", Vector3.zero);
+            Block(showcase, "Floor", new Vector3(0, -0.25f, 0), new Vector3(30, 0.5f, 30), Mat("FilmFloor", new Color(0.2f, 0.2f, 0.25f)));
+            var introShots = new Transform[IntroLines.Length];
+            introShots[0] = Shot(showcase, "ShotWide", new Vector3(0, 7f, -15f), new Vector3(0, 1.5f, 0));
+            for (int i = 0; i < SchoolLabels.Length; i++)
+            {
+                float ang = i * 360f / SchoolLabels.Length;
+                Vector3 dir = Quaternion.Euler(0, ang, 0) * Vector3.forward;
+                Vector3 pos = dir * 8f;
+                Material mat = Mat("School" + SchoolLabels[i], SchoolColors[i]);
+                Block(showcase, SchoolLabels[i] + "Pillar", pos + new Vector3(0, 1.5f, 0), new Vector3(1.2f, 3f, 1.2f), mat);
+                var crystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                crystal.name = SchoolLabels[i] + "Crystal";
+                crystal.transform.SetParent(showcase, false);
+                crystal.transform.localPosition = pos + new Vector3(0, 3.7f, 0);
+                crystal.transform.localScale = Vector3.one * 0.9f;
+                Material glow = Mat("SchoolGlow" + SchoolLabels[i], SchoolColors[i]);
+                glow.EnableKeyword("_EMISSION");
+                glow.SetColor("_EmissionColor", SchoolColors[i] * 2f);
+                crystal.GetComponent<Renderer>().sharedMaterial = glow;
+                Object.DestroyImmediate(crystal.GetComponent<Collider>());
+                var light = Child(showcase, SchoolLabels[i] + "Light", pos + new Vector3(0, 4.5f, 0) - dir * 1.5f).gameObject.AddComponent<Light>();
+                light.type = LightType.Point;
+                light.color = SchoolColors[i];
+                light.range = 8f;
+                light.intensity = 2f;
+                Quaternion faceIn = Quaternion.LookRotation(dir);
+                WorldText(showcase, SchoolLabels[i] + "Label", pos + new Vector3(0, 5f, 0) - dir * 0.2f, faceIn, new Vector2(600, 150), 0.006f, SchoolLabels[i], 90);
+                introShots[i + 1] = Shot(showcase, "Shot" + SchoolLabels[i], pos - dir * 5f + new Vector3(0, 2.2f, 0), pos + new Vector3(0, 3.2f, 0));
+            }
+
+            // ---- placeholder title screen
+            var title = Child(sets, "TitleCard", new Vector3(0, 0, 60f));
+            Block(title, "Backdrop", new Vector3(0, 3f, 1f), new Vector3(16, 9, 0.2f), Mat("TitleBackdrop", new Color(0.08f, 0.06f, 0.15f)));
+            WorldText(title, "Title", new Vector3(0, 3.8f, 0.8f), Quaternion.identity, new Vector2(1600, 300), 0.006f, "WIZARDS VRC", 200);
+            WorldText(title, "Subtitle", new Vector3(0, 2.2f, 0.8f), Quaternion.identity, new Vector2(1600, 200), 0.006f, "(placeholder title screen)", 70);
+            introShots[IntroLines.Length - 1] = Shot(title, "ShotTitle", new Vector3(0, 3f, -7f), new Vector3(0, 3f, 0.8f));
+
+            // ---- Headmaster's office
+            var office = Child(sets, "HeadmasterOffice", new Vector3(60f, 0, 0));
+            Block(office, "Floor", new Vector3(0, -0.25f, 0), new Vector3(12, 0.5f, 12), Mat("OfficeFloor", new Color(0.35f, 0.24f, 0.15f)));
+            Block(office, "BackWall", new Vector3(0, 3f, 2.5f), new Vector3(12, 6, 0.3f), Mat("OfficeWall", new Color(0.45f, 0.38f, 0.3f)));
+            Material shelf = Mat("Bookshelf", new Color(0.3f, 0.18f, 0.1f));
+            Block(office, "ShelfL", new Vector3(-2.5f, 1.5f, 2.1f), new Vector3(2f, 3f, 0.5f), shelf);
+            Block(office, "ShelfR", new Vector3(2.5f, 1.5f, 2.1f), new Vector3(2f, 3f, 0.5f), shelf);
+            Block(office, "Desk", new Vector3(0, 0.45f, -0.9f), new Vector3(2.2f, 0.9f, 0.9f), shelf);
+            var hm = Child(office, "Headmaster", new Vector3(0, 0, 0.2f));
+            Prim(hm, PrimitiveType.Capsule, "Robe", new Vector3(0, 0.95f, 0), new Vector3(0.75f, 0.95f, 0.75f), Mat("HeadmasterRobe", new Color(0.2f, 0.25f, 0.6f)));
+            Prim(hm, PrimitiveType.Sphere, "Head", new Vector3(0, 2.05f, 0), Vector3.one * 0.42f, Mat("Skin", new Color(0.95f, 0.8f, 0.65f)));
+            Prim(hm, PrimitiveType.Sphere, "Beard", new Vector3(0, 1.85f, -0.12f), new Vector3(0.32f, 0.38f, 0.2f), Mat("Beard", new Color(0.92f, 0.92f, 0.95f)));
+            Material hat = Mat("HeadmasterHat", new Color(0.25f, 0.2f, 0.55f));
+            Prim(hm, PrimitiveType.Cylinder, "HatBrim", new Vector3(0, 2.25f, 0), new Vector3(0.75f, 0.02f, 0.75f), hat);
+            Prim(hm, PrimitiveType.Cylinder, "HatMid", new Vector3(0, 2.42f, 0), new Vector3(0.38f, 0.16f, 0.38f), hat);
+            Prim(hm, PrimitiveType.Cylinder, "HatTip", new Vector3(0, 2.7f, 0.04f), new Vector3(0.2f, 0.14f, 0.2f), hat);
+            var candle = Child(office, "Candle", new Vector3(0.8f, 1.6f, -1.2f)).gameObject.AddComponent<Light>();
+            candle.type = LightType.Point;
+            candle.color = new Color(1f, 0.8f, 0.55f);
+            candle.range = 6f;
+            candle.intensity = 1.5f;
+            Vector3 face = new Vector3(0, 2f, 0.2f);
+            var headShots = new[]
+            {
+                Shot(office, "ShotWide", new Vector3(-1.8f, 1.9f, -4.5f), new Vector3(0, 1.6f, 0.2f)),
+                Shot(office, "ShotMedium", new Vector3(0.9f, 1.8f, -2.6f), face),
+                Shot(office, "ShotClose", new Vector3(0, 2.0f, -1.5f), face),
+                Shot(office, "ShotCloseLow", new Vector3(-0.5f, 1.6f, -1.6f), face),
+            };
+
+            // ---- film camera + video screen in front of the player
+            string rtPath = MaterialsDir + "/CutsceneFilm.renderTexture";
+            var rt = AssetDatabase.LoadAssetAtPath<RenderTexture>(rtPath);
+            if (rt == null)
+            {
+                rt = new RenderTexture(1280, 720, 24, RenderTextureFormat.ARGB32);
+                AssetDatabase.CreateAsset(rt, rtPath);
+            }
+            var cam = Child(sets, "FilmCamera", Vector3.zero).gameObject.AddComponent<Camera>();
+            cam.targetTexture = rt;
+            cam.fieldOfView = 50f;
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 200f;
+            cam.enabled = false;
+
+            var screenGo = new GameObject("CutsceneScreen", typeof(RectTransform));
+            MakeWorldCanvas(screenGo, new Vector2(1600, 1100), Vector3.zero, 0.001f);
+            RectTransform root = (RectTransform)screenGo.transform;
+            Panel(root, "Frame", Vector2.zero, new Vector2(1600, 1100), new Color(0.05f, 0.04f, 0.08f, 0.95f));
+            var filmGo = new GameObject("Film", typeof(RectTransform), typeof(RawImage));
+            filmGo.transform.SetParent(root, false);
+            var filmRect = (RectTransform)filmGo.transform;
+            filmRect.anchoredPosition = new Vector2(0, 90);
+            filmRect.sizeDelta = new Vector2(1560, 878);
+            var filmImage = filmGo.GetComponent<RawImage>();
+            filmImage.texture = rt;
+            filmImage.raycastTarget = false;
+            Panel(root, "SubtitleBand", new Vector2(0, -250), new Vector2(1560, 200), new Color(0, 0, 0, 0.7f));
+            player.speakerLabel = Label(root, "Speaker", new Vector2(0, -180), new Vector2(1500, 50), "", 34, TextAnchor.MiddleLeft);
+            player.speakerLabel.color = new Color(1f, 0.85f, 0.4f);
+            player.subtitleLabel = Label(root, "Subtitle", new Vector2(0, -270), new Vector2(1500, 130), "", 32, TextAnchor.UpperLeft);
+            UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(player);
+            Button(root, "Next", new Vector2(-170, -475), new Vector2(280, 80), "Next (Space)", new Color(0.3f, 0.35f, 0.55f), target, "Next");
+            player.skipButton = Button(root, "Skip", new Vector2(170, -475), new Vector2(280, 80), "Skip", new Color(0.5f, 0.25f, 0.25f), target, "Skip");
+            var voice = screenGo.AddComponent<AudioSource>();
+            voice.playOnAwake = false;
+            voice.spatialBlend = 0f;
+            player.voiceSource = voice;
+            player.filmCamera = cam;
+            player.screenRoot = screenGo;
+            screenGo.SetActive(false);
+
+            // ---- cutscene data + flow
+            var intro = MakeCutscene(sets, "IntroCutscene", "Narrator", IntroLines, "intro", introShots);
+            var headmaster = MakeCutscene(sets, "HeadmasterGreeting", "Headmaster Greymantle", HeadmasterLines, "headmaster", headShots);
+            intro.onFinished = flow;
+            intro.onFinishedEvent = nameof(IntroFlow.OnIntroFinished);
+            headmaster.onFinished = flow;
+            headmaster.onFinishedEvent = nameof(IntroFlow.OnHeadmasterFinished);
+            flow.player = player;
+            flow.introCutscene = intro;
+            flow.headmasterCutscene = headmaster;
+            flow.selectUI = selectUI;
+            return new UdonSharpBehaviour[] { player, flow, intro, headmaster };
+        }
+
+        private static Cutscene MakeCutscene(Transform parent, string name, string speaker, string[] lines, string voicePrefix, Transform[] shots)
+        {
+            var cs = UdonSharpUndo.AddComponent<Cutscene>(Child(parent, name, Vector3.zero).gameObject);
+            cs.cutsceneId = voicePrefix;
+            cs.lines = lines;
+            cs.speakers = new string[lines.Length];
+            cs.voices = new AudioClip[lines.Length];
+            for (int i = 0; i < lines.Length; i++)
+            {
+                cs.speakers[i] = speaker;
+                cs.voices[i] = AssetDatabase.LoadAssetAtPath<AudioClip>(VoiceDir + "/" + voicePrefix + "_" + i.ToString("00") + ".wav");
+            }
+            cs.shots = shots;
+            return cs;
+        }
+
+        private static Transform Shot(Transform parent, string name, Vector3 localPos, Vector3 localLookAt)
+        {
+            Transform t = Child(parent, name, localPos);
+            t.localRotation = Quaternion.LookRotation(localLookAt - localPos, Vector3.up);
+            return t;
+        }
+
+        private static void Prim(Transform parent, PrimitiveType type, string name, Vector3 localPos, Vector3 scale, Material mat)
+        {
+            var go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localScale = scale;
+            go.GetComponent<Renderer>().sharedMaterial = mat;
+            Object.DestroyImmediate(go.GetComponent<Collider>());
         }
 
         // ================================================================== builders
