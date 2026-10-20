@@ -688,6 +688,30 @@ namespace WizardsVRC.EditorTools
             return queue;
         }
 
+        private const string SpellAnimationDir = "Assets/WizardsVRC/SpellAnimations";
+
+        // Each spell can have a cast cinematic: a prefab in SpellAnimationDir named "<id>.prefab" or "<Spell Name>.prefab".
+        // Instances start switched off; BattleClient moves one to the caster and switches it on for that spell's turn.
+        private static void AttachSpellAnimations(Transform arenaRoot, CardDatabase db)
+        {
+            var holder = Child(arenaRoot, "SpellAnimations", Vector3.zero);
+            var anims = new GameObject[db.ids.Length];
+            int found = 0;
+            for (int i = 0; i < db.ids.Length; i++)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SpellAnimationDir + "/" + db.ids[i] + ".prefab");
+                if (prefab == null) prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SpellAnimationDir + "/" + db.names[i] + ".prefab");
+                if (prefab == null) continue;
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, holder);
+                inst.name = db.ids[i] + " " + db.names[i];
+                inst.SetActive(false);
+                anims[i] = inst;
+                found++;
+            }
+            db.spellAnimations = anims;
+            if (found > 0) Debug.Log("[WizardsVRC] Attached " + found + " spell animation(s) from " + SpellAnimationDir);
+        }
+
         private static void BuildArena(BattleClient client)
         {
             var root = new GameObject("BossArena").transform;
@@ -723,6 +747,7 @@ namespace WizardsVRC.EditorTools
             // Turn clock in the middle of the ring: the hand sweeps the planning timer, then points at each caster.
             var clock = Child(ring.transform, "TurnClock", Vector3.zero);
             client.arenaCenter = clock;
+            AttachSpellAnimations(root, client.cardDatabase);
             var face = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             face.name = "Face";
             face.transform.SetParent(clock, false);

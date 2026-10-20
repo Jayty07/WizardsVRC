@@ -72,6 +72,7 @@ namespace WizardsVRC
         private float _orbStart;
         private Vector3 _orbFrom;
         private Vector3 _orbTo;
+        private GameObject _spellAnim;
 
         private Color _cardDim = new Color(0.35f, 0.35f, 0.35f);
 
@@ -374,6 +375,7 @@ namespace WizardsVRC
                 _playing = false;
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
                 if (orb != null) orb.gameObject.SetActive(false);
+                _HideSpellAnimation();
                 RefreshLabels();
                 return;
             }
@@ -401,7 +403,12 @@ namespace WizardsVRC
                 _playIndex++;
             }
             SetBanner(text);
-            if (kind != BattleManager.KIND_PASS && kind != BattleManager.KIND_FIZZLE) LaunchOrb(actor, firstTarget);
+            if (kind != BattleManager.KIND_PASS && kind != BattleManager.KIND_FIZZLE)
+            {
+                GameObject anim = cardDatabase.GetAnimation(card);
+                if (anim != null) PlaySpellAnimation(anim, actor, firstTarget);
+                else LaunchOrb(actor, firstTarget);
+            }
             RefreshLabels();
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.actionSeconds);
         }
@@ -412,6 +419,26 @@ namespace WizardsVRC
             if (e == CardDatabase.EFFECT_WARD) return "a Ward";
             if (e == CardDatabase.EFFECT_EMPOWER) return "Empower";
             return "Focus";
+        }
+
+        private void PlaySpellAnimation(GameObject anim, int from, int to)
+        {
+            _HideSpellAnimation();
+            if (seats == null || from < 0) return;
+            Vector3 pos = seats[from].position;
+            Vector3 aim = to >= 0 && to != from ? seats[to].position : (arenaCenter != null ? arenaCenter.position : pos + seats[from].forward);
+            Vector3 dir = aim - pos;
+            dir.y = 0f;
+            anim.transform.position = pos;
+            if (dir.sqrMagnitude > 0.001f) anim.transform.rotation = Quaternion.LookRotation(dir);
+            anim.SetActive(true);
+            _spellAnim = anim;
+        }
+
+        public void _HideSpellAnimation()
+        {
+            if (_spellAnim != null) _spellAnim.SetActive(false);
+            _spellAnim = null;
         }
 
         private void LaunchOrb(int from, int to)
