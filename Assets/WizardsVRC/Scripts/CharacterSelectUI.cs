@@ -18,6 +18,10 @@ namespace WizardsVRC
         public TeleportHelper teleporter;
         public Transform hubSpawn;
         public Transform selectSpawn;
+        [Tooltip("Optional: new characters are sent here instead of the hub (e.g. the Headmaster's office).")]
+        public Transform newCharacterSpawn;
+        [Tooltip("Receives OnCharacterActivated after a character is created or loaded.")]
+        public UdonSharpBehaviour questManager;
 
         [Header("Slot panels (index = slot)")]
         public Text[] slotNameLabels;
@@ -132,6 +136,7 @@ namespace WizardsVRC
                 return;
             }
             playerState.Activate(slot);
+            NotifyActivated();
             EnterHub();
         }
 
@@ -182,7 +187,13 @@ namespace WizardsVRC
             }
             playerState.Activate(slot);
             RefreshSlots();
-            EnterHub();
+            NotifyActivated();
+            if (newCharacterSpawn != null)
+            {
+                SetStatus("Welcome, " + playerState.current.characterName);
+                if (teleporter != null) teleporter.TeleportTo(newCharacterSpawn);
+            }
+            else EnterHub();
         }
 
         // ------------------------------------------------------------------ delete
@@ -237,6 +248,11 @@ namespace WizardsVRC
         {
             SetStatus("Welcome, " + playerState.current.characterName);
             if (teleporter != null) teleporter.TeleportTo(hubSpawn);
+        }
+
+        private void NotifyActivated()
+        {
+            if (questManager != null) questManager.SendCustomEvent("OnCharacterActivated");
         }
 
         private bool CanAct()

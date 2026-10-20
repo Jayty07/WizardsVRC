@@ -19,6 +19,8 @@ namespace WizardsVRC
         public Text healthLabel;
         public Text manaLabel;
         public Text goldLabel;
+        public QuestManager questManager;
+        public Text questLabel;
 
         [Tooltip("Offset from the head in head space (x right, y up, z forward), metres.")]
         public Vector3 headOffset = new Vector3(-0.28f, -0.22f, 0.7f);
@@ -65,6 +67,7 @@ namespace WizardsVRC
             if (healthLabel != null) healthLabel.text = "Health " + hp.ToString() + " / " + hp.ToString();
             if (manaLabel != null) manaLabel.text = "Mana " + mp.ToString() + " / " + mp.ToString();
             if (goldLabel != null) goldLabel.text = "Gold " + c.gold.ToString();
+            if (questLabel != null) questLabel.text = questManager != null ? questManager.GetTrackerText() : "";
         }
     }
 }

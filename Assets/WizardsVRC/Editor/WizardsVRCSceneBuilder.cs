@@ -28,7 +28,6 @@ namespace WizardsVRC.EditorTools
         private const string MaterialsDir = "Assets/WizardsVRC/Materials";
         private const string AutoBuildKey = "WizardsVRC.AutoBuildAttempted";
 
-        private static readonly Vector3 SelectRoomOrigin = new Vector3(0f, -500f, 0f);
         private const float RespawnHeight = -600f;
 
         private static Font _font;
@@ -93,8 +92,10 @@ namespace WizardsVRC.EditorTools
             refCam.enabled = false;
 
             // ---------------- areas
-            Transform selectSpawn = BuildSelectRoom(out Canvas selectCanvas);
-            Transform hubSpawn = BuildHub(out Transform npcMarker, out Canvas hubCanvas);
+            Interior interior = BuildInterior();
+            Transform selectSpawn = interior.officeSpawn;
+            Canvas selectCanvas = interior.selectCanvas;
+            Transform hubSpawn = BuildHub(out Canvas hubCanvas);
 
             var descriptor = world.AddComponent<VRCSceneDescriptor>();
             descriptor.spawns = new[] { selectSpawn };
@@ -131,6 +132,7 @@ namespace WizardsVRC.EditorTools
             selectUI.teleporter = teleporter;
             selectUI.hubSpawn = hubSpawn;
             selectUI.selectSpawn = selectSpawn;
+            selectUI.newCharacterSpawn = interior.officeSpawn;
 
             book.playerState = playerState;
             book.itemDatabase = itemDb;
@@ -156,9 +158,14 @@ namespace WizardsVRC.EditorTools
             var pedestal = BuildBackpackPedestal(hubRoot, book);
             var queuePad = BuildQueuePad(hubRoot, battleClient);
             BuildArena(battleClient);
-            var cutscenes = BuildCutscenes(systems.transform, selectUI);
+            var cutscenes = BuildCutscenes(systems.transform, selectUI, interior);
+            var quests = BuildQuests(systems.transform, interior, (CutscenePlayer)cutscenes[0], playerState, hud, hubRoot);
+            var questManager = (QuestManager)quests[0];
+            selectUI.questManager = questManager;
+            hud.questManager = questManager;
 
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
+            toSync.AddRange(quests);
             foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, battle, battleClient, queuePad }) toSync.Add(b);
             foreach (var b in toSync)
             {
@@ -192,7 +199,7 @@ namespace WizardsVRC.EditorTools
         {
             Directory.CreateDirectory(ProgramsDir);
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Cutscene", "CutscenePlayer", "IntroFlow" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -242,38 +249,6 @@ namespace WizardsVRC.EditorTools
         }
 
         // ================================================================== select room
-
-        private static Transform BuildSelectRoom(out Canvas canvas)
-        {
-            var root = new GameObject("SelectRoom").transform;
-            root.position = SelectRoomOrigin;
-
-            Material floor = Mat("SelectFloor", new Color(0.18f, 0.16f, 0.24f));
-            Material wall = Mat("SelectWall", new Color(0.28f, 0.25f, 0.38f));
-
-            const float w = 14f, d = 12f, h = 5f, t = 0.3f;
-            Block(root, "Floor", new Vector3(0, -t / 2, 0), new Vector3(w, t, d), floor);
-            Block(root, "Ceiling", new Vector3(0, h + t / 2, 0), new Vector3(w, t, d), wall);
-            Block(root, "Wall_North", new Vector3(0, h / 2, d / 2 + t / 2), new Vector3(w, h, t), wall);
-            Block(root, "Wall_South", new Vector3(0, h / 2, -d / 2 - t / 2), new Vector3(w, h, t), wall);
-            Block(root, "Wall_East", new Vector3(w / 2 + t / 2, h / 2, 0), new Vector3(t, h, d), wall);
-            Block(root, "Wall_West", new Vector3(-w / 2 - t / 2, h / 2, 0), new Vector3(t, h, d), wall);
-
-            var lamp = Child(root, "RoomLight", new Vector3(0, h - 0.5f, 0));
-            var light = lamp.gameObject.AddComponent<Light>();
-            light.type = LightType.Point;
-            light.range = 18f;
-            light.intensity = 1.6f;
-            light.color = new Color(1f, 0.9f, 0.8f);
-
-            Transform spawn = Child(root, "SelectSpawn", new Vector3(0, 0.05f, -3.5f));
-            spawn.rotation = Quaternion.identity;
-
-            var canvasGo = new GameObject("SelectCanvas", typeof(RectTransform));
-            canvasGo.transform.SetParent(root, false);
-            canvas = MakeWorldCanvas(canvasGo, new Vector2(1600, 900), new Vector3(0, 2.4f, d / 2 - 0.1f), 0.0055f);
-            return spawn;
-        }
 
         private static void BuildSelectCanvasContents(Canvas canvas, CharacterSelectUI ui)
         {
@@ -340,7 +315,7 @@ namespace WizardsVRC.EditorTools
 
         // ================================================================== hub
 
-        private static Transform BuildHub(out Transform npcMarker, out Canvas hubCanvas)
+        private static Transform BuildHub(out Canvas hubCanvas)
         {
             var root = new GameObject("Hub").transform;
 
@@ -355,24 +330,6 @@ namespace WizardsVRC.EditorTools
 
             Transform spawn = Child(root, "HubSpawn", new Vector3(0, 0.15f, 0));
 
-            npcMarker = Child(root, "NPC_Placeholder", new Vector3(4f, 0f, 8f));
-            npcMarker.rotation = Quaternion.Euler(0, 200f, 0);
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.SetParent(npcMarker, false);
-            body.transform.localPosition = new Vector3(0, 1f, 0);
-            body.GetComponent<Renderer>().sharedMaterial = Mat("NPCMarker", new Color(0.85f, 0.7f, 0.2f));
-            var tag = new GameObject("NameTag");
-            tag.transform.SetParent(npcMarker, false);
-            tag.transform.localPosition = new Vector3(0, 2.4f, 0);
-            tag.transform.localRotation = Quaternion.Euler(0, 180f, 0);
-            var tm = tag.AddComponent<TextMesh>();
-            tm.text = "Headmaster (NPC placeholder)";
-            tm.anchor = TextAnchor.MiddleCenter;
-            tm.characterSize = 0.08f;
-            tm.fontSize = 48;
-            tm.color = Color.white;
-
             var canvasGo = new GameObject("HubCanvas", typeof(RectTransform));
             canvasGo.transform.SetParent(root, false);
             hubCanvas = MakeWorldCanvas(canvasGo, new Vector2(600, 360), new Vector3(-4f, 1.6f, 4f), 0.004f);
@@ -386,7 +343,7 @@ namespace WizardsVRC.EditorTools
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(ui);
             UdonBehaviour bookTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(book);
             Panel(root, "Background", Vector2.zero, new Vector2(600, 360), new Color(0.08f, 0.07f, 0.12f, 0.9f));
-            Label(root, "Title", new Vector2(0, 120), new Vector2(560, 60), "Hub (stub)", 40, TextAnchor.MiddleCenter);
+            Label(root, "Title", new Vector2(0, 120), new Vector2(560, 60), "Starfall Castle", 40, TextAnchor.MiddleCenter);
             Button(root, "ChangeCharacter", new Vector2(0, 10), new Vector2(420, 90), "Change Character", new Color(0.25f, 0.35f, 0.6f), target, "ReturnToSelect");
             Button(root, "OpenBackpack", new Vector2(0, -105), new Vector2(420, 90), "Backpack (B)", new Color(0.55f, 0.38f, 0.2f), bookTarget, "ToggleBook");
         }
@@ -634,17 +591,19 @@ namespace WizardsVRC.EditorTools
             canvas.renderMode = RenderMode.WorldSpace;
             canvasGo.AddComponent<CanvasScaler>().dynamicPixelsPerUnit = 2f;
             var rt = (RectTransform)canvasGo.transform;
-            rt.sizeDelta = new Vector2(420, 200);
+            rt.sizeDelta = new Vector2(420, 340);
             rt.localScale = Vector3.one * 0.0005f;
             hud.hudRoot = canvasGo;
 
-            Panel(rt, "Background", Vector2.zero, new Vector2(420, 200), new Color(0.08f, 0.07f, 0.12f, 0.7f));
-            hud.nameLabel = Label(rt, "Name", new Vector2(0, 65), new Vector2(400, 45), "", 28, TextAnchor.MiddleLeft);
-            hud.healthLabel = Label(rt, "Health", new Vector2(0, 20), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
+            Panel(rt, "Background", new Vector2(0, 70), new Vector2(420, 200), new Color(0.08f, 0.07f, 0.12f, 0.7f));
+            hud.questLabel = Label(rt, "Quest", new Vector2(0, -105), new Vector2(400, 120), "", 22, TextAnchor.UpperLeft);
+            hud.questLabel.color = new Color(1f, 0.95f, 0.7f);
+            hud.nameLabel = Label(rt, "Name", new Vector2(0, 135), new Vector2(400, 45), "", 28, TextAnchor.MiddleLeft);
+            hud.healthLabel = Label(rt, "Health", new Vector2(0, 90), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
             hud.healthLabel.color = new Color(1f, 0.55f, 0.55f);
-            hud.manaLabel = Label(rt, "Mana", new Vector2(0, -22), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
+            hud.manaLabel = Label(rt, "Mana", new Vector2(0, 48), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
             hud.manaLabel.color = new Color(0.55f, 0.75f, 1f);
-            hud.goldLabel = Label(rt, "Gold", new Vector2(0, -64), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
+            hud.goldLabel = Label(rt, "Gold", new Vector2(0, 6), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
             hud.goldLabel.color = new Color(1f, 0.85f, 0.35f);
             canvasGo.SetActive(false);
         }
@@ -947,14 +906,6 @@ namespace WizardsVRC.EditorTools
             "And now, a new wizard arrives. Welcome to Wizards VRC.",
         };
 
-        private static readonly string[] HeadmasterLines =
-        {
-            "Ah, there you are! Welcome, young wizard, to the Academy of the Seven Schools.",
-            "I am Headmaster Greymantle. Many students have walked through these doors, and every one of them began just as you do now.",
-            "A wizard's journey starts with a single choice: the school of magic that calls to them.",
-            "So tell me, which school will you study? Choose wisely!",
-        };
-
         private static readonly string[] SchoolLabels = { "Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance" };
         private static readonly Color[] SchoolColors =
         {
@@ -963,7 +914,7 @@ namespace WizardsVRC.EditorTools
         };
 
         /// <summary>Film sets (far below the world), the in-front-of-player video screen, and the intro cutscenes.</summary>
-        private static UdonSharpBehaviour[] BuildCutscenes(Transform systems, CharacterSelectUI selectUI)
+        private static UdonSharpBehaviour[] BuildCutscenes(Transform systems, CharacterSelectUI selectUI, Interior interior)
         {
             var player = UdonSharpUndo.AddComponent<CutscenePlayer>(Child(systems, "CutscenePlayer", Vector3.zero).gameObject);
             var flow = UdonSharpUndo.AddComponent<IntroFlow>(Child(systems, "IntroFlow", Vector3.zero).gameObject);
@@ -1009,35 +960,7 @@ namespace WizardsVRC.EditorTools
             WorldText(title, "Subtitle", new Vector3(0, 2.2f, 0.8f), Quaternion.identity, new Vector2(1600, 200), 0.006f, "(placeholder title screen)", 70);
             introShots[IntroLines.Length - 1] = Shot(title, "ShotTitle", new Vector3(0, 3f, -7f), new Vector3(0, 3f, 0.8f));
 
-            // ---- Headmaster's office
-            var office = Child(sets, "HeadmasterOffice", new Vector3(60f, 0, 0));
-            Block(office, "Floor", new Vector3(0, -0.25f, 0), new Vector3(12, 0.5f, 12), Mat("OfficeFloor", new Color(0.35f, 0.24f, 0.15f)));
-            Block(office, "BackWall", new Vector3(0, 3f, 2.5f), new Vector3(12, 6, 0.3f), Mat("OfficeWall", new Color(0.45f, 0.38f, 0.3f)));
-            Material shelf = Mat("Bookshelf", new Color(0.3f, 0.18f, 0.1f));
-            Block(office, "ShelfL", new Vector3(-2.5f, 1.5f, 2.1f), new Vector3(2f, 3f, 0.5f), shelf);
-            Block(office, "ShelfR", new Vector3(2.5f, 1.5f, 2.1f), new Vector3(2f, 3f, 0.5f), shelf);
-            Block(office, "Desk", new Vector3(0, 0.45f, -0.9f), new Vector3(2.2f, 0.9f, 0.9f), shelf);
-            var hm = Child(office, "Headmaster", new Vector3(0, 0, 0.2f));
-            Prim(hm, PrimitiveType.Capsule, "Robe", new Vector3(0, 0.95f, 0), new Vector3(0.75f, 0.95f, 0.75f), Mat("HeadmasterRobe", new Color(0.2f, 0.25f, 0.6f)));
-            Prim(hm, PrimitiveType.Sphere, "Head", new Vector3(0, 2.05f, 0), Vector3.one * 0.42f, Mat("Skin", new Color(0.95f, 0.8f, 0.65f)));
-            Prim(hm, PrimitiveType.Sphere, "Beard", new Vector3(0, 1.85f, -0.12f), new Vector3(0.32f, 0.38f, 0.2f), Mat("Beard", new Color(0.92f, 0.92f, 0.95f)));
-            Material hat = Mat("HeadmasterHat", new Color(0.25f, 0.2f, 0.55f));
-            Prim(hm, PrimitiveType.Cylinder, "HatBrim", new Vector3(0, 2.25f, 0), new Vector3(0.75f, 0.02f, 0.75f), hat);
-            Prim(hm, PrimitiveType.Cylinder, "HatMid", new Vector3(0, 2.42f, 0), new Vector3(0.38f, 0.16f, 0.38f), hat);
-            Prim(hm, PrimitiveType.Cylinder, "HatTip", new Vector3(0, 2.7f, 0.04f), new Vector3(0.2f, 0.14f, 0.2f), hat);
-            var candle = Child(office, "Candle", new Vector3(0.8f, 1.6f, -1.2f)).gameObject.AddComponent<Light>();
-            candle.type = LightType.Point;
-            candle.color = new Color(1f, 0.8f, 0.55f);
-            candle.range = 6f;
-            candle.intensity = 1.5f;
-            Vector3 face = new Vector3(0, 2f, 0.2f);
-            var headShots = new[]
-            {
-                Shot(office, "ShotWide", new Vector3(-1.8f, 1.9f, -4.5f), new Vector3(0, 1.6f, 0.2f)),
-                Shot(office, "ShotMedium", new Vector3(0.9f, 1.8f, -2.6f), face),
-                Shot(office, "ShotClose", new Vector3(0, 2.0f, -1.5f), face),
-                Shot(office, "ShotCloseLow", new Vector3(-0.5f, 1.6f, -1.6f), face),
-            };
+            var headShots = OfficeShots(interior);
 
             // ---- film camera + video screen in front of the player
             string rtPath = MaterialsDir + "/CutsceneFilm.renderTexture";
@@ -1083,7 +1006,7 @@ namespace WizardsVRC.EditorTools
 
             // ---- cutscene data + flow
             var intro = MakeCutscene(sets, "IntroCutscene", "Narrator", IntroLines, "intro", introShots);
-            var headmaster = MakeCutscene(sets, "HeadmasterGreeting", "Headmaster Greymantle", HeadmasterLines, "headmaster", headShots);
+            var headmaster = MakeCutscene(sets, "HeadmasterGreeting", "Headmaster Greymantle", ProphecyLines, "prophecy", headShots);
             intro.onFinished = flow;
             intro.onFinishedEvent = nameof(IntroFlow.OnIntroFinished);
             headmaster.onFinished = flow;
