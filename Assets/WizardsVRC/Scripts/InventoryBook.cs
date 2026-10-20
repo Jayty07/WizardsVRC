@@ -25,6 +25,12 @@ namespace WizardsVRC
         public float openDistance = 0.85f;
         public KeyCode toggleKey = KeyCode.B;
 
+        [Header("Avatar portrait")]
+        [Tooltip("Renders the local avatar (MirrorReflection layer) into the left page's portrait. Only active while the book is open.")]
+        public Camera portraitCamera;
+        [Tooltip("Camera distance in front of the avatar, as a multiple of the avatar's eye height.")]
+        public float portraitDistance = 1.8f;
+
         [Header("Left page")]
         public Text nameLabel;
         public Text infoLabel;
@@ -67,12 +73,40 @@ namespace WizardsVRC
         private void Start()
         {
             if (bookRoot != null) bookRoot.SetActive(false);
+            SetPortraitActive(false);
         }
 
         private void Update()
         {
             if (Input.GetKeyDown(toggleKey)) ToggleBook();
             if (_open && (playerState == null || !playerState.HasCharacter())) CloseBook();
+            if (_open) UpdatePortraitCamera();
+        }
+
+        // ------------------------------------------------------------------ avatar portrait
+
+        private void SetPortraitActive(bool active)
+        {
+            if (portraitCamera != null) portraitCamera.gameObject.SetActive(active);
+        }
+
+        /// <summary>Keeps the portrait camera in front of the avatar, facing it, framed to the avatar's height.</summary>
+        private void UpdatePortraitCamera()
+        {
+            if (portraitCamera == null) return;
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (!Utilities.IsValid(local)) return;
+            float eye = local.GetAvatarEyeHeightAsMeters();
+            if (eye < 0.2f) eye = 1.6f;
+            Vector3 feet = local.GetPosition();
+            Vector3 forward = local.GetRotation() * Vector3.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
+            forward.Normalize();
+            Vector3 target = feet + Vector3.up * (eye * 0.55f);
+            Transform cam = portraitCamera.transform;
+            cam.position = target + forward * (eye * portraitDistance);
+            cam.rotation = Quaternion.LookRotation(-forward, Vector3.up);
         }
 
         // ------------------------------------------------------------------ open / close
@@ -99,6 +133,8 @@ namespace WizardsVRC
             }
             _open = true;
             bookRoot.SetActive(true);
+            UpdatePortraitCamera();
+            SetPortraitActive(true);
             ClearSelection();
             SetStatus("");
             Refresh();
@@ -108,6 +144,7 @@ namespace WizardsVRC
         {
             _open = false;
             if (bookRoot != null) bookRoot.SetActive(false);
+            SetPortraitActive(false);
             if (playerState != null && playerState.IsDirty()) playerState.SaveNow();
         }
 
