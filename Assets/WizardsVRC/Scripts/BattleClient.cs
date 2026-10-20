@@ -261,16 +261,10 @@ namespace WizardsVRC
             CharacterData c = playerState.current;
             int xp = 60 + 25 * manager.MonsterCount();
             int gold = Random.Range(30, 61);
-            c.xp += xp;
             c.gold += gold;
             string msg = "+" + xp.ToString() + " XP   +" + gold.ToString() + " gold";
-            while (c.level < CharacterData.MAX_LEVEL && c.xp >= c.level * 100)
-            {
-                c.xp -= c.level * 100;
-                c.level++;
-                c.maxHealth += 15;
-                msg += "\nLevel up! You are now level " + c.level.ToString() + ".";
-            }
+            int levels = c.AddXp(xp);
+            if (levels > 0) msg += "\nLevel up! You are now level " + c.level.ToString() + ". +" + levels.ToString() + " Training Point" + (levels > 1 ? "s" : "") + ".";
             if (lootTable.Length > 0 && Random.value < 0.6f)
             {
                 int itemId = lootTable[Random.Range(0, lootTable.Length)];

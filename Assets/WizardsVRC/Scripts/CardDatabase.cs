@@ -201,13 +201,19 @@ namespace WizardsVRC
             return s >= 0 && s < schoolColors.Length ? schoolColors[s] : _generalColor;
         }
 
-        /// <summary>True if this character has learned the card (own school or general, level high enough).</summary>
+        /// <summary>True if the character can use the card: general spells by level, school spells once learned from a professor.</summary>
         public bool Knows(CharacterData c, int cardId)
         {
             int i = IndexOf(cardId);
             if (i < 0 || c == null) return false;
-            int s = schools[i];
-            return (s == GENERAL || s == (int)c.school) && c.level >= levelReqs[i];
+            if (schools[i] == GENERAL) return c.level >= levelReqs[i];
+            return c.HasLearned(cardId);
+        }
+
+        /// <summary>Training points needed to learn a school spell: free for the character's own school, 1 otherwise.</summary>
+        public int LearnCost(CharacterData c, int cardId)
+        {
+            return c != null && GetSchool(cardId) == (int)c.school ? 0 : 1;
         }
 
         public string GetEffectText(int cardId)
@@ -234,7 +240,7 @@ namespace WizardsVRC
             if (i < 0) return "";
             return GetEffectText(cardId) + "\n" +
                    "Cost: " + pipCosts[i].ToString() + " pips    Accuracy: " + accuracies[i].ToString() + "%\n" +
-                   SchoolName(schools[i]) + " spell, learned at level " + levelReqs[i].ToString();
+                   SchoolName(schools[i]) + " spell, level " + levelReqs[i].ToString();
         }
     }
 }
