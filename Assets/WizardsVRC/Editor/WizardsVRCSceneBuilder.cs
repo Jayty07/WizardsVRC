@@ -1,5 +1,6 @@
 using System.IO;
 using UdonSharp;
+using UdonSharp.Compiler;
 using UdonSharpEditor;
 using UnityEditor;
 using UnityEditor.Events;
@@ -64,7 +65,7 @@ namespace WizardsVRC.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
             ConfigureProject();
-            EnsureProgramAssets();
+            if (!EnsureProgramAssets()) return;
 
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -172,7 +173,7 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>UdonSharp only compiles scripts that have a program asset next to them.</summary>
-        private static void EnsureProgramAssets()
+        private static bool EnsureProgramAssets()
         {
             Directory.CreateDirectory(ProgramsDir);
             bool created = false;
@@ -199,7 +200,18 @@ namespace WizardsVRC.EditorTools
             }
             AssetDatabase.SaveAssets();
             if (created) AssetDatabase.Refresh();
-            UdonSharpProgramAsset.CompileAllCsPrograms(true);
+            // Compile synchronously: CopyProxyToUdon refuses to run until every program asset has been compiled
+            // ("outdated behaviour version"), and CompileAllCsPrograms only starts an async compile.
+            UdonSharpCompilerV1.CompileSync(new UdonSharpCompileOptions { IsEditorBuild = true });
+            string failed = UdonSharpProgramAsset.AnyUdonSharpScriptHasError() ? "some scripts" : null;
+            foreach (var program in UdonSharpProgramAsset.GetAllUdonSharpPrograms())
+                if (failed == null && program.CompiledVersion < UdonSharpProgramVersion.CurrentVersion) failed = "'" + program.name + "'";
+            if (failed == null) return true;
+            string msg = "UdonSharp could not compile " + failed + ". Fix the red [UdonSharp] errors in the Console, " +
+                         "then run WizardsVRC > Rebuild MainWorld Scene again. The scene was not changed.";
+            Debug.LogError("[WizardsVRC] " + msg);
+            EditorUtility.DisplayDialog("Rebuild MainWorld", msg, "OK");
+            return false;
         }
 
         /// <summary>
