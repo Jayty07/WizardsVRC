@@ -327,7 +327,7 @@ namespace WizardsVRC.EditorTools
             Shape(w, "Staff", CylMesh(), new Vector3(0.55f, 1.1f, -0.1f), new Vector3(0.08f, 1.1f, 0.08f), PMat("Wood", new Color(0.55f, 0.34f, 0.18f), 2f), false, Quaternion.identity);
             Shape(w, "StaffGem", GemMesh(), new Vector3(0.55f, 2.35f, -0.1f), new Vector3(0.25f, 0.35f, 0.25f), PMat("Gem_" + ColorUtility.ToHtmlStringRGB(robe), robe, 1f, robe * 0.7f), false, Quaternion.identity);
             WorldText(w, "NameTag", new Vector3(0, 3.5f, 0), Quaternion.identity, new Vector2(900, 120), 0.004f, title, 60);
-            WorldText(w, "TalkHint", new Vector3(0, 3.2f, 0), Quaternion.identity, new Vector2(900, 90), 0.003f, "(click to talk)", 50).color = new Color(1f, 0.9f, 0.5f);
+            WorldText(w, "TalkHint", new Vector3(0, 3.2f, 0), Quaternion.identity, new Vector2(900, 90), 0.003f, "(click to talk or learn spells)", 50).color = new Color(1f, 0.9f, 0.5f);
             var box = w.gameObject.AddComponent<BoxCollider>();
             box.center = new Vector3(0, 1.3f, 0);
             box.size = new Vector3(1.2f, 2.6f, 1.2f);
@@ -397,7 +397,7 @@ namespace WizardsVRC.EditorTools
 
         /// <summary>Quest manager, NPC talk relays, doors and the quest cutscenes (filmed in the real rooms).</summary>
         private static List<UdonSharpBehaviour> BuildQuests(Transform systems, Interior info, CutscenePlayer player, PlayerState playerState,
-            PlayerHUD hud, Transform hubRoot)
+            PlayerHUD hud, Transform hubRoot, SpellTrainer trainer, InteractionMenu menu)
         {
             var list = new List<UdonSharpBehaviour>();
             var qm = UdonSharpUndo.AddComponent<QuestManager>(Child(systems, "QuestManager", Vector3.zero).gameObject);
@@ -426,7 +426,10 @@ namespace WizardsVRC.EditorTools
                 cs.onFinishedEvent = nameof(QuestManager.OnProfessorFinished);
                 qm.professorCutscenes[s] = cs;
                 list.Add(cs);
-                list.Add(Relay(info.professors[s].gameObject, qm, "Talk" + SchoolLabels[s]));
+                list.Add(Interactions(info.professors[s].gameObject, ProfessorNames[s], menu,
+                    new[] { "Talk", "Learn Spells" },
+                    new UdonSharpBehaviour[] { qm, trainer },
+                    new[] { "Talk" + SchoolLabels[s], "Open" + SchoolLabels[s] }));
             }
 
             Transform[] officeShots = OfficeShots(info);

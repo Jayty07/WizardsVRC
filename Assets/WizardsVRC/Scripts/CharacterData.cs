@@ -20,12 +20,14 @@ namespace WizardsVRC
     ///   invUsed u8, then invUsed * (itemId u16, count u8)
     ///   per deck: cardCount u8, then cardCount * cardId u16
     ///   questUsed u8, then questUsed * progress u8
+    /// Payload v2 appends:
+    ///   trainingPoints u16, learnedUsed u8, then learnedUsed * learned-spell bitmask byte (bit n = card id 100 + n)
     /// Worst case is about 0.9 KB raw / 1.2 KB base64 (budget: 2 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 1;
+        public const int FORMAT_VERSION = 2;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -36,6 +38,9 @@ namespace WizardsVRC
         public const int DECK_SIZE = 64;
         public const int QUEST_SLOTS = 128;
         public const int MAX_LEVEL = 100;
+        public const int LEARNED_BYTES = 32;
+        public const int LEARNED_BASE_ID = 100;
+        public const int HEALTH_PER_LEVEL = 15;
 
         public const int EQUIP_HEAD = 0;
         public const int EQUIP_BODY = 1;
@@ -70,6 +75,10 @@ namespace WizardsVRC
         [Header("Quests (progress/stage per quest id)")]
         public byte[] questProgress = new byte[QUEST_SLOTS];
 
+        [Header("Spells (bit n of learnedSpells = card id 100 + n)")]
+        public int trainingPoints;
+        public byte[] learnedSpells = new byte[LEARNED_BYTES];
+
         [HideInInspector] public string lastError = "";
 
         private byte[] _buf;
@@ -94,6 +103,8 @@ namespace WizardsVRC
             for (int i = 0; i < deckCards.Length; i++) deckCards[i] = 0;
             for (int i = 0; i < DECK_COUNT; i++) deckLengths[i] = 0;
             for (int i = 0; i < QUEST_SLOTS; i++) questProgress[i] = 0;
+            for (int i = 0; i < LEARNED_BYTES; i++) learnedSpells[i] = 0;
+            trainingPoints = 0;
 
             // Starter kit (see ItemDatabase): staff + robe equipped; potions, hat and boots in the backpack.
             equipped[EQUIP_WEAPON] = 1;
@@ -109,6 +120,7 @@ namespace WizardsVRC
             ushort basicSpell = (ushort)(100 + (int)newSchool * 10);
             for (int c = 0; c < 4; c++) deckCards[c] = basicSpell;
             deckLengths[0] = 4;
+            Learn(basicSpell);
 
             lastError = "";
         }
@@ -145,6 +157,8 @@ namespace WizardsVRC
             System.Array.Copy(other.deckCards, deckCards, DECK_COUNT * DECK_SIZE);
             System.Array.Copy(other.deckLengths, deckLengths, DECK_COUNT);
             System.Array.Copy(other.questProgress, questProgress, QUEST_SLOTS);
+            System.Array.Copy(other.learnedSpells, learnedSpells, LEARNED_BYTES);
+            trainingPoints = other.trainingPoints;
         }
 
         public void EnsureArrays()
@@ -155,6 +169,7 @@ namespace WizardsVRC
             if (deckCards == null || deckCards.Length != DECK_COUNT * DECK_SIZE) deckCards = new ushort[DECK_COUNT * DECK_SIZE];
             if (deckLengths == null || deckLengths.Length != DECK_COUNT) deckLengths = new byte[DECK_COUNT];
             if (questProgress == null || questProgress.Length != QUEST_SLOTS) questProgress = new byte[QUEST_SLOTS];
+            if (learnedSpells == null || learnedSpells.Length != LEARNED_BYTES) learnedSpells = new byte[LEARNED_BYTES];
         }
 
         public string SanitizeName(string raw)
@@ -236,6 +251,52 @@ namespace WizardsVRC
             inventoryItemIds[INVENTORY_SLOTS - 1] = 0;
             inventoryCounts[INVENTORY_SLOTS - 1] = 0;
             return true;
+        }
+
+        // ------------------------------------------------------------------ progression / spell helpers
+
+        /// <summary>Adds XP and applies level-ups (+health, +1 training point each). Returns the number of levels gained.</summary>
+        public int AddXp(int amount)
+        {
+            xp += amount;
+            int gained = 0;
+            while (level < MAX_LEVEL && xp >= level * 100)
+            {
+                xp -= level * 100;
+                level++;
+                maxHealth += HEALTH_PER_LEVEL;
+                trainingPoints++;
+                gained++;
+            }
+            return gained;
+        }
+
+        public bool HasLearned(int cardId)
+        {
+            EnsureArrays();
+            int bit = cardId - LEARNED_BASE_ID;
+            if (bit < 0 || bit >= LEARNED_BYTES * 8) return false;
+            return (learnedSpells[bit >> 3] & (1 << (bit & 7))) != 0;
+        }
+
+        /// <summary>Marks the spell learned. False if it was already learned or the id is out of range.</summary>
+        public bool Learn(int cardId)
+        {
+            if (HasLearned(cardId)) return false;
+            int bit = cardId - LEARNED_BASE_ID;
+            if (bit < 0 || bit >= LEARNED_BYTES * 8) return false;
+            learnedSpells[bit >> 3] = (byte)(learnedSpells[bit >> 3] | (1 << (bit & 7)));
+            return true;
+        }
+
+        /// <summary>v1 saves predate learned spells: grant the own-school spells that were usable then and 1 point per level.</summary>
+        private void MigrateSpellsFromV1()
+        {
+            for (int i = 0; i < LEARNED_BYTES; i++) learnedSpells[i] = 0;
+            int[] oldLevelReqs = new int[] { 1, 2, 3, 5 };
+            for (int k = 0; k < oldLevelReqs.Length; k++)
+                if (level >= oldLevelReqs[k]) Learn(LEARNED_BASE_ID + (int)school * 10 + k);
+            trainingPoints = level - 1;
         }
 
         // ------------------------------------------------------------------ deck helpers
@@ -325,6 +386,13 @@ namespace WizardsVRC
             WriteU8(questUsed);
             for (int i = 0; i < questUsed; i++) WriteU8(questProgress[i]);
 
+            WriteU16(Mathf.Clamp(trainingPoints, 0, 65535));
+            int learnedUsed = 0;
+            for (int i = 0; i < LEARNED_BYTES; i++)
+                if (learnedSpells[i] != 0) learnedUsed = i + 1;
+            WriteU8(learnedUsed);
+            for (int i = 0; i < learnedUsed; i++) WriteU8(learnedSpells[i]);
+
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
             _buf[1] = (byte)'Z';
@@ -378,12 +446,12 @@ namespace WizardsVRC
             _buf = data;
             _pos = HEADER_SIZE;
             _end = dataEnd;
-            bool ok = ReadPayloadV1();
+            bool ok = ReadPayload(version);
             _buf = null;
             return ok;
         }
 
-        private bool ReadPayloadV1()
+        private bool ReadPayload(int version)
         {
             EnsureArrays();
 
@@ -446,6 +514,17 @@ namespace WizardsVRC
             for (int i = 0; i < QUEST_SLOTS; i++)
                 questProgress[i] = i < questUsed ? (byte)ReadU8() : (byte)0;
 
+            if (version < 2)
+            {
+                MigrateSpellsFromV1();
+                return true;
+            }
+            if (!Need(3)) return false;
+            trainingPoints = ReadU16();
+            int learnedUsed = ReadU8();
+            if (learnedUsed > LEARNED_BYTES || !Need(learnedUsed)) { lastError = "bad spells"; return false; }
+            for (int i = 0; i < LEARNED_BYTES; i++)
+                learnedSpells[i] = i < learnedUsed ? (byte)ReadU8() : (byte)0;
             return true;
         }
 

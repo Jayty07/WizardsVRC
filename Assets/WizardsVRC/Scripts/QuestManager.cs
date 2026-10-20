@@ -77,14 +77,8 @@ namespace WizardsVRC
         {
             if (!HasCharacter() || GetStage(QUEST_PROPHECY) != STAGE_REPORT) return;
             CharacterData c = playerState.current;
-            c.xp += prophecyXp;
             c.gold += prophecyGold;
-            while (c.level < CharacterData.MAX_LEVEL && c.xp >= c.level * 100)
-            {
-                c.xp -= c.level * 100;
-                c.level++;
-                c.maxHealth += 15;
-            }
+            c.AddXp(prophecyXp);
             SetStage(QUEST_PROPHECY, STAGE_DONE);
         }
 

@@ -1,0 +1,198 @@
+using UdonSharp;
+using UnityEngine;
+using UnityEngine.UI;
+using VRC.SDKBase;
+
+namespace WizardsVRC
+{
+    /// <summary>
+    /// A professor's spell list: shows the school's spells and lets the local player learn them.
+    /// Own-school spells are free; other schools cost 1 training point. The level requirement always applies.
+    /// One shared panel, placed in front of the player when opened.
+    /// </summary>
+    [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
+    public class SpellTrainer : UdonSharpBehaviour
+    {
+        public const int ROWS = 7;
+
+        public PlayerState playerState;
+        public CardDatabase cardDatabase;
+        public NewSpellPopup popup;
+        public PlayerHUD hud;
+
+        public GameObject panelRoot;
+        public Text titleLabel;
+        public Text pointsLabel;
+        public GameObject[] rowRoots;
+        public Image[] rowIcons;
+        public Text[] rowNames;
+        public Text[] rowInfo;
+        public GameObject detailsPanel;
+        public Text detailName;
+        public Text detailBody;
+        public GameObject learnButton;
+        public Text learnLabel;
+        public Text statusLabel;
+
+        [Header("Names (indexed by School)")]
+        public string[] professorNames;
+        public string[] schoolNames;
+
+        public float panelDistance = 1.3f;
+        public float closeDistance = 4f;
+
+        private int _school = -1;
+        private int[] _ids = new int[ROWS];
+        private int _count;
+        private int _selected = -1;
+        private Vector3 _openPos;
+
+        public void OpenFire() { Open(0); }
+        public void OpenIce() { Open(1); }
+        public void OpenStorm() { Open(2); }
+        public void OpenLife() { Open(3); }
+        public void OpenDeath() { Open(4); }
+        public void OpenMyth() { Open(5); }
+        public void OpenBalance() { Open(6); }
+
+        public void Row0() { Select(0); }
+        public void Row1() { Select(1); }
+        public void Row2() { Select(2); }
+        public void Row3() { Select(3); }
+        public void Row4() { Select(4); }
+        public void Row5() { Select(5); }
+        public void Row6() { Select(6); }
+
+        private void Start()
+        {
+            if (panelRoot != null) panelRoot.SetActive(false);
+        }
+
+        public void Open(int school)
+        {
+            if (!HasCharacter() || cardDatabase == null || panelRoot == null) return;
+            _school = school;
+            _selected = -1;
+            _count = 0;
+            for (int k = 0; k < ROWS; k++)
+            {
+                int id = 100 + school * 10 + k;
+                if (cardDatabase.IndexOf(id) >= 0) _ids[_count++] = id;
+            }
+
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (Utilities.IsValid(local))
+            {
+                VRCPlayerApi.TrackingData head = local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
+                Vector3 forward = head.rotation * Vector3.forward;
+                forward.y = 0f;
+                if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
+                forward.Normalize();
+                panelRoot.transform.position = head.position + forward * panelDistance + Vector3.down * 0.15f;
+                panelRoot.transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
+                _openPos = local.GetPosition();
+            }
+            SetStatus("");
+            panelRoot.SetActive(true);
+            Refresh();
+        }
+
+        public void Close()
+        {
+            _school = -1;
+            if (panelRoot != null) panelRoot.SetActive(false);
+        }
+
+        public bool IsOpen() { return _school >= 0; }
+
+        private void Update()
+        {
+            if (_school < 0) return;
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (!HasCharacter() || (Utilities.IsValid(local) && Vector3.Distance(local.GetPosition(), _openPos) > closeDistance)) Close();
+        }
+
+        private void Select(int row)
+        {
+            if (row < 0 || row >= _count) return;
+            _selected = _ids[row];
+            SetStatus("");
+            Refresh();
+        }
+
+        public void LearnSelected()
+        {
+            if (!HasCharacter() || _selected < 0) return;
+            CharacterData c = playerState.current;
+            int id = _selected;
+            if (c.HasLearned(id)) { SetStatus("You already know that spell."); return; }
+            if (c.level < cardDatabase.GetLevelReq(id)) { SetStatus("You must be level " + cardDatabase.GetLevelReq(id).ToString() + " to learn that."); return; }
+            int cost = cardDatabase.LearnCost(c, id);
+            if (c.trainingPoints < cost) { SetStatus("You need a Training Point. You earn one each level."); return; }
+            if (!c.Learn(id)) return;
+            c.trainingPoints -= cost;
+            playerState.MarkDirty();
+            playerState.SaveNow();
+            if (hud != null) hud.Refresh();
+            SetStatus("");
+            Refresh();
+            if (popup != null) popup.Show(id);
+        }
+
+        private void Refresh()
+        {
+            if (!HasCharacter() || _school < 0) return;
+            CharacterData c = playerState.current;
+            bool own = (int)c.school == _school;
+            if (titleLabel != null) titleLabel.text = NameAt(professorNames, _school) + "\n" + NameAt(schoolNames, _school) + " Spells";
+            if (pointsLabel != null)
+                pointsLabel.text = "Training Points: " + c.trainingPoints.ToString() + (own ? "    (your school's spells are free)" : "    (1 point per spell)");
+
+            for (int r = 0; r < ROWS; r++)
+            {
+                bool has = r < _count;
+                if (rowRoots != null && r < rowRoots.Length && rowRoots[r] != null) rowRoots[r].SetActive(has);
+                if (!has) continue;
+                int id = _ids[r];
+                Color col = cardDatabase.GetColor(id);
+                if (id == _selected) col = Color.Lerp(col, Color.white, 0.35f);
+                rowIcons[r].color = col;
+                rowNames[r].text = cardDatabase.GetName(id);
+                rowInfo[r].text = RowStatus(c, id);
+            }
+
+            bool sel = _selected >= 0;
+            if (detailsPanel != null) detailsPanel.SetActive(sel);
+            if (!sel) return;
+            detailName.text = cardDatabase.GetName(_selected);
+            detailBody.text = cardDatabase.GetDetails(_selected);
+            bool canTry = !c.HasLearned(_selected);
+            if (learnButton != null) learnButton.SetActive(canTry);
+            if (learnLabel != null)
+                learnLabel.text = cardDatabase.LearnCost(c, _selected) == 0 ? "Learn (free)" : "Learn (1 point)";
+        }
+
+        private string RowStatus(CharacterData c, int id)
+        {
+            if (c.HasLearned(id)) return "Learned";
+            int req = cardDatabase.GetLevelReq(id);
+            if (c.level < req) return "Requires level " + req.ToString();
+            return cardDatabase.LearnCost(c, id) == 0 ? "Lv " + req.ToString() + " - Free" : "Lv " + req.ToString() + " - 1 Training Point";
+        }
+
+        private void SetStatus(string text)
+        {
+            if (statusLabel != null) statusLabel.text = text;
+        }
+
+        private bool HasCharacter()
+        {
+            return playerState != null && playerState.HasCharacter() && playerState.current != null;
+        }
+
+        private string NameAt(string[] names, int i)
+        {
+            return names != null && i >= 0 && i < names.Length ? names[i] : "";
+        }
+    }
+}
