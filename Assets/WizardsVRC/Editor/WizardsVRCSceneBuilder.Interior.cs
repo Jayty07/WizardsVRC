@@ -406,6 +406,15 @@ namespace WizardsVRC.EditorTools
             qm.hud = hud;
             qm.schoolNames = (string[])SchoolLabels.Clone();
             qm.professorNames = (string[])ProfessorNames.Clone();
+            qm.questTitles = new[] { "The Prophecy" };
+            qm.questDescriptions = new[]
+            {
+                "Headmaster Greymantle says an old prophecy foretold your arrival. The Starfall Crystal is fading, and Morvane the Hollow King "
+                + "stirs in the north. Before you can help, you must meet the professor of your chosen school.",
+            };
+            qm.questRewards = new[] { qm.prophecyXp + " XP, " + qm.prophecyGold + " gold" };
+            qm.professorTargets = (Transform[])info.professors.Clone();
+            qm.headmasterTarget = info.headmaster;
             list.Add(qm);
 
             var sets = Child(systems, "QuestCutscenes", Vector3.zero);

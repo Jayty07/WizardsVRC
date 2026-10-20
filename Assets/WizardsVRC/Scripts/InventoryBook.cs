@@ -17,6 +17,9 @@ namespace WizardsVRC
         public const int TAB_ALL = 0;
         public const int TAB_COUNT = 1 + ItemDatabase.CATEGORY_COUNT;
         public const int CELLS_PER_PAGE = 12;
+        public const int VIEW_PACK = 0;
+        public const int VIEW_DECK = 1;
+        public const int VIEW_QUESTS = 2;
 
         [Header("Systems")]
         public PlayerState playerState;
@@ -31,6 +34,9 @@ namespace WizardsVRC
         public DeckPages deckPages;
         public Image backpackTabImage;
         public Image deckTabImage;
+        public GameObject questView;
+        public QuestPages questPages;
+        public Image questTabImage;
 
         [Header("Avatar portrait")]
         [Tooltip("Renders the local avatar (MirrorReflection layer) into the left page's portrait. Only active while the book is open.")]
@@ -76,7 +82,7 @@ namespace WizardsVRC
         private int _selSlot = -1;
 
         private bool _open;
-        private bool _deckMode;
+        private int _view;
 
         private void Start()
         {
@@ -88,35 +94,45 @@ namespace WizardsVRC
         {
             if (Input.GetKeyDown(toggleKey)) ToggleBook();
             if (_open && (playerState == null || !playerState.HasCharacter())) CloseBook();
-            if (_open && !_deckMode) UpdatePortraitCamera();
+            if (_open && _view == VIEW_PACK) UpdatePortraitCamera();
         }
 
         // ------------------------------------------------------------------ bookmark tabs
 
         public void ShowBackpack()
         {
-            _deckMode = false;
+            _view = VIEW_PACK;
             ApplyView();
             Refresh();
         }
 
         public void ShowDeck()
         {
-            _deckMode = true;
+            _view = VIEW_DECK;
             ApplyView();
             if (deckPages != null) deckPages.Open();
         }
 
+        public void ShowQuests()
+        {
+            _view = VIEW_QUESTS;
+            ApplyView();
+            if (questPages != null) questPages.Open();
+        }
+
         private void ApplyView()
         {
-            if (backpackView != null) backpackView.SetActive(!_deckMode);
-            if (deckView != null) deckView.SetActive(_deckMode);
-            if (backpackTabImage != null) backpackTabImage.color = _deckMode ? _tabOff : _tabOn;
-            if (deckTabImage != null) deckTabImage.color = _deckMode ? _tabOn : _tabOff;
+            bool pack = _view == VIEW_PACK;
+            if (backpackView != null) backpackView.SetActive(pack);
+            if (deckView != null) deckView.SetActive(_view == VIEW_DECK);
+            if (questView != null) questView.SetActive(_view == VIEW_QUESTS);
+            if (backpackTabImage != null) backpackTabImage.color = pack ? _tabOn : _tabOff;
+            if (deckTabImage != null) deckTabImage.color = _view == VIEW_DECK ? _tabOn : _tabOff;
+            if (questTabImage != null) questTabImage.color = _view == VIEW_QUESTS ? _tabOn : _tabOff;
             if (_open)
             {
-                if (!_deckMode) UpdatePortraitCamera();
-                SetPortraitActive(!_deckMode);
+                if (pack) UpdatePortraitCamera();
+                SetPortraitActive(pack);
             }
         }
 
@@ -173,7 +189,8 @@ namespace WizardsVRC
             ClearSelection();
             SetStatus("");
             ApplyView();
-            if (_deckMode && deckPages != null) deckPages.Open();
+            if (_view == VIEW_DECK && deckPages != null) deckPages.Open();
+            else if (_view == VIEW_QUESTS && questPages != null) questPages.Open();
             else Refresh();
         }
 

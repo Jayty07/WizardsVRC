@@ -22,12 +22,14 @@ namespace WizardsVRC
     ///   questUsed u8, then questUsed * progress u8
     /// Payload v2 appends:
     ///   trainingPoints u16, learnedUsed u8, then learnedUsed * learned-spell bitmask byte (bit n = card id 100 + n)
+/// Payload v3 appends:
+///   trackedQuest u8 (NO_TRACKED_QUEST = nothing tracked)
     /// Worst case is about 0.9 KB raw / 1.2 KB base64 (budget: 2 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 2;
+        public const int FORMAT_VERSION = 3;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -41,6 +43,7 @@ namespace WizardsVRC
         public const int LEARNED_BYTES = 32;
         public const int LEARNED_BASE_ID = 100;
         public const int HEALTH_PER_LEVEL = 15;
+        public const int NO_TRACKED_QUEST = 255;
 
         public const int EQUIP_HEAD = 0;
         public const int EQUIP_BODY = 1;
@@ -74,6 +77,8 @@ namespace WizardsVRC
 
         [Header("Quests (progress/stage per quest id)")]
         public byte[] questProgress = new byte[QUEST_SLOTS];
+        [Tooltip("Quest id shown on the HUD and guided to, or NO_TRACKED_QUEST.")]
+        public int trackedQuest;
 
         [Header("Spells (bit n of learnedSpells = card id 100 + n)")]
         public int trainingPoints;
@@ -105,6 +110,7 @@ namespace WizardsVRC
             for (int i = 0; i < QUEST_SLOTS; i++) questProgress[i] = 0;
             for (int i = 0; i < LEARNED_BYTES; i++) learnedSpells[i] = 0;
             trainingPoints = 0;
+            trackedQuest = 0;
 
             // Starter kit (see ItemDatabase): staff + robe equipped; potions, hat and boots in the backpack.
             equipped[EQUIP_WEAPON] = 1;
@@ -159,6 +165,7 @@ namespace WizardsVRC
             System.Array.Copy(other.questProgress, questProgress, QUEST_SLOTS);
             System.Array.Copy(other.learnedSpells, learnedSpells, LEARNED_BYTES);
             trainingPoints = other.trainingPoints;
+            trackedQuest = other.trackedQuest;
         }
 
         public void EnsureArrays()
@@ -393,6 +400,8 @@ namespace WizardsVRC
             WriteU8(learnedUsed);
             for (int i = 0; i < learnedUsed; i++) WriteU8(learnedSpells[i]);
 
+            WriteU8(trackedQuest >= 0 && trackedQuest < QUEST_SLOTS ? trackedQuest : NO_TRACKED_QUEST);
+
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
             _buf[1] = (byte)'Z';
@@ -514,6 +523,7 @@ namespace WizardsVRC
             for (int i = 0; i < QUEST_SLOTS; i++)
                 questProgress[i] = i < questUsed ? (byte)ReadU8() : (byte)0;
 
+            trackedQuest = 0;
             if (version < 2)
             {
                 MigrateSpellsFromV1();
@@ -525,6 +535,11 @@ namespace WizardsVRC
             if (learnedUsed > LEARNED_BYTES || !Need(learnedUsed)) { lastError = "bad spells"; return false; }
             for (int i = 0; i < LEARNED_BYTES; i++)
                 learnedSpells[i] = i < learnedUsed ? (byte)ReadU8() : (byte)0;
+
+            if (version < 3) return true;
+            if (!Need(1)) return false;
+            trackedQuest = ReadU8();
+            if (trackedQuest >= QUEST_SLOTS) trackedQuest = NO_TRACKED_QUEST;
             return true;
         }
 
