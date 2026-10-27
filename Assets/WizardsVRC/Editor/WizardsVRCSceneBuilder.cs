@@ -1050,7 +1050,6 @@ namespace WizardsVRC.EditorTools
             }
 
             // School-coloured particle burst that explodes off the caster at the cast sound's peak.
-            Shader particleShader = Shader.Find("Particles/Standard Unlit");
             client.castBursts = new ParticleSystem[SchoolLabels.Length + 1];
             for (int k = 0; k <= SchoolLabels.Length; k++)
             {
@@ -1080,15 +1079,9 @@ namespace WizardsVRC.EditorTools
                 sizeLife.enabled = true;
                 sizeLife.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
                 var pr = go.GetComponent<ParticleSystemRenderer>();
-                Material pm = particleShader != null ? new Material(particleShader) : Mat("CastBurst" + label, c);
-                if (particleShader != null)
-                {
-                    pm.name = "CastBurst" + label;
-                    pm.SetColor("_Color", Color.white);
-                    string pmPath = MaterialsDir + "/CastBurst" + label + ".mat";
-                    AssetDatabase.DeleteAsset(pmPath);
-                    AssetDatabase.CreateAsset(pm, pmPath);
-                }
+                // Same emissive school material as the shield/blade icons: the built-in particle shaders can be stripped
+                // from the VRChat build (they rendered as magenta), so stay on the Standard shader.
+                Material pm = client.fxMats[k];
                 pr.sharedMaterial = pm;
                 pr.renderMode = ParticleSystemRenderMode.Billboard;
                 client.castBursts[k] = ps;
