@@ -526,7 +526,7 @@ namespace WizardsVRC
             if (sc == 1) taunt[s] = 1;
             int t = EnemyTarget(s);
             if (t < 0) { AddAct(group, s, s, 0, KIND_PASS, 0); return; }
-            int amount = Hit(s, t, power, sc, 100, 0);
+            int amount = Hit(s, t, power * Random.Range(90, 111) / 100, sc, 100, 0);
             AddAct(group, s, t, card, KIND_DAMAGE, amount);
             if (sc == 4 && amount > 0)
             {
@@ -536,12 +536,11 @@ namespace WizardsVRC
             }
         }
 
-        /// <summary>One hit from slot s: variance, damage bonus, blade multiplier, the target's traps/shields and resist.
+        /// <summary>One hit from slot s (power already rolled): damage bonus, blade multiplier, the target's traps/shields and resist.
         /// pierce% of the shield block and resist is ignored.</summary>
         private int Hit(int s, int t, int power, int spellSchool, int bladeMul, int pierce)
         {
-            int amount = power * Random.Range(90, 111) / 100;
-            amount = amount * (100 + dmgPct[s]) / 100;
+            int amount = power * (100 + dmgPct[s]) / 100;
             amount = amount * bladeMul / 100;
             amount = amount * UseFx(traps, t, spellSchool, true) / 100;
             int shieldMul = UseFx(shields, t, spellSchool, false);
@@ -642,7 +641,7 @@ namespace WizardsVRC
                     if (effect == CardDatabase.EFFECT_SHATTER) ClearFx(shields, t);
                     if (power > 0)
                     {
-                        int amount = Hit(s, t, power, spellSchool, bladeMul, pierce);
+                        int amount = Hit(s, t, cardDatabase.RollPower(cardId), spellSchool, bladeMul, pierce);
                         total += amount;
                         AddAct(group, s, t, cardId, KIND_DAMAGE, amount);
                     }

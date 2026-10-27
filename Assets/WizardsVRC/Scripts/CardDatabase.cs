@@ -7,7 +7,8 @@ namespace WizardsVRC
     /// Static spell card definitions (original placeholder spells). Each school has a 12-spell tree, tier k having
     /// id 100 + school * 12 + k; each tier needs the one before it (<see cref="prereqs"/>). General cards are 200+.
     /// <see cref="aux"/> is effect-specific: pierce % for damage, heal % for drain, burn total for DoT, rounds for taunt,
-    /// minion action power, and 1 = "any school" for shields/blades/traps.
+    /// minion action power, and 1 = "any school" for shields/blades/traps. Damage spells hit for a random amount from
+    /// <see cref="powers"/> (min) to <see cref="powerMax"/> (max); powerMax 0 = a fixed value.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CardDatabase : UdonSharpBehaviour
@@ -112,13 +113,13 @@ namespace WizardsVRC
         };
         [HideInInspector] public int[] powers =
         {
-            80, 0, 35, 30, 60, 50, 180, 400, 40, 60, 360, 420,
-            65, 25, 35, 30, 150, 30, 260, 700, 30, 60, 440, 480,
-            110, 220, 35, 30, 260, 50, 480, 300, 30, 70, 720, 780,
-            70, 250, 35, 30, 150, 50, 280, 500, 320, 900, 460, 520,
-            70, 140, 35, 30, 150, 50, 300, 450, 60, 500, 480, 520,
-            85, 160, 35, 30, 300, 0, 280, 650, 50, 120, 500, 600,
-            80, 165, 25, 25, 200, 50, 330, 500, 35, 35, 520, 560,
+            65, 0, 35, 30, 50, 50, 145, 400, 40, 60, 290, 335,
+            50, 25, 35, 30, 120, 30, 210, 700, 30, 60, 350, 385,
+            90, 175, 35, 30, 210, 50, 385, 300, 30, 70, 575, 625,
+            55, 250, 35, 30, 150, 50, 225, 500, 320, 900, 370, 415,
+            55, 110, 35, 30, 120, 50, 240, 450, 60, 400, 385, 415,
+            70, 130, 35, 30, 300, 0, 225, 650, 50, 95, 400, 480,
+            65, 130, 25, 25, 160, 50, 265, 500, 35, 35, 415, 450,
             50, 100, 25, 15,
         };
         [HideInInspector] public int[] effects =
@@ -174,6 +175,17 @@ namespace WizardsVRC
             50, 50, 0, 0, 30, 0, 50, 90, 0, 100, 50, 30,
             0, 0, 0, 0, 80, 0, 0, 130, 0, 0, 30, 20,
             0, 0, 1, 1, 0, 0, 0, 100, 0, 0, 0, 0,
+            0, 0, 0, 0,
+        };
+        [HideInInspector] public int[] powerMax =
+        {
+            95, 0, 0, 0, 70, 0, 215, 0, 0, 0, 430, 505,
+            80, 0, 0, 0, 180, 0, 310, 0, 0, 0, 530, 575,
+            130, 265, 0, 0, 310, 0, 575, 0, 0, 0, 865, 935,
+            85, 0, 0, 0, 0, 0, 335, 0, 0, 0, 550, 625,
+            85, 170, 0, 0, 180, 0, 360, 0, 0, 600, 575, 625,
+            100, 190, 0, 0, 0, 0, 335, 0, 0, 145, 600, 720,
+            95, 200, 0, 0, 240, 0, 395, 0, 0, 0, 625, 670,
             0, 0, 0, 0,
         };
 
@@ -236,6 +248,16 @@ namespace WizardsVRC
         }
 
         public int GetPrereq(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : prereqs[i]; }
+        public int GetPowerMax(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : powerMax[i]; }
+
+        /// <summary>A random amount between the card's min and max power (inclusive), or its fixed power.</summary>
+        public int RollPower(int cardId)
+        {
+            int i = IndexOf(cardId);
+            if (i < 0) return 0;
+            return powerMax[i] > powers[i] ? Random.Range(powers[i], powerMax[i] + 1) : powers[i];
+        }
+
         public int GetAux(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : aux[i]; }
         public int BasicSpell(int school) { return 100 + school * TIERS; }
         public int TierOf(int cardId) { return GetSchool(cardId) == GENERAL ? -1 : (cardId - 100) % TIERS; }
@@ -310,18 +332,19 @@ namespace WizardsVRC
             if (i < 0) return "";
             int p = powers[i];
             int x = aux[i];
+            string range = powerMax[i] > p ? p.ToString() + "-" + powerMax[i].ToString() : p.ToString();
             string dmg = " " + SchoolName(schools[i]) + " damage" + (aoe[i] != 0 ? " to all enemies" : "");
             switch (effects[i])
             {
-                case EFFECT_DAMAGE: return "Deals " + p.ToString() + dmg + (x > 0 ? ", ignoring " + x.ToString() + "% of shields and resist." : ".");
+                case EFFECT_DAMAGE: return "Deals " + range + dmg + (x > 0 ? ", ignoring " + x.ToString() + "% of shields and resist." : ".");
                 case EFFECT_DOT:
-                    return (p > 0 ? "Deals " + p.ToString() + dmg + ", then burns" : "Burns" + (aoe[i] != 0 ? " all enemies" : "")) + " for " +
+                    return (p > 0 ? "Deals " + range + dmg + ", then burns" : "Burns" + (aoe[i] != 0 ? " all enemies" : "")) + " for " +
                            x.ToString() + " more over " + DOT_ROUNDS.ToString() + " rounds.";
                 case EFFECT_DETONATE: return "Sets off all of a target's burns at once, for +" + p.ToString() + "% damage.";
                 case EFFECT_TAUNT:
                     return "Taunt: monsters must attack you for " + x.ToString() + " rounds, and you gain a " + p.ToString() + "% shield against every school.";
-                case EFFECT_STUN: return "Deals " + p.ToString() + dmg + ". Targets hit lose their next turn.";
-                case EFFECT_SHATTER: return "Breaks every shield on the target, then deals " + p.ToString() + dmg + ".";
+                case EFFECT_STUN: return "Deals " + range + dmg + ". Targets hit lose their next turn.";
+                case EFFECT_SHATTER: return "Breaks every shield on the target, then deals " + range + dmg + ".";
                 case EFFECT_DISPEL: return "Removes every shield and blade on an enemy.";
                 case EFFECT_MINION:
                     return "Summons a " + SchoolName(schools[i]) + " minion with " + p.ToString() + " health that fights beside you (" + x.ToString() + " power).";
@@ -342,7 +365,7 @@ namespace WizardsVRC
                            " (+" + p.ToString() + "% each).";
                 }
                 case EFFECT_DRAIN:
-                    return "Deals " + p.ToString() + dmg + " and heals you for " + (x > 0 ? x : 50).ToString() + "% of it.";
+                    return "Deals " + range + dmg + " and heals you for " + (x > 0 ? x : 50).ToString() + "% of it.";
                 case EFFECT_FOCUS: return "Next spell gains +" + p.ToString() + "% accuracy.";
                 default: return "";
             }
