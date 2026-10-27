@@ -975,9 +975,9 @@ namespace WizardsVRC.EditorTools
             for (int k = 0; k <= SchoolLabels.Length; k++)
             {
                 string label = k < SchoolLabels.Length ? SchoolLabels[k] : "General";
-                Color c = k < SchoolLabels.Length ? SchoolColors[k] : new Color(0.85f, 0.85f, 0.9f);
                 Texture2D gt = PixelTexture(TexturesDir + "/CastGlyph" + label + ".png");
-                client.castGlyphMats[k] = CutoutMat("CastGlyph" + label, gt, Color.Lerp(c, Color.white, 0.35f), c * 2f);
+                // The glyph PNGs are painted in school colours, so the material stays untinted and just glows.
+                client.castGlyphMats[k] = CutoutMat("CastGlyph" + label, gt, Color.white, Color.white * 0.9f);
             }
             var burst = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             burst.name = "ImpactBurst";
