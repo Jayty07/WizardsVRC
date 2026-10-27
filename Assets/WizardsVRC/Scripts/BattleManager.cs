@@ -64,8 +64,7 @@ namespace WizardsVRC
         public float impactSeconds = 1.0f;
 
         [Header("Encounter")]
-        public MonsterDatabase monsterDatabase;
-        [Tooltip("Monster ids (MonsterDatabase) in this fight; roster[0] takes the boss seat.")]
+        [Tooltip("Monster ids (CardDatabase monster table) in this fight; roster[0] takes the boss seat.")]
         public int[] roster = { 1, 2, 2, 2 };
         [Tooltip("Spawn roster[0] plus one more monster per wizard (the Training Yard boss fight) instead of the whole roster.")]
         public bool scaleRosterWithParty = true;
@@ -83,7 +82,7 @@ namespace WizardsVRC
         [UdonSynced] public int firstSide;
         [UdonSynced] public int[] queueIds = new int[SIDE];
 
-        /// <summary>Wizard slots: player id. Monster slots: monster id (MonsterDatabase). Summoned minions (either side): -cardId. 0 = empty.</summary>
+        /// <summary>Wizard slots: player id. Monster slots: monster id (CardDatabase monster table). Summoned minions (either side): -cardId. 0 = empty.</summary>
         [UdonSynced] public int[] slotIds = new int[SLOTS];
         [UdonSynced] public int[] hp = new int[SLOTS];
         [UdonSynced] public int[] maxHp = new int[SLOTS];
@@ -224,7 +223,7 @@ namespace WizardsVRC
         {
             if (!Occupied(s)) return "";
             if (slotIds[s] < 0) return cardDatabase.GetName(-slotIds[s]);
-            if (s >= SIDE) return monsterDatabase != null ? monsterDatabase.GetName(slotIds[s]) : "Monster";
+            if (s >= SIDE) return cardDatabase != null ? cardDatabase.MonsterName(slotIds[s]) : "Monster";
             VRCPlayerApi p = VRCPlayerApi.GetPlayerById(slotIds[s]);
             return Utilities.IsValid(p) ? p.displayName : "Wizard";
         }
@@ -470,8 +469,8 @@ namespace WizardsVRC
             for (int m = 0; m < count; m++)
             {
                 int id = roster[m];
-                int health = monsterDatabase.GetHp(id) + (monsterDatabase.IsBoss(id) ? monsterDatabase.GetHpPerExtraPlayer(id) * (n - 1) : 0);
-                SetMonster(BOSS_SLOT + m, id, monsterDatabase.GetSchool(id), monsterDatabase.GetLevel(id), health);
+                int health = cardDatabase.MonsterHp(id) + (cardDatabase.IsBossMonster(id) ? cardDatabase.MonsterHpPerExtraPlayer(id) * (n - 1) : 0);
+                SetMonster(BOSS_SLOT + m, id, cardDatabase.MonsterSchool(id), cardDatabase.MonsterLevel(id), health);
             }
             if (count == 0) { phase = PHASE_IDLE; Publish(); return; }
 
@@ -568,9 +567,9 @@ namespace WizardsVRC
             int monster = slotIds[s];
             int best = 0;
             int affordable = 0;
-            for (int i = 0; i < MonsterDatabase.SPELLS_PER_MONSTER; i++)
+            for (int i = 0; i < CardDatabase.MONSTER_SPELLS; i++)
             {
-                int spell = monsterDatabase.GetSpell(monster, i);
+                int spell = cardDatabase.MonsterSpell(monster, i);
                 if (spell == 0 || cardDatabase.GetPipCost(spell) > pips[s]) continue;
                 affordable++;
                 // Prefer the strongest affordable spell, but sometimes hold pips for a bigger one later.

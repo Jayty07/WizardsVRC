@@ -15,7 +15,7 @@ namespace WizardsVRC
     {
         public BattleManager manager;
         public BattleClient client;
-        public MonsterDatabase monsterDatabase;
+        public CardDatabase cardDatabase;
         public int monsterId;
         public Transform center;
         public float radius = 12f;
@@ -29,8 +29,8 @@ namespace WizardsVRC
 
         private void Start()
         {
-            if (label != null && monsterDatabase != null)
-                label.text = monsterDatabase.GetName(monsterId) + "\nLevel " + monsterDatabase.GetLevel(monsterId).ToString();
+            if (label != null && cardDatabase != null)
+                label.text = cardDatabase.MonsterName(monsterId) + "\nLevel " + cardDatabase.MonsterLevel(monsterId).ToString();
         }
 
         private void Update()
