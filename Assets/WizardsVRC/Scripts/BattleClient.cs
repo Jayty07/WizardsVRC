@@ -38,6 +38,9 @@ namespace WizardsVRC
         public Material[] castGlyphMats;
         public Transform impactBurst;
         public Renderer impactRenderer;
+        public AudioSource castAudio;
+        [Tooltip("Indexed by School. General spells play no cast sound.")]
+        public AudioClip[] castSounds;
         public Transform[] stagingSpots;
         public Transform arenaCenter;
         public float engageRadius = 14f;
@@ -561,6 +564,17 @@ namespace WizardsVRC
             }
             if (orb != null) orb.gameObject.SetActive(false);
             if (impactBurst != null) impactBurst.gameObject.SetActive(false);
+            PlayCastSound(from, school);
+        }
+
+        private void PlayCastSound(int from, int school)
+        {
+            if (castAudio == null) return;
+            castAudio.Stop();
+            if (castSounds == null || school < 0 || school >= castSounds.Length || castSounds[school] == null) return;
+            castAudio.transform.position = seats[from].position + Vector3.up * 1.2f;
+            castAudio.clip = castSounds[school];
+            castAudio.Play();
         }
 
         private void EndCast()
