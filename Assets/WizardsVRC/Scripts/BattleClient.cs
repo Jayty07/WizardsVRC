@@ -362,7 +362,7 @@ namespace WizardsVRC
             c.gold += gold;
             string msg = "+" + xp.ToString() + " XP   +" + gold.ToString() + " gold" + drops;
             int levels = c.AddXp(xp);
-            if (questManager != null) questManager.OnBattleWon();
+            if (questManager != null) questManager.OnBattleWon(manager);
             if (levels > 0) msg += "\nLevel up! You are now level " + c.level.ToString() + ". +" + levels.ToString() + " Training Point" + (levels > 1 ? "s" : "") + ".";
             if (drops.Length == 0 && lootTable.Length > 0 && Random.value < 0.3f)
             {

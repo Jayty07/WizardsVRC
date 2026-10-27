@@ -397,7 +397,7 @@ namespace WizardsVRC.EditorTools
 
         /// <summary>Quest manager, NPC talk relays, doors and the quest cutscenes (filmed in the real rooms).</summary>
         private static List<UdonSharpBehaviour> BuildQuests(Transform systems, Interior info, CutscenePlayer player, PlayerState playerState,
-            PlayerHUD hud, Transform hubRoot, SpellTrainer trainer, InteractionMenu menu)
+            PlayerHUD hud, Transform hubRoot, SpellTrainer trainer, InteractionMenu menu, Transform arenaPad)
         {
             var list = new List<UdonSharpBehaviour>();
             var qm = UdonSharpUndo.AddComponent<QuestManager>(Child(systems, "QuestManager", Vector3.zero).gameObject);
@@ -406,6 +406,8 @@ namespace WizardsVRC.EditorTools
             qm.hud = hud;
             qm.schoolNames = (string[])SchoolLabels.Clone();
             qm.professorNames = (string[])ProfessorNames.Clone();
+            // Quest tables. Steps are flattened as quest * MAX_STEPS + step; {professor} / {school} are filled in at runtime.
+            int MS = QuestManager.MAX_STEPS;
             qm.questTitles = new[] { "The Prophecy", "Trial of the School" };
             qm.questDescriptions = new[]
             {
@@ -414,7 +416,29 @@ namespace WizardsVRC.EditorTools
                 "You have grown strong enough for your school's trial. Prove yourself in battle and your professor will teach you "
                 + "a spell that is never taught in the classroom.",
             };
-            qm.questRewards = new[] { qm.prophecyXp + " XP, " + qm.prophecyGold + " gold", "Your school's trial spell (level " + QuestManager.TRIAL_LEVEL + ")" };
+            qm.questRewards = new[] { "100 XP, 50 gold", "Your school's trial spell (level " + QuestManager.TRIAL_LEVEL + ")" };
+            qm.questXp = new[] { 100, 400 };
+            qm.questGold = new[] { 50, 200 };
+            qm.questItems = new[] { 0, 0 };
+            qm.questSpells = new[] { 0, QuestManager.SPELL_OWN_SCHOOL_QUEST };
+            qm.questPrereqs = new[] { -1, 0 };
+            qm.questMinLevels = new[] { 1, QuestManager.TRIAL_LEVEL };
+            qm.questAutoStart = new[] { 1, 1 };
+            qm.questGivers = new[] { QuestManager.NPC_HEADMASTER, QuestManager.NPC_OWN_PROFESSOR };
+            qm.questStepCounts = new[] { 2, 3 };
+            int nq = qm.questTitles.Length;
+            qm.stepTypes = new int[nq * MS];
+            qm.stepParams = new int[nq * MS];
+            qm.stepCounts = new int[nq * MS];
+            qm.stepTexts = new string[nq * MS];
+            qm.stepTargetNames = new string[nq * MS];
+            qm.stepTargets = new Transform[nq * MS];
+            for (int i = 0; i < nq * MS; i++) { qm.stepCounts[i] = 1; qm.stepTexts[i] = ""; qm.stepTargetNames[i] = ""; }
+            SetStep(qm, 0, 0, QuestManager.STEP_TALK, QuestManager.NPC_OWN_PROFESSOR, 1, "Find {professor} in the {school} classroom (Hall of Schools)", "{professor}", null);
+            SetStep(qm, 0, 1, QuestManager.STEP_TALK, QuestManager.NPC_HEADMASTER, 1, "Return to Headmaster Greymantle's office", "Headmaster Greymantle", null);
+            SetStep(qm, 1, 0, QuestManager.STEP_TALK, QuestManager.NPC_OWN_PROFESSOR, 1, "Speak with {professor} about your trial", "{professor}", null);
+            SetStep(qm, 1, 1, QuestManager.STEP_BOSS, 1, 1, "Defeat Gloomfang the Warden in the arena (Training Yard)", "Arena teleporter", arenaPad);
+            SetStep(qm, 1, 2, QuestManager.STEP_TALK, QuestManager.NPC_OWN_PROFESSOR, 1, "Return to {professor}", "{professor}", null);
             qm.professorTargets = (Transform[])info.professors.Clone();
             qm.headmasterTarget = info.headmaster;
             list.Add(qm);
@@ -446,9 +470,13 @@ namespace WizardsVRC.EditorTools
             Transform[] officeShots = OfficeShots(info);
             qm.headmasterReport = MakeCutscene(sets, "HeadmasterReport", "Headmaster Greymantle", ReportLines, "hm_report", officeShots);
             qm.headmasterReport.onFinished = qm;
-            qm.headmasterReport.onFinishedEvent = nameof(QuestManager.OnReportFinished);
+            qm.headmasterReport.onFinishedEvent = nameof(QuestManager.OnHeadmasterFinished);
             qm.headmasterHint = MakeCutscene(sets, "HeadmasterHint", "Headmaster Greymantle", HintLines, "hm_hint", new[] { officeShots[1] });
+            qm.headmasterHint.onFinished = qm;
+            qm.headmasterHint.onFinishedEvent = nameof(QuestManager.OnHeadmasterFinished);
             qm.headmasterIdle = MakeCutscene(sets, "HeadmasterIdle", "Headmaster Greymantle", IdleLines, "hm_idle", new[] { officeShots[2] });
+            qm.headmasterIdle.onFinished = qm;
+            qm.headmasterIdle.onFinishedEvent = nameof(QuestManager.OnHeadmasterFinished);
             list.Add(qm.headmasterReport);
             list.Add(qm.headmasterHint);
             list.Add(qm.headmasterIdle);
@@ -472,6 +500,17 @@ namespace WizardsVRC.EditorTools
             list.Add(enter);
             WorldText(hubRoot, "KeepEntranceLabel", new Vector3(0, 11.6f, 45.7f), Quaternion.identity, new Vector2(1200, 160), 0.004f, "Hall of Schools (click door)", 70).color = new Color(1f, 0.85f, 0.4f);
             return list;
+        }
+
+        private static void SetStep(QuestManager qm, int quest, int step, int type, int param, int count, string text, string targetName, Transform target)
+        {
+            int i = quest * QuestManager.MAX_STEPS + step;
+            qm.stepTypes[i] = type;
+            qm.stepParams[i] = param;
+            qm.stepCounts[i] = count;
+            qm.stepTexts[i] = text;
+            qm.stepTargetNames[i] = targetName;
+            qm.stepTargets[i] = target;
         }
 
         private static Transform[] OfficeShots(Interior info)

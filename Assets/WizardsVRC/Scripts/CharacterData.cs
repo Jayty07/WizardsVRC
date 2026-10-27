@@ -25,12 +25,14 @@ namespace WizardsVRC
 /// Payload v3 appends:
 ///   trackedQuest u8 (NO_TRACKED_QUEST = nothing tracked)
 /// v4: same layout; spell ids moved to the 12-tier trees (100 + school * 12 + tier), so older saves are migrated.
+/// Payload v5 appends:
+///   counterUsed u8, then counterUsed * questCounters byte (step progress per quest)
     /// Worst case is about 0.9 KB raw / 1.2 KB base64 (budget: 2 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 4;
+        public const int FORMAT_VERSION = 5;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -83,6 +85,8 @@ namespace WizardsVRC
         public byte[] questProgress = new byte[QUEST_SLOTS];
         [Tooltip("Quest id shown on the HUD and guided to, or NO_TRACKED_QUEST.")]
         public int trackedQuest;
+        [Tooltip("Progress within the current step of each quest (e.g. 2 of 3 defeated).")]
+        public byte[] questCounters = new byte[QUEST_SLOTS];
 
         [Header("Spells (bit n of learnedSpells = card id 100 + n)")]
         public int trainingPoints;
@@ -111,7 +115,7 @@ namespace WizardsVRC
             for (int i = 0; i < INVENTORY_SLOTS; i++) { inventoryItemIds[i] = 0; inventoryCounts[i] = 0; }
             for (int i = 0; i < deckCards.Length; i++) deckCards[i] = 0;
             for (int i = 0; i < DECK_COUNT; i++) deckLengths[i] = 0;
-            for (int i = 0; i < QUEST_SLOTS; i++) questProgress[i] = 0;
+            for (int i = 0; i < QUEST_SLOTS; i++) { questProgress[i] = 0; questCounters[i] = 0; }
             for (int i = 0; i < LEARNED_BYTES; i++) learnedSpells[i] = 0;
             trainingPoints = 0;
             trackedQuest = 0;
@@ -167,6 +171,7 @@ namespace WizardsVRC
             System.Array.Copy(other.deckCards, deckCards, DECK_COUNT * DECK_SIZE);
             System.Array.Copy(other.deckLengths, deckLengths, DECK_COUNT);
             System.Array.Copy(other.questProgress, questProgress, QUEST_SLOTS);
+            System.Array.Copy(other.questCounters, questCounters, QUEST_SLOTS);
             System.Array.Copy(other.learnedSpells, learnedSpells, LEARNED_BYTES);
             trainingPoints = other.trainingPoints;
             trackedQuest = other.trackedQuest;
@@ -180,6 +185,7 @@ namespace WizardsVRC
             if (deckCards == null || deckCards.Length != DECK_COUNT * DECK_SIZE) deckCards = new ushort[DECK_COUNT * DECK_SIZE];
             if (deckLengths == null || deckLengths.Length != DECK_COUNT) deckLengths = new byte[DECK_COUNT];
             if (questProgress == null || questProgress.Length != QUEST_SLOTS) questProgress = new byte[QUEST_SLOTS];
+            if (questCounters == null || questCounters.Length != QUEST_SLOTS) questCounters = new byte[QUEST_SLOTS];
             if (learnedSpells == null || learnedSpells.Length != LEARNED_BYTES) learnedSpells = new byte[LEARNED_BYTES];
         }
 
@@ -413,6 +419,10 @@ namespace WizardsVRC
             for (int i = 0; i < learnedUsed; i++) WriteU8(learnedSpells[i]);
 
             WriteU8(trackedQuest >= 0 && trackedQuest < QUEST_SLOTS ? trackedQuest : NO_TRACKED_QUEST);
+            int counterUsed = 0;
+            for (int i = 0; i < QUEST_SLOTS; i++) if (questCounters[i] != 0) counterUsed = i + 1;
+            WriteU8(counterUsed);
+            for (int i = 0; i < counterUsed; i++) WriteU8(questCounters[i]);
 
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
@@ -555,6 +565,14 @@ namespace WizardsVRC
                 if (trackedQuest >= QUEST_SLOTS) trackedQuest = NO_TRACKED_QUEST;
             }
             if (version < 4) MigrateSpellTree();
+            for (int i = 0; i < QUEST_SLOTS; i++) questCounters[i] = 0;
+            if (version >= 5)
+            {
+                if (!Need(1)) return false;
+                int counterUsed = ReadU8();
+                if (counterUsed > QUEST_SLOTS || !Need(counterUsed)) { lastError = "bad counters"; return false; }
+                for (int i = 0; i < counterUsed; i++) questCounters[i] = (byte)ReadU8();
+            }
             return true;
         }
 
