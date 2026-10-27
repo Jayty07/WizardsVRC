@@ -122,13 +122,12 @@ namespace WizardsVRC.EditorTools
             var deckPages = UdonSharpUndo.AddComponent<DeckPages>(Child(systems.transform, "DeckPages", Vector3.zero).gameObject);
             var questPages = UdonSharpUndo.AddComponent<QuestPages>(Child(systems.transform, "QuestPages", Vector3.zero).gameObject);
             questPages.playerState = playerState;
-            var monsterDb = UdonSharpUndo.AddComponent<MonsterDatabase>(Child(systems.transform, "MonsterDatabase", Vector3.zero).gameObject);
             // Encounters: the Training Yard boss fight (queue pad) plus two wandering-monster lanes beside it. Each has its
             // own synced BattleManager, local BattleClient and duel circle (see BuildEncounter).
             var encounters = new System.Collections.Generic.List<BattleClient>();
-            var battleClient = MakeEncounter(systems.transform, "Arena", cardDb, itemDb, monsterDb, playerState, hubSpawn, new[] { 1, 2, 2, 2 }, false, encounters);
-            var laneA = MakeEncounter(systems.transform, "LaneRats", cardDb, itemDb, monsterDb, playerState, hubSpawn, new[] { 4, 4 }, true, encounters);
-            var laneB = MakeEncounter(systems.transform, "LaneSprites", cardDb, itemDb, monsterDb, playerState, hubSpawn, new[] { 3, 3, 3 }, true, encounters);
+            var battleClient = MakeEncounter(systems.transform, "Arena", cardDb, itemDb, playerState, hubSpawn, new[] { 1, 2, 2, 2 }, false, encounters);
+            var laneA = MakeEncounter(systems.transform, "LaneRats", cardDb, itemDb, playerState, hubSpawn, new[] { 4, 4 }, true, encounters);
+            var laneB = MakeEncounter(systems.transform, "LaneSprites", cardDb, itemDb, playerState, hubSpawn, new[] { 3, 3, 3 }, true, encounters);
             var battle = battleClient.manager;
 
             teleporter.defaultTarget = hubSpawn;
@@ -180,7 +179,7 @@ namespace WizardsVRC.EditorTools
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
             toSync.AddRange(quests);
             toSync.AddRange(learning);
-            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, monsterDb, queuePad, questPages, questGuide }) toSync.Add(b);
+            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, queuePad, questPages, questGuide }) toSync.Add(b);
             foreach (var ec in encounters) { toSync.Add(ec.manager); toSync.Add(ec); foreach (var w in ec.GetComponentsInChildren<Wanderer>(true)) toSync.Add(w); }
             foreach (var b in toSync)
             {
@@ -215,8 +214,10 @@ namespace WizardsVRC.EditorTools
         private static bool EnsureProgramAssets()
         {
             Directory.CreateDirectory(ProgramsDir);
+            // MonsterDatabase was merged into CardDatabase; drop its old program asset so UdonSharp doesn't look for the script.
+            AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "MonsterDatabase", "Wanderer", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -791,14 +792,13 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>One encounter = synced BattleManager + local BattleClient (+ wanderers), wired to the shared databases.</summary>
-        private static BattleClient MakeEncounter(Transform systems, string name, CardDatabase cardDb, ItemDatabase itemDb, MonsterDatabase monsterDb,
+        private static BattleClient MakeEncounter(Transform systems, string name, CardDatabase cardDb, ItemDatabase itemDb,
             PlayerState playerState, Transform hubReturn, int[] roster, bool wander, System.Collections.Generic.List<BattleClient> all)
         {
             var holder = Child(systems, "Encounter_" + name, Vector3.zero);
             var manager = UdonSharpUndo.AddComponent<BattleManager>(Child(holder, "BattleManager", Vector3.zero).gameObject);
             var client = UdonSharpUndo.AddComponent<BattleClient>(Child(holder, "BattleClient", Vector3.zero).gameObject);
             manager.cardDatabase = cardDb;
-            manager.monsterDatabase = monsterDb;
             manager.client = client;
             manager.roster = roster;
             manager.wanderMode = wander;
@@ -807,7 +807,6 @@ namespace WizardsVRC.EditorTools
             client.playerState = playerState;
             client.itemDatabase = itemDb;
             client.cardDatabase = cardDb;
-            client.monsterDatabase = monsterDb;
             client.hubReturn = hubReturn;
             all.Add(client);
             return client;
@@ -1140,8 +1139,8 @@ namespace WizardsVRC.EditorTools
             for (int w = 0; w < wanderCount && roster != null && roster.Length > 0; w++)
             {
                 int monsterId = roster[w % roster.Length];
-                int sc = client.manager.monsterDatabase.GetSchool(monsterId);
-                float ms = client.manager.monsterDatabase.GetBodyScale(monsterId);
+                int sc = client.cardDatabase.MonsterSchool(monsterId);
+                float ms = client.cardDatabase.MonsterBodyScale(monsterId);
                 Transform wt = Child(root, "Wanderer" + w, Vector3.zero);
                 var wanderer = UdonSharpUndo.AddComponent<Wanderer>(wt.gameObject);
                 var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -1155,7 +1154,7 @@ namespace WizardsVRC.EditorTools
                 wanderer.label = WorldText(wt, "Label", new Vector3(0, ms * 2f + 0.6f, 0), Quaternion.identity, new Vector2(500, 140), 0.004f, "", 34);
                 wanderer.manager = client.manager;
                 wanderer.client = client;
-                wanderer.monsterDatabase = client.manager.monsterDatabase;
+                wanderer.cardDatabase = client.cardDatabase;
                 wanderer.monsterId = monsterId;
                 wanderer.center = client.arenaCenter;
                 wanderer.radius = DuelCircleRadius + 3f;

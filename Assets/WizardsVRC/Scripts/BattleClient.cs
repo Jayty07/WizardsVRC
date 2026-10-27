@@ -18,7 +18,6 @@ namespace WizardsVRC
         public PlayerState playerState;
         public ItemDatabase itemDatabase;
         public CardDatabase cardDatabase;
-        public MonsterDatabase monsterDatabase;
 
         [Header("World")]
         public Transform hubReturn;
@@ -351,11 +350,11 @@ namespace WizardsVRC
             for (int s = BattleManager.SIDE; s < BattleManager.SLOTS; s++)
             {
                 int id = manager.MonsterAt(s);
-                if (id == 0 || monsterDatabase == null) continue;
-                xp += monsterDatabase.GetXp(id);
-                gold += monsterDatabase.RollGold(id);
-                int item = monsterDatabase.GetDropItem(id);
-                if (item > 0 && Random.Range(0, 100) < monsterDatabase.GetDropChance(id) && c.AddItem(item, 1))
+                if (id == 0 || cardDatabase == null) continue;
+                xp += cardDatabase.MonsterXp(id);
+                gold += cardDatabase.RollMonsterGold(id);
+                int item = cardDatabase.MonsterDropItem(id);
+                if (item > 0 && Random.Range(0, 100) < cardDatabase.MonsterDropChance(id) && c.AddItem(item, 1))
                     drops += "\nLoot: " + itemDatabase.GetName(item);
             }
             if (xp == 0) { xp = 60 + 25 * manager.MonsterCount(); gold = Random.Range(30, 61); }
