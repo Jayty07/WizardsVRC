@@ -10,6 +10,10 @@ namespace WizardsVRC
     {
         [Tooltip("Default destination used by Interact() and TeleportToDefault().")]
         public Transform defaultTarget;
+        [Tooltip("Zone roots switched on for the local player when this door is used (the zone being entered).")]
+        public GameObject[] showZones;
+        [Tooltip("Zone roots switched off for the local player when this door is used, so nothing of them renders.")]
+        public GameObject[] hideZones;
 
         public void TeleportTo(Transform target)
         {
@@ -21,7 +25,17 @@ namespace WizardsVRC
 
         public void TeleportToDefault()
         {
+            SwitchZones();
             TeleportTo(defaultTarget);
+        }
+
+        /// <summary>Street sets are unloaded locally while the player is elsewhere (see the World 1 plan).</summary>
+        public void SwitchZones()
+        {
+            if (hideZones != null)
+                for (int i = 0; i < hideZones.Length; i++) if (hideZones[i] != null) hideZones[i].SetActive(false);
+            if (showZones != null)
+                for (int i = 0; i < showZones.Length; i++) if (showZones[i] != null) showZones[i].SetActive(true);
         }
 
         public override void Interact()
