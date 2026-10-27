@@ -30,31 +30,60 @@ namespace WizardsVRC.EditorTools
             Material dead = Mat("LR_DeadLamp", new Color(0.12f, 0.12f, 0.14f));
             Material door = PMat("LR_Door", new Color(0.35f, 0.2f, 0.12f), 2f);
 
-            // ---- the street: a long crooked lane of leaning houses, z 0 (gate) -> 110 (Snuffer's Tower)
-            Block(root, "Ground", new Vector3(0, -0.25f, 55), new Vector3(40, 0.5f, 130), cobble);
-            for (int i = 0; i < 9; i++)
+            // ---- the street: a long winding cobbled path through a walled, overgrown old quarter, gate (z 0) -> Snuffer's Tower (z ~330)
+            Material moss = Mat("LR_Moss", new Color(0.13f, 0.16f, 0.13f));
+            Vector3[] path = LanternRowPath;
+            Vector3 min = path[0], max = path[0];
+            foreach (var w in path) { min = Vector3.Min(min, w); max = Vector3.Max(max, w); }
+            min -= new Vector3(40, 0, 14); max += new Vector3(40, 0, 20);
+            Vector3 mid = (min + max) / 2f, size = max - min;
+            Block(root, "Ground", new Vector3(mid.x, -0.25f, mid.z), new Vector3(size.x, 0.5f, size.z), moss);
+            Block(root, "WallW", new Vector3(min.x, 4, mid.z), new Vector3(1, 8, size.z), wall);
+            Block(root, "WallE", new Vector3(max.x, 4, mid.z), new Vector3(1, 8, size.z), wall);
+            Block(root, "WallS", new Vector3(mid.x, 4, min.z), new Vector3(size.x, 8, 1), wall);
+            Block(root, "WallN", new Vector3(mid.x, 4, max.z), new Vector3(size.x, 8, 1), wall);
+            for (int i = 0; i + 1 < path.Length; i++)
             {
-                float z = 6 + i * 11f;
-                foreach (float side in new[] { -1f, 1f })
-                {
-                    float h = 6f + (i * 7 + (side > 0 ? 3 : 0)) % 4;
-                    var rot = Quaternion.Euler(0, 0, side * (2f + i % 3));
-                    Block(root, "House", new Vector3(side * 15f, h / 2f, z), new Vector3(8, h, 9), wall, rot);
-                    Block(root, "Roof", new Vector3(side * 15f, h + 0.6f, z), new Vector3(9, 1.2f, 10), roof, rot);
-                }
+                Vector3 a = path[i], b = path[i + 1], d = b - a;
+                Block(root, "Path" + i, (a + b) / 2f + new Vector3(0, 0.03f, 0), new Vector3(7f, 0.06f, d.magnitude + 7f), cobble, Quaternion.LookRotation(d));
             }
-            Block(root, "WallW", new Vector3(-20, 4, 55), new Vector3(1, 8, 130), wall);
-            Block(root, "WallE", new Vector3(20, 4, 55), new Vector3(1, 8, 130), wall);
-            Block(root, "WallS", new Vector3(0, 4, -10), new Vector3(40, 8, 1), wall);
+            foreach (var c in LanternRowCircles)
+            {
+                var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                disc.name = "Plaza";
+                disc.transform.SetParent(root, false);
+                disc.transform.localPosition = c + new Vector3(0, 0.02f, 0);
+                disc.transform.localScale = new Vector3(DuelCircleRadius * 2.6f, 0.03f, DuelCircleRadius * 2.6f);
+                disc.GetComponent<Renderer>().sharedMaterial = cobble;
+                Object.DestroyImmediate(disc.GetComponent<Collider>());
+            }
+
+            // leaning houses lining both sides of the path, kept clear of the path and the fight plazas
+            int house = 0;
+            for (int i = 0; i + 1 < path.Length; i++)
+            {
+                Vector3 a = path[i], b = path[i + 1], d = b - a;
+                Vector3 side = Vector3.Cross(Vector3.up, d.normalized);
+                for (float t = 6f; t < d.magnitude; t += 12f)
+                    foreach (float sgn in new[] { -1f, 1f })
+                    {
+                        Vector3 p = a + d.normalized * t + side * sgn * 11f;
+                        if (DistToPath(p, path) < 9f || NearCircle(p, DuelCircleRadius + 6f)) continue;
+                        float h = 6f + (house * 7) % 4;
+                        var rot = Quaternion.LookRotation(d) * Quaternion.Euler(0, 0, sgn * (2f + house % 3));
+                        Block(root, "House", p + new Vector3(0, h / 2f, 0), new Vector3(9, h, 8), wall, rot);
+                        Block(root, "Roof", p + new Vector3(0, h + 0.6f, 0), new Vector3(10, 1.2f, 9), roof, rot);
+                        house++;
+                    }
+            }
 
             // ---- Snuffer's Tower at the far end
-            Block(root, "TowerBase", new Vector3(0, 0.1f, 104), new Vector3(30, 0.2f, 22), cobble);
-            Block(root, "TowerBack", new Vector3(0, 9, 116), new Vector3(14, 18, 4), roof);
-            Block(root, "WallN", new Vector3(0, 4, 120), new Vector3(40, 8, 1), wall);
-            WorldText(root, "TowerSign", new Vector3(0, 12f, 113.8f), Quaternion.identity, new Vector2(1400, 200), 0.006f, "The Snuffer's Tower", 80).color = new Color(0.6f, 1f, 0.65f);
+            Vector3 end = path[path.Length - 1];
+            Block(root, "TowerBack", end + new Vector3(0, 9, 12), new Vector3(14, 18, 4), roof);
+            WorldText(root, "TowerSign", end + new Vector3(0, 12f, 9.8f), Quaternion.identity, new Vector2(1400, 200), 0.006f, "The Snuffer's Tower", 80).color = new Color(0.6f, 1f, 0.65f);
 
             // ---- doors: islet (hub) <-> street gate
-            Transform streetSpawn = Child(root, "StreetSpawn", new Vector3(0, 0.05f, -4f));
+            Transform streetSpawn = Child(root, "StreetSpawn", new Vector3(0, 0.05f, min.z + 4f));
             Transform hubSpot = Child(hubRoot, "LanternRowReturn", new Vector3(0, 0.1f, -72f));
             hubSpot.rotation = Quaternion.Euler(0, 180f, 0);
             var inDoor = MakeDoor(hubRoot, "LanternRowDoor", new Vector3(0, 2.5f, -81f), door, "Lantern Row\n(click door)  Lv 1-3");
@@ -62,7 +91,7 @@ namespace WizardsVRC.EditorTools
             toStreet.defaultTarget = streetSpawn;
             toStreet.showZones = new[] { root.gameObject };
             list.Add(toStreet);
-            var outDoor = MakeDoor(root, "GateDoor", new Vector3(0, 2.5f, -9.4f), door, "Starfall Castle\n(click door)");
+            var outDoor = MakeDoor(root, "GateDoor", new Vector3(0, 2.5f, min.z + 0.6f), door, "Starfall Castle\n(click door)");
             outDoor.transform.localRotation = Quaternion.Euler(0, 180f, 0);
             var toHub = UdonSharpUndo.AddComponent<TeleportHelper>(outDoor);
             toHub.defaultTarget = hubSpot;
@@ -83,18 +112,21 @@ namespace WizardsVRC.EditorTools
             // ---- encounters: two wandering lanes and the boss circle in the tower
             var wisps = MakeEncounter(systems, "LR_Wisps", cardDb, itemDb, playerState, streetSpawn, new[] { 5, 5 }, true, encounters);
             var snatchers = MakeEncounter(systems, "LR_Snatchers", cardDb, itemDb, playerState, streetSpawn, new[] { 6, 5, 6 }, true, encounters);
+            var snatchers2 = MakeEncounter(systems, "LR_Snatchers2", cardDb, itemDb, playerState, streetSpawn, new[] { 6, 6 }, true, encounters);
             var boss = MakeEncounter(systems, "LR_Snuffer", cardDb, itemDb, playerState, streetSpawn, new[] { 7, 5, 5 }, true, encounters);
-            BuildEncounter(root, new Vector3(0, 0, 30), "LR_Wisps", wisps, 3);
-            BuildEncounter(root, new Vector3(0, 0, 66), "LR_Snatchers", snatchers, 3);
-            BuildEncounter(root, new Vector3(0, 0, 100), "LR_Snuffer", boss, 1);
-            foreach (var ec in new[] { wisps, snatchers, boss }) { ec.questManager = qm; ec.manager.respawnSeconds = 20; }
+            var circles = LanternRowCircles;
+            BuildEncounter(root, circles[0], "LR_Wisps", wisps, 3);
+            BuildEncounter(root, circles[1], "LR_Snatchers", snatchers, 3);
+            BuildEncounter(root, circles[2], "LR_Snatchers2", snatchers2, 3);
+            BuildEncounter(root, circles[3], "LR_Snuffer", boss, 1);
+            foreach (var ec in new[] { wisps, snatchers, snatchers2, boss }) { ec.questManager = qm; ec.manager.respawnSeconds = 20; }
             boss.manager.respawnSeconds = 30;
 
             // ---- quest targets: three dead street lamps to relight, and the tower doorstep
             Transform[] lamps = new Transform[3];
             for (int i = 0; i < 3; i++)
             {
-                Vector3 p = new Vector3(i == 1 ? 9f : -9f, 0, 14f + i * 22f);
+                Vector3 p = LanternRowLamps[i];
                 Block(root, "LampPost" + i, p + new Vector3(0, 2f, 0), new Vector3(0.25f, 4f, 0.25f), wood);
                 var head = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 head.name = "DeadLamp" + i;
@@ -118,7 +150,7 @@ namespace WizardsVRC.EditorTools
             }
             var step = new GameObject("TowerDoorstep");
             step.transform.SetParent(root, false);
-            step.transform.localPosition = new Vector3(0, 1.5f, 88f);
+            step.transform.localPosition = end + new Vector3(0, 1.5f, -38f);
             var box = step.AddComponent<BoxCollider>();
             box.isTrigger = true;
             box.size = new Vector3(30f, 3f, 3f);
@@ -149,6 +181,35 @@ namespace WizardsVRC.EditorTools
 
             root.gameObject.SetActive(false);
             return list;
+        }
+
+        // Winding path waypoints (street-local XZ); the last point is the tower.
+        private static readonly Vector3[] LanternRowPath =
+        {
+            new Vector3(0, 0, -4), new Vector3(0, 0, 30), new Vector3(25, 0, 60), new Vector3(25, 0, 95), new Vector3(-10, 0, 130),
+            new Vector3(-30, 0, 160), new Vector3(-30, 0, 190), new Vector3(0, 0, 215), new Vector3(30, 0, 240), new Vector3(30, 0, 266),
+            new Vector3(0, 0, 290), new Vector3(0, 0, 330),
+        };
+        // Fight circles sit on the path: Wisps, Snatchers, Snatchers, Ashwick (in front of the tower).
+        private static readonly Vector3[] LanternRowCircles = { new Vector3(25, 0, 78), new Vector3(-30, 0, 175), new Vector3(30, 0, 253), new Vector3(0, 0, 314) };
+        private static readonly Vector3[] LanternRowLamps = { new Vector3(5, 0, 18), new Vector3(-2, 0, 108), new Vector3(-5, 0, 202) };
+
+        private static float DistToPath(Vector3 p, Vector3[] path)
+        {
+            float best = float.MaxValue;
+            for (int i = 0; i + 1 < path.Length; i++)
+            {
+                Vector3 a = path[i], ab = path[i + 1] - a;
+                float t = Mathf.Clamp01(Vector3.Dot(p - a, ab) / ab.sqrMagnitude);
+                best = Mathf.Min(best, Vector3.Distance(p, a + ab * t));
+            }
+            return best;
+        }
+
+        private static bool NearCircle(Vector3 p, float r)
+        {
+            foreach (var c in LanternRowCircles) if (Vector3.Distance(p, c) < r) return true;
+            return false;
         }
 
         private static readonly string[] TildaLines =
