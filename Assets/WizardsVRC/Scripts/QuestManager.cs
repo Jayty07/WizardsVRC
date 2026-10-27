@@ -14,11 +14,22 @@ namespace WizardsVRC
         public const int STAGE_FIND_PROFESSOR = 1;
         public const int STAGE_REPORT = 2;
         public const int STAGE_DONE = 3;
-        public const int QUEST_COUNT = 1;
+        /// <summary>School trial (level 35): earns the school's quest-only spell (CardDatabase.QUEST_TIER).</summary>
+        public const int QUEST_TRIAL = 1;
+        public const int TRIAL_TALK = 1;
+        public const int TRIAL_WIN = 2;
+        public const int TRIAL_RETURN = 3;
+        public const int TRIAL_DONE = 4;
+        public const int TRIAL_LEVEL = 35;
+        public const int QUEST_COUNT = 2;
 
         public PlayerState playerState;
         public CutscenePlayer cutscenePlayer;
         public PlayerHUD hud;
+        public CardDatabase cardDatabase;
+        public NewSpellPopup popup;
+        [Tooltip("Where the trial's 'win a battle' step points the guide (the arena teleporter pad).")]
+        public Transform arenaTarget;
 
         [Header("Cutscenes")]
         /// <summary>Indexed by <see cref="School"/>.</summary>
@@ -54,6 +65,22 @@ namespace WizardsVRC
         {
             if (!HasCharacter()) return;
             if (GetStage(QUEST_PROPHECY) == 0) SetStage(QUEST_PROPHECY, STAGE_FIND_PROFESSOR);
+            CheckTrialStart();
+        }
+
+        /// <summary>Starts the school trial once the character reaches <see cref="TRIAL_LEVEL"/>.</summary>
+        public void CheckTrialStart()
+        {
+            if (!HasCharacter() || GetStage(QUEST_TRIAL) != 0 || playerState.current.level < TRIAL_LEVEL) return;
+            SetStage(QUEST_TRIAL, TRIAL_TALK);
+        }
+
+        /// <summary>Sent by BattleClient when the local player wins a fight.</summary>
+        public void OnBattleWon()
+        {
+            if (!HasCharacter()) return;
+            CheckTrialStart();
+            if (GetStage(QUEST_TRIAL) == TRIAL_WIN) SetStage(QUEST_TRIAL, TRIAL_RETURN);
         }
 
         public void TalkFire() { TalkProfessor(0); }
@@ -82,6 +109,20 @@ namespace WizardsVRC
             if (!HasCharacter()) return;
             if (GetStage(QUEST_PROPHECY) == STAGE_FIND_PROFESSOR && (int)playerState.current.school == school)
                 SetStage(QUEST_PROPHECY, STAGE_REPORT);
+            if ((int)playerState.current.school != school) return;
+            CheckTrialStart();
+            int trial = GetStage(QUEST_TRIAL);
+            if (trial == TRIAL_TALK) SetStage(QUEST_TRIAL, TRIAL_WIN);
+            else if (trial == TRIAL_RETURN) FinishTrial(school);
+        }
+
+        private void FinishTrial(int school)
+        {
+            int spell = cardDatabase != null ? cardDatabase.QuestSpell(school) : 0;
+            CharacterData c = playerState.current;
+            bool learned = spell > 0 && c.Learn(spell);
+            SetStage(QUEST_TRIAL, TRIAL_DONE);
+            if (learned && popup != null) popup.Show(spell);
         }
 
         public void OnReportFinished()
@@ -102,6 +143,7 @@ namespace WizardsVRC
         public bool IsComplete(int questId)
         {
             if (questId == QUEST_PROPHECY) return GetStage(questId) >= STAGE_DONE;
+            if (questId == QUEST_TRIAL) return GetStage(questId) >= TRIAL_DONE;
             return false;
         }
 
@@ -125,6 +167,14 @@ namespace WizardsVRC
                 }
                 if (stage == STAGE_REPORT) return "Return to Headmaster Greymantle's office";
             }
+            if (questId == QUEST_TRIAL)
+            {
+                int stage = GetStage(questId);
+                int s = (int)playerState.current.school;
+                if (stage == TRIAL_TALK) return "Speak with " + NameAt(professorNames, s) + " about your trial";
+                if (stage == TRIAL_WIN) return "Win a battle in the arena (Training Yard)";
+                if (stage == TRIAL_RETURN) return "Return to " + NameAt(professorNames, s);
+            }
             return "";
         }
 
@@ -142,6 +192,13 @@ namespace WizardsVRC
                 }
                 if (stage == STAGE_REPORT) return headmasterTarget;
             }
+            if (questId == QUEST_TRIAL)
+            {
+                int stage = GetStage(questId);
+                if (stage == TRIAL_WIN) return arenaTarget;
+                int s = (int)playerState.current.school;
+                return professorTargets != null && s >= 0 && s < professorTargets.Length ? professorTargets[s] : null;
+            }
             return null;
         }
 
@@ -153,6 +210,8 @@ namespace WizardsVRC
                 if (stage == STAGE_FIND_PROFESSOR) return NameAt(professorNames, (int)playerState.current.school);
                 if (stage == STAGE_REPORT) return "Headmaster Greymantle";
             }
+            if (questId == QUEST_TRIAL)
+                return GetStage(questId) == TRIAL_WIN ? "Arena teleporter" : NameAt(professorNames, (int)playerState.current.school);
             return "";
         }
 

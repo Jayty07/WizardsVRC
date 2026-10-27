@@ -24,12 +24,13 @@ namespace WizardsVRC
     ///   trainingPoints u16, learnedUsed u8, then learnedUsed * learned-spell bitmask byte (bit n = card id 100 + n)
 /// Payload v3 appends:
 ///   trackedQuest u8 (NO_TRACKED_QUEST = nothing tracked)
+/// v4: same layout; spell ids moved to the 12-tier trees (100 + school * 12 + tier), so older saves are migrated.
     /// Worst case is about 0.9 KB raw / 1.2 KB base64 (budget: 2 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 3;
+        public const int FORMAT_VERSION = 4;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -44,6 +45,9 @@ namespace WizardsVRC
         public const int LEARNED_BASE_ID = 100;
         public const int HEALTH_PER_LEVEL = 15;
         public const int NO_TRACKED_QUEST = 255;
+        /// <summary>Must match CardDatabase.TIERS / QUEST_TIER and the tier level requirements.</summary>
+        public const int SPELL_TIERS = 12;
+        public const int SPELL_QUEST_TIER = 9;
 
         public const int EQUIP_HEAD = 0;
         public const int EQUIP_BODY = 1;
@@ -122,8 +126,8 @@ namespace WizardsVRC
             inventoryItemIds[2] = 4;
             inventoryCounts[2] = 1;
 
-            // Starter deck: four copies of the school's basic spell (card id = 100 + school * 10).
-            ushort basicSpell = (ushort)(100 + (int)newSchool * 10);
+            // Starter deck: four copies of the school's basic spell (tier 0, card id = 100 + school * 12).
+            ushort basicSpell = (ushort)(100 + (int)newSchool * SPELL_TIERS);
             for (int c = 0; c < 4; c++) deckCards[c] = basicSpell;
             deckLengths[0] = 4;
             Learn(basicSpell);
@@ -296,14 +300,22 @@ namespace WizardsVRC
             return true;
         }
 
-        /// <summary>v1 saves predate learned spells: grant the own-school spells that were usable then and 1 point per level.</summary>
-        private void MigrateSpellsFromV1()
+        /// <summary>
+        /// Saves before v4 used the old spell ids: grant the own-school tree up to the character's level (not the quest
+        /// spell), refund every training point and rebuild Deck 1 from the basic spell.
+        /// </summary>
+        private void MigrateSpellTree()
         {
             for (int i = 0; i < LEARNED_BYTES; i++) learnedSpells[i] = 0;
-            int[] oldLevelReqs = new int[] { 1, 2, 3, 5 };
-            for (int k = 0; k < oldLevelReqs.Length; k++)
-                if (level >= oldLevelReqs[k]) Learn(LEARNED_BASE_ID + (int)school * 10 + k);
+            int[] tierLevels = new int[] { 1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48 };
+            for (int k = 0; k < SPELL_TIERS; k++)
+                if (k != SPELL_QUEST_TIER && level >= tierLevels[k]) Learn(LEARNED_BASE_ID + (int)school * SPELL_TIERS + k);
             trainingPoints = level - 1;
+            for (int i = 0; i < deckCards.Length; i++) deckCards[i] = 0;
+            for (int d = 0; d < DECK_COUNT; d++) deckLengths[d] = 0;
+            ushort basicSpell = (ushort)(LEARNED_BASE_ID + (int)school * SPELL_TIERS);
+            for (int c = 0; c < 4; c++) deckCards[c] = basicSpell;
+            deckLengths[0] = 4;
         }
 
         // ------------------------------------------------------------------ deck helpers
@@ -526,7 +538,7 @@ namespace WizardsVRC
             trackedQuest = 0;
             if (version < 2)
             {
-                MigrateSpellsFromV1();
+                MigrateSpellTree();
                 return true;
             }
             if (!Need(3)) return false;
@@ -536,10 +548,13 @@ namespace WizardsVRC
             for (int i = 0; i < LEARNED_BYTES; i++)
                 learnedSpells[i] = i < learnedUsed ? (byte)ReadU8() : (byte)0;
 
-            if (version < 3) return true;
-            if (!Need(1)) return false;
-            trackedQuest = ReadU8();
-            if (trackedQuest >= QUEST_SLOTS) trackedQuest = NO_TRACKED_QUEST;
+            if (version >= 3)
+            {
+                if (!Need(1)) return false;
+                trackedQuest = ReadU8();
+                if (trackedQuest >= QUEST_SLOTS) trackedQuest = NO_TRACKED_QUEST;
+            }
+            if (version < 4) MigrateSpellTree();
             return true;
         }
 

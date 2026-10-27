@@ -4,9 +4,10 @@ using UnityEngine;
 namespace WizardsVRC
 {
     /// <summary>
-    /// Static spell card definitions (placeholder fantasy spells). School cards use id 100 + school * 10 + k;
-    /// general cards (any school) are 200+. Parallel arrays indexed by definition index; each school has 7 spells
-    /// (rows of 7 below, levels 1/2/3/5/8/12/16) and the last row is the general spells.
+    /// Static spell card definitions (original placeholder spells). Each school has a 12-spell tree, tier k having
+    /// id 100 + school * 12 + k; each tier needs the one before it (<see cref="prereqs"/>). General cards are 200+.
+    /// <see cref="aux"/> is effect-specific: pierce % for damage, heal % for drain, burn total for DoT, rounds for taunt,
+    /// minion action power, and 1 = "any school" for shields/blades/traps.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CardDatabase : UdonSharpBehaviour
@@ -25,6 +26,25 @@ namespace WizardsVRC
         public const int EFFECT_TRAP = 6;
         /// <summary>Three blades at once, one per school starting at <see cref="TriBladeFirstSchool"/>.</summary>
         public const int EFFECT_TRIBLADE = 7;
+        /// <summary>Burn: power damage now, then aux more split over <see cref="DOT_ROUNDS"/> rounds.</summary>
+        public const int EFFECT_DOT = 8;
+        /// <summary>Deals all of the target's remaining burn damage at once, +power%.</summary>
+        public const int EFFECT_DETONATE = 9;
+        /// <summary>Taunt: the caster gets a power% any-school shield and monsters must attack them for aux rounds.</summary>
+        public const int EFFECT_TAUNT = 10;
+        /// <summary>Damage, and every target hit skips its next cast.</summary>
+        public const int EFFECT_STUN = 11;
+        /// <summary>Removes every shield on the target, then deals damage.</summary>
+        public const int EFFECT_SHATTER = 12;
+        /// <summary>Summons a minion with power health into a free seat on the caster's side; it acts with aux power each round.</summary>
+        public const int EFFECT_MINION = 13;
+        /// <summary>Removes every shield and blade on the target.</summary>
+        public const int EFFECT_DISPEL = 14;
+
+        public const int TIERS = 12;
+        /// <summary>Tier learned from the school's trial quest instead of a professor.</summary>
+        public const int QUEST_TIER = 9;
+        public const int DOT_ROUNDS = 3;
 
         /// <summary>Which school a shield/blade/trap applies to: -1 = every school.</summary>
         public const int ANY_SCHOOL = -1;
@@ -34,129 +54,130 @@ namespace WizardsVRC
         public const int DECK_MAX = 20;
         public const int MAX_COPIES = 4;
 
-        // id, school (-1 general), level req, pip cost, accuracy %, power, effect
+        // One row per school (tiers 0-11, id 100 + school * 12 + tier), then the general spells. Generated table.
         [HideInInspector] public int[] ids =
         {
-            100, 101, 102, 103, 104, 105, 106,
-            110, 111, 112, 113, 114, 115, 116,
-            120, 121, 122, 123, 124, 125, 126,
-            130, 131, 132, 133, 134, 135, 136,
-            140, 141, 142, 143, 144, 145, 146,
-            150, 151, 152, 153, 154, 155, 156,
-            160, 161, 162, 163, 164, 165, 166,
+            100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
+            112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
+            124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135,
+            136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147,
+            148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159,
+            160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171,
+            172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183,
             200, 201, 202, 203,
-            // shields, blades, traps and tri-blades (appended so existing ids/indices keep their meaning)
-            107, 108, 117, 118, 127, 128, 137, 138, 139, 147, 148, 157, 158, 167, 168, 169, 170, 171,
         };
         [HideInInspector] public int[] schools =
         {
-            0, 0, 0, 0, 0, 0, 0,
-            1, 1, 1, 1, 1, 1, 1,
-            2, 2, 2, 2, 2, 2, 2,
-            3, 3, 3, 3, 3, 3, 3,
-            4, 4, 4, 4, 4, 4, 4,
-            5, 5, 5, 5, 5, 5, 5,
-            6, 6, 6, 6, 6, 6, 6,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+            4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
             -1, -1, -1, -1,
-            // shields, blades, traps and tri-blades (appended so existing ids/indices keep their meaning)
-            0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 6, 6, 6,
         };
         [HideInInspector] public int[] levelReqs =
         {
-            1, 2, 3, 5, 8, 12, 16,
-            1, 2, 3, 5, 8, 12, 16,
-            1, 2, 3, 5, 8, 12, 16,
-            1, 2, 3, 5, 8, 12, 16,
-            1, 2, 3, 5, 8, 12, 16,
-            1, 2, 3, 5, 8, 12, 16,
-            1, 2, 3, 5, 8, 12, 16,
+            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
+            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
+            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
+            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
+            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
+            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
+            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
             1, 2, 3, 4,
-            // shields, blades, traps and tri-blades (appended so existing ids/indices keep their meaning)
-            4, 10, 6, 10, 4, 10, 4, 6, 10, 6, 10, 6, 10, 4, 6, 10, 14, 14,
         };
         [HideInInspector] public int[] pipCosts =
         {
-            1, 2, 3, 4, 1, 5, 6,
-            1, 2, 3, 4, 1, 5, 6,
-            1, 2, 3, 4, 1, 5, 6,
-            1, 2, 2, 4, 0, 5, 6,
-            1, 2, 3, 4, 1, 5, 6,
-            1, 2, 3, 4, 1, 5, 6,
-            1, 2, 3, 4, 0, 5, 6,
+            1, 2, 0, 0, 3, 0, 4, 4, 1, 0, 5, 7,
+            1, 1, 0, 0, 3, 0, 4, 4, 1, 2, 5, 7,
+            1, 2, 0, 0, 3, 0, 4, 4, 1, 0, 5, 7,
+            1, 2, 0, 0, 3, 0, 4, 4, 3, 3, 5, 7,
+            1, 2, 0, 0, 3, 0, 4, 4, 1, 4, 5, 7,
+            1, 2, 0, 0, 3, 1, 4, 4, 0, 3, 5, 7,
+            1, 2, 0, 0, 3, 0, 4, 4, 1, 1, 5, 7,
             0, 1, 0, 0,
-            // shields, blades, traps and tri-blades (appended so existing ids/indices keep their meaning)
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
         };
         [HideInInspector] public int[] accuracies =
         {
-            75, 75, 75, 75, 100, 75, 75,
-            80, 80, 80, 80, 100, 80, 80,
-            70, 70, 70, 70, 100, 70, 70,
-            90, 90, 90, 90, 100, 90, 90,
-            85, 85, 85, 85, 100, 85, 85,
-            80, 80, 80, 80, 100, 80, 80,
-            85, 85, 85, 85, 100, 85, 85,
+            75, 75, 100, 100, 75, 100, 75, 100, 75, 100, 75, 75,
+            80, 100, 100, 100, 80, 100, 80, 100, 100, 100, 80, 80,
+            70, 70, 100, 100, 70, 100, 70, 100, 100, 100, 70, 70,
+            90, 90, 100, 100, 90, 100, 90, 100, 90, 90, 90, 90,
+            85, 85, 100, 100, 85, 100, 85, 100, 100, 85, 85, 85,
+            80, 80, 100, 100, 100, 100, 80, 100, 100, 80, 80, 80,
+            85, 85, 100, 100, 85, 100, 85, 100, 100, 100, 85, 85,
             100, 100, 100, 100,
-            // shields, blades, traps and tri-blades (appended so existing ids/indices keep their meaning)
-            100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
         };
         [HideInInspector] public int[] powers =
         {
-            80, 160, 250, 380, 35, 420, 380,
-            70, 140, 220, 330, 30, 400, 360,
-            100, 200, 300, 450, 35, 560, 480,
-            60, 200, 120, 300, 30, 380, 260,
-            65, 130, 210, 300, 50, 400, 360,
-            75, 150, 230, 340, 50, 430, 370,
-            70, 145, 225, 335, 40, 420, 380,
+            80, 0, 35, 30, 60, 50, 180, 400, 40, 60, 360, 420,
+            65, 25, 35, 30, 150, 30, 260, 700, 30, 60, 440, 480,
+            110, 220, 35, 30, 260, 50, 480, 300, 30, 70, 720, 780,
+            70, 250, 35, 30, 150, 50, 280, 500, 320, 900, 460, 520,
+            70, 140, 35, 30, 150, 50, 300, 450, 60, 500, 480, 520,
+            85, 160, 35, 30, 300, 0, 280, 650, 50, 120, 500, 600,
+            80, 165, 25, 25, 200, 50, 330, 500, 35, 35, 520, 560,
             50, 100, 25, 15,
-            // shields, blades, traps and tri-blades (appended so existing ids/indices keep their meaning)
-            50, 30, 35, 30, 50, 30, 50, 35, 30, 35, 30, 35, 30, 50, 35, 30, 35, 35,
         };
         [HideInInspector] public int[] effects =
         {
-            0, 0, 0, 0, 3, 0, 0,
-            0, 0, 0, 0, 2, 0, 0,
-            0, 0, 0, 0, 3, 0, 0,
-            0, 1, 1, 0, 5, 0, 1,
-            0, 0, 0, 4, 2, 4, 0,
-            0, 0, 0, 0, 2, 0, 0,
-            0, 0, 0, 0, 5, 0, 4,
+            0, 8, 3, 6, 8, 2, 8, 13, 9, 3, 8, 8,
+            0, 10, 3, 6, 0, 2, 0, 13, 2, 10, 0, 0,
+            0, 0, 3, 6, 0, 2, 0, 13, 6, 3, 0, 0,
+            0, 1, 3, 6, 1, 2, 0, 13, 1, 1, 0, 0,
+            4, 4, 3, 6, 4, 2, 4, 13, 6, 4, 4, 4,
+            0, 12, 3, 6, 13, 14, 11, 13, 2, 11, 0, 0,
+            0, 0, 3, 6, 0, 2, 0, 13, 7, 7, 0, 0,
             2, 1, 3, 5,
-            // shields, blades, traps and tri-blades (appended so existing ids/indices keep their meaning)
-            2, 6, 3, 6, 2, 6, 2, 3, 6, 3, 6, 3, 6, 2, 3, 6, 7, 7,
         };
-        /// <summary>1 = hits every enemy (damage) or every ally (heal).</summary>
         [HideInInspector] public int[] aoe =
         {
-            0, 0, 1, 0, 0, 0, 1,
-            0, 0, 1, 0, 0, 0, 1,
-            0, 0, 1, 0, 0, 0, 1,
-            0, 0, 1, 0, 0, 0, 1,
-            0, 0, 1, 0, 0, 0, 1,
-            0, 0, 0, 0, 0, 0, 1,
-            0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
+            0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
+            0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
             0, 0, 0, 0,
-            // shields, blades, traps and tri-blades (appended so existing ids/indices keep their meaning)
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         };
         [HideInInspector] public string[] names =
         {
-            "Ember Bolt", "Flame Lash", "Cinder Storm", "Inferno Pillar", "Kindling Rite", "Blazing Wyrm", "Sunfire Cataclysm",
-            "Frost Shard", "Rime Spear", "Glacier Fall", "Hoarfrost Nova", "Frostward", "Frozen Colossus", "Winter's Wrath",
-            "Spark Jolt", "Arc Lance", "Thunderclap", "Tempest Crown", "Static Charge", "Skyfall Leviathan", "Maelstrom Eye",
-            "Thornlash", "Verdant Bloom", "Rejuvenate", "Grove Guardian", "Seedling Blessing", "Wildwood Stampede", "Bloom of Renewal",
-            "Shade Touch", "Grave Chill", "Wither", "Soul Siphon", "Veil of Dread", "Bone Dragon", "Requiem of Ash",
-            "Phantom Strike", "Mirage Blade", "Golem Fist", "Legend's Echo", "Mirror Image", "Stone Basilisk", "Fabled Hydra",
-            "Prism Spark", "Arcane Scale", "Harmonic Pulse", "Equilibrium Ruin", "Equanimity", "Sandstorm Sphinx", "Grand Convergence",
+            "Ember Imp", "Smoldering Brand", "Ember Edge", "Cinder Snare", "Cinder Rain", "Ember Aegis", "Pyre Hawk", "Magma Hound", "Stoke the Embers", "Wildfire Oath", "Molten Behemoth", "Sunfire Wyrm",
+            "Frost Mite", "Rime Challenge", "Rime Edge", "Frost Snare", "Hoarfrost Gale", "Frostward", "Frost Wyvern", "Rime Sentinel", "Permafrost Bulwark", "Winter's Bastion", "Frozen Colossus", "Winter's Wrath",
+            "Spark Sprite", "Thunder Hare", "Static Charge", "Thunder Snare", "Thunderclap", "Storm Aegis", "Skyfall Serpent", "Thunder Golem", "Gale Mark", "Overcharge", "Skyfall Leviathan", "Maelstrom Eye",
+            "Thornling", "Verdant Bloom", "Thorn Edge", "Bramble Snare", "Rejuvenate", "Verdant Aegis", "Grove Stag", "Treant Warden", "Wellspring", "Bloom of Renewal", "Wildwood Stampede", "Verdant Titan",
+            "Shade Wisp", "Grave Ghast", "Grave Edge", "Hex Snare", "Soul Swarm", "Veil of Dread", "Night Leech", "Bone Thrall", "Dread Mark", "Dark Tithe", "Bone Dragon", "Requiem of Ash",
+            "Mire Imp", "Mirage Lancer", "Fable Edge", "Mirage Snare", "Clay Golemling", "Unweave", "Stone Basilisk", "Stone Colossus", "Mirror Image", "Riddle of Iron", "Fabled Hydra", "Titan of Legends",
+            "Prism Spark", "Sand Djinn", "Accord Edge", "Sand Snare", "Sandstorm", "Balance Aegis", "Sphinx of Scales", "Sand Golem", "Elemental Tri-Blade", "Spirit Tri-Blade", "Sandstorm Sphinx", "Grand Convergence",
             "Tower Ward", "Mend", "Empower", "Steady Mind",
-            // shields, blades, traps and tri-blades (appended so existing ids/indices keep their meaning)
-            "Ember Aegis", "Cinder Snare", "Rime Edge", "Frost Snare", "Storm Aegis", "Thunder Snare",
-            "Verdant Aegis", "Thorn Edge", "Bramble Snare", "Grave Edge", "Hex Snare", "Fable Edge", "Mirage Snare",
-            "Balance Aegis", "Scale Edge", "Sand Snare", "Elemental Tri-Blade", "Spirit Tri-Blade",
+        };
+        [HideInInspector] public int[] prereqs =
+        {
+            0, 100, 101, 102, 103, 104, 105, 106, 107, 108, 108, 110,
+            0, 112, 113, 114, 115, 116, 117, 118, 119, 120, 120, 122,
+            0, 124, 125, 126, 127, 128, 129, 130, 131, 132, 132, 134,
+            0, 136, 137, 138, 139, 140, 141, 142, 143, 144, 144, 146,
+            0, 148, 149, 150, 151, 152, 153, 154, 155, 156, 156, 158,
+            0, 160, 161, 162, 163, 164, 165, 166, 167, 168, 168, 170,
+            0, 172, 173, 174, 175, 176, 177, 178, 179, 180, 180, 182,
+            0, 0, 0, 0,
+        };
+        [HideInInspector] public int[] aux =
+        {
+            0, 240, 0, 0, 150, 0, 240, 90, 0, 0, 300, 300,
+            0, 2, 0, 0, 0, 0, 0, 60, 0, 3, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 150, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 120, 0, 0, 0, 0,
+            50, 50, 0, 0, 30, 0, 50, 90, 0, 100, 50, 30,
+            0, 0, 0, 0, 80, 0, 0, 130, 0, 0, 30, 20,
+            0, 0, 1, 1, 0, 0, 0, 100, 0, 0, 0, 0,
+            0, 0, 0, 0,
         };
 
-        [HideInInspector] public int[] triBladeIds = { 170, 171 };
+        [HideInInspector] public int[] triBladeIds = { 180, 181 };
         [HideInInspector] public int[] triBladeFirstSchools = { 0, 3 };
 
         [HideInInspector] public string[] schoolNames = { "Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance" };
@@ -214,26 +235,34 @@ namespace WizardsVRC
             return i < 0 || spellAnimations == null || i >= spellAnimations.Length ? null : spellAnimations[i];
         }
 
+        public int GetPrereq(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : prereqs[i]; }
+        public int GetAux(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : aux[i]; }
+        public int BasicSpell(int school) { return 100 + school * TIERS; }
+        public int TierOf(int cardId) { return GetSchool(cardId) == GENERAL ? -1 : (cardId - 100) % TIERS; }
+        public bool IsQuestSpell(int cardId) { return GetSchool(cardId) != GENERAL && TierOf(cardId) == QUEST_TIER; }
+        public int QuestSpell(int school) { return 100 + school * TIERS + QUEST_TIER; }
+
         public bool IsAoe(int cardId) { int i = IndexOf(cardId); return i >= 0 && aoe[i] != 0; }
 
         /// <summary>True for heals and buffs (target your own side), false for attacks.</summary>
         public bool TargetsAllies(int cardId)
         {
             int e = GetEffect(cardId);
-            return e == EFFECT_HEAL || e == EFFECT_WARD || e == EFFECT_EMPOWER || e == EFFECT_FOCUS || e == EFFECT_TRIBLADE;
+            return e == EFFECT_HEAL || e == EFFECT_WARD || e == EFFECT_EMPOWER || e == EFFECT_FOCUS || e == EFFECT_TRIBLADE ||
+                   e == EFFECT_TAUNT || e == EFFECT_MINION;
         }
 
         /// <summary>Ice shields and General shields block every school; other shields block their own school.</summary>
         public int ShieldSchool(int cardId)
         {
             int s = GetSchool(cardId);
-            return s == ICE ? ANY_SCHOOL : s;
+            return s == ICE || GetAux(cardId) == 1 ? ANY_SCHOOL : s;
         }
 
         /// <summary>School blades boost that school's attacks; General blades boost any attack.</summary>
-        public int BladeSchool(int cardId) { return GetSchool(cardId); }
+        public int BladeSchool(int cardId) { return GetAux(cardId) == 1 ? ANY_SCHOOL : GetSchool(cardId); }
 
-        public int TrapSchool(int cardId) { return GetSchool(cardId); }
+        public int TrapSchool(int cardId) { return GetAux(cardId) == 1 ? ANY_SCHOOL : GetSchool(cardId); }
 
         public int TriBladeFirstSchool(int cardId)
         {
@@ -280,9 +309,22 @@ namespace WizardsVRC
             int i = IndexOf(cardId);
             if (i < 0) return "";
             int p = powers[i];
+            int x = aux[i];
+            string dmg = " " + SchoolName(schools[i]) + " damage" + (aoe[i] != 0 ? " to all enemies" : "");
             switch (effects[i])
             {
-                case EFFECT_DAMAGE: return "Deals " + p.ToString() + " " + SchoolName(schools[i]) + " damage" + (aoe[i] != 0 ? " to all enemies." : ".");
+                case EFFECT_DAMAGE: return "Deals " + p.ToString() + dmg + (x > 0 ? ", ignoring " + x.ToString() + "% of shields and resist." : ".");
+                case EFFECT_DOT:
+                    return (p > 0 ? "Deals " + p.ToString() + dmg + ", then burns" : "Burns" + (aoe[i] != 0 ? " all enemies" : "")) + " for " +
+                           x.ToString() + " more over " + DOT_ROUNDS.ToString() + " rounds.";
+                case EFFECT_DETONATE: return "Sets off all of a target's burns at once, for +" + p.ToString() + "% damage.";
+                case EFFECT_TAUNT:
+                    return "Taunt: monsters must attack you for " + x.ToString() + " rounds, and you gain a " + p.ToString() + "% shield against every school.";
+                case EFFECT_STUN: return "Deals " + p.ToString() + dmg + ". Targets hit lose their next turn.";
+                case EFFECT_SHATTER: return "Breaks every shield on the target, then deals " + p.ToString() + dmg + ".";
+                case EFFECT_DISPEL: return "Removes every shield and blade on an enemy.";
+                case EFFECT_MINION:
+                    return "Summons a " + SchoolName(schools[i]) + " minion with " + p.ToString() + " health that fights beside you (" + x.ToString() + " power).";
                 case EFFECT_HEAL: return "Heals " + p.ToString() + " health" + (aoe[i] != 0 ? " to all allies." : ".");
                 case EFFECT_WARD:
                     return "Shield: blocks " + p.ToString() + "% of the next " + SchoolPhrase(ShieldSchool(cardId), "spell from any school") +
@@ -299,7 +341,8 @@ namespace WizardsVRC
                     return "Puts 3 blades on a wizard: " + SchoolName(f) + ", " + SchoolName(f + 1) + " and " + SchoolName(f + 2) +
                            " (+" + p.ToString() + "% each).";
                 }
-                case EFFECT_DRAIN: return "Deals " + p.ToString() + " " + SchoolName(schools[i]) + " damage and heals you for half.";
+                case EFFECT_DRAIN:
+                    return "Deals " + p.ToString() + dmg + " and heals you for " + (x > 0 ? x : 50).ToString() + "% of it.";
                 case EFFECT_FOCUS: return "Next spell gains +" + p.ToString() + "% accuracy.";
                 default: return "";
             }
@@ -312,7 +355,9 @@ namespace WizardsVRC
             if (i < 0) return "";
             return GetEffectText(cardId) + "\n" +
                    "Cost: " + pipCosts[i].ToString() + " pips    Accuracy: " + accuracies[i].ToString() + "%\n" +
-                   SchoolName(schools[i]) + " spell, level " + levelReqs[i].ToString();
+                   SchoolName(schools[i]) + " spell, level " + levelReqs[i].ToString() +
+                   (prereqs[i] > 0 ? "\nRequires: " + GetName(prereqs[i]) : "") +
+                   (IsQuestSpell(cardId) ? "\nLearned from the " + SchoolName(schools[i]) + " trial quest" : "");
         }
     }
 }

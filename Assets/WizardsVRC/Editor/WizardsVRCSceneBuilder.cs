@@ -167,6 +167,10 @@ namespace WizardsVRC.EditorTools
             var learning = BuildSpellLearning(systems.transform, playerState, cardDb, hud, out SpellTrainer trainer, out InteractionMenu interactionMenu);
             var quests = BuildQuests(systems.transform, interior, (CutscenePlayer)cutscenes[0], playerState, hud, hubRoot, trainer, interactionMenu);
             var questManager = (QuestManager)quests[0];
+            questManager.cardDatabase = cardDb;
+            questManager.popup = trainer.popup;
+            questManager.arenaTarget = queuePad.transform;
+            battleClient.questManager = questManager;
             selectUI.questManager = questManager;
             hud.questManager = questManager;
             questPages.questManager = questManager;
@@ -951,6 +955,41 @@ namespace WizardsVRC.EditorTools
             Object.DestroyImmediate(orb.GetComponent<Collider>());
             orb.SetActive(false);
             client.orb = orb.transform;
+
+            // Summoned minions: one body per seat, parented to the ring. BattleClient grows them at the ring's centre and
+            // walks them to their seat, so it works wherever the ring is placed.
+            client.minionBodies = new Transform[slots];
+            client.minionSkins = new Renderer[slots * 2];
+            for (int s = 0; s < slots; s++)
+            {
+                var mb = Child(ring.transform, "SummonedMinion" + s, client.seats[s].localPosition);
+                var torso = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                torso.name = "Body";
+                torso.transform.SetParent(mb, false);
+                torso.transform.localPosition = new Vector3(0, 0.75f, 0);
+                torso.transform.localScale = new Vector3(0.8f, 0.75f, 0.8f);
+                var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                head.name = "Head";
+                head.transform.SetParent(mb, false);
+                head.transform.localPosition = new Vector3(0, 1.75f, 0.05f);
+                head.transform.localScale = Vector3.one * 0.6f;
+                foreach (var part in new[] { torso, head })
+                {
+                    Object.DestroyImmediate(part.GetComponent<Collider>());
+                    part.GetComponent<Renderer>().sharedMaterial = client.fxMats[SchoolLabels.Length];
+                }
+                client.minionSkins[s * 2] = torso.GetComponent<Renderer>();
+                client.minionSkins[s * 2 + 1] = head.GetComponent<Renderer>();
+                mb.gameObject.SetActive(false);
+                client.minionBodies[s] = mb;
+            }
+            var flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            flash.name = "SummonFlash";
+            flash.transform.SetParent(ring.transform, false);
+            Object.DestroyImmediate(flash.GetComponent<Collider>());
+            flash.GetComponent<Renderer>().sharedMaterial = orbMat;
+            flash.SetActive(false);
+            client.summonFlash = flash.transform;
 
             BuildHandPanel(root, client);
             ring.SetActive(false);

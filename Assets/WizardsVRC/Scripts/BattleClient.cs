@@ -47,6 +47,25 @@ namespace WizardsVRC
         [Tooltip("Indexed by School; the last entry is for General (any school).")]
         public Material[] fxMats;
 
+        [Header("Summoned minions (one body per seat, parented to the ring)")]
+        public Transform[] minionBodies;
+        [Tooltip("Index slot * 2 + part; recoloured to the minion's school (uses fxMats).")]
+        public Renderer[] minionSkins;
+        public Transform summonFlash;
+
+        [Header("Quests")]
+        public QuestManager questManager;
+
+        [Header("School combat traits (indexed by School): % health, + damage, + resist, + accuracy")]
+        public int[] schoolHealthPct = { 100, 125, 85, 105, 100, 100, 100 };
+        public int[] schoolDamage = { 10, 0, 25, 0, 5, 10, 5 };
+        public int[] schoolResist = { 0, 20, 0, 0, 5, 0, 5 };
+        public int[] schoolAccuracy = { 0, 0, -10, 10, 0, 0, 5 };
+
+        private int[] _minionShown = new int[BattleManager.SLOTS];
+        private int _walkSlot = -1;
+        private float _walkStart;
+
         private float[] _fxRadius = { 0.75f, 0.45f, 0.9f };
         private float[] _fxSpin = { 70f, -110f, 45f };
 
@@ -151,9 +170,10 @@ namespace WizardsVRC
             bool active = phase >= BattleManager.PHASE_JOINING;
             if (ring != null) ring.SetActive(active);
             if (active) { UpdateSeatRings(); UpdateFx(); }
+            UpdateMinions(phase);
             for (int m = 0; m < BattleManager.SIDE; m++)
                 if (monsterBodies != null && m < monsterBodies.Length && monsterBodies[m] != null)
-                    monsterBodies[m].SetActive(phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m));
+                    monsterBodies[m].SetActive(phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m) && !manager.IsSummon(BattleManager.SIDE + m));
 
             VRCPlayerApi local = Networking.LocalPlayer;
             int mySlot = Utilities.IsValid(local) ? manager.FindWizardSlot(local.playerId) : -1;
@@ -181,6 +201,11 @@ namespace WizardsVRC
                     _selHand = -1;
                     _discardMode = false;
                     _note = "Pick a card, or Pass.";
+                    if (_slot >= 0 && manager.stunned[_slot] != 0)
+                    {
+                        _submitted = true;
+                        _note = "You are stunned and lose this turn.";
+                    }
                 }
                 SetBanner("Round " + manager.round.ToString() + (manager.firstSide == 0 ? "  -  Wizards act first" : "  -  Monsters act first"));
             }
@@ -252,11 +277,17 @@ namespace WizardsVRC
             BuildPile(c);
             _handCount = 0;
             _note = "Waiting for the other wizards...";
+            int sc = (int)c.school;
             manager.RequestJoin(
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_HEALTH), (int)c.school, c.level,
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_DAMAGE),
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_RESIST),
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_ACCURACY));
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_HEALTH) * Trait(schoolHealthPct, sc, 100) / 100, sc, c.level,
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_DAMAGE) + Trait(schoolDamage, sc, 0),
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_RESIST) + Trait(schoolResist, sc, 0),
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_ACCURACY) + Trait(schoolAccuracy, sc, 0));
+        }
+
+        private int Trait(int[] arr, int school, int fallback)
+        {
+            return arr != null && school >= 0 && school < arr.Length ? arr[school] : fallback;
         }
 
         public void _LeaveBattle()
@@ -284,6 +315,7 @@ namespace WizardsVRC
             c.gold += gold;
             string msg = "+" + xp.ToString() + " XP   +" + gold.ToString() + " gold";
             int levels = c.AddXp(xp);
+            if (questManager != null) questManager.OnBattleWon();
             if (levels > 0) msg += "\nLevel up! You are now level " + c.level.ToString() + ". +" + levels.ToString() + " Training Point" + (levels > 1 ? "s" : "") + ".";
             if (lootTable.Length > 0 && Random.value < 0.6f)
             {
@@ -308,7 +340,7 @@ namespace WizardsVRC
             }
             if (_pileCount == 0)
             {
-                int basic = 100 + (int)c.school * 10;
+                int basic = cardDatabase.BasicSpell((int)c.school);
                 for (int i = 0; i < 4; i++) _pile[_pileCount++] = basic;
             }
             for (int i = _pileCount - 1; i > 0; i--)
@@ -400,9 +432,15 @@ namespace WizardsVRC
             int card = manager.actCard[_playIndex];
             int kind = manager.actKind[_playIndex];
             string text = manager.SlotName(actor);
+            int firstTargetSlot = manager.actTarget[_playIndex];
             if (kind == BattleManager.KIND_PASS) text += " passes.";
             else if (kind == BattleManager.KIND_FIZZLE) text += "'s " + cardDatabase.GetName(card) + " fizzles!";
+            else if (kind == BattleManager.KIND_DOT) text += " burns for " + manager.actValue[_playIndex].ToString() + " damage!";
+            else if (kind == BattleManager.KIND_STUNNED) text += " is stunned and loses a turn!";
+            else if (kind == BattleManager.KIND_SUMMON)
+                text += firstTargetSlot >= 0 ? " summons " + cardDatabase.GetName(card) + "!" : " tries to summon, but there's no free seat!";
             else text += " casts " + cardDatabase.GetName(card) + "!";
+            if (kind == BattleManager.KIND_SUMMON && firstTargetSlot >= 0) StartSummon(firstTargetSlot);
 
             int firstTarget = actor;
             while (_playIndex < manager.actCount && manager.actGroup[_playIndex] == group)
@@ -412,12 +450,13 @@ namespace WizardsVRC
                 int v = manager.actValue[_playIndex];
                 if (k == BattleManager.KIND_DAMAGE) { text += "\n" + manager.SlotName(t) + " takes " + v.ToString() + " damage"; if (firstTarget == actor) firstTarget = t; }
                 else if (k == BattleManager.KIND_HEAL) text += "\n" + manager.SlotName(t) + " heals " + v.ToString();
-                else if (k == BattleManager.KIND_BUFF) { text += "\n" + manager.SlotName(t) + " gains " + BuffName(manager.actCard[_playIndex]) + " (" + v.ToString() + "%)"; if (firstTarget == actor) firstTarget = t; }
+                else if (k == BattleManager.KIND_BUFF) { text += "\n" + manager.SlotName(t) + BuffText(manager.actCard[_playIndex], v); if (firstTarget == actor) firstTarget = t; }
                 if (t >= 0 && t < BattleManager.SLOTS) _shownHp[t] = manager.actHpAfter[_playIndex];
                 _playIndex++;
             }
             SetBanner(text);
-            if (kind != BattleManager.KIND_PASS && kind != BattleManager.KIND_FIZZLE)
+            if (kind != BattleManager.KIND_PASS && kind != BattleManager.KIND_FIZZLE && kind != BattleManager.KIND_DOT &&
+                kind != BattleManager.KIND_STUNNED && kind != BattleManager.KIND_SUMMON)
             {
                 GameObject anim = cardDatabase.GetAnimation(card);
                 if (anim != null) PlaySpellAnimation(anim, actor, firstTarget);
@@ -425,6 +464,15 @@ namespace WizardsVRC
             }
             RefreshLabels();
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.actionSeconds);
+        }
+
+        private string BuffText(int card, int v)
+        {
+            int e = cardDatabase.GetEffect(card);
+            if (e == CardDatabase.EFFECT_DOT) return " is set ablaze (" + v.ToString() + " burn damage over " + CardDatabase.DOT_ROUNDS.ToString() + " rounds)";
+            if (e == CardDatabase.EFFECT_DISPEL) return " loses every shield and blade";
+            if (e == CardDatabase.EFFECT_TAUNT) return " taunts the monsters and gains a " + v.ToString() + "% shield";
+            return " gains " + BuffName(card) + " (" + v.ToString() + "%)";
         }
 
         private string BuffName(int card)
@@ -504,6 +552,111 @@ namespace WizardsVRC
                 if (fxOrbits[i] != null) fxOrbits[i].localRotation = Quaternion.Euler(0f, Time.time * _fxSpin[i % 3], 0f);
         }
 
+        // ------------------------------------------------------------------ summoned minions
+
+        private void UpdateMinions(int phase)
+        {
+            if (minionBodies == null) return;
+            bool active = phase >= BattleManager.PHASE_JOINING;
+            for (int s = 0; s < BattleManager.SLOTS && s < minionBodies.Length; s++)
+            {
+                Transform body = minionBodies[s];
+                if (body == null) continue;
+                bool want = active && manager.IsSummon(s) && manager.Alive(s);
+                if (!want)
+                {
+                    _minionShown[s] = 0;
+                    if (_walkSlot == s) EndWalk();
+                    if (body.gameObject.activeSelf) body.gameObject.SetActive(false);
+                    continue;
+                }
+                // During playback a new minion stays hidden until its summon step plays (StartSummon).
+                if (_minionShown[s] != manager.slotIds[s] && phase != BattleManager.PHASE_PLAYBACK) ShowMinionAtSeat(s);
+            }
+        }
+
+        private void ColorMinion(int s)
+        {
+            if (minionSkins == null || fxMats == null || fxMats.Length == 0) return;
+            int sc = cardDatabase.GetSchool(manager.SummonCard(s));
+            Material m = fxMats[sc >= 0 && sc < fxMats.Length - 1 ? sc : fxMats.Length - 1];
+            for (int p = 0; p < 2; p++)
+            {
+                int i = s * 2 + p;
+                if (i < minionSkins.Length && minionSkins[i] != null) minionSkins[i].sharedMaterial = m;
+            }
+        }
+
+        private void ShowMinionAtSeat(int s)
+        {
+            Transform body = minionBodies[s];
+            _minionShown[s] = manager.slotIds[s];
+            ColorMinion(s);
+            body.SetPositionAndRotation(seats[s].position, seats[s].rotation);
+            body.localScale = Vector3.one;
+            body.gameObject.SetActive(true);
+        }
+
+        /// <summary>The minion appears at the ring's centre in a flash, then walks to its seat.</summary>
+        private void StartSummon(int s)
+        {
+            if (minionBodies == null || s < 0 || s >= minionBodies.Length || minionBodies[s] == null || arenaCenter == null) return;
+            if (_walkSlot >= 0) EndWalk();
+            Transform body = minionBodies[s];
+            _minionShown[s] = manager.slotIds[s];
+            ColorMinion(s);
+            body.position = arenaCenter.position;
+            body.localScale = Vector3.zero;
+            body.gameObject.SetActive(true);
+            _walkSlot = s;
+            _walkStart = Time.time;
+            if (summonFlash != null)
+            {
+                summonFlash.position = arenaCenter.position + Vector3.up * 1f;
+                summonFlash.gameObject.SetActive(true);
+            }
+        }
+
+        private void EndWalk()
+        {
+            int s = _walkSlot;
+            _walkSlot = -1;
+            if (summonFlash != null) summonFlash.gameObject.SetActive(false);
+            if (s >= 0 && minionBodies[s] != null && minionBodies[s].gameObject.activeSelf)
+            {
+                minionBodies[s].SetPositionAndRotation(seats[s].position, seats[s].rotation);
+                minionBodies[s].localScale = Vector3.one;
+            }
+        }
+
+        private void AnimateSummon()
+        {
+            if (_walkSlot < 0) return;
+            Transform body = minionBodies[_walkSlot];
+            float dur = manager.actionSeconds * 0.95f;
+            float t = (Time.time - _walkStart) / dur;
+            if (t >= 1f || body == null) { EndWalk(); return; }
+            Vector3 from = arenaCenter.position;
+            Vector3 to = seats[_walkSlot].position;
+            float grow = 0.35f;
+            if (t < grow)
+            {
+                float g = t / grow;
+                body.position = from;
+                body.localScale = Vector3.one * g;
+                body.rotation = Quaternion.Euler(0f, g * 720f, 0f);
+                if (summonFlash != null) summonFlash.localScale = Vector3.one * (0.5f + 2.5f * g);
+                return;
+            }
+            if (summonFlash != null && summonFlash.gameObject.activeSelf) summonFlash.gameObject.SetActive(false);
+            float w = (t - grow) / (1f - grow);
+            Vector3 dir = to - from;
+            dir.y = 0f;
+            body.localScale = Vector3.one;
+            body.position = Vector3.Lerp(from, to, w) + Vector3.up * Mathf.Abs(Mathf.Sin(w * Mathf.PI * 6f)) * 0.12f;
+            if (dir.sqrMagnitude > 0.001f) body.rotation = Quaternion.LookRotation(dir);
+        }
+
         private void UpdateSeatRings()
         {
             if (seatRings == null) return;
@@ -548,7 +701,7 @@ namespace WizardsVRC
 
         private void Update()
         {
-            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); }
+            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); }
             if (_inBattle && !_seated && manager != null && manager.phase == BattleManager.PHASE_ROAMING && arenaCenter != null && Time.time >= _nextEngage)
             {
                 VRCPlayerApi me = Networking.LocalPlayer;
@@ -619,6 +772,9 @@ namespace WizardsVRC
             if (sh > 0) line += "  Shields " + sh.ToString();
             if (bl > 0) line += "  Blades " + bl.ToString();
             if (tr > 0) line += "  Traps " + tr.ToString();
+            if (manager.dotLeft[s] > 0) line += "  Burning " + manager.dotLeft[s].ToString();
+            if (manager.stunned[s] != 0) line += "  Stunned";
+            if (manager.taunt[s] > 0) line += "  Taunting";
             if (s < BattleManager.SIDE && manager.phase == BattleManager.PHASE_PLANNING && manager.Alive(s)) line += manager.locked[s] != 0 ? "  (ready)" : "  (choosing)";
             if (_shownHp[s] <= 0) line += "  (defeated)";
             return line;

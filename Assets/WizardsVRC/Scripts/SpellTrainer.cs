@@ -7,7 +7,8 @@ namespace WizardsVRC
 {
     /// <summary>
     /// A professor's spell list: shows the school's spells and lets the local player learn them.
-    /// Own-school spells are free; other schools cost 1 training point. The level requirement always applies.
+    /// Own-school spells are free; other schools cost 1 training point. The level requirement and the previous spell in
+    /// the tree (CardDatabase.prereqs) always apply; the quest-tier spell is only earned from the school's trial quest.
     /// One shared panel, placed in front of the player when opened.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -132,7 +133,10 @@ namespace WizardsVRC
             CharacterData c = playerState.current;
             int id = _selected;
             if (c.HasLearned(id)) { SetStatus("You already know that spell."); return; }
+            if (cardDatabase.IsQuestSpell(id)) { SetStatus("This spell is earned from the " + NameAt(schoolNames, _school) + " trial quest, not taught here."); return; }
             if (c.level < cardDatabase.GetLevelReq(id)) { SetStatus("You must be level " + cardDatabase.GetLevelReq(id).ToString() + " to learn that."); return; }
+            int pre = cardDatabase.GetPrereq(id);
+            if (pre > 0 && !c.HasLearned(pre)) { SetStatus("You must learn " + cardDatabase.GetName(pre) + " first."); return; }
             int cost = cardDatabase.LearnCost(c, id);
             if (c.trainingPoints < cost) { SetStatus("You need a Training Point. You earn one each level."); return; }
             if (!c.Learn(id)) return;
@@ -172,7 +176,7 @@ namespace WizardsVRC
             if (!sel) return;
             detailName.text = cardDatabase.GetName(_selected);
             detailBody.text = cardDatabase.GetDetails(_selected);
-            bool canTry = !c.HasLearned(_selected);
+            bool canTry = !c.HasLearned(_selected) && !cardDatabase.IsQuestSpell(_selected);
             if (learnButton != null) learnButton.SetActive(canTry);
             if (learnLabel != null)
                 learnLabel.text = cardDatabase.LearnCost(c, _selected) == 0 ? "Learn (free)" : "Learn (1 point)";
@@ -182,7 +186,10 @@ namespace WizardsVRC
         {
             if (c.HasLearned(id)) return "Learned";
             int req = cardDatabase.GetLevelReq(id);
+            if (cardDatabase.IsQuestSpell(id)) return "Lv " + req.ToString() + " - Trial quest reward";
             if (c.level < req) return "Requires level " + req.ToString();
+            int pre = cardDatabase.GetPrereq(id);
+            if (pre > 0 && !c.HasLearned(pre)) return "Needs " + cardDatabase.GetName(pre);
             return cardDatabase.LearnCost(c, id) == 0 ? "Lv " + req.ToString() + " - Free" : "Lv " + req.ToString() + " - 1 Training Point";
         }
 

@@ -406,13 +406,15 @@ namespace WizardsVRC.EditorTools
             qm.hud = hud;
             qm.schoolNames = (string[])SchoolLabels.Clone();
             qm.professorNames = (string[])ProfessorNames.Clone();
-            qm.questTitles = new[] { "The Prophecy" };
+            qm.questTitles = new[] { "The Prophecy", "Trial of the School" };
             qm.questDescriptions = new[]
             {
                 "Headmaster Greymantle says an old prophecy foretold your arrival. The Starfall Crystal is fading, and Morvane the Hollow King "
                 + "stirs in the north. Before you can help, you must meet the professor of your chosen school.",
+                "You have grown strong enough for your school's trial. Prove yourself in battle and your professor will teach you "
+                + "a spell that is never taught in the classroom.",
             };
-            qm.questRewards = new[] { qm.prophecyXp + " XP, " + qm.prophecyGold + " gold" };
+            qm.questRewards = new[] { qm.prophecyXp + " XP, " + qm.prophecyGold + " gold", "Your school's trial spell (level " + QuestManager.TRIAL_LEVEL + ")" };
             qm.professorTargets = (Transform[])info.professors.Clone();
             qm.headmasterTarget = info.headmaster;
             list.Add(qm);

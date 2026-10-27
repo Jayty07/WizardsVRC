@@ -37,6 +37,12 @@ namespace WizardsVRC
         public const int KIND_DAMAGE = 2;
         public const int KIND_HEAL = 3;
         public const int KIND_BUFF = 4;
+        /// <summary>Burn damage ticking at the start of a round (actor = the burning slot).</summary>
+        public const int KIND_DOT = 5;
+        /// <summary>The actor was stunned and loses this turn.</summary>
+        public const int KIND_STUNNED = 6;
+        /// <summary>A minion appears in seat target (-1 = no free seat).</summary>
+        public const int KIND_SUMMON = 7;
 
         public CardDatabase cardDatabase;
         public BattleClient client;
@@ -55,12 +61,12 @@ namespace WizardsVRC
         public int bossLevel = 5;
         public int bossHealth = 900;
         public int bossHealthPerExtraPlayer = 450;
-        public int[] bossSpells = { 140, 141, 142, 143 };
+        public int[] bossSpells = { 148, 149, 152, 154 };
         public string minionName = "Bone Thrall";
         public int minionSchool = 5;
         public int minionLevel = 3;
         public int minionHealth = 320;
-        public int[] minionSpells = { 150, 151 };
+        public int[] minionSpells = { 160, 161 };
 
         [UdonSynced] public int phase;
         [UdonSynced] public int phaseEndMs;
@@ -69,7 +75,7 @@ namespace WizardsVRC
         [UdonSynced] public int firstSide;
         [UdonSynced] public int[] queueIds = new int[SIDE];
 
-        /// <summary>Wizard slots: player id. Monster slots: 1 = boss, 2 = minion. 0 = empty.</summary>
+        /// <summary>Wizard slots: player id. Monster slots: 1 = boss, 2 = minion. Summoned minions (either side): -cardId. 0 = empty.</summary>
         [UdonSynced] public int[] slotIds = new int[SLOTS];
         [UdonSynced] public int[] hp = new int[SLOTS];
         [UdonSynced] public int[] maxHp = new int[SLOTS];
@@ -88,6 +94,13 @@ namespace WizardsVRC
         [UdonSynced] public int[] traps = new int[SLOTS * FX_MAX];
         [UdonSynced] public int[] focus = new int[SLOTS];
         [UdonSynced] public int[] locked = new int[SLOTS];
+        /// <summary>Burn damage still to come and the rounds it is spread over.</summary>
+        [UdonSynced] public int[] dotLeft = new int[SLOTS];
+        [UdonSynced] public int[] dotTurns = new int[SLOTS];
+        /// <summary>1 = loses its next cast.</summary>
+        [UdonSynced] public int[] stunned = new int[SLOTS];
+        /// <summary>Rounds left in which monsters must attack this slot.</summary>
+        [UdonSynced] public int[] taunt = new int[SLOTS];
 
         /// <summary>Last round's results, played back by every client. Entries sharing a group are one cast.</summary>
         [UdonSynced] public int actCount;
@@ -118,6 +131,8 @@ namespace WizardsVRC
 
         public bool Occupied(int s) { return s >= 0 && s < SLOTS && slotIds[s] != 0; }
         public bool Alive(int s) { return Occupied(s) && hp[s] > 0; }
+        public bool IsSummon(int s) { return Occupied(s) && slotIds[s] < 0; }
+        public int SummonCard(int s) { return IsSummon(s) ? -slotIds[s] : 0; }
         public int SideOf(int s) { return s < SIDE ? 0 : 1; }
 
         public int FindWizardSlot(int playerId)
@@ -165,6 +180,7 @@ namespace WizardsVRC
         public string SlotName(int s)
         {
             if (!Occupied(s)) return "";
+            if (slotIds[s] < 0) return cardDatabase.GetName(-slotIds[s]);
             if (s >= SIDE) return slotIds[s] == 1 ? bossName : minionName;
             VRCPlayerApi p = VRCPlayerApi.GetPlayerById(slotIds[s]);
             return Utilities.IsValid(p) ? p.displayName : "Wizard";
@@ -250,7 +266,7 @@ namespace WizardsVRC
             level[s] = playerLevel;
             dmgPct[s] = Mathf.Clamp(dmg, 0, 200);
             resistPct[s] = Mathf.Clamp(resist, 0, 80);
-            accPct[s] = Mathf.Clamp(acc, 0, 100);
+            accPct[s] = Mathf.Clamp(acc, -50, 100);
             _joined[s] = true;
             Publish();
         }
@@ -331,13 +347,19 @@ namespace WizardsVRC
 
         private bool AllLocked()
         {
-            for (int s = 0; s < SIDE; s++) if (Alive(s) && locked[s] == 0) return false;
+            for (int s = 0; s < SIDE; s++) if (Alive(s) && !IsSummon(s) && locked[s] == 0) return false;
             return true;
         }
 
         private bool SideAlive(int side)
         {
             for (int i = 0; i < SIDE; i++) if (Alive(side * SIDE + i)) return true;
+            return false;
+        }
+
+        private bool PlayersAlive()
+        {
+            for (int s = 0; s < SIDE; s++) if (Alive(s) && !IsSummon(s)) return true;
             return false;
         }
 
@@ -348,6 +370,7 @@ namespace WizardsVRC
             {
                 slotIds[s] = 0; hp[s] = 0; maxHp[s] = 0; pips[s] = 0; school[s] = 0; level[s] = 1;
                 dmgPct[s] = 0; resistPct[s] = 0; accPct[s] = 0; focus[s] = 0; locked[s] = 0;
+                dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0;
             }
             for (int k = 0; k < SLOTS * FX_MAX; k++) { shields[k] = 0; blades[k] = 0; traps[k] = 0; }
             for (int i = 0; i < SIDE; i++)
@@ -392,6 +415,8 @@ namespace WizardsVRC
                 _pickCard[s] = 0;
                 _pickTarget[s] = -1;
                 if (!Alive(s)) continue;
+                // Minions act on their own and stunned wizards sit this round out.
+                if (IsSummon(s) || stunned[s] != 0) locked[s] = 1;
                 int gain = level[s] >= 10 && Random.value < 0.4f ? 2 : 1;
                 pips[s] = Mathf.Min(MAX_PIPS, pips[s] + gain);
             }
@@ -403,7 +428,7 @@ namespace WizardsVRC
         private void AfterPlayback()
         {
             if (!SideAlive(1)) phase = PHASE_VICTORY;
-            else if (!SideAlive(0)) phase = PHASE_DEFEAT;
+            else if (!PlayersAlive()) phase = PHASE_DEFEAT;
             else { BeginRound(); return; }
             phaseEndMs = Now() + endSeconds * 1000;
             Publish();
@@ -413,10 +438,22 @@ namespace WizardsVRC
 
         private void Resolve()
         {
-            for (int s = SIDE; s < SLOTS; s++) if (Alive(s)) PickForMonster(s);
+            for (int s = SIDE; s < SLOTS; s++) if (Alive(s) && !IsSummon(s)) PickForMonster(s);
+            for (int s = 0; s < SLOTS; s++) if (taunt[s] > 0) taunt[s]--;
 
             actCount = 0;
             int group = 0;
+            for (int s = 0; s < SLOTS; s++)
+            {
+                if (!Alive(s) || dotLeft[s] <= 0 || dotTurns[s] <= 0) continue;
+                int tick = dotLeft[s] / dotTurns[s];
+                dotLeft[s] -= tick;
+                dotTurns[s]--;
+                if (dotTurns[s] <= 0) dotLeft[s] = 0;
+                hp[s] = Mathf.Max(0, hp[s] - tick);
+                AddAct(group, s, s, 0, KIND_DOT, tick);
+                group++;
+            }
             for (int pass = 0; pass < 2; pass++)
             {
                 int side = pass == 0 ? firstSide : 1 - firstSide;
@@ -425,7 +462,9 @@ namespace WizardsVRC
                     int s = side * SIDE + i;
                     if (!Alive(s)) continue;
                     if (!SideAlive(1 - side)) break;
-                    Cast(s, _pickCard[s], _pickTarget[s], group);
+                    if (stunned[s] != 0) { stunned[s] = 0; AddAct(group, s, s, 0, KIND_STUNNED, 0); }
+                    else if (IsSummon(s)) MinionAct(s, group);
+                    else Cast(s, _pickCard[s], _pickTarget[s], group);
                     group++;
                 }
             }
@@ -448,7 +487,97 @@ namespace WizardsVRC
             }
             if (affordable > 0 && Random.value < 0.25f && pips[s] < MAX_PIPS) best = 0;
             _pickCard[s] = best;
-            _pickTarget[s] = RandomAlive(0);
+            _pickTarget[s] = EnemyTarget(s);
+        }
+
+        /// <summary>A taunting enemy if there is one, otherwise a random living enemy.</summary>
+        private int EnemyTarget(int s)
+        {
+            int enemySide = 1 - SideOf(s);
+            for (int i = 0; i < SIDE; i++)
+            {
+                int t = enemySide * SIDE + i;
+                if (Alive(t) && taunt[t] > 0) return t;
+            }
+            return RandomAlive(enemySide);
+        }
+
+        /// <summary>A summoned minion's automatic turn, based on its school.</summary>
+        private void MinionAct(int s, int group)
+        {
+            int card = SummonCard(s);
+            int sc = cardDatabase.GetSchool(card);
+            int power = cardDatabase.GetAux(card);
+            int mySide = SideOf(s);
+            if (sc == 3)
+            {
+                int best = -1;
+                for (int i = 0; i < SIDE; i++)
+                {
+                    int a = mySide * SIDE + i;
+                    if (Alive(a) && (best < 0 || hp[a] * 1000 / maxHp[a] < hp[best] * 1000 / maxHp[best])) best = a;
+                }
+                if (best < 0) { AddAct(group, s, s, 0, KIND_PASS, 0); return; }
+                int heal = Mathf.Min(power, maxHp[best] - hp[best]);
+                hp[best] += heal;
+                AddAct(group, s, best, card, KIND_HEAL, heal);
+                return;
+            }
+            if (sc == 1) taunt[s] = 1;
+            int t = EnemyTarget(s);
+            if (t < 0) { AddAct(group, s, s, 0, KIND_PASS, 0); return; }
+            int amount = Hit(s, t, power, sc, 100, 0);
+            AddAct(group, s, t, card, KIND_DAMAGE, amount);
+            if (sc == 4 && amount > 0)
+            {
+                int drain = Mathf.Min(amount / 2, maxHp[s] - hp[s]);
+                hp[s] += drain;
+                AddAct(group, s, s, card, KIND_HEAL, drain);
+            }
+        }
+
+        /// <summary>One hit from slot s: variance, damage bonus, blade multiplier, the target's traps/shields and resist.
+        /// pierce% of the shield block and resist is ignored.</summary>
+        private int Hit(int s, int t, int power, int spellSchool, int bladeMul, int pierce)
+        {
+            int amount = power * Random.Range(90, 111) / 100;
+            amount = amount * (100 + dmgPct[s]) / 100;
+            amount = amount * bladeMul / 100;
+            amount = amount * UseFx(traps, t, spellSchool, true) / 100;
+            int shieldMul = UseFx(shields, t, spellSchool, false);
+            shieldMul = 100 - (100 - shieldMul) * (100 - pierce) / 100;
+            amount = amount * shieldMul / 100;
+            amount = amount * (100 - resistPct[t] * (100 - pierce) / 100) / 100;
+            if (amount < 1) amount = 1;
+            hp[t] = Mathf.Max(0, hp[t] - amount);
+            return amount;
+        }
+
+        private void ClearFx(int[] arr, int s)
+        {
+            for (int k = 0; k < FX_MAX; k++) arr[s * FX_MAX + k] = 0;
+        }
+
+        private int FreeSeat(int side)
+        {
+            for (int i = 0; i < SIDE; i++) if (!Occupied(side * SIDE + i) || hp[side * SIDE + i] <= 0 && IsSummon(side * SIDE + i)) return side * SIDE + i;
+            return -1;
+        }
+
+        private void Summon(int s, int cardId, int power, int group)
+        {
+            int seat = FreeSeat(SideOf(s));
+            if (seat < 0) { AddAct(group, s, -1, cardId, KIND_SUMMON, 0); return; }
+            slotIds[seat] = -cardId;
+            school[seat] = cardDatabase.GetSchool(cardId);
+            level[seat] = level[s];
+            maxHp[seat] = power;
+            hp[seat] = power;
+            pips[seat] = 0;
+            dmgPct[seat] = 0; resistPct[seat] = 0; accPct[seat] = 0; focus[seat] = 0; locked[seat] = 1;
+            dotLeft[seat] = 0; dotTurns[seat] = 0; stunned[seat] = 0; taunt[seat] = 0;
+            ClearFx(shields, seat); ClearFx(blades, seat); ClearFx(traps, seat);
+            AddAct(group, s, seat, cardId, KIND_SUMMON, power);
         }
 
         private int RandomAlive(int side)
@@ -497,34 +626,73 @@ namespace WizardsVRC
             int mySide = SideOf(s);
             bool aoe = cardDatabase.IsAoe(cardId);
 
-            if (effect == CardDatabase.EFFECT_DAMAGE || effect == CardDatabase.EFFECT_DRAIN)
+            int auxVal = cardDatabase.GetAux(cardId);
+            if (effect == CardDatabase.EFFECT_DAMAGE || effect == CardDatabase.EFFECT_DRAIN || effect == CardDatabase.EFFECT_DOT ||
+                effect == CardDatabase.EFFECT_STUN || effect == CardDatabase.EFFECT_SHATTER)
             {
-                int enemySide = 1 - mySide;
-                int n = CollectTargets(aoe, target, enemySide);
+                int n = CollectTargets(aoe, target, 1 - mySide);
                 int spellSchool = cardDatabase.GetSchool(cardId);
+                int pierce = effect == CardDatabase.EFFECT_DAMAGE ? Mathf.Clamp(auxVal, 0, 100) : 0;
                 // Blades are used once per cast (even when it hits every enemy); traps and shields once per target hit.
-                int bladeMul = UseFx(blades, s, spellSchool, true);
+                int bladeMul = power > 0 ? UseFx(blades, s, spellSchool, true) : 100;
                 int total = 0;
                 for (int k = 0; k < n; k++)
                 {
                     int t = _targets[k];
-                    int amount = power * Random.Range(90, 111) / 100;
-                    amount = amount * (100 + dmgPct[s]) / 100;
-                    amount = amount * bladeMul / 100;
-                    amount = amount * UseFx(traps, t, spellSchool, true) / 100;
-                    amount = amount * UseFx(shields, t, spellSchool, false) / 100;
-                    amount = amount * (100 - resistPct[t]) / 100;
-                    if (amount < 1) amount = 1;
-                    hp[t] = Mathf.Max(0, hp[t] - amount);
-                    total += amount;
-                    AddAct(group, s, t, cardId, KIND_DAMAGE, amount);
+                    if (effect == CardDatabase.EFFECT_SHATTER) ClearFx(shields, t);
+                    if (power > 0)
+                    {
+                        int amount = Hit(s, t, power, spellSchool, bladeMul, pierce);
+                        total += amount;
+                        AddAct(group, s, t, cardId, KIND_DAMAGE, amount);
+                    }
+                    if (effect == CardDatabase.EFFECT_DOT && hp[t] > 0)
+                    {
+                        dotLeft[t] += auxVal;
+                        dotTurns[t] = CardDatabase.DOT_ROUNDS;
+                        AddAct(group, s, t, cardId, KIND_BUFF, auxVal);
+                    }
+                    if (effect == CardDatabase.EFFECT_STUN && hp[t] > 0) stunned[t] = 1;
                 }
                 if (effect == CardDatabase.EFFECT_DRAIN && total > 0)
                 {
-                    int heal = Mathf.Min(total / 2, maxHp[s] - hp[s]);
+                    int pct = auxVal > 0 ? auxVal : 50;
+                    int heal = Mathf.Min(total * pct / 100, maxHp[s] - hp[s]);
                     hp[s] += heal;
                     AddAct(group, s, s, cardId, KIND_HEAL, heal);
                 }
+                return;
+            }
+
+            if (effect == CardDatabase.EFFECT_DETONATE || effect == CardDatabase.EFFECT_DISPEL)
+            {
+                int dn = CollectTargets(aoe, target, 1 - mySide);
+                for (int k = 0; k < dn; k++)
+                {
+                    int t = _targets[k];
+                    if (effect == CardDatabase.EFFECT_DISPEL)
+                    {
+                        ClearFx(shields, t);
+                        ClearFx(blades, t);
+                        AddAct(group, s, t, cardId, KIND_BUFF, 0);
+                        continue;
+                    }
+                    int burst = dotLeft[t] * (100 + power) / 100;
+                    dotLeft[t] = 0;
+                    dotTurns[t] = 0;
+                    hp[t] = Mathf.Max(0, hp[t] - burst);
+                    AddAct(group, s, t, cardId, KIND_DAMAGE, burst);
+                }
+                return;
+            }
+
+            if (effect == CardDatabase.EFFECT_MINION) { Summon(s, cardId, power, group); return; }
+
+            if (effect == CardDatabase.EFFECT_TAUNT)
+            {
+                taunt[s] = auxVal;
+                AddFx(shields, s, PackFx(cardId, CardDatabase.ANY_SCHOOL, power));
+                AddAct(group, s, s, cardId, KIND_BUFF, power);
                 return;
             }
 
