@@ -1001,6 +1001,52 @@ namespace WizardsVRC.EditorTools
             {
                 client.castSounds[k] = AssetDatabase.LoadAssetAtPath<AudioClip>(CastSoundDir + "/FX_CastingSound_" + SchoolLabels[k] + ".mp3");
                 if (client.castSounds[k] == null) Debug.LogWarning("[WizardsVRC] Missing cast sound for " + SchoolLabels[k] + " in " + CastSoundDir);
+                else if (client.manager != null && k < client.manager.castSeconds.Length) client.manager.castSeconds[k] = client.castSounds[k].length;
+            }
+
+            // School-coloured particle burst that explodes off the caster at the cast sound's peak.
+            Shader particleShader = Shader.Find("Particles/Standard Unlit");
+            client.castBursts = new ParticleSystem[SchoolLabels.Length + 1];
+            for (int k = 0; k <= SchoolLabels.Length; k++)
+            {
+                string label = k < SchoolLabels.Length ? SchoolLabels[k] : "General";
+                Color c = k < SchoolLabels.Length ? SchoolColors[k] : new Color(0.9f, 0.9f, 0.95f);
+                var go = Child(ring.transform, "CastBurst" + label, Vector3.zero).gameObject;
+                var ps = go.AddComponent<ParticleSystem>();
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                var main = ps.main;
+                main.playOnAwake = false;
+                main.loop = false;
+                main.duration = 0.5f;
+                main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.1f);
+                main.startSpeed = new ParticleSystem.MinMaxCurve(3f, 7f);
+                main.startSize = new ParticleSystem.MinMaxCurve(0.12f, 0.32f);
+                main.startColor = new ParticleSystem.MinMaxGradient(c, Color.Lerp(c, Color.white, 0.6f));
+                main.gravityModifier = 0.35f;
+                main.simulationSpace = ParticleSystemSimulationSpace.World;
+                main.maxParticles = 200;
+                var emission = ps.emission;
+                emission.rateOverTime = 0f;
+                emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 90), new ParticleSystem.Burst(0.12f, 40) });
+                var shape = ps.shape;
+                shape.shapeType = ParticleSystemShapeType.Sphere;
+                shape.radius = 0.35f;
+                var sizeLife = ps.sizeOverLifetime;
+                sizeLife.enabled = true;
+                sizeLife.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
+                var pr = go.GetComponent<ParticleSystemRenderer>();
+                Material pm = particleShader != null ? new Material(particleShader) : Mat("CastBurst" + label, c);
+                if (particleShader != null)
+                {
+                    pm.name = "CastBurst" + label;
+                    pm.SetColor("_Color", Color.white);
+                    string pmPath = MaterialsDir + "/CastBurst" + label + ".mat";
+                    AssetDatabase.DeleteAsset(pmPath);
+                    AssetDatabase.CreateAsset(pm, pmPath);
+                }
+                pr.sharedMaterial = pm;
+                pr.renderMode = ParticleSystemRenderMode.Billboard;
+                client.castBursts[k] = ps;
             }
 
             // Summoned minions: one body per seat, parented to the ring. BattleClient grows them at the ring's centre and
