@@ -382,5 +382,66 @@ namespace WizardsVRC
                    (prereqs[i] > 0 ? "\nRequires: " + GetName(prereqs[i]) : "") +
                    (IsQuestSpell(cardId) ? "\nLearned from the " + SchoolName(schools[i]) + " trial quest" : "");
         }
+
+        // ------------------------------------------------------------------ monsters
+        // Monster definitions live here too (one shared database behaviour); see BattleManager.roster.
+
+        public const int MONSTER_SPELLS = 4;
+
+        // Training Yard: 1 Gloomfang the Warden (boss), 2 Bone Thrall, 3 Marsh Sprite, 4 Courtyard Rat
+        [HideInInspector] public int[] monsterIds = { 1, 2, 3, 4 };
+        [HideInInspector] public string[] monsterNames = { "Gloomfang the Warden", "Bone Thrall", "Marsh Sprite", "Courtyard Rat" };
+        [HideInInspector] public int[] monsterSchools = { 4, 5, 3, 2 };
+        [HideInInspector] public int[] monsterLevels = { 5, 3, 2, 1 };
+        [HideInInspector] public int[] monsterHps = { 900, 320, 240, 180 };
+        /// <summary>MONSTER_SPELLS entries per monster, 0 = none.</summary>
+        [HideInInspector] public int[] monsterSpells =
+        {
+            148, 149, 152, 154,
+            160, 161, 0, 0,
+            136, 137, 0, 0,
+            124, 125, 0, 0,
+        };
+        [HideInInspector] public int[] monsterXps = { 120, 45, 35, 25 };
+        [HideInInspector] public int[] monsterGoldMin = { 40, 10, 8, 5 };
+        [HideInInspector] public int[] monsterGoldMax = { 80, 25, 18, 12 };
+        /// <summary>Item id dropped (0 = none) and the chance in percent.</summary>
+        [HideInInspector] public int[] monsterDropItems = { 25, 10, 11, 10 };
+        [HideInInspector] public int[] monsterDropChances = { 60, 25, 25, 20 };
+        /// <summary>Body size multiplier (1 = wizard sized).</summary>
+        [HideInInspector] public float[] monsterBodyScales = { 1.7f, 1f, 0.8f, 0.7f };
+        [HideInInspector] public int[] monsterIsBoss = { 1, 0, 0, 0 };
+        /// <summary>Extra health per extra wizard in the fight (bosses only).</summary>
+        [HideInInspector] public int[] monsterHpPerExtraPlayer = { 450, 0, 0, 0 };
+
+        public int MonsterCount() { return monsterIds.Length; }
+
+        public int MonsterIndexOf(int monsterId)
+        {
+            if (monsterId <= 0) return -1;
+            for (int i = 0; i < monsterIds.Length; i++) if (monsterIds[i] == monsterId) return i;
+            return -1;
+        }
+
+        public string MonsterName(int id) { int i = MonsterIndexOf(id); return i < 0 ? "Monster" : monsterNames[i]; }
+        public int MonsterSchool(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterSchools[i]; }
+        public int MonsterLevel(int id) { int i = MonsterIndexOf(id); return i < 0 ? 1 : monsterLevels[i]; }
+        public int MonsterHp(int id) { int i = MonsterIndexOf(id); return i < 0 ? 100 : monsterHps[i]; }
+        public int MonsterXp(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterXps[i]; }
+        public int RollMonsterGold(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : Random.Range(monsterGoldMin[i], monsterGoldMax[i] + 1); }
+        public int MonsterDropItem(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterDropItems[i]; }
+        public int MonsterDropChance(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterDropChances[i]; }
+        public float MonsterBodyScale(int id) { int i = MonsterIndexOf(id); return i < 0 ? 1f : monsterBodyScales[i]; }
+        public bool IsBossMonster(int id) { int i = MonsterIndexOf(id); return i >= 0 && monsterIsBoss[i] != 0; }
+        public int MonsterHpPerExtraPlayer(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterHpPerExtraPlayer[i]; }
+
+        /// <summary>Spell k (0..MONSTER_SPELLS-1) of the monster, 0 = none.</summary>
+        public int MonsterSpell(int id, int k)
+        {
+            int i = MonsterIndexOf(id);
+            if (i < 0 || k < 0 || k >= MONSTER_SPELLS) return 0;
+            int idx = i * MONSTER_SPELLS + k;
+            return idx < monsterSpells.Length ? monsterSpells[idx] : 0;
+        }
     }
 }
