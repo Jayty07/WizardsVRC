@@ -1205,6 +1205,19 @@ namespace WizardsVRC.EditorTools
             player.voiceSource = voice;
             player.filmCamera = cam;
             player.screenRoot = screenGo;
+            // The screen is only switched on for the local player, so nobody else ever sees it. It also goes on its own
+            // layer (Walkthrough: still clickable, no collisions) that the film camera doesn't render, together with
+            // the player avatars, so neither shows up in the shots.
+            int screenLayer = LayerMask.NameToLayer("Walkthrough");
+            if (screenLayer < 0) screenLayer = 17;
+            foreach (Transform t in screenGo.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = screenLayer;
+            int hidden = 1 << screenLayer;
+            foreach (string layerName in new[] { "Player", "PlayerLocal", "MirrorReflection" })
+            {
+                int l = LayerMask.NameToLayer(layerName);
+                if (l >= 0) hidden |= 1 << l;
+            }
+            cam.cullingMask = ~hidden;
             screenGo.SetActive(false);
 
             // ---- cutscene data + flow
