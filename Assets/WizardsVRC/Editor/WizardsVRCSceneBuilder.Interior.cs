@@ -505,6 +505,7 @@ namespace WizardsVRC.EditorTools
         private static void SetStep(QuestManager qm, int quest, int step, int type, int param, int count, string text, string targetName, Transform target)
         {
             int i = quest * QuestManager.MAX_STEPS + step;
+            qm.questStepCounts[quest] = Mathf.Max(qm.questStepCounts[quest], step + 1);
             qm.stepTypes[i] = type;
             qm.stepParams[i] = param;
             qm.stepCounts[i] = count;

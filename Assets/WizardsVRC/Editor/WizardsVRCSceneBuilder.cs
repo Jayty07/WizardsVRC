@@ -171,6 +171,7 @@ namespace WizardsVRC.EditorTools
             selectUI.questManager = questManager;
             hud.questManager = questManager;
             questPages.questManager = questManager;
+            var streets = BuildLanternRow(systems.transform, hubRoot, questManager, (CutscenePlayer)cutscenes[0], cardDb, itemDb, playerState, encounters);
             var questGuide = BuildQuestGuide(systems.transform, playerState, questManager, (CutscenePlayer)cutscenes[0], encounters.ToArray(),
                 interior.exitDoor, hubRoot.Find("KeepEntrance"));
             questPages.questGuide = questGuide;
@@ -178,6 +179,7 @@ namespace WizardsVRC.EditorTools
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
             toSync.AddRange(quests);
             toSync.AddRange(learning);
+            toSync.AddRange(streets);
             foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, queuePad, questPages, questGuide }) toSync.Add(b);
             foreach (var ec in encounters) { toSync.Add(ec.manager); toSync.Add(ec); foreach (var w in ec.GetComponentsInChildren<Wanderer>(true)) toSync.Add(w); }
             foreach (var b in toSync)
