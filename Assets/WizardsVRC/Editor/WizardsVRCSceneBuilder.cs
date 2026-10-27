@@ -167,6 +167,10 @@ namespace WizardsVRC.EditorTools
             var learning = BuildSpellLearning(systems.transform, playerState, cardDb, hud, out SpellTrainer trainer, out InteractionMenu interactionMenu);
             var quests = BuildQuests(systems.transform, interior, (CutscenePlayer)cutscenes[0], playerState, hud, hubRoot, trainer, interactionMenu);
             var questManager = (QuestManager)quests[0];
+            questManager.cardDatabase = cardDb;
+            questManager.popup = trainer.popup;
+            questManager.arenaTarget = queuePad.transform;
+            battleClient.questManager = questManager;
             selectUI.questManager = questManager;
             hud.questManager = questManager;
             questPages.questManager = questManager;
@@ -951,6 +955,73 @@ namespace WizardsVRC.EditorTools
             Object.DestroyImmediate(orb.GetComponent<Collider>());
             orb.SetActive(false);
             client.orb = orb.transform;
+            client.orbRenderer = orb.GetComponent<Renderer>();
+
+            // School cast effect (all parented to the ring): the caster's seat ring flares and rises, the school's glyph
+            // pops up over their head, the orb flies in the school colour and bursts on the target.
+            var castRing = FlatDecal(ring.transform, "CastRing", Vector3.zero, 1.9f, seatEmpty);
+            castRing.SetActive(false);
+            client.castRing = castRing.transform;
+            client.castRingRenderer = castRing.GetComponent<Renderer>();
+            var glyph = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            glyph.name = "CastGlyph";
+            glyph.transform.SetParent(ring.transform, false);
+            Object.DestroyImmediate(glyph.GetComponent<Collider>());
+            var glyphR = glyph.GetComponent<Renderer>();
+            glyphR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            glyph.SetActive(false);
+            client.castGlyph = glyphR;
+            client.castGlyphMats = new Material[SchoolLabels.Length + 1];
+            for (int k = 0; k <= SchoolLabels.Length; k++)
+            {
+                string label = k < SchoolLabels.Length ? SchoolLabels[k] : "General";
+                Texture2D gt = PixelTexture(TexturesDir + "/CastGlyph" + label + ".png");
+                // The glyph PNGs are painted in school colours, so the material stays untinted and just glows.
+                client.castGlyphMats[k] = CutoutMat("CastGlyph" + label, gt, Color.white, Color.white * 0.9f);
+            }
+            var burst = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            burst.name = "ImpactBurst";
+            burst.transform.SetParent(ring.transform, false);
+            Object.DestroyImmediate(burst.GetComponent<Collider>());
+            burst.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            burst.SetActive(false);
+            client.impactBurst = burst.transform;
+            client.impactRenderer = burst.GetComponent<Renderer>();
+
+            // Summoned minions: one body per seat, parented to the ring. BattleClient grows them at the ring's centre and
+            // walks them to their seat, so it works wherever the ring is placed.
+            client.minionBodies = new Transform[slots];
+            client.minionSkins = new Renderer[slots * 2];
+            for (int s = 0; s < slots; s++)
+            {
+                var mb = Child(ring.transform, "SummonedMinion" + s, client.seats[s].localPosition);
+                var torso = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                torso.name = "Body";
+                torso.transform.SetParent(mb, false);
+                torso.transform.localPosition = new Vector3(0, 0.75f, 0);
+                torso.transform.localScale = new Vector3(0.8f, 0.75f, 0.8f);
+                var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                head.name = "Head";
+                head.transform.SetParent(mb, false);
+                head.transform.localPosition = new Vector3(0, 1.75f, 0.05f);
+                head.transform.localScale = Vector3.one * 0.6f;
+                foreach (var part in new[] { torso, head })
+                {
+                    Object.DestroyImmediate(part.GetComponent<Collider>());
+                    part.GetComponent<Renderer>().sharedMaterial = client.fxMats[SchoolLabels.Length];
+                }
+                client.minionSkins[s * 2] = torso.GetComponent<Renderer>();
+                client.minionSkins[s * 2 + 1] = head.GetComponent<Renderer>();
+                mb.gameObject.SetActive(false);
+                client.minionBodies[s] = mb;
+            }
+            var flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            flash.name = "SummonFlash";
+            flash.transform.SetParent(ring.transform, false);
+            Object.DestroyImmediate(flash.GetComponent<Collider>());
+            flash.GetComponent<Renderer>().sharedMaterial = orbMat;
+            flash.SetActive(false);
+            client.summonFlash = flash.transform;
 
             BuildHandPanel(root, client);
             ring.SetActive(false);
