@@ -17,10 +17,19 @@ namespace WizardsVRC
         [Tooltip("True: walking into the trigger counts (Explore). False: clicking counts (Interact).")]
         public bool isTrigger;
         public Text label;
+        [Tooltip("Switched on once this target has been used (e.g. a relit lamp's flame).")]
+        public GameObject usedVisual;
+        [Tooltip("Count only once per visit (clicking the same lamp twice doesn't count twice).")]
+        public bool singleUse = true;
+
+        private bool _used;
 
         public override void Interact()
         {
-            if (!isTrigger && questManager != null) questManager.OnInteract(targetId);
+            if (isTrigger || questManager == null || (singleUse && _used)) return;
+            _used = true;
+            if (usedVisual != null) usedVisual.SetActive(true);
+            questManager.OnInteract(targetId);
         }
 
         public override void OnPlayerTriggerEnter(VRCPlayerApi player)

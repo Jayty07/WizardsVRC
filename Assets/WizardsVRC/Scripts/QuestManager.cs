@@ -24,6 +24,9 @@ namespace WizardsVRC
         /// <summary>NPC ids: 0-6 the professors (by School), 7 the Headmaster, NPC_OWN_PROFESSOR = the player's own professor.</summary>
         public const int NPC_HEADMASTER = 7;
         public const int NPC_OWN_PROFESSOR = 100;
+        /// <summary>Street NPCs start at 8 (index into streetNpcCutscenes = id - NPC_STREET_FIRST).</summary>
+        public const int NPC_STREET_FIRST = 8;
+        public const int NPC_TILDA = 8;
         /// <summary>questSpell value meaning "the player's own school's quest-tier spell".</summary>
         public const int SPELL_OWN_SCHOOL_QUEST = -1;
 
@@ -43,6 +46,8 @@ namespace WizardsVRC
         public Cutscene headmasterReport;
         public Cutscene headmasterHint;
         public Cutscene headmasterIdle;
+        /// <summary>One cutscene per street NPC (index = npc id - NPC_STREET_FIRST).</summary>
+        public Cutscene[] streetNpcCutscenes;
 
         [Header("Names (indexed by School)")]
         public string[] schoolNames;
@@ -79,6 +84,7 @@ namespace WizardsVRC
         public Transform headmasterTarget;
 
         private int _talkingTo = -1;
+        private int _talkingNpc = -1;
 
         // ------------------------------------------------------------------ hooks
 
@@ -167,6 +173,23 @@ namespace WizardsVRC
         }
 
         public void OnHeadmasterFinished() { OnTalk(NPC_HEADMASTER); }
+
+        public void TalkTilda() { TalkStreetNpc(NPC_TILDA); }
+
+        public void OnStreetNpcFinished()
+        {
+            int npc = _talkingNpc;
+            _talkingNpc = -1;
+            if (npc >= 0) OnTalk(npc);
+        }
+
+        private void TalkStreetNpc(int npc)
+        {
+            int i = npc - NPC_STREET_FIRST;
+            if (Busy() || streetNpcCutscenes == null || i < 0 || i >= streetNpcCutscenes.Length) return;
+            _talkingNpc = npc;
+            cutscenePlayer.Play(streetNpcCutscenes[i]);
+        }
 
         // ------------------------------------------------------------------ quest log
 
