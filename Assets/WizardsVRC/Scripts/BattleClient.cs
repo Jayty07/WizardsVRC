@@ -18,6 +18,7 @@ namespace WizardsVRC
         public PlayerState playerState;
         public ItemDatabase itemDatabase;
         public CardDatabase cardDatabase;
+        public MonsterDatabase monsterDatabase;
 
         [Header("World")]
         public Transform hubReturn;
@@ -101,6 +102,9 @@ namespace WizardsVRC
         private bool _inBattle;
 
         public bool IsInBattle() { return _inBattle; }
+
+        /// <summary>True when the local player has a character and isn't already fighting (used by wandering monsters).</summary>
+        public bool CanFight() { return !_inBattle && playerState != null && playerState.HasCharacter(); }
 
         private int _slot = -1;
         private bool _seated;
@@ -216,6 +220,8 @@ namespace WizardsVRC
                 if (mySlot >= 0) ArriveAtArena(mySlot);
                 SetBanner("");
             }
+            // Joined a wandering-monster fight during its join window: the battle id didn't change, so arrive now.
+            if (!_inBattle && mySlot >= 0 && manager.wanderMode && phase >= BattleManager.PHASE_JOINING && phase <= BattleManager.PHASE_PLAYBACK) ArriveAtArena(mySlot);
             if (phase >= BattleManager.PHASE_JOINING && phase <= BattleManager.PHASE_PLAYBACK && _inBattle && !_seated) TakeSeat();
 
             if (phase == BattleManager.PHASE_PLANNING && manager.round != _roundSeen)
@@ -278,7 +284,7 @@ namespace WizardsVRC
             _inBattle = true;
             _seated = false;
             _slot = slot;
-            Transform spot = stagingSpots != null && slot < stagingSpots.Length && stagingSpots[slot] != null ? stagingSpots[slot] : seats[slot];
+            Transform spot = !manager.wanderMode && stagingSpots != null && slot < stagingSpots.Length && stagingSpots[slot] != null ? stagingSpots[slot] : seats[slot];
             local.TeleportTo(spot.position, spot.rotation);
         }
 
@@ -339,14 +345,26 @@ namespace WizardsVRC
         {
             if (playerState == null || !playerState.HasCharacter()) return "";
             CharacterData c = playerState.current;
-            int xp = 60 + 25 * manager.MonsterCount();
-            int gold = Random.Range(30, 61);
+            int xp = 0;
+            int gold = 0;
+            string drops = "";
+            for (int s = BattleManager.SIDE; s < BattleManager.SLOTS; s++)
+            {
+                int id = manager.MonsterAt(s);
+                if (id == 0 || monsterDatabase == null) continue;
+                xp += monsterDatabase.GetXp(id);
+                gold += monsterDatabase.RollGold(id);
+                int item = monsterDatabase.GetDropItem(id);
+                if (item > 0 && Random.Range(0, 100) < monsterDatabase.GetDropChance(id) && c.AddItem(item, 1))
+                    drops += "\nLoot: " + itemDatabase.GetName(item);
+            }
+            if (xp == 0) { xp = 60 + 25 * manager.MonsterCount(); gold = Random.Range(30, 61); }
             c.gold += gold;
-            string msg = "+" + xp.ToString() + " XP   +" + gold.ToString() + " gold";
+            string msg = "+" + xp.ToString() + " XP   +" + gold.ToString() + " gold" + drops;
             int levels = c.AddXp(xp);
             if (questManager != null) questManager.OnBattleWon();
             if (levels > 0) msg += "\nLevel up! You are now level " + c.level.ToString() + ". +" + levels.ToString() + " Training Point" + (levels > 1 ? "s" : "") + ".";
-            if (lootTable.Length > 0 && Random.value < 0.6f)
+            if (drops.Length == 0 && lootTable.Length > 0 && Random.value < 0.3f)
             {
                 int itemId = lootTable[Random.Range(0, lootTable.Length)];
                 if (c.AddItem(itemId, 1)) msg += "\nLoot: " + itemDatabase.GetName(itemId);
@@ -930,6 +948,18 @@ namespace WizardsVRC
                 {
                     _nextEngage = Time.time + 1f;
                     manager.RequestEngage();
+                }
+            }
+            // Wandering-monster lane: anyone who walks up to the circle during the join window joins the fight.
+            if (manager != null && manager.wanderMode && manager.phase == BattleManager.PHASE_JOINING && CanFight() && arenaCenter != null && Time.time >= _nextEngage)
+            {
+                VRCPlayerApi me = Networking.LocalPlayer;
+                Vector3 p = me.GetPosition() - arenaCenter.position;
+                p.y = 0f;
+                if (p.magnitude <= engageRadius)
+                {
+                    _nextEngage = Time.time + 1f;
+                    manager.RequestEngageWander();
                 }
             }
             if (manager != null) AnimateCast();
