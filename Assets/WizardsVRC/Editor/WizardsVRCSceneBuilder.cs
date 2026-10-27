@@ -710,6 +710,7 @@ namespace WizardsVRC.EditorTools
         }
 
         private const string SpellAnimationDir = "Assets/WizardsVRC/SpellAnimations";
+        private const string CastSoundDir = "Assets/WizardsVRC/Audio/Cast";
 
         // Each spell can have a cast cinematic: a prefab in SpellAnimationDir named "<id>.prefab" or "<Spell Name>.prefab".
         // Instances start switched off; BattleClient moves one to the caster and switches it on for that spell's turn.
@@ -987,6 +988,20 @@ namespace WizardsVRC.EditorTools
             burst.SetActive(false);
             client.impactBurst = burst.transform;
             client.impactRenderer = burst.GetComponent<Renderer>();
+            // Cast sound per school (Audio/Cast/FX_CastingSound_<School>.mp3), played from the caster's seat.
+            var castAudio = Child(ring.transform, "CastAudio", Vector3.zero).gameObject.AddComponent<AudioSource>();
+            castAudio.playOnAwake = false;
+            castAudio.spatialBlend = 0.7f;
+            castAudio.minDistance = 6f;
+            castAudio.maxDistance = 40f;
+            castAudio.rolloffMode = AudioRolloffMode.Linear;
+            client.castAudio = castAudio;
+            client.castSounds = new AudioClip[SchoolLabels.Length];
+            for (int k = 0; k < SchoolLabels.Length; k++)
+            {
+                client.castSounds[k] = AssetDatabase.LoadAssetAtPath<AudioClip>(CastSoundDir + "/FX_CastingSound_" + SchoolLabels[k] + ".mp3");
+                if (client.castSounds[k] == null) Debug.LogWarning("[WizardsVRC] Missing cast sound for " + SchoolLabels[k] + " in " + CastSoundDir);
+            }
 
             // Summoned minions: one body per seat, parented to the ring. BattleClient grows them at the ring's centre and
             // walks them to their seat, so it works wherever the ring is placed.
