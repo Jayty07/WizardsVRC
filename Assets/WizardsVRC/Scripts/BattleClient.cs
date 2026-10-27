@@ -28,6 +28,16 @@ namespace WizardsVRC
         public Text bannerLabel;
         public Text padLabel;
         public Transform orb;
+        public Renderer orbRenderer;
+
+        [Header("School cast effect (parented to the ring)")]
+        public Transform castRing;
+        public Renderer castRingRenderer;
+        public Renderer castGlyph;
+        [Tooltip("Indexed by School; the last entry is for General spells.")]
+        public Material[] castGlyphMats;
+        public Transform impactBurst;
+        public Renderer impactRenderer;
         public Transform[] stagingSpots;
         public Transform arenaCenter;
         public float engageRadius = 14f;
@@ -110,6 +120,11 @@ namespace WizardsVRC
         private float _orbStart;
         private Vector3 _orbFrom;
         private Vector3 _orbTo;
+        private bool _casting;
+        private int _castFrom;
+        private int _castTo;
+        private Vector3 _ringBase;
+        private Vector3 _glyphBase;
         private GameObject _spellAnim;
 
         private Color _cardDim = new Color(0.35f, 0.35f, 0.35f);
@@ -420,7 +435,7 @@ namespace WizardsVRC
             {
                 _playing = false;
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
-                if (orb != null) orb.gameObject.SetActive(false);
+                EndCast();
                 _HideSpellAnimation();
                 RefreshLabels();
                 return;
@@ -460,7 +475,7 @@ namespace WizardsVRC
             {
                 GameObject anim = cardDatabase.GetAnimation(card);
                 if (anim != null) PlaySpellAnimation(anim, actor, firstTarget);
-                else LaunchOrb(actor, firstTarget);
+                else StartCast(actor, firstTarget, cardDatabase.GetSchool(card));
             }
             RefreshLabels();
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.actionSeconds);
@@ -505,14 +520,116 @@ namespace WizardsVRC
             _spellAnim = null;
         }
 
-        private void LaunchOrb(int from, int to)
+        /// <summary>
+        /// School cast effect, timed over one action: the caster's seat ring flares and rises while the school glyph pops up
+        /// over their head (0-40%), the orb flies to the target in the school colour (40-75%), then bursts on it (75-95%).
+        /// </summary>
+        private void StartCast(int from, int to, int school)
         {
-            if (orb == null || seats == null || from < 0 || to < 0) return;
-            _orbFrom = seats[from].position + Vector3.up * 1.3f;
-            _orbTo = seats[to].position + Vector3.up * 1.1f;
+            if (seats == null || from < 0 || from >= seats.Length) return;
+            EndCast();
+            if (to < 0 || to >= seats.Length) to = from;
+            _casting = true;
+            _castFrom = from;
+            _castTo = to;
             _orbStart = Time.time;
-            orb.position = _orbFrom;
-            orb.gameObject.SetActive(true);
+            int mi = fxMats == null || fxMats.Length == 0 ? -1 : (school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1);
+            float scale = from == BattleManager.BOSS_SLOT ? 1.7f : 1f;
+            _ringBase = seats[from].position + Vector3.up * 0.05f;
+            _glyphBase = seats[from].position + Vector3.up * (2.6f * scale);
+            _orbFrom = seats[from].position + Vector3.up * (1.3f * scale);
+            _orbTo = seats[to].position + Vector3.up * (to == BattleManager.BOSS_SLOT ? 1.9f : 1.1f);
+            if (castRing != null)
+            {
+                if (castRingRenderer != null && seatSchoolMats != null && school >= 0 && school < seatSchoolMats.Length)
+                    castRingRenderer.sharedMaterial = seatSchoolMats[school];
+                castRing.position = _ringBase;
+                castRing.gameObject.SetActive(true);
+            }
+            if (castGlyph != null && castGlyphMats != null && castGlyphMats.Length > 0)
+            {
+                int gi = school >= 0 && school < castGlyphMats.Length - 1 ? school : castGlyphMats.Length - 1;
+                castGlyph.sharedMaterial = castGlyphMats[gi];
+                castGlyph.transform.position = _glyphBase;
+                castGlyph.transform.localScale = Vector3.zero;
+                castGlyph.gameObject.SetActive(true);
+            }
+            if (mi >= 0)
+            {
+                if (orbRenderer != null) orbRenderer.sharedMaterial = fxMats[mi];
+                if (impactRenderer != null) impactRenderer.sharedMaterial = fxMats[mi];
+            }
+            if (orb != null) orb.gameObject.SetActive(false);
+            if (impactBurst != null) impactBurst.gameObject.SetActive(false);
+        }
+
+        private void EndCast()
+        {
+            _casting = false;
+            if (orb != null) orb.gameObject.SetActive(false);
+            if (castRing != null) castRing.gameObject.SetActive(false);
+            if (castGlyph != null) castGlyph.gameObject.SetActive(false);
+            if (impactBurst != null) impactBurst.gameObject.SetActive(false);
+        }
+
+        private void AnimateCast()
+        {
+            if (!_casting) return;
+            float t = (Time.time - _orbStart) / manager.actionSeconds;
+            if (t >= 0.95f) { EndCast(); return; }
+
+            if (castRing != null)
+            {
+                bool on = t < 0.55f;
+                if (castRing.gameObject.activeSelf != on) castRing.gameObject.SetActive(on);
+                if (on)
+                {
+                    float r = Mathf.Clamp01(t / 0.55f);
+                    castRing.position = _ringBase + Vector3.up * (r * 1.6f);
+                    castRing.localScale = new Vector3(1.9f + r * 1.2f, 1.9f + r * 1.2f, 1f) * (1f - r * 0.35f);
+                    castRing.rotation = Quaternion.Euler(90f, Time.time * 160f, 0f);
+                }
+            }
+            if (castGlyph != null)
+            {
+                bool on = t < 0.5f;
+                if (castGlyph.gameObject.activeSelf != on) castGlyph.gameObject.SetActive(on);
+                if (on)
+                {
+                    float g = t / 0.5f;
+                    // Pop in with a little overshoot, hold, then shrink away.
+                    float size = g < 0.3f ? Mathf.Lerp(0f, 1.25f, g / 0.3f) : (g < 0.45f ? Mathf.Lerp(1.25f, 1f, (g - 0.3f) / 0.15f) : (g < 0.8f ? 1f : Mathf.Lerp(1f, 0f, (g - 0.8f) / 0.2f)));
+                    Transform gt = castGlyph.transform;
+                    gt.position = _glyphBase + Vector3.up * (g * 0.4f);
+                    gt.localScale = Vector3.one * (size * 1.1f);
+                    VRCPlayerApi me = Networking.LocalPlayer;
+                    Vector3 eye = Utilities.IsValid(me) ? me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position : gt.position - Vector3.forward;
+                    Vector3 look = gt.position - eye;
+                    if (look.sqrMagnitude > 0.001f) gt.rotation = Quaternion.LookRotation(look) * Quaternion.Euler(0f, 0f, Mathf.Sin(g * Mathf.PI * 2f) * 8f);
+                }
+            }
+            if (orb != null)
+            {
+                bool on = t >= 0.4f && t < 0.75f;
+                if (orb.gameObject.activeSelf != on) orb.gameObject.SetActive(on);
+                if (on)
+                {
+                    float o = (t - 0.4f) / 0.35f;
+                    float arc = _castTo == _castFrom ? 1.4f : 0.8f;
+                    orb.position = Vector3.Lerp(_orbFrom, _orbTo, o) + Vector3.up * Mathf.Sin(o * Mathf.PI) * arc;
+                }
+            }
+            if (impactBurst != null)
+            {
+                bool on = t >= 0.75f;
+                if (impactBurst.gameObject.activeSelf != on) impactBurst.gameObject.SetActive(on);
+                if (on)
+                {
+                    float b = (t - 0.75f) / 0.2f;
+                    impactBurst.position = _orbTo;
+                    impactBurst.localScale = Vector3.one * (b < 0.5f ? Mathf.Lerp(0.3f, 1.6f, b * 2f) : Mathf.Lerp(1.6f, 0f, (b - 0.5f) * 2f));
+                }
+            }
         }
 
         private void UpdateFx()
@@ -713,12 +830,7 @@ namespace WizardsVRC
                     manager.RequestEngage();
                 }
             }
-            if (orb != null && orb.gameObject.activeSelf)
-            {
-                float t = (Time.time - _orbStart) / (manager.actionSeconds * 0.6f);
-                if (t >= 1f) orb.gameObject.SetActive(false);
-                else orb.position = Vector3.Lerp(_orbFrom, _orbTo, t) + Vector3.up * Mathf.Sin(t * Mathf.PI) * 0.6f;
-            }
+            if (manager != null) AnimateCast();
             if (manager == null) return;
             if (padLabel != null)
             {

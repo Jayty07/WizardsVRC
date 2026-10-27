@@ -955,6 +955,38 @@ namespace WizardsVRC.EditorTools
             Object.DestroyImmediate(orb.GetComponent<Collider>());
             orb.SetActive(false);
             client.orb = orb.transform;
+            client.orbRenderer = orb.GetComponent<Renderer>();
+
+            // School cast effect (all parented to the ring): the caster's seat ring flares and rises, the school's glyph
+            // pops up over their head, the orb flies in the school colour and bursts on the target.
+            var castRing = FlatDecal(ring.transform, "CastRing", Vector3.zero, 1.9f, seatEmpty);
+            castRing.SetActive(false);
+            client.castRing = castRing.transform;
+            client.castRingRenderer = castRing.GetComponent<Renderer>();
+            var glyph = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            glyph.name = "CastGlyph";
+            glyph.transform.SetParent(ring.transform, false);
+            Object.DestroyImmediate(glyph.GetComponent<Collider>());
+            var glyphR = glyph.GetComponent<Renderer>();
+            glyphR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            glyph.SetActive(false);
+            client.castGlyph = glyphR;
+            client.castGlyphMats = new Material[SchoolLabels.Length + 1];
+            for (int k = 0; k <= SchoolLabels.Length; k++)
+            {
+                string label = k < SchoolLabels.Length ? SchoolLabels[k] : "General";
+                Color c = k < SchoolLabels.Length ? SchoolColors[k] : new Color(0.85f, 0.85f, 0.9f);
+                Texture2D gt = PixelTexture(TexturesDir + "/CastGlyph" + label + ".png");
+                client.castGlyphMats[k] = CutoutMat("CastGlyph" + label, gt, Color.Lerp(c, Color.white, 0.35f), c * 2f);
+            }
+            var burst = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            burst.name = "ImpactBurst";
+            burst.transform.SetParent(ring.transform, false);
+            Object.DestroyImmediate(burst.GetComponent<Collider>());
+            burst.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            burst.SetActive(false);
+            client.impactBurst = burst.transform;
+            client.impactRenderer = burst.GetComponent<Renderer>();
 
             // Summoned minions: one body per seat, parented to the ring. BattleClient grows them at the ring's centre and
             // walks them to their seat, so it works wherever the ring is placed.
