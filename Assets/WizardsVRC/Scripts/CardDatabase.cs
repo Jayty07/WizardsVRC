@@ -389,11 +389,12 @@ namespace WizardsVRC
         public const int MONSTER_SPELLS = 4;
 
         // Training Yard: 1 Gloomfang the Warden (boss), 2 Bone Thrall, 3 Marsh Sprite, 4 Courtyard Rat
-        [HideInInspector] public int[] monsterIds = { 1, 2, 3, 4 };
-        [HideInInspector] public string[] monsterNames = { "Gloomfang the Warden", "Bone Thrall", "Marsh Sprite", "Courtyard Rat" };
-        [HideInInspector] public int[] monsterSchools = { 4, 5, 3, 2 };
-        [HideInInspector] public int[] monsterLevels = { 5, 3, 2, 1 };
-        [HideInInspector] public int[] monsterHps = { 900, 320, 240, 180 };
+        // Lantern Row (Death street): 5 Gloom Wisp, 6 Lantern Snatcher, 7 Ashwick the Snuffer (boss)
+        [HideInInspector] public int[] monsterIds = { 1, 2, 3, 4, 5, 6, 7 };
+        [HideInInspector] public string[] monsterNames = { "Gloomfang the Warden", "Bone Thrall", "Marsh Sprite", "Courtyard Rat", "Gloom Wisp", "Lantern Snatcher", "Ashwick the Snuffer" };
+        [HideInInspector] public int[] monsterSchools = { 4, 5, 3, 2, 4, 4, 4 };
+        [HideInInspector] public int[] monsterLevels = { 5, 3, 2, 1, 1, 2, 4 };
+        [HideInInspector] public int[] monsterHps = { 900, 320, 240, 180, 180, 260, 900 };
         /// <summary>MONSTER_SPELLS entries per monster, 0 = none.</summary>
         [HideInInspector] public int[] monsterSpells =
         {
@@ -401,18 +402,21 @@ namespace WizardsVRC
             160, 161, 0, 0,
             136, 137, 0, 0,
             124, 125, 0, 0,
+            148, 0, 0, 0,
+            148, 149, 0, 0,
+            148, 149, 152, 154,
         };
-        [HideInInspector] public int[] monsterXps = { 120, 45, 35, 25 };
-        [HideInInspector] public int[] monsterGoldMin = { 40, 10, 8, 5 };
-        [HideInInspector] public int[] monsterGoldMax = { 80, 25, 18, 12 };
+        [HideInInspector] public int[] monsterXps = { 120, 45, 35, 25, 30, 40, 150 };
+        [HideInInspector] public int[] monsterGoldMin = { 40, 10, 8, 5, 5, 8, 50 };
+        [HideInInspector] public int[] monsterGoldMax = { 80, 25, 18, 12, 12, 18, 90 };
         /// <summary>Item id dropped (0 = none) and the chance in percent.</summary>
-        [HideInInspector] public int[] monsterDropItems = { 25, 10, 11, 10 };
-        [HideInInspector] public int[] monsterDropChances = { 60, 25, 25, 20 };
+        [HideInInspector] public int[] monsterDropItems = { 25, 10, 11, 10, 10, 11, 26 };
+        [HideInInspector] public int[] monsterDropChances = { 60, 25, 25, 20, 20, 25, 60 };
         /// <summary>Body size multiplier (1 = wizard sized).</summary>
-        [HideInInspector] public float[] monsterBodyScales = { 1.7f, 1f, 0.8f, 0.7f };
-        [HideInInspector] public int[] monsterIsBoss = { 1, 0, 0, 0 };
+        [HideInInspector] public float[] monsterBodyScales = { 1.7f, 1f, 0.8f, 0.7f, 0.6f, 0.9f, 1.6f };
+        [HideInInspector] public int[] monsterIsBoss = { 1, 0, 0, 0, 0, 0, 1 };
         /// <summary>Extra health per extra wizard in the fight (bosses only).</summary>
-        [HideInInspector] public int[] monsterHpPerExtraPlayer = { 450, 0, 0, 0 };
+        [HideInInspector] public int[] monsterHpPerExtraPlayer = { 450, 0, 0, 0, 0, 0, 450 };
 
         public int MonsterCount() { return monsterIds.Length; }
 
