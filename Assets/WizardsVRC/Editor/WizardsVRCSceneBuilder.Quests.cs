@@ -59,13 +59,13 @@ namespace WizardsVRC.EditorTools
         }
 
         private static QuestGuide BuildQuestGuide(Transform systems, PlayerState playerState, QuestManager qm, CutscenePlayer cutscenes,
-            BattleClient battleClient, Transform interiorExit, Transform keepEntrance)
+            BattleClient[] battleClients, Transform interiorExit, Transform keepEntrance)
         {
             var guide = UdonSharpUndo.AddComponent<QuestGuide>(Child(systems, "QuestGuide", Vector3.zero).gameObject);
             guide.playerState = playerState;
             guide.questManager = qm;
             guide.cutscenePlayer = cutscenes;
-            guide.battleClient = battleClient;
+            guide.battleClients = battleClients;
             guide.interiorExit = interiorExit;
             guide.keepEntrance = keepEntrance;
             guide.interiorMinY = InteriorOrigin.y * 0.5f;

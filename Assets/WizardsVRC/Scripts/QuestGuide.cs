@@ -16,7 +16,8 @@ namespace WizardsVRC
         public PlayerState playerState;
         public QuestManager questManager;
         public CutscenePlayer cutscenePlayer;
-        public BattleClient battleClient;
+        [Tooltip("Every encounter's client; the guide hides while the player is in any fight.")]
+        public BattleClient[] battleClients;
 
         public Transform arrow;
         public Transform labelRoot;
@@ -105,7 +106,9 @@ namespace WizardsVRC
         {
             if (!guideEnabled || questManager == null || playerState == null || !playerState.HasCharacter()) return null;
             if (cutscenePlayer != null && cutscenePlayer.IsPlaying()) return null;
-            if (battleClient != null && battleClient.IsInBattle()) return null;
+            if (battleClients != null)
+                for (int i = 0; i < battleClients.Length; i++)
+                    if (battleClients[i] != null && battleClients[i].IsInBattle()) return null;
             int q = questManager.GetTrackedQuest();
             if (q == CharacterData.NO_TRACKED_QUEST) return null;
             return questManager.GetObjectiveTarget(q);

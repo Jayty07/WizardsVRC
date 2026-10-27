@@ -63,18 +63,18 @@ namespace WizardsVRC
         [Tooltip("Orb flight + impact after the wind-up, before the next caster.")]
         public float impactSeconds = 1.0f;
 
-        [Header("Test boss encounter (placeholder monsters)")]
-        public string bossName = "Gloomfang the Warden";
-        public int bossSchool = 4;
-        public int bossLevel = 5;
-        public int bossHealth = 900;
-        public int bossHealthPerExtraPlayer = 450;
-        public int[] bossSpells = { 148, 149, 152, 154 };
-        public string minionName = "Bone Thrall";
-        public int minionSchool = 5;
-        public int minionLevel = 3;
-        public int minionHealth = 320;
-        public int[] minionSpells = { 160, 161 };
+        [Header("Encounter")]
+        public MonsterDatabase monsterDatabase;
+        [Tooltip("Monster ids (MonsterDatabase) in this fight; roster[0] takes the boss seat.")]
+        public int[] roster = { 1, 2, 2, 2 };
+        [Tooltip("Spawn roster[0] plus one more monster per wizard (the Training Yard boss fight) instead of the whole roster.")]
+        public bool scaleRosterWithParty = true;
+        [Tooltip("Wandering-monster lane: fights start when a wizard touches a monster and the party sits down at once.")]
+        public bool wanderMode;
+        [Tooltip("Seconds after a fight before the lane's wandering monsters come back.")]
+        public int respawnSeconds = 20;
+        /// <summary>Server time when the last fight ended (wanderers respawn respawnSeconds later).</summary>
+        [UdonSynced] public int lastEndMs;
 
         [UdonSynced] public int phase;
         [UdonSynced] public int phaseEndMs;
@@ -83,7 +83,7 @@ namespace WizardsVRC
         [UdonSynced] public int firstSide;
         [UdonSynced] public int[] queueIds = new int[SIDE];
 
-        /// <summary>Wizard slots: player id. Monster slots: 1 = boss, 2 = minion. Summoned minions (either side): -cardId. 0 = empty.</summary>
+        /// <summary>Wizard slots: player id. Monster slots: monster id (MonsterDatabase). Summoned minions (either side): -cardId. 0 = empty.</summary>
         [UdonSynced] public int[] slotIds = new int[SLOTS];
         [UdonSynced] public int[] hp = new int[SLOTS];
         [UdonSynced] public int[] maxHp = new int[SLOTS];
@@ -189,6 +189,15 @@ namespace WizardsVRC
             return n;
         }
 
+        /// <summary>Monster id in a monster seat (0 for empty seats and summons).</summary>
+        public int MonsterAt(int s) { return s >= SIDE && s < SLOTS && slotIds[s] > 0 ? slotIds[s] : 0; }
+
+        /// <summary>True while the lane's wandering monsters should be hidden: a fight is on, or one just ended.</summary>
+        public bool WanderersHidden()
+        {
+            return phase != PHASE_IDLE || (lastEndMs != 0 && Now() - lastEndMs < respawnSeconds * 1000);
+        }
+
         public int MonsterCount()
         {
             int n = 0;
@@ -215,7 +224,7 @@ namespace WizardsVRC
         {
             if (!Occupied(s)) return "";
             if (slotIds[s] < 0) return cardDatabase.GetName(-slotIds[s]);
-            if (s >= SIDE) return slotIds[s] == 1 ? bossName : minionName;
+            if (s >= SIDE) return monsterDatabase != null ? monsterDatabase.GetName(slotIds[s]) : "Monster";
             VRCPlayerApi p = VRCPlayerApi.GetPlayerById(slotIds[s]);
             return Utilities.IsValid(p) ? p.displayName : "Wizard";
         }
@@ -268,6 +277,43 @@ namespace WizardsVRC
             VRCPlayerApi local = Networking.LocalPlayer;
             if (!Utilities.IsValid(local)) return;
             SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetEngage), local.playerId);
+        }
+
+        /// <summary>Wandering-monster lane: a wizard touched a monster (starts the fight) or walked up during the join window.</summary>
+        public void RequestEngageWander()
+        {
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (!Utilities.IsValid(local)) return;
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetEngageWander), local.playerId);
+        }
+
+        [NetworkCallable]
+        public void NetEngageWander(int playerId)
+        {
+            if (!Networking.IsOwner(gameObject) || !wanderMode || playerId <= 0) return;
+            if (phase == PHASE_IDLE)
+            {
+                if (WanderersHidden()) return;
+                for (int i = 0; i < SIDE; i++) queueIds[i] = 0;
+                queueIds[0] = playerId;
+                StartBattle();
+                if (phase != PHASE_ROAMING) return;
+                phase = PHASE_JOINING;
+                phaseEndMs = Now() + joinSeconds * 1000;
+                Publish();
+                return;
+            }
+            if (phase != PHASE_JOINING || FindWizardSlot(playerId) >= 0) return;
+            for (int s = 0; s < SIDE; s++)
+            {
+                if (Occupied(s)) continue;
+                slotIds[s] = playerId;
+                maxHp[s] = 400; hp[s] = 400;
+                _joined[s] = false;
+                phaseEndMs = Mathf.Max(phaseEndMs, Now() + 4000);
+                Publish();
+                return;
+            }
         }
 
         [NetworkCallable]
@@ -344,6 +390,7 @@ namespace WizardsVRC
             {
                 for (int s = 0; s < SLOTS; s++) slotIds[s] = 0;
                 phase = PHASE_IDLE;
+                lastEndMs = Now();
                 Publish();
             }
         }
@@ -418,9 +465,15 @@ namespace WizardsVRC
             }
             if (n == 0) { phase = PHASE_IDLE; Publish(); return; }
 
-            SetMonster(BOSS_SLOT, 1, bossSchool, bossLevel, bossHealth + bossHealthPerExtraPlayer * (n - 1));
-            int minions = Mathf.Min(n, SIDE - 1);
-            for (int m = 0; m < minions; m++) SetMonster(BOSS_SLOT + 1 + m, 2, minionSchool, minionLevel, minionHealth);
+            int count = roster == null ? 0 : Mathf.Min(roster.Length, SIDE);
+            if (scaleRosterWithParty) count = Mathf.Min(count, 1 + n);
+            for (int m = 0; m < count; m++)
+            {
+                int id = roster[m];
+                int health = monsterDatabase.GetHp(id) + (monsterDatabase.IsBoss(id) ? monsterDatabase.GetHpPerExtraPlayer(id) * (n - 1) : 0);
+                SetMonster(BOSS_SLOT + m, id, monsterDatabase.GetSchool(id), monsterDatabase.GetLevel(id), health);
+            }
+            if (count == 0) { phase = PHASE_IDLE; Publish(); return; }
 
             battleId++;
             round = 0;
@@ -512,15 +565,16 @@ namespace WizardsVRC
 
         private void PickForMonster(int s)
         {
-            int[] spells = slotIds[s] == 1 ? bossSpells : minionSpells;
+            int monster = slotIds[s];
             int best = 0;
             int affordable = 0;
-            for (int i = 0; i < spells.Length; i++)
+            for (int i = 0; i < MonsterDatabase.SPELLS_PER_MONSTER; i++)
             {
-                if (cardDatabase.GetPipCost(spells[i]) > pips[s]) continue;
+                int spell = monsterDatabase.GetSpell(monster, i);
+                if (spell == 0 || cardDatabase.GetPipCost(spell) > pips[s]) continue;
                 affordable++;
                 // Prefer the strongest affordable spell, but sometimes hold pips for a bigger one later.
-                if (best == 0 || cardDatabase.GetPipCost(spells[i]) > cardDatabase.GetPipCost(best)) best = spells[i];
+                if (best == 0 || cardDatabase.GetPipCost(spell) > cardDatabase.GetPipCost(best)) best = spell;
             }
             if (affordable > 0 && Random.value < 0.25f && pips[s] < MAX_PIPS) best = 0;
             _pickCard[s] = best;

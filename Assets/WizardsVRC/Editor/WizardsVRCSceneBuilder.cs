@@ -122,8 +122,14 @@ namespace WizardsVRC.EditorTools
             var deckPages = UdonSharpUndo.AddComponent<DeckPages>(Child(systems.transform, "DeckPages", Vector3.zero).gameObject);
             var questPages = UdonSharpUndo.AddComponent<QuestPages>(Child(systems.transform, "QuestPages", Vector3.zero).gameObject);
             questPages.playerState = playerState;
-            var battle = UdonSharpUndo.AddComponent<BattleManager>(Child(systems.transform, "BattleManager", Vector3.zero).gameObject);
-            var battleClient = UdonSharpUndo.AddComponent<BattleClient>(Child(systems.transform, "BattleClient", Vector3.zero).gameObject);
+            var monsterDb = UdonSharpUndo.AddComponent<MonsterDatabase>(Child(systems.transform, "MonsterDatabase", Vector3.zero).gameObject);
+            // Encounters: the Training Yard boss fight (queue pad) plus two wandering-monster lanes beside it. Each has its
+            // own synced BattleManager, local BattleClient and duel circle (see BuildEncounter).
+            var encounters = new System.Collections.Generic.List<BattleClient>();
+            var battleClient = MakeEncounter(systems.transform, "Arena", cardDb, itemDb, monsterDb, playerState, hubSpawn, new[] { 1, 2, 2, 2 }, false, encounters);
+            var laneA = MakeEncounter(systems.transform, "LaneRats", cardDb, itemDb, monsterDb, playerState, hubSpawn, new[] { 4, 4 }, true, encounters);
+            var laneB = MakeEncounter(systems.transform, "LaneSprites", cardDb, itemDb, monsterDb, playerState, hubSpawn, new[] { 3, 3, 3 }, true, encounters);
+            var battle = battleClient.manager;
 
             teleporter.defaultTarget = hubSpawn;
             saveManager.scratch = scratchData;
@@ -146,13 +152,6 @@ namespace WizardsVRC.EditorTools
             deckPages.cardDatabase = cardDb;
             book.deckPages = deckPages;
             book.questPages = questPages;
-            battle.cardDatabase = cardDb;
-            battle.client = battleClient;
-            battleClient.manager = battle;
-            battleClient.playerState = playerState;
-            battleClient.itemDatabase = itemDb;
-            battleClient.cardDatabase = cardDb;
-            battleClient.hubReturn = hubSpawn;
 
             BuildSelectCanvasContents(selectCanvas, selectUI);
             BuildHubCanvasContents(hubCanvas, selectUI, book);
@@ -162,7 +161,7 @@ namespace WizardsVRC.EditorTools
             var chest = BuildLootChest(hubRoot, playerState, itemDb);
             var pedestal = BuildBackpackPedestal(hubRoot, book);
             var queuePad = BuildQueuePad(hubRoot, battleClient);
-            BuildArena(battleClient);
+            BuildArena(battleClient, new[] { laneA, laneB });
             var cutscenes = BuildCutscenes(systems.transform, selectUI, interior);
             var learning = BuildSpellLearning(systems.transform, playerState, cardDb, hud, out SpellTrainer trainer, out InteractionMenu interactionMenu);
             var quests = BuildQuests(systems.transform, interior, (CutscenePlayer)cutscenes[0], playerState, hud, hubRoot, trainer, interactionMenu);
@@ -170,18 +169,19 @@ namespace WizardsVRC.EditorTools
             questManager.cardDatabase = cardDb;
             questManager.popup = trainer.popup;
             questManager.arenaTarget = queuePad.transform;
-            battleClient.questManager = questManager;
+            foreach (var ec in encounters) ec.questManager = questManager;
             selectUI.questManager = questManager;
             hud.questManager = questManager;
             questPages.questManager = questManager;
-            var questGuide = BuildQuestGuide(systems.transform, playerState, questManager, (CutscenePlayer)cutscenes[0], battleClient,
+            var questGuide = BuildQuestGuide(systems.transform, playerState, questManager, (CutscenePlayer)cutscenes[0], encounters.ToArray(),
                 interior.exitDoor, hubRoot.Find("KeepEntrance"));
             questPages.questGuide = questGuide;
 
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
             toSync.AddRange(quests);
             toSync.AddRange(learning);
-            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, battle, battleClient, queuePad, questPages, questGuide }) toSync.Add(b);
+            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, monsterDb, queuePad, questPages, questGuide }) toSync.Add(b);
+            foreach (var ec in encounters) { toSync.Add(ec.manager); toSync.Add(ec); foreach (var w in ec.GetComponentsInChildren<Wanderer>(true)) toSync.Add(w); }
             foreach (var b in toSync)
             {
                 UdonSharpEditorUtility.CopyProxyToUdon(b);
@@ -216,7 +216,7 @@ namespace WizardsVRC.EditorTools
         {
             Directory.CreateDirectory(ProgramsDir);
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "MonsterDatabase", "Wanderer", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -790,16 +790,76 @@ namespace WizardsVRC.EditorTools
             return quad;
         }
 
-        private static void BuildArena(BattleClient client)
+        /// <summary>One encounter = synced BattleManager + local BattleClient (+ wanderers), wired to the shared databases.</summary>
+        private static BattleClient MakeEncounter(Transform systems, string name, CardDatabase cardDb, ItemDatabase itemDb, MonsterDatabase monsterDb,
+            PlayerState playerState, Transform hubReturn, int[] roster, bool wander, System.Collections.Generic.List<BattleClient> all)
+        {
+            var holder = Child(systems, "Encounter_" + name, Vector3.zero);
+            var manager = UdonSharpUndo.AddComponent<BattleManager>(Child(holder, "BattleManager", Vector3.zero).gameObject);
+            var client = UdonSharpUndo.AddComponent<BattleClient>(Child(holder, "BattleClient", Vector3.zero).gameObject);
+            manager.cardDatabase = cardDb;
+            manager.monsterDatabase = monsterDb;
+            manager.client = client;
+            manager.roster = roster;
+            manager.wanderMode = wander;
+            manager.scaleRosterWithParty = !wander;
+            client.manager = manager;
+            client.playerState = playerState;
+            client.itemDatabase = itemDb;
+            client.cardDatabase = cardDb;
+            client.monsterDatabase = monsterDb;
+            client.hubReturn = hubReturn;
+            all.Add(client);
+            return client;
+        }
+
+        private static void BuildArena(BattleClient client, BattleClient[] lanes)
         {
             var root = new GameObject("BossArena").transform;
             root.position = ArenaOrigin;
-            Block(root, "Ground", new Vector3(0, -0.25f, 0), new Vector3(70, 0.5f, 70), Mat("ArenaGround", new Color(0.3f, 0.28f, 0.33f)));
+            Block(root, "Ground", new Vector3(0, -0.25f, 0), new Vector3(130, 0.5f, 80), Mat("ArenaGround", new Color(0.3f, 0.28f, 0.33f)));
             Material stone = Mat("ArenaStone", new Color(0.45f, 0.42f, 0.48f));
             for (int i = 0; i < 4; i++)
             {
                 float x = i % 2 == 0 ? -26f : 26f, z = i < 2 ? -26f : 26f;
                 Block(root, "Pillar" + i, new Vector3(x, 4f, z), new Vector3(2f, 8f, 2f), stone);
+            }
+            client.stagingSpots = new Transform[BattleManager.SIDE];
+            for (int k = 0; k < BattleManager.SIDE; k++)
+                client.stagingSpots[k] = Child(root, "ArrivalSpot" + k, new Vector3(-22f, 0.05f, -9f + k * 1.5f));
+            for (int k = 0; k < BattleManager.SIDE; k++)
+                client.stagingSpots[k].localRotation = Quaternion.Euler(0, 90f, 0);
+            var arrivalPad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            arrivalPad.name = "ArrivalPad";
+            arrivalPad.transform.SetParent(root, false);
+            arrivalPad.transform.localPosition = new Vector3(-22f, 0.02f, -6.75f);
+            arrivalPad.transform.localScale = new Vector3(3.5f, 0.02f, 6f);
+            arrivalPad.GetComponent<Renderer>().sharedMaterial = Mat("ArenaPad", new Color(0.55f, 0.3f, 0.85f));
+            Object.DestroyImmediate(arrivalPad.GetComponent<Collider>());
+
+            // Cast cinematic prefabs are shared by every encounter (BattleClient moves them to the caster).
+            AttachSpellAnimations(root, client.cardDatabase);
+            BuildEncounter(root, Vector3.zero, "Duel", client, 0);
+            // Two wandering-monster lanes flank the boss circle: walk into a monster to start that lane's fight.
+            for (int i = 0; i < lanes.Length; i++)
+                BuildEncounter(root, new Vector3(i == 0 ? -44f : 44f, 0f, 0f), "Lane" + i, lanes[i], 3);
+            WorldText(root, "LaneSign", new Vector3(0, 4f, -30f), Quaternion.identity, new Vector2(1600, 300), 0.005f,
+                "Wandering monsters roam the circles to the east and west.\nWalk into one to start a fight!", 44);
+        }
+
+        /// <summary>
+        /// A duel circle with everything a fight needs: seats, monster bodies, labels, orbiting shield/blade/trap icons,
+        /// summoned-minion bodies, cast effects, the hand panel and (wanderCount > 0) wandering monsters circling it.
+        /// Everything is positioned from the circle's own transforms so it works wherever it is placed.
+        /// </summary>
+        private static void BuildEncounter(Transform parent, Vector3 localPos, string name, BattleClient client, int wanderCount)
+        {
+            Transform root = Child(parent, "Encounter" + name, localPos);
+            if (wanderCount > 0)
+            {
+                Transform back = Child(root, "ReturnSpot", new Vector3(0, 0.05f, -(DuelCircleRadius + 7f)));
+                back.localRotation = Quaternion.identity;
+                client.hubReturn = back;
             }
 
             var ring = new GameObject("DuelRing");
@@ -817,7 +877,6 @@ namespace WizardsVRC.EditorTools
             client.arenaCenter = clock;
             clock.localScale = Vector3.one * 1.5f;
             client.engageRadius = DuelCircleRadius + 5f;
-            AttachSpellAnimations(root, client.cardDatabase);
             var face = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             face.name = "Face";
             face.transform.SetParent(clock, false);
@@ -847,18 +906,6 @@ namespace WizardsVRC.EditorTools
             client.clockHand = hand;
             client.clockLabel = WorldText(ring.transform, "ClockLabel", new Vector3(0, 1.1f, 0), Quaternion.identity, new Vector2(700, 160), 0.004f, "", 44);
 
-            client.stagingSpots = new Transform[BattleManager.SIDE];
-            for (int k = 0; k < BattleManager.SIDE; k++)
-                client.stagingSpots[k] = Child(root, "ArrivalSpot" + k, new Vector3(-22f, 0.05f, -9f + k * 1.5f));
-            for (int k = 0; k < BattleManager.SIDE; k++)
-                client.stagingSpots[k].localRotation = Quaternion.Euler(0, 90f, 0);
-            var arrivalPad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            arrivalPad.name = "ArrivalPad";
-            arrivalPad.transform.SetParent(root, false);
-            arrivalPad.transform.localPosition = new Vector3(-22f, 0.02f, -6.75f);
-            arrivalPad.transform.localScale = new Vector3(3.5f, 0.02f, 6f);
-            arrivalPad.GetComponent<Renderer>().sharedMaterial = Mat("ArenaPad", new Color(0.55f, 0.3f, 0.85f));
-            Object.DestroyImmediate(arrivalPad.GetComponent<Collider>());
             Texture2D seatTex = PixelTexture(TexturesDir + "/DuelSeatRing.png");
             Material seatEmpty = CutoutMat("DuelSeatEmpty", seatTex, new Color(0.45f, 0.42f, 0.5f), new Color(0.08f, 0.08f, 0.1f));
             client.seatEmptyMat = seatEmpty;
@@ -1087,6 +1134,34 @@ namespace WizardsVRC.EditorTools
             BuildHandPanel(root, client);
             ring.SetActive(false);
             client.ring = ring;
+
+            // Wandering monsters circle the ring; their look comes from the roster's monster.
+            int[] roster = client.manager != null ? client.manager.roster : null;
+            for (int w = 0; w < wanderCount && roster != null && roster.Length > 0; w++)
+            {
+                int monsterId = roster[w % roster.Length];
+                int sc = client.manager.monsterDatabase.GetSchool(monsterId);
+                float ms = client.manager.monsterDatabase.GetBodyScale(monsterId);
+                Transform wt = Child(root, "Wanderer" + w, Vector3.zero);
+                var wanderer = UdonSharpUndo.AddComponent<Wanderer>(wt.gameObject);
+                var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                body.name = "Body";
+                body.transform.SetParent(wt, false);
+                body.transform.localPosition = new Vector3(0, ms, 0);
+                body.transform.localScale = Vector3.one * ms;
+                body.GetComponent<Renderer>().sharedMaterial = client.fxMats[sc >= 0 && sc < SchoolLabels.Length ? sc : SchoolLabels.Length];
+                Object.DestroyImmediate(body.GetComponent<Collider>());
+                wanderer.body = body;
+                wanderer.label = WorldText(wt, "Label", new Vector3(0, ms * 2f + 0.6f, 0), Quaternion.identity, new Vector2(500, 140), 0.004f, "", 34);
+                wanderer.manager = client.manager;
+                wanderer.client = client;
+                wanderer.monsterDatabase = client.manager.monsterDatabase;
+                wanderer.monsterId = monsterId;
+                wanderer.center = client.arenaCenter;
+                wanderer.radius = DuelCircleRadius + 3f;
+                wanderer.speed = 1.1f + 0.2f * w;
+                wanderer.phaseOffset = w * Mathf.PI * 2f / Mathf.Max(1, wanderCount);
+            }
         }
 
         private static void BuildHandPanel(Transform arenaRoot, BattleClient client)
