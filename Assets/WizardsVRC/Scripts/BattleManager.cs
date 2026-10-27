@@ -54,6 +54,14 @@ namespace WizardsVRC
         public int planningSeconds = 30;
         public int endSeconds = 8;
         public float actionSeconds = 1.6f;
+        [Tooltip("Cast wind-up per School (the cast sound's length): the spell's effect lands after it.")]
+        public float[] castSeconds = { 2.9f, 3.77f, 3.46f, 3.17f, 3.0f, 3.67f, 3.06f };
+        [Tooltip("When the school-coloured burst explodes off the caster, in seconds into the cast sound (indexed by School).")]
+        public float[] castPeakSeconds = { 2f, 2f, 2f, 2f, 2f, 2f, 2f };
+        [Tooltip("Wind-up for General spells (no cast sound).")]
+        public float generalCastSeconds = 1.2f;
+        [Tooltip("Orb flight + impact after the wind-up, before the next caster.")]
+        public float impactSeconds = 1.0f;
 
         [Header("Test boss encounter (placeholder monsters)")]
         public string bossName = "Gloomfang the Warden";
@@ -122,6 +130,32 @@ namespace WizardsVRC
         // ------------------------------------------------------------------ helpers (all clients)
 
         public int Now() { return Networking.GetServerTimeInMilliseconds(); }
+
+        /// <summary>True when the action at act index i is a real cast (damage, heal or buff) with a wind-up.</summary>
+        public bool IsCastAct(int i)
+        {
+            int k = actKind[i];
+            return k == KIND_DAMAGE || k == KIND_HEAL || k == KIND_BUFF;
+        }
+
+        public float CastSeconds(int school)
+        {
+            return school >= 0 && castSeconds != null && school < castSeconds.Length ? castSeconds[school] : generalCastSeconds;
+        }
+
+        public float CastPeakSeconds(int school)
+        {
+            float len = CastSeconds(school);
+            float p = school >= 0 && castPeakSeconds != null && school < castPeakSeconds.Length ? castPeakSeconds[school] : len * 0.6f;
+            return Mathf.Clamp(p, 0f, len);
+        }
+
+        /// <summary>Playback time for the cast starting at act index i (same on every client).</summary>
+        public float StepSeconds(int i)
+        {
+            if (!IsCastAct(i)) return actionSeconds;
+            return CastSeconds(cardDatabase.GetSchool(actCard[i])) + impactSeconds;
+        }
 
         public int SecondsLeft()
         {
@@ -469,7 +503,10 @@ namespace WizardsVRC
                 }
             }
             phase = PHASE_PLAYBACK;
-            phaseEndMs = Now() + (int)(group * actionSeconds * 1000f) + 1200;
+            float total = 0f;
+            for (int i = 0; i < actCount; i++)
+                if (i == 0 || actGroup[i] != actGroup[i - 1]) total += StepSeconds(i);
+            phaseEndMs = Now() + (int)(total * 1000f) + 1500;
             Publish();
         }
 

@@ -39,6 +39,8 @@ namespace WizardsVRC
         public Transform impactBurst;
         public Renderer impactRenderer;
         public AudioSource castAudio;
+        [Tooltip("School-coloured particle burst off the caster, indexed by School; the last entry is for General spells.")]
+        public ParticleSystem[] castBursts;
         [Tooltip("Indexed by School. General spells play no cast sound.")]
         public AudioClip[] castSounds;
         public Transform[] stagingSpots;
@@ -124,6 +126,15 @@ namespace WizardsVRC
         private Vector3 _orbFrom;
         private Vector3 _orbTo;
         private bool _casting;
+        private bool _impacting;
+        private bool _burstDone;
+        private int _castSchool;
+        private float _castLen;
+        private float _castPeak;
+        private float _impactStart;
+        private int _stepStart;
+        private int _stepEnd;
+        private string _stepHeader = "";
         private int _castFrom;
         private int _castTo;
         private Vector3 _ringBase;
@@ -436,21 +447,18 @@ namespace WizardsVRC
         {
             if (manager.phase != BattleManager.PHASE_PLAYBACK || _playIndex >= manager.actCount)
             {
-                _playing = false;
-                for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
-                EndCast();
-                _HideSpellAnimation();
-                RefreshLabels();
+                FinishPlayback();
                 return;
             }
 
+            _stepStart = _playIndex;
             int group = manager.actGroup[_playIndex];
             int actor = manager.actActor[_playIndex];
             _clockActor = actor;
             int card = manager.actCard[_playIndex];
             int kind = manager.actKind[_playIndex];
-            string text = manager.SlotName(actor);
             int firstTargetSlot = manager.actTarget[_playIndex];
+            string text = manager.SlotName(actor);
             if (kind == BattleManager.KIND_PASS) text += " passes.";
             else if (kind == BattleManager.KIND_FIZZLE) text += "'s " + cardDatabase.GetName(card) + " fizzles!";
             else if (kind == BattleManager.KIND_DOT) text += " burns for " + manager.actValue[_playIndex].ToString() + " damage!";
@@ -458,30 +466,80 @@ namespace WizardsVRC
             else if (kind == BattleManager.KIND_SUMMON)
                 text += firstTargetSlot >= 0 ? " summons " + cardDatabase.GetName(card) + "!" : " tries to summon, but there's no free seat!";
             else text += " casts " + cardDatabase.GetName(card) + "!";
-            if (kind == BattleManager.KIND_SUMMON && firstTargetSlot >= 0) StartSummon(firstTargetSlot);
+            _stepHeader = text;
+            while (_playIndex < manager.actCount && manager.actGroup[_playIndex] == group) _playIndex++;
+            _stepEnd = _playIndex;
 
-            int firstTarget = actor;
-            while (_playIndex < manager.actCount && manager.actGroup[_playIndex] == group)
+            if (!manager.IsCastAct(_stepStart))
             {
-                int t = manager.actTarget[_playIndex];
-                int k = manager.actKind[_playIndex];
-                int v = manager.actValue[_playIndex];
-                if (k == BattleManager.KIND_DAMAGE) { text += "\n" + manager.SlotName(t) + " takes " + v.ToString() + " damage"; if (firstTarget == actor) firstTarget = t; }
+                if (kind == BattleManager.KIND_SUMMON && firstTargetSlot >= 0) StartSummon(firstTargetSlot);
+                ApplyStep();
+                SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.actionSeconds);
+                return;
+            }
+
+            // Wind-up first (cast sound, ring, glyph, burst at the sound's peak); the effect lands when it finishes.
+            SetBanner(text);
+            RefreshLabels();
+            int target = FirstTarget(actor);
+            GameObject anim = cardDatabase.GetAnimation(card);
+            if (anim != null)
+            {
+                PlaySpellAnimation(anim, actor, target);
+                ApplyStep();
+                SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.StepSeconds(_stepStart));
+                return;
+            }
+            int school = cardDatabase.GetSchool(card);
+            StartCast(actor, target, school);
+            SendCustomEventDelayedSeconds(nameof(_LandStep), manager.CastSeconds(school));
+        }
+
+        /// <summary>End of the wind-up: the orb flies, the effect lands, then the next caster goes.</summary>
+        public void _LandStep()
+        {
+            if (manager.phase != BattleManager.PHASE_PLAYBACK) { FinishPlayback(); return; }
+            StartImpact();
+            ApplyStep();
+            SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.impactSeconds);
+        }
+
+        private void FinishPlayback()
+        {
+            _playing = false;
+            for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
+            EndCast();
+            _HideSpellAnimation();
+            RefreshLabels();
+        }
+
+        /// <summary>Shows the current step's results (damage, heals, buffs) and updates the shown health.</summary>
+        private void ApplyStep()
+        {
+            string text = _stepHeader;
+            for (int i = _stepStart; i < _stepEnd && i < manager.actCount; i++)
+            {
+                int t = manager.actTarget[i];
+                int k = manager.actKind[i];
+                int v = manager.actValue[i];
+                if (k == BattleManager.KIND_DAMAGE) text += "\n" + manager.SlotName(t) + " takes " + v.ToString() + " damage";
                 else if (k == BattleManager.KIND_HEAL) text += "\n" + manager.SlotName(t) + " heals " + v.ToString();
-                else if (k == BattleManager.KIND_BUFF) { text += "\n" + manager.SlotName(t) + BuffText(manager.actCard[_playIndex], v); if (firstTarget == actor) firstTarget = t; }
-                if (t >= 0 && t < BattleManager.SLOTS) _shownHp[t] = manager.actHpAfter[_playIndex];
-                _playIndex++;
+                else if (k == BattleManager.KIND_BUFF) text += "\n" + manager.SlotName(t) + BuffText(manager.actCard[i], v);
+                if (t >= 0 && t < BattleManager.SLOTS) _shownHp[t] = manager.actHpAfter[i];
             }
             SetBanner(text);
-            if (kind != BattleManager.KIND_PASS && kind != BattleManager.KIND_FIZZLE && kind != BattleManager.KIND_DOT &&
-                kind != BattleManager.KIND_STUNNED && kind != BattleManager.KIND_SUMMON)
-            {
-                GameObject anim = cardDatabase.GetAnimation(card);
-                if (anim != null) PlaySpellAnimation(anim, actor, firstTarget);
-                else StartCast(actor, firstTarget, cardDatabase.GetSchool(card));
-            }
             RefreshLabels();
-            SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.actionSeconds);
+        }
+
+        private int FirstTarget(int actor)
+        {
+            for (int i = _stepStart; i < _stepEnd && i < manager.actCount; i++)
+            {
+                int k = manager.actKind[i];
+                int t = manager.actTarget[i];
+                if ((k == BattleManager.KIND_DAMAGE || k == BattleManager.KIND_BUFF) && t != actor) return t;
+            }
+            return actor;
         }
 
         private string BuffText(int card, int v)
@@ -524,8 +582,9 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// School cast effect, timed over one action: the caster's seat ring flares and rises while the school glyph pops up
-        /// over their head (0-40%), the orb flies to the target in the school colour (40-75%), then bursts on it (75-95%).
+        /// School cast effect. Wind-up (the cast sound's length): the caster's seat ring flares and rises and the school glyph
+        /// floats over their head; at the sound's peak a school-coloured particle burst explodes off the caster. Impact
+        /// (<see cref="BattleManager.impactSeconds"/>): the orb flies to the target, then bursts on it.
         /// </summary>
         private void StartCast(int from, int to, int school)
         {
@@ -533,9 +592,14 @@ namespace WizardsVRC
             EndCast();
             if (to < 0 || to >= seats.Length) to = from;
             _casting = true;
+            _impacting = false;
+            _burstDone = false;
             _castFrom = from;
             _castTo = to;
+            _castSchool = school;
             _orbStart = Time.time;
+            _castLen = manager.CastSeconds(school);
+            _castPeak = manager.CastPeakSeconds(school);
             int mi = fxMats == null || fxMats.Length == 0 ? -1 : (school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1);
             float scale = from == BattleManager.BOSS_SLOT ? 1.7f : 1f;
             _ringBase = seats[from].position + Vector3.up * 0.05f;
@@ -577,9 +641,33 @@ namespace WizardsVRC
             castAudio.Play();
         }
 
+        private void StartImpact()
+        {
+            if (!_casting) return;
+            if (!_burstDone) CastBurst();
+            _impacting = true;
+            _impactStart = Time.time;
+            if (castRing != null) castRing.gameObject.SetActive(false);
+            if (castGlyph != null) castGlyph.gameObject.SetActive(false);
+        }
+
+        /// <summary>School-coloured particle explosion off the caster.</summary>
+        private void CastBurst()
+        {
+            _burstDone = true;
+            if (castBursts == null || castBursts.Length == 0) return;
+            int i = _castSchool >= 0 && _castSchool < castBursts.Length - 1 ? _castSchool : castBursts.Length - 1;
+            ParticleSystem ps = castBursts[i];
+            if (ps == null) return;
+            float scale = _castFrom == BattleManager.BOSS_SLOT ? 1.7f : 1f;
+            ps.transform.position = seats[_castFrom].position + Vector3.up * (1.2f * scale);
+            ps.Play();
+        }
+
         private void EndCast()
         {
             _casting = false;
+            _impacting = false;
             if (orb != null) orb.gameObject.SetActive(false);
             if (castRing != null) castRing.gameObject.SetActive(false);
             if (castGlyph != null) castGlyph.gameObject.SetActive(false);
@@ -589,57 +677,57 @@ namespace WizardsVRC
         private void AnimateCast()
         {
             if (!_casting) return;
-            float t = (Time.time - _orbStart) / manager.actionSeconds;
-            if (t >= 0.95f) { EndCast(); return; }
+            if (_impacting) { AnimateImpact(); return; }
 
+            float elapsed = Time.time - _orbStart;
+            if (!_burstDone && elapsed >= _castPeak) CastBurst();
+            float w = Mathf.Clamp01(elapsed / Mathf.Max(0.1f, _castLen));
             if (castRing != null)
             {
-                bool on = t < 0.55f;
-                if (castRing.gameObject.activeSelf != on) castRing.gameObject.SetActive(on);
-                if (on)
-                {
-                    float r = Mathf.Clamp01(t / 0.55f);
-                    castRing.position = _ringBase + Vector3.up * (r * 1.6f);
-                    castRing.localScale = new Vector3(1.9f + r * 1.2f, 1.9f + r * 1.2f, 1f) * (1f - r * 0.35f);
-                    castRing.rotation = Quaternion.Euler(90f, Time.time * 160f, 0f);
-                }
+                castRing.position = _ringBase + Vector3.up * (w * 1.6f);
+                float rs = 1.9f + Mathf.Min(1f, w * 2f) * 1.2f;
+                castRing.localScale = new Vector3(rs, rs, 1f);
+                castRing.rotation = Quaternion.Euler(90f, Time.time * 160f, 0f);
             }
             if (castGlyph != null)
             {
-                bool on = t < 0.5f;
-                if (castGlyph.gameObject.activeSelf != on) castGlyph.gameObject.SetActive(on);
-                if (on)
-                {
-                    float g = t / 0.5f;
-                    // Pop in with a little overshoot, hold, then shrink away.
-                    float size = g < 0.3f ? Mathf.Lerp(0f, 1.25f, g / 0.3f) : (g < 0.45f ? Mathf.Lerp(1.25f, 1f, (g - 0.3f) / 0.15f) : (g < 0.8f ? 1f : Mathf.Lerp(1f, 0f, (g - 0.8f) / 0.2f)));
-                    Transform gt = castGlyph.transform;
-                    gt.position = _glyphBase + Vector3.up * (g * 0.4f);
-                    gt.localScale = Vector3.one * (size * 1.1f);
-                    VRCPlayerApi me = Networking.LocalPlayer;
-                    Vector3 eye = Utilities.IsValid(me) ? me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position : gt.position - Vector3.forward;
-                    Vector3 look = gt.position - eye;
-                    if (look.sqrMagnitude > 0.001f) gt.rotation = Quaternion.LookRotation(look) * Quaternion.Euler(0f, 0f, Mathf.Sin(g * Mathf.PI * 2f) * 8f);
-                }
+                // Pop in with a little overshoot, hold, and shrink away just before the effect lands.
+                float pop = Mathf.Min(0.35f, _castLen * 0.2f);
+                float size = elapsed < pop ? Mathf.Lerp(0f, 1.25f, elapsed / pop)
+                    : (elapsed < pop * 1.5f ? Mathf.Lerp(1.25f, 1f, (elapsed - pop) / (pop * 0.5f))
+                    : (w < 0.9f ? 1f : Mathf.Lerp(1f, 0f, (w - 0.9f) / 0.1f)));
+                Transform gt = castGlyph.transform;
+                gt.position = _glyphBase + Vector3.up * (w * 0.4f);
+                gt.localScale = Vector3.one * (size * 1.1f);
+                VRCPlayerApi me = Networking.LocalPlayer;
+                Vector3 eye = Utilities.IsValid(me) ? me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position : gt.position - Vector3.forward;
+                Vector3 look = gt.position - eye;
+                if (look.sqrMagnitude > 0.001f) gt.rotation = Quaternion.LookRotation(look) * Quaternion.Euler(0f, 0f, Mathf.Sin(elapsed * Mathf.PI) * 8f);
             }
+        }
+
+        private void AnimateImpact()
+        {
+            float t = (Time.time - _impactStart) / Mathf.Max(0.1f, manager.impactSeconds);
+            if (t >= 0.95f) { EndCast(); return; }
             if (orb != null)
             {
-                bool on = t >= 0.4f && t < 0.75f;
+                bool on = t < 0.6f;
                 if (orb.gameObject.activeSelf != on) orb.gameObject.SetActive(on);
                 if (on)
                 {
-                    float o = (t - 0.4f) / 0.35f;
+                    float o = t / 0.6f;
                     float arc = _castTo == _castFrom ? 1.4f : 0.8f;
                     orb.position = Vector3.Lerp(_orbFrom, _orbTo, o) + Vector3.up * Mathf.Sin(o * Mathf.PI) * arc;
                 }
             }
             if (impactBurst != null)
             {
-                bool on = t >= 0.75f;
+                bool on = t >= 0.6f;
                 if (impactBurst.gameObject.activeSelf != on) impactBurst.gameObject.SetActive(on);
                 if (on)
                 {
-                    float b = (t - 0.75f) / 0.2f;
+                    float b = (t - 0.6f) / 0.35f;
                     impactBurst.position = _orbTo;
                     impactBurst.localScale = Vector3.one * (b < 0.5f ? Mathf.Lerp(0.3f, 1.6f, b * 2f) : Mathf.Lerp(1.6f, 0f, (b - 0.5f) * 2f));
                 }
