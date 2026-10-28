@@ -79,7 +79,20 @@ namespace WizardsVRC.EditorTools
             BackUpMyChanges();
 
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            // The VRChat SDK Control Panel re-validates on every scene change and throws on the brand-new empty scene
+            // (it has no world descriptor yet), so close it while building and reopen it afterwards.
+            System.Type sdkPanel = CloseSdkControlPanel();
+            Scene scene;
+            try
+            {
+                scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+            catch (System.Exception e)
+            {
+                // Another editor window's scene-changed handler failed; the new scene still exists, so keep building.
+                Debug.LogWarning("[WizardsVRC] Ignored an error from another editor window while creating the scene: " + e.Message);
+                scene = SceneManager.GetActiveScene();
+            }
 
             // ---------------- lighting
             var sun = new GameObject("Directional Light");
@@ -220,6 +233,20 @@ namespace WizardsVRC.EditorTools
             AddSceneToBuildSettings();
             AssetDatabase.SaveAssets();
             Debug.Log("[WizardsVRC] Generated " + ScenePath);
+            if (sdkPanel != null) EditorApplication.delayCall += () => EditorWindow.GetWindow(sdkPanel);
+        }
+
+        /// <summary>Closes the VRChat SDK Control Panel if it's open and returns its window type (null if it wasn't open).</summary>
+        private static System.Type CloseSdkControlPanel()
+        {
+            System.Type found = null;
+            foreach (var w in Resources.FindObjectsOfTypeAll<EditorWindow>())
+            {
+                if (w == null || w.GetType().Name != "VRCSdkControlPanel") continue;
+                found = w.GetType();
+                w.Close();
+            }
+            return found;
         }
 
         // ================================================================== project config
