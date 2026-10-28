@@ -34,8 +34,8 @@ namespace WizardsVRC.EditorTools.WorldData
                 M(5, "Gloom Wisp", School.Death, 1, 180, false, 0, new[] { 148 }, 30, 5, 12, 10, 20, 0.6f, new Color(0.35f, 0.4f, 0.55f), "Lantern Row. Hovers in pairs."),
                 M(6, "Lantern Snatcher", School.Myth, 2, 260, false, 0, new[] { 160, 161 }, 40, 8, 18, 11, 25, 0.9f, new Color(0.45f, 0.35f, 0.25f),
                   "Lantern Row. Goblin-like thieves carrying stolen lamp-flames."),
-                M(7, "Ashwick the Snuffer", School.Death, 4, 900, true, 450, new[] { 148, 149, 150, 154 }, 150, 50, 90, 26, 60, 1.6f, new Color(0.2f, 0.22f, 0.3f),
-                  "Lantern Row boss in the Snuffer's Tower."),
+                M(7, "Ashwick the Snuffer", School.Death, 4, 900, true, 450, new[] { 148, 149, 150, 154 }, 150, 50, 90, 61, 40, 1.6f, new Color(0.2f, 0.22f, 0.3f),
+                  "Lantern Row boss in the Snuffer's Tower. Drops the Scholar's Deck."),
             };
         }
 

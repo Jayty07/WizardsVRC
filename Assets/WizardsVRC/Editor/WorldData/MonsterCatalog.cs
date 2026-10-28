@@ -49,8 +49,12 @@ namespace WizardsVRC.EditorTools.WorldData
         [Range(0, 100)] public int dropChance;
 
         [Header("Look")]
-        [Tooltip("Body size (1 = wizard sized).")]
+        [Tooltip("Optional model (a prefab) used for this monster on patrol and in the duel ring. Its feet should be at " +
+                 "its pivot and it should face +Z. Empty = a coloured placeholder body. Avoid non-Udon scripts on it.")]
+        public GameObject modelPrefab;
+        [Tooltip("Body size (1 = wizard sized). Also scales the model.")]
         public float bodyScale = 1f;
+        [Tooltip("Placeholder body colour (used when there is no model).")]
         public Color bodyColor = new Color(0.5f, 0.5f, 0.55f);
 
         [TextArea(1, 4)] public string notes = "";

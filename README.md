@@ -48,7 +48,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/ItemDatabase.cs` | Placeholder item definitions (category, level/school req, stat bonuses incl. critical/block/pierce/power pip, potion restore amounts) + stat totals |
 | `Assets/WizardsVRC/Scripts/InventoryBook.cs` | Backpack book: live avatar portrait (MirrorReflection-layer camera → RenderTexture), equipment slots + stats (left page), tabbed paged item grid + Equip/Unequip (right page) |
 | `Assets/WizardsVRC/Scripts/CardDatabase.cs` | Placeholder spell cards (4 per school + 4 general), level/school learning rules, deck limits |
-| `Assets/WizardsVRC/Scripts/DeckPages.cs` | Book's Deck tab: Deck 1/2/3 contents (left), spellbook with Add/Remove (right) |
+| `Assets/WizardsVRC/Scripts/DeckPages.cs` | Book's Deck tab: flip through the deck items you own, edit and equip them (left), spellbook with Add/Remove (right) |
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Hub teleporter pad trigger that joins/leaves the battle queue |
@@ -89,6 +89,8 @@ payload v1: name (u8 len + u16 chars), school u8, level u8, xp u32, gold u32, ma
 v2-v5 append training points + learned spells, tracked quest and quest step counters (see `CharacterData.cs`).
 v6 appends `currentHealth u16, currentMana u16` (65535 = full). Older saves load as full health/mana and get the new
 mana curve (20 + 2 per level).
+v7 stores 8 equipment slots (slot 7 = deck) and 6 deck card lists, and appends `deckOwners u16 x 6` (which deck item
+owns each list). Older saves get an equipped Apprentice Deck holding their old Deck 1.
 
 Worst case ≈ 0.9 KB raw / 1.2 KB base64. `meta` = `1|school,level,name|...|...` (empty entry = free slot).
 
@@ -96,6 +98,12 @@ Saving rotates the previous valid blob into `char_N_bak`. Loading a blob that fa
 backup and rewrites `char_N` from it. PlayerData has no delete API, so Delete writes empty strings.
 Saves happen on create, on select/swap (the previous character is saved first), on "Change Character", and every
 120 s (`PlayerState.autosaveInterval`).
+
+## The book
+
+**B** (desktop), the hub button or the backpack pedestal opens it. Bookmarks: **Pack** (equipment and items),
+**Deck** (decks and spells), **Quests**, and **Settings** (HUD and quest-arrow toggles, Save Now, Return to Starfall
+Castle, and Change Character, which saves and takes you back to the select room).
 
 ## Building zones, monsters and quests
 
@@ -124,6 +132,13 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Flee** (planning only): leave the duel immediately; you keep your health but your mana drops to 0.
 - **Joining a duel in progress:** in the wandering-monster lanes, walk into the circle while a seat is free and you
   join; you act from the next round.
+- **Decks are items** (Wizard101 style): the Apprentice Deck (20 spells, 4 copies each) to start, plus the Scholar's,
+  Ironbound and Starfall decks (bigger, more copies, small stat bonuses) from loot and bosses. Equip one in the backpack
+  or on the book's Deck tab; each deck keeps its own spells and battles draw from the equipped one.
+- **Battle hand:** seven cards fanned like Wizard101's; hovering a card makes it grow and rise, with its pip cost,
+  school, accuracy and full effect. Pips show as dots (white, power, empty).
+- **Two clear sides:** wizards always sit on the south half (blue seat sockets), monsters on the north half (red), with
+  a glowing line between. Each monster seat shows the model of the monster actually in that seat.
 - **Monster AI:** monsters heal an ally under 45% health, sometimes put a blade or shield on themselves first, and
   otherwise cast their biggest affordable attack (occasionally saving pips).
 

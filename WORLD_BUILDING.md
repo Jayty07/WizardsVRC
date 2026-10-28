@@ -120,7 +120,10 @@ Open `Monsters.asset`. Each monster has:
 - **Spells**: up to 6, picked by name from the drop-down (open `MainWorld.unity` once so the list loads). The AI heals a
   hurt ally, sometimes blades/shields itself, and otherwise casts its biggest affordable attack. Monsters resist their
   own school and are weak to the opposite one.
-- XP, gold range, a drop item + chance, body size and colour.
+- XP, gold range, a drop item + chance (deck items 60-63 make good boss drops), body size and colour.
+- **Model Prefab** (optional): drag in a prefab and it's used for that monster on patrol and in its ring seat (feet at the
+  pivot, facing +Z; Body Scale scales it; colliders are removed). Without one you get a coloured placeholder. Each ring
+  seat always holds the same roster entry, so the model in a seat is always the monster really sitting there.
 
 ## Questlines
 

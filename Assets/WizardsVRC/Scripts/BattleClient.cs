@@ -25,8 +25,8 @@ namespace WizardsVRC
         public Transform defeatReturn;
         [Tooltip("The encounter's root (ring, seats, labels, hand panel). Moved to the manager's ring spot when a fight starts.")]
         public Transform encounterRoot;
-        [Tooltip("Body material per monster, indexed like CardDatabase.monsterIds (optional).")]
-        public Material[] monsterMaterials;
+        [Tooltip("Body size per seat (the builder fills it from each seat's monster) for cast effects over their heads.")]
+        public float[] seatScales;
         public Transform[] seats;
         public GameObject ring;
         public GameObject[] monsterBodies;
@@ -59,6 +59,8 @@ namespace WizardsVRC
         [Tooltip("Indexed by School.")]
         public Material[] seatSchoolMats;
         public Material seatEmptyMat;
+        [Tooltip("Empty seats on the monsters' half (tinted so the two sides read clearly). Empty = seatEmptyMat.")]
+        public Material seatEmptyMonsterMat;
 
         [Header("Shields / blades / traps orbiting each seat")]
         [Tooltip("Index slot * 3 + kind (0 shields, 1 blades, 2 traps).")]
@@ -91,9 +93,18 @@ namespace WizardsVRC
 
         [Header("Hand panel")]
         public GameObject handRoot;
+        [Tooltip("Card frames (coloured by school); the card buttons themselves.")]
         public Image[] cardImages;
         public Text[] cardNames;
         public Text[] cardInfos;
+        [Tooltip("Parchment face inside each card frame (dimmed when the card can't be cast).")]
+        public Image[] cardFaces;
+        public Text[] cardPips;
+        public Text[] cardAccuracies;
+        public Text[] cardSchools;
+        [Tooltip("Hovered cards grow by this much and rise toward you (Wizard101 style).")]
+        public float hoverScale = 1.45f;
+        public float hoverRaise = 135f;
         public Text statusLabel;
         public Text partyLabel;
         public GameObject[] targetButtons;
@@ -101,7 +112,7 @@ namespace WizardsVRC
         public Image discardImage;
 
         [Header("Rewards")]
-        public int[] lootTable = { 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51 };
+        public int[] lootTable = { 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51, 61, 62 };
 
         [Header("Defeat")]
         [Tooltip("Health (% of max) you are sent home with after being defeated.")]
@@ -165,6 +176,8 @@ namespace WizardsVRC
         private GameObject _spellAnim;
 
         private Color _cardDim = new Color(0.35f, 0.35f, 0.35f);
+        private Color _faceOn = new Color(0.93f, 0.87f, 0.72f);
+        private Color _faceOff = new Color(0.55f, 0.53f, 0.5f);
 
         // ------------------------------------------------------------------ uGUI events
 
@@ -175,6 +188,22 @@ namespace WizardsVRC
         public void Card4() { ClickCard(4); }
         public void Card5() { ClickCard(5); }
         public void Card6() { ClickCard(6); }
+
+        // Pointer enter / exit on each card (EventTrigger). VRChat can send these twice, so they're idempotent.
+        public void HoverCard0() { SetHover(0); }
+        public void HoverCard1() { SetHover(1); }
+        public void HoverCard2() { SetHover(2); }
+        public void HoverCard3() { SetHover(3); }
+        public void HoverCard4() { SetHover(4); }
+        public void HoverCard5() { SetHover(5); }
+        public void HoverCard6() { SetHover(6); }
+        public void UnhoverCard0() { ClearHover(0); }
+        public void UnhoverCard1() { ClearHover(1); }
+        public void UnhoverCard2() { ClearHover(2); }
+        public void UnhoverCard3() { ClearHover(3); }
+        public void UnhoverCard4() { ClearHover(4); }
+        public void UnhoverCard5() { ClearHover(5); }
+        public void UnhoverCard6() { ClearHover(6); }
 
         public void Target0() { ClickTarget(0); }
         public void Target1() { ClickTarget(1); }
@@ -276,8 +305,74 @@ namespace WizardsVRC
 
         private void Start()
         {
+            CacheCardLayout();
             if (handRoot != null) handRoot.SetActive(false);
             OnBattleState();
+        }
+
+        // ------------------------------------------------------------------ card fan (hover / select animation)
+
+        private Vector2[] _cardBasePos = new Vector2[HAND_SIZE];
+        private Quaternion[] _cardBaseRot = new Quaternion[HAND_SIZE];
+        private int[] _cardBaseSibling = new int[HAND_SIZE];
+        private int _hover = -1;
+        private bool _layoutCached;
+
+        private void CacheCardLayout()
+        {
+            if (cardImages == null) return;
+            for (int i = 0; i < HAND_SIZE && i < cardImages.Length; i++)
+            {
+                if (cardImages[i] == null) continue;
+                RectTransform rt = cardImages[i].rectTransform;
+                _cardBasePos[i] = rt.anchoredPosition;
+                _cardBaseRot[i] = rt.localRotation;
+                _cardBaseSibling[i] = rt.GetSiblingIndex();
+            }
+            _layoutCached = true;
+        }
+
+        private void SetHover(int i)
+        {
+            if (_hover == i) return;
+            _hover = i;
+            RestoreCardOrder();
+            if (i >= 0 && i < _handCount && cardImages != null && i < cardImages.Length && cardImages[i] != null)
+                cardImages[i].rectTransform.SetAsLastSibling();
+        }
+
+        private void ClearHover(int i)
+        {
+            if (_hover != i) return;
+            _hover = -1;
+            RestoreCardOrder();
+        }
+
+        private void RestoreCardOrder()
+        {
+            if (!_layoutCached || cardImages == null) return;
+            for (int i = 0; i < HAND_SIZE && i < cardImages.Length; i++)
+                if (cardImages[i] != null) cardImages[i].rectTransform.SetSiblingIndex(_cardBaseSibling[i]);
+        }
+
+        /// <summary>Eases every card toward its pose: hovered = big, upright and raised; selected = slightly raised.</summary>
+        private void AnimateCards()
+        {
+            if (!_layoutCached || cardImages == null || handRoot == null || !handRoot.activeSelf) return;
+            float t = Mathf.Clamp01(Time.deltaTime * 14f);
+            for (int i = 0; i < HAND_SIZE && i < cardImages.Length; i++)
+            {
+                if (cardImages[i] == null || !cardImages[i].gameObject.activeSelf) continue;
+                RectTransform rt = cardImages[i].rectTransform;
+                Vector2 pos = _cardBasePos[i];
+                Quaternion rot = _cardBaseRot[i];
+                float scale = 1f;
+                if (i == _hover) { pos += new Vector2(0f, hoverRaise); rot = Quaternion.identity; scale = hoverScale; }
+                else if (i == _selHand) { pos += new Vector2(0f, hoverRaise * 0.45f); scale = 1.1f; }
+                rt.anchoredPosition = Vector2.Lerp(rt.anchoredPosition, pos, t);
+                rt.localRotation = Quaternion.Slerp(rt.localRotation, rot, t);
+                rt.localScale = Vector3.Lerp(rt.localScale, new Vector3(scale, scale, 1f), t);
+            }
         }
 
         /// <summary>Called on every client after the synced battle state changes.</summary>
@@ -293,8 +388,9 @@ namespace WizardsVRC
             for (int m = 0; m < BattleManager.SIDE; m++)
                 if (monsterBodies != null && m < monsterBodies.Length && monsterBodies[m] != null)
                 {
+                    // Each monster seat's body is built from the encounter's roster (seat m = roster[m]), so it always
+                    // shows the monster actually sitting there.
                     bool show = phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m) && !manager.IsSummon(BattleManager.SIDE + m);
-                    if (show) StyleMonsterBody(m, manager.MonsterAt(BattleManager.SIDE + m));
                     monsterBodies[m].SetActive(show);
                 }
 
@@ -401,18 +497,9 @@ namespace WizardsVRC
             encounterRoot.SetPositionAndRotation(spot.position, spot.rotation);
         }
 
-        /// <summary>Gives a ring monster its catalog colour and size.</summary>
-        private void StyleMonsterBody(int m, int monsterId)
+        private float SeatScale(int s)
         {
-            if (monsterId <= 0 || cardDatabase == null) return;
-            Transform body = monsterBodies[m].transform;
-            float scale = cardDatabase.MonsterBodyScale(monsterId);
-            body.localScale = Vector3.one * scale;
-            body.localPosition = new Vector3(0f, scale, 0f);
-            int i = cardDatabase.MonsterIndexOf(monsterId);
-            if (monsterMaterials == null || i < 0 || i >= monsterMaterials.Length || monsterMaterials[i] == null) return;
-            Renderer r = body.GetComponent<Renderer>();
-            if (r != null && r.sharedMaterial != monsterMaterials[i]) r.sharedMaterial = monsterMaterials[i];
+            return seatScales != null && s >= 0 && s < seatScales.Length && seatScales[s] > 0f ? seatScales[s] : 1f;
         }
 
         // ------------------------------------------------------------------ battle enter / leave
@@ -613,10 +700,12 @@ namespace WizardsVRC
         private void BuildPile(CharacterData c)
         {
             _pileCount = 0;
-            int len = c.DeckCount(0);
-            for (int i = 0; i < len; i++)
+            // Battles draw from the equipped deck item's card list.
+            int list = c.ActiveDeckList();
+            int len = list >= 0 ? c.DeckCount(list) : 0;
+            for (int i = 0; i < len && _pileCount < _pile.Length; i++)
             {
-                int id = c.deckCards[i];
+                int id = c.deckCards[list * CharacterData.DECK_SIZE + i];
                 if (cardDatabase.IndexOf(id) >= 0) _pile[_pileCount++] = id;
             }
             if (_pileCount == 0)
@@ -638,6 +727,7 @@ namespace WizardsVRC
 
         private void RemoveFromHand(int i)
         {
+            SetHover(-1);
             for (int k = i; k < _handCount - 1; k++) _hand[k] = _hand[k + 1];
             _handCount--;
         }
@@ -878,11 +968,11 @@ namespace WizardsVRC
             _castLen = manager.CastSeconds(school);
             _castPeak = manager.CastPeakSeconds(school);
             int mi = fxMats == null || fxMats.Length == 0 ? -1 : (school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1);
-            float scale = from == BattleManager.BOSS_SLOT ? 1.7f : 1f;
+            float scale = SeatScale(from);
             _ringBase = seats[from].position + Vector3.up * 0.05f;
             _glyphBase = seats[from].position + Vector3.up * (2.6f * scale);
             _orbFrom = seats[from].position + Vector3.up * (1.3f * scale);
-            _orbTo = seats[to].position + Vector3.up * (to == BattleManager.BOSS_SLOT ? 1.9f : 1.1f);
+            _orbTo = seats[to].position + Vector3.up * (1.1f * SeatScale(to));
             if (castRing != null)
             {
                 if (castRingRenderer != null && seatSchoolMats != null && school >= 0 && school < seatSchoolMats.Length)
@@ -936,7 +1026,7 @@ namespace WizardsVRC
             int i = _castSchool >= 0 && _castSchool < castBursts.Length - 1 ? _castSchool : castBursts.Length - 1;
             ParticleSystem ps = castBursts[i];
             if (ps == null) return;
-            float scale = _castFrom == BattleManager.BOSS_SLOT ? 1.7f : 1f;
+            float scale = SeatScale(_castFrom);
             ps.transform.position = seats[_castFrom].position + Vector3.up * (1.2f * scale);
             ps.Play();
         }
@@ -1161,8 +1251,9 @@ namespace WizardsVRC
                 Renderer r = seatRings[s];
                 if (r == null) continue;
                 int sc = manager.school[s];
+                Material empty = s >= BattleManager.SIDE && seatEmptyMonsterMat != null ? seatEmptyMonsterMat : seatEmptyMat;
                 Material m = manager.slotIds[s] != 0 && seatSchoolMats != null && sc >= 0 && sc < seatSchoolMats.Length
-                    ? seatSchoolMats[sc] : seatEmptyMat;
+                    ? seatSchoolMats[sc] : empty;
                 if (m != null && r.sharedMaterial != m) r.sharedMaterial = m;
             }
         }
@@ -1198,7 +1289,7 @@ namespace WizardsVRC
         private void Update()
         {
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); }
-            if (_inBattle && manager != null) UpdateHudHealth();
+            if (_inBattle && manager != null) { UpdateHudHealth(); AnimateCards(); }
             if (_inBattle && !_seated && manager != null && manager.phase == BattleManager.PHASE_ROAMING && arenaCenter != null && Time.time >= _nextEngage)
             {
                 VRCPlayerApi me = Networking.LocalPlayer;
@@ -1242,12 +1333,22 @@ namespace WizardsVRC
         private string StatusText()
         {
             string s = "Round " + manager.round.ToString();
-            if (_slot >= 0) s += "    " + manager.PipText(_slot);
+            if (_slot >= 0) s += "    " + PipGlyphs(_slot);
             if (playerState != null && playerState.HasCharacter()) s += "    Mana " + playerState.GetMana().ToString() + " / " + playerState.MaxMana().ToString();
             if (manager.phase == BattleManager.PHASE_PLANNING) s += "    Time " + manager.SecondsLeft().ToString() + "s";
             s += "    Deck " + _pileCount.ToString();
             if (_note.Length > 0) s += "\n" + _note;
             return s;
+        }
+
+        /// <summary>Pips as Wizard101-style dots: white pips, then power pips, then empty slots.</summary>
+        private string PipGlyphs(int s)
+        {
+            string g = "";
+            for (int i = 0; i < manager.pips[s]; i++) g += "\u25CF";
+            for (int i = 0; i < manager.powerPips[s]; i++) g += "\u25C6";
+            for (int i = manager.pips[s] + manager.powerPips[s]; i < BattleManager.MAX_PIPS; i++) g += "\u25CB";
+            return "Pips " + g + "  (" + manager.PipText(s) + ")";
         }
 
         private void RefreshLabels()
@@ -1299,11 +1400,17 @@ namespace WizardsVRC
                 int card = _hand[i];
                 bool usable = manager.CanAfford(_slot, card) && HasManaFor(card);
                 Color col = cardDatabase.GetColor(card);
-                if (!usable && !_discardMode) col = _cardDim;
-                if (i == _selHand) col = Color.Lerp(col, Color.white, 0.45f);
+                if (!usable && !_discardMode) col = Color.Lerp(col, _cardDim, 0.7f);
+                if (i == _selHand) col = Color.Lerp(col, Color.white, 0.55f);
+                if (_discardMode) col = Color.Lerp(col, new Color(0.9f, 0.5f, 0.2f), 0.35f);
                 cardImages[i].color = col;
+                if (cardFaces != null && i < cardFaces.Length && cardFaces[i] != null)
+                    cardFaces[i].color = usable || _discardMode ? _faceOn : _faceOff;
                 cardNames[i].text = cardDatabase.GetName(card);
-                cardInfos[i].text = cardDatabase.GetPipCost(card).ToString() + " pips  " + cardDatabase.GetAccuracy(card).ToString() + "%\n" + cardDatabase.GetEffectText(card);
+                cardInfos[i].text = cardDatabase.GetEffectText(card);
+                if (cardPips != null && i < cardPips.Length && cardPips[i] != null) cardPips[i].text = cardDatabase.GetPipCost(card).ToString();
+                if (cardAccuracies != null && i < cardAccuracies.Length && cardAccuracies[i] != null) cardAccuracies[i].text = cardDatabase.GetAccuracy(card).ToString() + "%";
+                if (cardSchools != null && i < cardSchools.Length && cardSchools[i] != null) cardSchools[i].text = cardDatabase.SchoolName(cardDatabase.GetSchool(card));
             }
 
             bool picking = CanAct() && _selHand >= 0 && _selHand < _handCount;
@@ -1313,7 +1420,7 @@ namespace WizardsVRC
                 if (targetButtons == null || t >= targetButtons.Length || targetButtons[t] == null) continue;
                 bool show = picking && manager.Alive(t) && (manager.SideOf(t) == 0) == allies;
                 targetButtons[t].SetActive(show);
-                if (show) targetLabels[t].text = manager.SlotName(t);
+                if (show) targetLabels[t].text = manager.SlotName(t) + "\n" + _shownHp[t].ToString() + " / " + manager.maxHp[t].ToString();
             }
             if (potionLabel != null) potionLabel.text = "Potion (" + CountPotions().ToString() + ")";
             if (discardImage != null) discardImage.color = _discardMode ? new Color(0.8f, 0.55f, 0.2f) : new Color(0.4f, 0.3f, 0.25f);

@@ -17,6 +17,8 @@ namespace WizardsVRC.EditorTools
     {
         /// <summary>Body material per monster (same order as CardDatabase.monsterIds), shared by every encounter.</summary>
         private static Material[] _monsterMats;
+        /// <summary>The catalog used for this build (for model prefabs).</summary>
+        private static MonsterCatalog _monsterCatalog;
 
         /// <summary>What the zone pass hands to the quest pass and the guide.</summary>
         private class WorldBuild
@@ -24,6 +26,7 @@ namespace WizardsVRC.EditorTools
             public WorldDataStore.Data data;
             public Transform cutsceneParent;
             public readonly List<UdonSharpBehaviour> behaviours = new List<UdonSharpBehaviour>();
+            public readonly List<GameObject> zoneRoots = new List<GameObject>();
             public readonly Dictionary<string, int> npcIds = new Dictionary<string, int>();
             public readonly Dictionary<string, Transform> npcTargets = new Dictionary<string, Transform>();
             public readonly Dictionary<string, Transform[]> npcShots = new Dictionary<string, Transform[]>();
@@ -51,6 +54,7 @@ namespace WizardsVRC.EditorTools
         private static void ApplyMonsterCatalog(CardDatabase db, MonsterCatalog cat)
         {
             _monsterMats = null;
+            _monsterCatalog = cat;
             if (cat == null) return;
             var spellReport = new WorldValidator.Report();
             WorldValidator.ValidateMonsters(cat, CardsOf(db), spellReport);
@@ -97,6 +101,38 @@ namespace WizardsVRC.EditorTools
             }
         }
 
+        /// <summary>
+        /// The body of a monster (patrol or ring seat): its catalog model prefab if it has one (unpacked, colliders
+        /// removed, scaled by bodyScale), otherwise a capsule in its colour. Feet at the parent's origin.
+        /// </summary>
+        private static GameObject MonsterBody(Transform parent, CardDatabase db, int monsterId, string name)
+        {
+            float scale = monsterId > 0 ? db.MonsterBodyScale(monsterId) : 1f;
+            MonsterEntry entry = _monsterCatalog != null && monsterId > 0 ? _monsterCatalog.Find(monsterId) : null;
+            if (entry != null && entry.modelPrefab != null)
+            {
+                var model = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(entry.modelPrefab);
+                UnityEditor.PrefabUtility.UnpackPrefabInstance(model, UnityEditor.PrefabUnpackMode.Completely, UnityEditor.InteractionMode.AutomatedAction);
+                model.name = name;
+                model.transform.SetParent(parent, false);
+                model.transform.localPosition = Vector3.zero;
+                model.transform.localRotation = Quaternion.identity;
+                model.transform.localScale = model.transform.localScale * scale;
+                foreach (var col in model.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
+                return model;
+            }
+            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            body.name = name;
+            body.transform.SetParent(parent, false);
+            body.transform.localPosition = new Vector3(0, scale, 0);
+            body.transform.localScale = Vector3.one * scale;
+            Material mat = MonsterMat(db, monsterId);
+            if (mat == null) mat = Mat("MinionBody", new Color(0.75f, 0.65f, 0.3f));
+            body.GetComponent<Renderer>().sharedMaterial = mat;
+            Object.DestroyImmediate(body.GetComponent<Collider>());
+            return body;
+        }
+
         private static Material MonsterMat(CardDatabase db, int monsterId)
         {
             int i = db.MonsterIndexOf(monsterId);
@@ -126,6 +162,7 @@ namespace WizardsVRC.EditorTools
             string k = z.zoneKey;
             var root = new GameObject("Zone_" + k).transform;
             root.position = new Vector3(0f, z.height, 0f);
+            wb.zoneRoots.Add(root.gameObject);
             float cs = g.cell;
 
             Material ground = PMat(k + "_Ground", z.groundColor, 8f);
@@ -563,17 +600,9 @@ namespace WizardsVRC.EditorTools
         private static Wanderer MakeWanderer(Transform parent, BattleClient client, CardDatabase db, int monsterId, string name)
         {
             float ms = db.MonsterBodyScale(monsterId);
-            int sc = db.MonsterSchool(monsterId);
             Transform wt = Child(parent, name, Vector3.zero);
             var wanderer = UdonSharpUndo.AddComponent<Wanderer>(wt.gameObject);
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.SetParent(wt, false);
-            body.transform.localPosition = new Vector3(0, ms, 0);
-            body.transform.localScale = Vector3.one * ms;
-            body.GetComponent<Renderer>().sharedMaterial = MonsterMat(db, monsterId) ?? client.fxMats[sc >= 0 && sc < SchoolLabels.Length ? sc : SchoolLabels.Length];
-            Object.DestroyImmediate(body.GetComponent<Collider>());
-            wanderer.body = body;
+            wanderer.body = MonsterBody(wt, db, monsterId, "Body");
             wanderer.label = WorldText(wt, "Label", new Vector3(0, ms * 2f + 0.6f, 0), Quaternion.identity, new Vector2(500, 140), 0.004f, "", 34);
             wanderer.manager = client.manager;
             wanderer.client = client;

@@ -20,6 +20,7 @@ namespace WizardsVRC
         public const int VIEW_PACK = 0;
         public const int VIEW_DECK = 1;
         public const int VIEW_QUESTS = 2;
+        public const int VIEW_SETTINGS = 3;
 
         [Header("Systems")]
         public PlayerState playerState;
@@ -37,6 +38,20 @@ namespace WizardsVRC
         public GameObject questView;
         public QuestPages questPages;
         public Image questTabImage;
+        public GameObject settingsView;
+        public Image settingsTabImage;
+
+        [Header("Settings page")]
+        public PlayerHUD hud;
+        public QuestGuide questGuide;
+        public CharacterSelectUI selectUI;
+        [Tooltip("Teleports to the castle and hides every zone (used by Go Home and Change Character).")]
+        public TeleportHelper homeTeleport;
+        public Text settingsCharacterLabel;
+        public Text hudSettingLabel;
+        public Text guideSettingLabel;
+        public Text changeCharacterLabel;
+        public Text settingsStatus;
 
         [Header("Avatar portrait")]
         [Tooltip("Renders the local avatar (MirrorReflection layer) into the left page's portrait. Only active while the book is open.")]
@@ -120,12 +135,82 @@ namespace WizardsVRC
             if (questPages != null) questPages.Open();
         }
 
+        public void ShowSettings()
+        {
+            _view = VIEW_SETTINGS;
+            _confirmUntil = 0f;
+            ApplyView();
+            RefreshSettings("");
+        }
+
+        // ------------------------------------------------------------------ settings
+
+        private float _confirmUntil;
+
+        public void SettingToggleHud()
+        {
+            if (hud != null) hud.ToggleHud();
+            RefreshSettings("");
+        }
+
+        public void SettingToggleGuide()
+        {
+            if (questGuide != null) questGuide.ToggleGuide();
+            RefreshSettings("");
+        }
+
+        public void SettingSaveNow()
+        {
+            bool ok = playerState != null && playerState.SaveNow();
+            RefreshSettings(ok ? "Saved." : "Couldn't save right now.");
+        }
+
+        /// <summary>Back to the castle courtyard from wherever you are (not during a duel).</summary>
+        public void SettingGoHome()
+        {
+            if (playerState != null && playerState.inCombat) { RefreshSettings("You can't leave in the middle of a duel."); return; }
+            if (homeTeleport != null) homeTeleport.TeleportToDefault();
+            CloseBook();
+        }
+
+        /// <summary>Saves and goes back to the character select room (press twice to confirm).</summary>
+        public void SettingChangeCharacter()
+        {
+            if (playerState != null && playerState.inCombat) { RefreshSettings("You can't change character in the middle of a duel."); return; }
+            if (Time.time > _confirmUntil)
+            {
+                _confirmUntil = Time.time + 4f;
+                RefreshSettings("Press again to save and change character.");
+                return;
+            }
+            _confirmUntil = 0f;
+            if (playerState != null) playerState.SaveNow();
+            CloseBook();
+            if (homeTeleport != null) homeTeleport.SwitchZones();
+            if (selectUI != null) selectUI.ReturnToSelect();
+        }
+
+        private void RefreshSettings(string status)
+        {
+            if (settingsCharacterLabel != null && HasCharacter())
+            {
+                CharacterData c = playerState.current;
+                settingsCharacterLabel.text = c.characterName + "\nLevel " + c.level.ToString() + " " + itemDatabase.SchoolName((int)c.school) + " Wizard";
+            }
+            if (hudSettingLabel != null) hudSettingLabel.text = "On-screen HUD: " + (hud != null && hud.hudEnabled ? "On" : "Off");
+            if (guideSettingLabel != null) guideSettingLabel.text = "Quest arrow: " + (questGuide != null && questGuide.IsGuideEnabled() ? "On" : "Off");
+            if (changeCharacterLabel != null) changeCharacterLabel.text = Time.time <= _confirmUntil ? "Press again to confirm" : "Change Character";
+            if (settingsStatus != null) settingsStatus.text = status;
+        }
+
         private void ApplyView()
         {
             bool pack = _view == VIEW_PACK;
             if (backpackView != null) backpackView.SetActive(pack);
             if (deckView != null) deckView.SetActive(_view == VIEW_DECK);
             if (questView != null) questView.SetActive(_view == VIEW_QUESTS);
+            if (settingsView != null) settingsView.SetActive(_view == VIEW_SETTINGS);
+            if (settingsTabImage != null) settingsTabImage.color = _view == VIEW_SETTINGS ? _tabOn : _tabOff;
             if (backpackTabImage != null) backpackTabImage.color = pack ? _tabOn : _tabOff;
             if (deckTabImage != null) deckTabImage.color = _view == VIEW_DECK ? _tabOn : _tabOff;
             if (questTabImage != null) questTabImage.color = _view == VIEW_QUESTS ? _tabOn : _tabOff;
@@ -191,6 +276,7 @@ namespace WizardsVRC
             ApplyView();
             if (_view == VIEW_DECK && deckPages != null) deckPages.Open();
             else if (_view == VIEW_QUESTS && questPages != null) questPages.Open();
+            else if (_view == VIEW_SETTINGS) RefreshSettings("");
             else Refresh();
         }
 
@@ -213,6 +299,7 @@ namespace WizardsVRC
         public void Tab6() { SetTab(6); }
         public void Tab7() { SetTab(7); }
         public void Tab8() { SetTab(8); }
+        public void Tab9() { SetTab(9); }
 
         public void Cell0() { SelectCell(0); }
         public void Cell1() { SelectCell(1); }
@@ -234,6 +321,7 @@ namespace WizardsVRC
         public void Slot4() { SelectSlot(4); }
         public void Slot5() { SelectSlot(5); }
         public void Slot6() { SelectSlot(6); }
+        public void Slot7() { SelectSlot(7); }
 
         public void PrevPage()
         {
@@ -299,6 +387,12 @@ namespace WizardsVRC
                 return;
             }
             int slot = itemDatabase.GetCategory(itemId);
+            bool deck = itemDatabase.IsDeck(itemId);
+            if (deck && c.DeckListFor(itemId, false) < 0 && !c.CanClaimDeckList())
+            {
+                SetStatus("Your spellbook can keep " + CharacterData.DECK_COUNT.ToString() + " decks. Sell or drop one first.");
+                return;
+            }
             int previous = c.equipped[slot];
             if (!c.RemoveItemAt(invIndex, 1)) return;
             c.equipped[slot] = (ushort)itemId;
@@ -310,8 +404,9 @@ namespace WizardsVRC
                 SetStatus("Your backpack is full.");
                 return;
             }
+            if (deck) c.DeckListFor(itemId, true);
             playerState.MarkDirty();
-            SetStatus("Equipped " + itemDatabase.GetName(itemId) + ".");
+            SetStatus("Equipped " + itemDatabase.GetName(itemId) + (deck ? ". Fill it with spells in the Deck tab." : "."));
             ClearSelection();
             _selSlot = slot;
         }
@@ -321,6 +416,11 @@ namespace WizardsVRC
             CharacterData c = playerState.current;
             int itemId = c.equipped[slot];
             if (itemId == 0) return;
+            if (slot == CharacterData.EQUIP_DECK)
+            {
+                SetStatus("You always need a deck. Equip another deck to swap.");
+                return;
+            }
             if (!c.AddItem(itemId, 1))
             {
                 SetStatus("Your backpack is full.");

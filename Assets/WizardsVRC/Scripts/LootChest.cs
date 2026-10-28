@@ -14,7 +14,7 @@ namespace WizardsVRC
         public PlayerState playerState;
         public ItemDatabase itemDatabase;
         public Text messageLabel;
-        public int[] lootTable = { 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51 };
+        public int[] lootTable = { 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51, 61, 62 };
         public int minGold = 5;
         public int maxGold = 25;
         public float cooldownSeconds = 2f;
