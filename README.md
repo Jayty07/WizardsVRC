@@ -107,7 +107,8 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Pips:** each round every combatant gains one pip (max 7). From level `powerPipLevel` (10) there is a
   `basePowerPipChance` (40%) that it is a **power pip**, plus any Power Pip % from gear at any level. A power pip is
   worth 2 pips for spells of your own school and 1 for anything else; on-school spells spend power pips first.
-- **Fizzles** keep your pips (the card is used up). Spells cost **1 mana per pip**, charged when cast, even on a fizzle;
+- **Fizzles** keep your pips, and the card isn't lost: it goes back into your deck at a random spot (Wizard101 rule), or to
+  the end of your hand if `BattleClient.fizzleReturnsToHand` is on. Spells cost **1 mana per pip**, charged when cast, even on a fizzle;
   cards you don't have the mana for are greyed out.
 - **Critical / Block:** gear Critical % doubles a hit or heal (`critMultiplier`); the target's Block % can stop it.
   Gear Pierce % ignores that much of shields and resist. Bosses have `bossCritPct`.

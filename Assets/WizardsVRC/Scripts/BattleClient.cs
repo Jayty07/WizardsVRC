@@ -107,6 +107,10 @@ namespace WizardsVRC
         [Header("Defeat")]
         [Tooltip("Health (% of max) you are sent home with after being defeated.")]
         public int defeatHealthPct = 25;
+
+        [Header("Fizzles")]
+        [Tooltip("Off (Wizard101): a fizzled card goes back into your deck at a random spot. On: it goes to the end of your hand instead.")]
+        public bool fizzleReturnsToHand;
         [Tooltip("Potion button label (optional).")]
         public Text potionLabel;
 
@@ -336,7 +340,7 @@ namespace WizardsVRC
 
             if (phase == BattleManager.PHASE_PLAYBACK && _phaseSeen != BattleManager.PHASE_PLAYBACK)
             {
-                if (_inBattle) SpendCastMana();
+                if (_inBattle) { SpendCastMana(); ReturnFizzledCards(); }
                 _playIndex = 0;
                 if (!_playing)
                 {
@@ -497,6 +501,27 @@ namespace WizardsVRC
         }
 
         /// <summary>Each pip a spell costs uses 1 mana when it is cast, even if it fizzles (Wizard101 rule).</summary>
+        /// <summary>A fizzled card isn't lost: it goes back into the deck (random spot), or to the end of the hand.</summary>
+        private void ReturnFizzledCards()
+        {
+            if (_slot < 0) return;
+            for (int i = 0; i < manager.actCount; i++)
+            {
+                if (manager.actActor[i] != _slot || manager.actKind[i] != BattleManager.KIND_FIZZLE) continue;
+                int card = manager.actCard[i];
+                if (card <= 0) continue;
+                if (fizzleReturnsToHand && _handCount < HAND_SIZE) _hand[_handCount++] = card;
+                else if (_pileCount < _pile.Length)
+                {
+                    // Cards are drawn from the end of the pile, so insert at a random position.
+                    int at = Random.Range(0, _pileCount + 1);
+                    for (int k = _pileCount; k > at; k--) _pile[k] = _pile[k - 1];
+                    _pile[at] = card;
+                    _pileCount++;
+                }
+            }
+        }
+
         private void SpendCastMana()
         {
             if (_slot < 0 || playerState == null || !playerState.HasCharacter()) return;
