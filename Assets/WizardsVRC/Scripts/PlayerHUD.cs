@@ -62,7 +62,7 @@ namespace WizardsVRC
             if (playerState == null || !playerState.HasCharacter()) return;
             CharacterData c = playerState.current;
             if (nameLabel != null) nameLabel.text = c.characterName + "  Lv " + c.level.ToString();
-            if (healthLabel != null) healthLabel.text = "Health " + playerState.GetHealth().ToString() + " / " + playerState.MaxHealth().ToString();
+            if (healthLabel != null) healthLabel.text = "Health " + playerState.DisplayHealth().ToString() + " / " + playerState.MaxHealth().ToString();
             if (manaLabel != null) manaLabel.text = "Mana " + playerState.GetMana().ToString() + " / " + playerState.MaxMana().ToString();
             if (goldLabel != null) goldLabel.text = "Gold " + c.gold.ToString() + "    Training Points " + c.trainingPoints.ToString();
             if (questLabel != null) questLabel.text = questManager != null ? questManager.GetTrackerText() : "";

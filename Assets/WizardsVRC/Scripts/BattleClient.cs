@@ -77,8 +77,7 @@ namespace WizardsVRC
         [Header("Quests")]
         public QuestManager questManager;
 
-        [Header("School combat traits (indexed by School): % health, + damage, + resist, + accuracy")]
-        public int[] schoolHealthPct = { 100, 125, 85, 105, 100, 100, 100 };
+        [Header("School combat traits (indexed by School): + damage, + resist, + accuracy (health: PlayerState.schoolHealthPct)")]
         public int[] schoolDamage = { 10, 0, 25, 0, 5, 10, 5 };
         public int[] schoolResist = { 0, 20, 0, 0, 5, 0, 5 };
         public int[] schoolAccuracy = { 0, 0, -10, 10, 0, 0, 5 };
@@ -467,10 +466,10 @@ namespace WizardsVRC
             _handCount = 0;
             if (!_submitted || manager.phase == BattleManager.PHASE_JOINING) _note = "Waiting for the other wizards...";
             int sc = (int)c.school;
-            int healthPct = Trait(schoolHealthPct, sc, 100);
-            int maxHealth = playerState.MaxHealth() * healthPct / 100;
-            // Health carries over between fights; the school trait scales current health the same way as max.
-            int curHealth = Mathf.Max(1, playerState.GetHealth() * healthPct / 100);
+            // Health carries over between fights (the school health trait is already part of MaxHealth).
+            int maxHealth = playerState.MaxHealth();
+            int curHealth = Mathf.Max(1, playerState.GetHealth());
+            playerState.combatHealth = -1;
             int statsA = manager.PackStats(
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_DAMAGE) + Trait(schoolDamage, sc, 0),
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_RESIST) + Trait(schoolResist, sc, 0),
@@ -483,11 +482,17 @@ namespace WizardsVRC
             manager.RequestJoin(maxHealth, curHealth, sc, c.level, statsA, statsB);
         }
 
-        /// <summary>Converts in-battle health (scaled by the school trait) back to the character's health.</summary>
-        private int BattleToCharacterHealth(int battleHp)
+        /// <summary>In-battle health is on the same scale as the character's health.</summary>
+        private int BattleToCharacterHealth(int battleHp) { return battleHp; }
+
+        /// <summary>Feeds the HUD the health the duel is showing, so it drops as each hit lands.</summary>
+        private void UpdateHudHealth()
         {
-            int pct = playerState != null && playerState.HasCharacter() ? Trait(schoolHealthPct, (int)playerState.current.school, 100) : 100;
-            return pct <= 0 ? battleHp : battleHp * 100 / pct;
+            if (playerState == null || !playerState.HasCharacter() || _slot < 0 || !_seated) return;
+            // Until our stats reach the referee the seat holds placeholder health; don't show that.
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me) || manager.FindWizardSlot(me.playerId) != _slot || manager.maxHp[_slot] != playerState.MaxHealth()) return;
+            playerState.combatHealth = _shownHp[_slot];
         }
 
         /// <summary>Wizard101 sends a defeated wizard home with a little health; nothing else is lost.</summary>
@@ -558,7 +563,7 @@ namespace WizardsVRC
             _slot = -1;
             _rejoinBlockUntil = Time.time + 5f;
             _nextEngage = Time.time + 5f;
-            if (playerState != null) playerState.inCombat = false;
+            if (playerState != null) { playerState.inCombat = false; playerState.combatHealth = -1; }
             if (handRoot != null) handRoot.SetActive(false);
             VRCPlayerApi local = Networking.LocalPlayer;
             if (Utilities.IsValid(local))
@@ -1193,6 +1198,7 @@ namespace WizardsVRC
         private void Update()
         {
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); }
+            if (_inBattle && manager != null) UpdateHudHealth();
             if (_inBattle && !_seated && manager != null && manager.phase == BattleManager.PHASE_ROAMING && arenaCenter != null && Time.time >= _nextEngage)
             {
                 VRCPlayerApi me = Networking.LocalPlayer;

@@ -22,8 +22,14 @@ namespace WizardsVRC
         [Tooltip("% of max mana restored per regen tick (at least 1).")]
         public int manaRegenPct = 1;
 
+        [Tooltip("School health trait (indexed by School), part of max health everywhere so the HUD matches the duel: " +
+                 "Ice tanks have more, Storm glass cannons less.")]
+        public int[] schoolHealthPct = { 100, 125, 85, 105, 100, 100, 100 };
+
         /// <summary>Set by BattleClient while the local player is in a fight (no regeneration).</summary>
         [HideInInspector] public bool inCombat;
+        /// <summary>Live health in the current fight, as the duel shows it (-1 = not known yet). Set by BattleClient.</summary>
+        [HideInInspector] public int combatHealth = -1;
         private float _nextRegen;
 
         [Tooltip("Seconds between autosaves while a character is active.")]
@@ -93,7 +99,17 @@ namespace WizardsVRC
         public int MaxHealth()
         {
             if (!HasCharacter()) return 0;
-            return itemDatabase != null ? itemDatabase.GetTotalStat(current, ItemDatabase.STAT_HEALTH) : current.maxHealth;
+            int baseMax = itemDatabase != null ? itemDatabase.GetTotalStat(current, ItemDatabase.STAT_HEALTH) : current.maxHealth;
+            int sc = (int)current.school;
+            int pct = schoolHealthPct != null && sc >= 0 && sc < schoolHealthPct.Length ? schoolHealthPct[sc] : 100;
+            return Mathf.Max(1, baseMax * pct / 100);
+        }
+
+        /// <summary>Health to show right now: the live fight value while in combat, otherwise the saved health.</summary>
+        public int DisplayHealth()
+        {
+            if (inCombat && combatHealth >= 0) return Mathf.Clamp(combatHealth, 0, MaxHealth());
+            return GetHealth();
         }
 
         public int MaxMana()

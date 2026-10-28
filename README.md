@@ -115,7 +115,8 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **School matchups:** monsters and minions take `creatureSchoolWeakness` (30%) more damage from the opposite school
   (Fire/Ice, Storm/Myth, Life/Death) and `creatureSchoolResist` (30%) less from their own. Their overhead label says so,
   and the round log marks critical / weak / resisted / blocked hits.
-- **Health and mana persist** between fights. They regenerate slowly while you're out of combat
+- **Health and mana persist** between fights, and the HUD shows your live health during a fight. The school health
+  trait (`PlayerState.schoolHealthPct`, e.g. Ice +25%, Storm -15%) is part of your max health everywhere. They regenerate slowly while you're out of combat
   (`PlayerState.healthRegenPct` / `manaRegenPct`), refill on level-up, and potions restore them: drink from the
   backpack (Drink button) or press **Potion** in battle, which uses your turn.
 - **Defeat:** a wizard reduced to 0 health is sent home at once with `BattleClient.defeatHealthPct` (25%) health,
