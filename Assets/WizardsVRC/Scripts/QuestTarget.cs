@@ -19,6 +19,8 @@ namespace WizardsVRC
         public Text label;
         [Tooltip("Switched on once this target has been used (e.g. a relit lamp's flame).")]
         public GameObject usedVisual;
+        [Tooltip("Switched off once this target has been used (e.g. a picked-up item).")]
+        public GameObject hideWhenUsed;
         [Tooltip("Count only once per visit (clicking the same lamp twice doesn't count twice).")]
         public bool singleUse = true;
 
@@ -27,9 +29,11 @@ namespace WizardsVRC
         public override void Interact()
         {
             if (isTrigger || questManager == null || (singleUse && _used)) return;
+            // Only counts (and changes look) when a quest actually needed it, so clicking early doesn't use it up.
+            if (!questManager.OnInteract(targetId)) return;
             _used = true;
             if (usedVisual != null) usedVisual.SetActive(true);
-            questManager.OnInteract(targetId);
+            if (hideWhenUsed != null) hideWhenUsed.SetActive(false);
         }
 
         public override void OnPlayerTriggerEnter(VRCPlayerApi player)

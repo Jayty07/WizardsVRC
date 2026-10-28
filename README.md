@@ -56,6 +56,11 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/LootChest.cs` | Test chest in the hub: random item + gold per click |
 | `Assets/WizardsVRC/Scripts/EventRelay.cs` | Interact → `SendCustomEvent` on a target (backpack pedestal) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.cs` | Generates the scene and wires all references/buttons |
+| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Zones.cs` | Builds zones, monster tables and authored quests from the world data |
+| `Assets/WizardsVRC/Editor/WorldData/` | World authoring: Monster Catalog, Zone and Questline asset types, inspectors (map painter, spell picker, checks) |
+| `Assets/WizardsVRC/WorldData/` | **Your authored world data** (created on first rebuild). Commit it. See [WORLD_BUILDING.md](WORLD_BUILDING.md) |
+| `Assets/WizardsVRC/Scripts/QuestNpc.cs` | Zone NPC: click to talk, floating ! / ? quest markers |
+| `Assets/WizardsVRC/Scripts/Wanderer.cs` | Patrolling monster: walks a route (loop or line) from the server clock, starts the fight on touch |
 
 ## Scene
 
@@ -91,6 +96,11 @@ Saving rotates the previous valid blob into `char_N_bak`. Loading a blob that fa
 backup and rewrites `char_N` from it. PlayerData has no delete API, so Delete writes empty strings.
 Saves happen on create, on select/swap (the previous character is saved first), on "Change Character", and every
 120 s (`PlayerState.autosaveInterval`).
+
+## Building zones, monsters and quests
+
+Streets, battle ring spots, patrol routes, NPCs, monsters (with their spell lists) and questlines are all edited as
+data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDING.md](WORLD_BUILDING.md)**.
 
 ## Combat rules (modelled on Wizard101)
 

@@ -21,6 +21,12 @@ namespace WizardsVRC
 
         [Header("World")]
         public Transform hubReturn;
+        [Tooltip("Where a defeated wizard is sent (e.g. the zone's entrance). Empty = hubReturn.")]
+        public Transform defeatReturn;
+        [Tooltip("The encounter's root (ring, seats, labels, hand panel). Moved to the manager's ring spot when a fight starts.")]
+        public Transform encounterRoot;
+        [Tooltip("Body material per monster, indexed like CardDatabase.monsterIds (optional).")]
+        public Material[] monsterMaterials;
         public Transform[] seats;
         public GameObject ring;
         public GameObject[] monsterBodies;
@@ -121,6 +127,7 @@ namespace WizardsVRC
         /// <summary>Health/mana were already written back to the character for this fight (victory, defeat or flee).</summary>
         private bool _vitalsDone;
         private bool _leaving;
+        private bool _defeated;
         private float _rejoinBlockUntil;
 
         private int[] _pile = new int[CharacterData.DECK_SIZE];
@@ -275,13 +282,18 @@ namespace WizardsVRC
         {
             if (manager == null) return;
             int phase = manager.phase;
+            if (phase != BattleManager.PHASE_IDLE) PlaceRing();
             bool active = phase >= BattleManager.PHASE_JOINING;
             if (ring != null) ring.SetActive(active);
             if (active) { UpdateSeatRings(); UpdateFx(); }
             UpdateMinions(phase);
             for (int m = 0; m < BattleManager.SIDE; m++)
                 if (monsterBodies != null && m < monsterBodies.Length && monsterBodies[m] != null)
-                    monsterBodies[m].SetActive(phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m) && !manager.IsSummon(BattleManager.SIDE + m));
+                {
+                    bool show = phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m) && !manager.IsSummon(BattleManager.SIDE + m);
+                    if (show) StyleMonsterBody(m, manager.MonsterAt(BattleManager.SIDE + m));
+                    monsterBodies[m].SetActive(show);
+                }
 
             VRCPlayerApi local = Networking.LocalPlayer;
             int mySlot = Utilities.IsValid(local) ? manager.FindWizardSlot(local.playerId) : -1;
@@ -376,6 +388,30 @@ namespace WizardsVRC
             RefreshHand();
         }
 
+        /// <summary>Moves the whole encounter (ring, seats, labels, hand) to the fight's ring spot.</summary>
+        private void PlaceRing()
+        {
+            if (encounterRoot == null) return;
+            Transform spot = manager.CurrentRingSpot();
+            if (spot == null) return;
+            if ((encounterRoot.position - spot.position).sqrMagnitude < 0.0001f) return;
+            encounterRoot.SetPositionAndRotation(spot.position, spot.rotation);
+        }
+
+        /// <summary>Gives a ring monster its catalog colour and size.</summary>
+        private void StyleMonsterBody(int m, int monsterId)
+        {
+            if (monsterId <= 0 || cardDatabase == null) return;
+            Transform body = monsterBodies[m].transform;
+            float scale = cardDatabase.MonsterBodyScale(monsterId);
+            body.localScale = Vector3.one * scale;
+            body.localPosition = new Vector3(0f, scale, 0f);
+            int i = cardDatabase.MonsterIndexOf(monsterId);
+            if (monsterMaterials == null || i < 0 || i >= monsterMaterials.Length || monsterMaterials[i] == null) return;
+            Renderer r = body.GetComponent<Renderer>();
+            if (r != null && r.sharedMaterial != monsterMaterials[i]) r.sharedMaterial = monsterMaterials[i];
+        }
+
         // ------------------------------------------------------------------ battle enter / leave
 
         private void ArriveAtArena(int slot)
@@ -385,6 +421,7 @@ namespace WizardsVRC
             _inBattle = true;
             _seated = false;
             _leaving = false;
+            _defeated = false;
             _vitalsDone = false;
             _slot = slot;
             playerState.inCombat = true;
@@ -452,6 +489,7 @@ namespace WizardsVRC
         /// <summary>Wizard101 sends a defeated wizard home with a little health; nothing else is lost.</summary>
         private void ApplyDefeat()
         {
+            _defeated = true;
             if (_vitalsDone || playerState == null || !playerState.HasCharacter()) return;
             _vitalsDone = true;
             playerState.SetHealth(Mathf.Max(1, playerState.MaxHealth() * defeatHealthPct / 100));
@@ -501,7 +539,8 @@ namespace WizardsVRC
             if (Utilities.IsValid(local))
             {
                 local.Immobilize(false);
-                if (hubReturn != null) local.TeleportTo(hubReturn.position, hubReturn.rotation);
+                Transform back = _defeated && defeatReturn != null ? defeatReturn : hubReturn;
+                if (back != null) local.TeleportTo(back.position, back.rotation);
             }
             if (playerState != null && playerState.HasCharacter()) playerState.SaveNow();
         }

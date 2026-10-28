@@ -395,8 +395,9 @@ namespace WizardsVRC
         // ------------------------------------------------------------------ monsters
         // Monster definitions live here too (one shared database behaviour); see BattleManager.roster.
 
-        public const int MONSTER_SPELLS = 4;
+        public const int MONSTER_SPELLS = 6;
 
+        // Defaults only: the scene builder overwrites the monster tables from Assets/WizardsVRC/WorldData/Monsters.asset.
         // Training Yard: 1 Gloomfang the Warden (boss), 2 Bone Thrall, 3 Marsh Sprite, 4 Courtyard Rat
         // Lantern Row (Death street): 5 Gloom Wisp, 6 Lantern Snatcher, 7 Ashwick the Snuffer (boss)
         [HideInInspector] public int[] monsterIds = { 1, 2, 3, 4, 5, 6, 7 };
@@ -408,13 +409,13 @@ namespace WizardsVRC
         /// themselves as well as attacks (see BattleManager.PickForMonster).</summary>
         [HideInInspector] public int[] monsterSpells =
         {
-            148, 150, 152, 154,
-            160, 161, 162, 0,
-            136, 137, 0, 0,
-            124, 125, 0, 0,
-            148, 0, 0, 0,
-            148, 149, 0, 0,
-            148, 149, 150, 154,
+            148, 150, 152, 154, 0, 0,
+            160, 161, 162, 0, 0, 0,
+            136, 137, 0, 0, 0, 0,
+            124, 125, 0, 0, 0, 0,
+            148, 0, 0, 0, 0, 0,
+            148, 149, 0, 0, 0, 0,
+            148, 149, 150, 154, 0, 0,
         };
         [HideInInspector] public int[] monsterXps = { 120, 45, 35, 25, 30, 40, 150 };
         [HideInInspector] public int[] monsterGoldMin = { 40, 10, 8, 5, 5, 8, 50 };
@@ -425,6 +426,12 @@ namespace WizardsVRC
         /// <summary>Body size multiplier (1 = wizard sized).</summary>
         [HideInInspector] public float[] monsterBodyScales = { 1.7f, 1f, 0.8f, 0.7f, 0.6f, 0.9f, 1.6f };
         [HideInInspector] public int[] monsterIsBoss = { 1, 0, 0, 0, 0, 0, 1 };
+        /// <summary>Body colour (wandering and ring bodies).</summary>
+        [HideInInspector] public Color[] monsterColors =
+        {
+            new Color(0.25f, 0.2f, 0.3f), new Color(0.8f, 0.78f, 0.7f), new Color(0.4f, 0.75f, 0.45f), new Color(0.5f, 0.45f, 0.4f),
+            new Color(0.35f, 0.4f, 0.55f), new Color(0.45f, 0.35f, 0.25f), new Color(0.2f, 0.22f, 0.3f),
+        };
         /// <summary>Extra health per extra wizard in the fight (bosses only).</summary>
         [HideInInspector] public int[] monsterHpPerExtraPlayer = { 450, 0, 0, 0, 0, 0, 450 };
 
@@ -446,6 +453,12 @@ namespace WizardsVRC
         public int MonsterDropItem(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterDropItems[i]; }
         public int MonsterDropChance(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterDropChances[i]; }
         public float MonsterBodyScale(int id) { int i = MonsterIndexOf(id); return i < 0 ? 1f : monsterBodyScales[i]; }
+        public Color MonsterColor(int id)
+        {
+            int i = MonsterIndexOf(id);
+            return i >= 0 && monsterColors != null && i < monsterColors.Length ? monsterColors[i] : Color.gray;
+        }
+
         public bool IsBossMonster(int id) { int i = MonsterIndexOf(id); return i >= 0 && monsterIsBoss[i] != 0; }
         public int MonsterHpPerExtraPlayer(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterHpPerExtraPlayer[i]; }
 

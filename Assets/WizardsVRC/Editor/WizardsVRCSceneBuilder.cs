@@ -11,6 +11,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using VRC.SDK3.Components;
 using VRC.Udon;
+using WizardsVRC.EditorTools.WorldData;
 
 namespace WizardsVRC.EditorTools
 {
@@ -63,6 +64,14 @@ namespace WizardsVRC.EditorTools
         public static void BuildScene()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+
+            // Authored world data (monsters, zones, questlines) lives in Assets/WizardsVRC/WorldData and is never rebuilt.
+            var worldData = WorldDataStore.Load();
+            var worldReport = WorldValidator.ValidateAll(worldData, null);
+            worldReport.Log();
+            if (!worldReport.Ok && !EditorUtility.DisplayDialog("Rebuild MainWorld", "The world data has problems:\n\n" + worldReport.Summary()
+                    + "\n\nBuild anyway? Broken parts are skipped.", "Build anyway", "Cancel"))
+                return;
 
             ConfigureProject();
             if (!EnsureProgramAssets()) return;
@@ -122,6 +131,7 @@ namespace WizardsVRC.EditorTools
             var deckPages = UdonSharpUndo.AddComponent<DeckPages>(Child(systems.transform, "DeckPages", Vector3.zero).gameObject);
             var questPages = UdonSharpUndo.AddComponent<QuestPages>(Child(systems.transform, "QuestPages", Vector3.zero).gameObject);
             questPages.playerState = playerState;
+            ApplyMonsterCatalog(cardDb, worldData.monsters);
             // Encounters: the Training Yard boss fight (queue pad) plus two wandering-monster lanes beside it. Each has its
             // own synced BattleManager, local BattleClient and duel circle (see BuildEncounter).
             var encounters = new System.Collections.Generic.List<BattleClient>();
@@ -172,9 +182,13 @@ namespace WizardsVRC.EditorTools
             selectUI.questManager = questManager;
             hud.questManager = questManager;
             questPages.questManager = questManager;
-            var streets = BuildLanternRow(systems.transform, hubRoot, questManager, (CutscenePlayer)cutscenes[0], cardDb, itemDb, playerState, encounters);
+            var wb = new WorldBuild { data = worldData, cutsceneParent = Child(systems.transform, "ZoneCutscenes", Vector3.zero) };
+            BuildZones(systems.transform, hubRoot, questManager, cardDb, itemDb, playerState, encounters, wb);
+            ApplyQuestlines(questManager, wb, itemDb);
+            var streets = wb.behaviours;
             var questGuide = BuildQuestGuide(systems.transform, playerState, questManager, (CutscenePlayer)cutscenes[0], encounters.ToArray(),
                 interior.exitDoor, hubRoot.Find("KeepEntrance"));
+            ApplyGuideAreas(questGuide, wb, interior.exitDoor, hubRoot.Find("KeepEntrance"));
             questPages.questGuide = questGuide;
 
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
@@ -219,7 +233,7 @@ namespace WizardsVRC.EditorTools
             // MonsterDatabase was merged into CardDatabase; drop its old program asset so UdonSharp doesn't look for the script.
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -810,6 +824,7 @@ namespace WizardsVRC.EditorTools
             client.itemDatabase = itemDb;
             client.cardDatabase = cardDb;
             client.hubReturn = hubReturn;
+            client.monsterMaterials = _monsterMats;
             all.Add(client);
             return client;
         }
@@ -1143,7 +1158,7 @@ namespace WizardsVRC.EditorTools
                 body.transform.SetParent(wt, false);
                 body.transform.localPosition = new Vector3(0, ms, 0);
                 body.transform.localScale = Vector3.one * ms;
-                body.GetComponent<Renderer>().sharedMaterial = client.fxMats[sc >= 0 && sc < SchoolLabels.Length ? sc : SchoolLabels.Length];
+                body.GetComponent<Renderer>().sharedMaterial = MonsterMat(client.cardDatabase, monsterId) ?? client.fxMats[sc >= 0 && sc < SchoolLabels.Length ? sc : SchoolLabels.Length];
                 Object.DestroyImmediate(body.GetComponent<Collider>());
                 wanderer.body = body;
                 wanderer.label = WorldText(wt, "Label", new Vector3(0, ms * 2f + 0.6f, 0), Quaternion.identity, new Vector2(500, 140), 0.004f, "", 34);

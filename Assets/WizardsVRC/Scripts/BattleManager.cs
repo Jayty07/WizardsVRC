@@ -97,6 +97,12 @@ namespace WizardsVRC
         public int critMultiplier = 200;
         [Tooltip("Critical chance % of boss monsters.")]
         public int bossCritPct = 5;
+        [Tooltip("Zone encounters: places the duel ring may appear. A fight forms at the spot nearest the wizard who " +
+                 "touched the monster (Wizard101 style). Empty = the ring stays where it was built.")]
+        public Transform[] ringSpots;
+        /// <summary>Index into ringSpots of the current fight's ring.</summary>
+        [UdonSynced] public int ringSpot;
+
         /// <summary>Server time when the last fight ended (wanderers respawn respawnSeconds later).</summary>
         [UdonSynced] public int lastEndMs;
 
@@ -479,6 +485,7 @@ namespace WizardsVRC
                 if (WanderersHidden()) return;
                 for (int i = 0; i < SIDE; i++) queueIds[i] = 0;
                 queueIds[0] = playerId;
+                ringSpot = NearestRingSpot(playerId);
                 StartBattle();
                 if (phase != PHASE_ROAMING) return;
                 phase = PHASE_JOINING;
@@ -497,6 +504,31 @@ namespace WizardsVRC
                 Publish();
                 return;
             }
+        }
+
+        /// <summary>The ring spot closest to the player (0 when there are no spots or the player is unknown).</summary>
+        public int NearestRingSpot(int playerId)
+        {
+            if (ringSpots == null || ringSpots.Length == 0) return 0;
+            VRCPlayerApi p = VRCPlayerApi.GetPlayerById(playerId);
+            if (!Utilities.IsValid(p)) return 0;
+            Vector3 pos = p.GetPosition();
+            int best = 0;
+            float bestD = float.MaxValue;
+            for (int i = 0; i < ringSpots.Length; i++)
+            {
+                if (ringSpots[i] == null) continue;
+                float d = (ringSpots[i].position - pos).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = i; }
+            }
+            return best;
+        }
+
+        /// <summary>The current fight's ring spot, or null when this encounter has none.</summary>
+        public Transform CurrentRingSpot()
+        {
+            if (ringSpots == null || ringSpots.Length == 0) return null;
+            return ringSpots[Mathf.Clamp(ringSpot, 0, ringSpots.Length - 1)];
         }
 
         /// <summary>True when a wizard seat is free (for walking into a fight in progress).</summary>
