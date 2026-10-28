@@ -254,8 +254,36 @@ namespace WizardsVRC
         {
             if (!HasCharacter()) return;
             if (_selSlot >= 0) Unequip(_selSlot);
+            else if (_selInv >= 0 && itemDatabase.IsPotion(playerState.current.inventoryItemIds[_selInv])) Drink(_selInv);
             else if (_selInv >= 0) Equip(_selInv);
             Refresh();
+        }
+
+        // ------------------------------------------------------------------ potions
+
+        private void Drink(int invIndex)
+        {
+            CharacterData c = playerState.current;
+            int itemId = c.inventoryItemIds[invIndex];
+            if (playerState.inCombat)
+            {
+                SetStatus("In battle, drink potions with the Potion button (it uses your turn).");
+                return;
+            }
+            int heal = itemDatabase.GetPotionHealth(itemId);
+            int mana = itemDatabase.GetPotionMana(itemId);
+            bool helps = (heal > 0 && playerState.GetHealth() < playerState.MaxHealth()) || (mana > 0 && playerState.GetMana() < playerState.MaxMana());
+            if (!helps)
+            {
+                SetStatus("You're already topped up.");
+                return;
+            }
+            if (!c.RemoveItemAt(invIndex, 1)) return;
+            if (heal > 0) playerState.Heal(heal);
+            if (mana > 0) playerState.RestoreMana(mana);
+            playerState.MarkDirty();
+            SetStatus("You drink the " + itemDatabase.GetName(itemId) + ".");
+            if (c.FindItem(itemId) < 0) ClearSelection();
         }
 
         // ------------------------------------------------------------------ equipment
@@ -382,11 +410,15 @@ namespace WizardsVRC
             if (statsLabel != null)
             {
                 statsLabel.text =
-                    "Health  " + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_HEALTH).ToString() +
-                    "      Mana  " + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_MANA).ToString() + "\n" +
+                    "Health  " + playerState.GetHealth().ToString() + " / " + playerState.MaxHealth().ToString() +
+                    "      Mana  " + playerState.GetMana().ToString() + " / " + playerState.MaxMana().ToString() + "\n" +
                     "Damage  +" + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_DAMAGE).ToString() + "%" +
                     "    Resist  +" + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_RESIST).ToString() + "%" +
-                    "    Accuracy  +" + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_ACCURACY).ToString() + "%";
+                    "    Accuracy  +" + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_ACCURACY).ToString() + "%\n" +
+                    "Critical  " + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_CRITICAL).ToString() + "%" +
+                    "    Block  " + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_BLOCK).ToString() + "%" +
+                    "    Pierce  " + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_PIERCE).ToString() + "%" +
+                    "    Power Pip  +" + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_POWERPIP).ToString() + "%";
             }
 
             if (tabImages != null)
@@ -431,9 +463,10 @@ namespace WizardsVRC
             if (detailBody != null)
                 detailBody.text = itemDatabase.GetDescription(itemId) + "\n" + itemDatabase.GetStatSummary(itemId);
 
-            bool canAct = worn || itemDatabase.IsEquippable(itemId);
+            bool potion = !worn && itemDatabase.IsPotion(itemId);
+            bool canAct = worn || potion || itemDatabase.IsEquippable(itemId);
             if (actionButton != null) actionButton.SetActive(canAct);
-            if (actionLabel != null) actionLabel.text = worn ? "Unequip" : "Equip";
+            if (actionLabel != null) actionLabel.text = worn ? "Unequip" : (potion ? "Drink" : "Equip");
         }
 
         private bool HasCharacter()

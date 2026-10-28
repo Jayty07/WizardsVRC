@@ -135,6 +135,7 @@ namespace WizardsVRC.EditorTools
             saveManager.listener = selectUI;
             playerState.current = activeData;
             playerState.saveManager = saveManager;
+            playerState.itemDatabase = itemDb;
 
             selectUI.saveManager = saveManager;
             selectUI.playerState = playerState;
@@ -430,7 +431,7 @@ namespace WizardsVRC.EditorTools
                 book.slotLabels[s] = t;
             }
 
-            book.statsLabel = InkLabel(left, "Stats", new Vector2(0, -290), new Vector2(800, 120), "", 28, TextAnchor.MiddleCenter);
+            book.statsLabel = InkLabel(left, "Stats", new Vector2(0, -290), new Vector2(800, 135), "", 23, TextAnchor.MiddleCenter);
             book.statusLabel = InkLabel(left, "Status", new Vector2(0, -385), new Vector2(800, 50), "", 26, TextAnchor.MiddleCenter);
             Button(left, "Close", new Vector2(-250, -460), new Vector2(220, 65), "Close", new Color(0.45f, 0.25f, 0.15f), target, "CloseBook");
             Button(left, "ToggleHud", new Vector2(250, -460), new Vector2(220, 65), "HUD On/Off", new Color(0.45f, 0.25f, 0.15f), hudTarget, "ToggleHud");
@@ -1197,8 +1198,11 @@ namespace WizardsVRC.EditorTools
                 b.SetActive(false);
             }
 
-            Button(root, "Pass", new Vector2(-160, -310), new Vector2(260, 70), "Pass", new Color(0.3f, 0.35f, 0.5f), target, "Pass");
-            GameObject discard = Button(root, "Discard", new Vector2(160, -310), new Vector2(260, 70), "Discard", new Color(0.4f, 0.3f, 0.25f), target, "ToggleDiscard");
+            Button(root, "Pass", new Vector2(-465, -310), new Vector2(280, 70), "Pass", new Color(0.3f, 0.35f, 0.5f), target, "Pass");
+            GameObject discard = Button(root, "Discard", new Vector2(-155, -310), new Vector2(280, 70), "Discard", new Color(0.4f, 0.3f, 0.25f), target, "ToggleDiscard");
+            GameObject potion = Button(root, "Potion", new Vector2(155, -310), new Vector2(280, 70), "Potion", new Color(0.55f, 0.2f, 0.3f), target, "Potion");
+            client.potionLabel = potion.GetComponentInChildren<Text>();
+            Button(root, "Flee", new Vector2(465, -310), new Vector2(280, 70), "Flee", new Color(0.35f, 0.3f, 0.3f), target, "Flee");
             client.discardImage = discard.GetComponent<Image>();
             canvasGo.SetActive(false);
         }

@@ -42,15 +42,15 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/School.cs` | `School` enum (Fire/Ice/Storm/Life/Death/Myth/Balance) |
 | `Assets/WizardsVRC/Scripts/CharacterData.cs` | Character fields + binary codec (version header, Adler-32 checksum, base64) |
 | `Assets/WizardsVRC/Scripts/SaveManager.cs` | PlayerData persistence: `char_0`–`char_3`, `char_N_bak`, `meta` |
-| `Assets/WizardsVRC/Scripts/PlayerState.cs` | Live character (source of truth) + autosave |
+| `Assets/WizardsVRC/Scripts/PlayerState.cs` | Live character (source of truth) + autosave, current health/mana helpers, out-of-combat regeneration |
 | `Assets/WizardsVRC/Scripts/TeleportHelper.cs` | `TeleportTo(Transform)` via `VRCPlayerApi.TeleportTo` |
 | `Assets/WizardsVRC/Scripts/CharacterSelectUI.cs` | Slot panels, school picker, delete confirm, teleport to hub |
-| `Assets/WizardsVRC/Scripts/ItemDatabase.cs` | Placeholder item definitions (category, level/school req, stat bonuses) + stat totals |
+| `Assets/WizardsVRC/Scripts/ItemDatabase.cs` | Placeholder item definitions (category, level/school req, stat bonuses incl. critical/block/pierce/power pip, potion restore amounts) + stat totals |
 | `Assets/WizardsVRC/Scripts/InventoryBook.cs` | Backpack book: live avatar portrait (MirrorReflection-layer camera → RenderTexture), equipment slots + stats (left page), tabbed paged item grid + Equip/Unequip (right page) |
 | `Assets/WizardsVRC/Scripts/CardDatabase.cs` | Placeholder spell cards (4 per school + 4 general), level/school learning rules, deck limits |
 | `Assets/WizardsVRC/Scripts/DeckPages.cs` | Book's Deck tab: Deck 1/2/3 contents (left), spellbook with Add/Remove (right) |
-| `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips, accuracy, wards/empower, round resolution |
-| `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, round playback, rewards |
+| `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
+| `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Hub teleporter pad trigger that joins/leaves the battle queue |
 | `Assets/WizardsVRC/Scripts/PlayerHUD.cs` | Head-following HUD: name, level, health, mana, gold |
 | `Assets/WizardsVRC/Scripts/LootChest.cs` | Test chest in the hub: random item + gold per click |
@@ -81,12 +81,49 @@ payload v1: name (u8 len + u16 chars), school u8, level u8, xp u32, gold u32, ma
             3 decks x (u8 count + count x cardId u16), quests (u8 used + used x u8)
 ```
 
+v2-v5 append training points + learned spells, tracked quest and quest step counters (see `CharacterData.cs`).
+v6 appends `currentHealth u16, currentMana u16` (65535 = full). Older saves load as full health/mana and get the new
+mana curve (20 + 2 per level).
+
 Worst case ≈ 0.9 KB raw / 1.2 KB base64. `meta` = `1|school,level,name|...|...` (empty entry = free slot).
 
 Saving rotates the previous valid blob into `char_N_bak`. Loading a blob that fails the checksum falls back to the
 backup and rewrites `char_N` from it. PlayerData has no delete API, so Delete writes empty strings.
 Saves happen on create, on select/swap (the previous character is saved first), on "Change Character", and every
 120 s (`PlayerState.autosaveInterval`).
+
+## Combat rules (modelled on Wizard101)
+
+- **Pips:** each round every combatant gains one pip (max 7). From level `powerPipLevel` (10) there is a
+  `basePowerPipChance` (40%) that it is a **power pip**, plus any Power Pip % from gear at any level. A power pip is
+  worth 2 pips for spells of your own school and 1 for anything else; on-school spells spend power pips first.
+- **Fizzles** keep your pips (the card is used up). Spells cost **1 mana per pip**, charged when cast, even on a fizzle;
+  cards you don't have the mana for are greyed out.
+- **Critical / Block:** gear Critical % doubles a hit or heal (`critMultiplier`); the target's Block % can stop it.
+  Gear Pierce % ignores that much of shields and resist. Bosses have `bossCritPct`.
+- **School matchups:** monsters and minions take `creatureSchoolWeakness` (30%) more damage from the opposite school
+  (Fire/Ice, Storm/Myth, Life/Death) and `creatureSchoolResist` (30%) less from their own. Their overhead label says so,
+  and the round log marks critical / weak / resisted / blocked hits.
+- **Health and mana persist** between fights. They regenerate slowly while you're out of combat
+  (`PlayerState.healthRegenPct` / `manaRegenPct`), refill on level-up, and potions restore them: drink from the
+  backpack (Drink button) or press **Potion** in battle, which uses your turn.
+- **Defeat:** a wizard reduced to 0 health is sent home at once with `BattleClient.defeatHealthPct` (25%) health,
+  and their seat frees up. The fight goes on for the rest of the party.
+- **Flee** (planning only): leave the duel immediately; you keep your health but your mana drops to 0.
+- **Joining a duel in progress:** in the wandering-monster lanes, walk into the circle while a seat is free and you
+  join; you act from the next round.
+- **Monster AI:** monsters heal an ally under 45% health, sometimes put a blade or shield on themselves first, and
+  otherwise cast their biggest affordable attack (occasionally saving pips).
+
+- **Spell design:** each school has a 12-spell tree on the Wizard101 milestones (L1 low-pip attack, L5 secondary
+  attack/utility, L10 blade, L12 trap, L16 low-rank AoE or early minion, L22 shield/dispel, L26 mid attack, L28 minion,
+  L33 buff utility / high-impact trap, L35 quest spell, L42 big hit, L48 7-pip AoE) and plays to its role: Storm glass
+  cannon, Fire DoT + detonate, Ice tank, Life healer, Death drain, Myth minions + counter-play (shatter, dispel, stun,
+  pierce), Balance universal support. See the remarks on `CardDatabase`.
+
+All numbers are public fields on `BattleManager`, `BattleClient`, `PlayerState` and the databases, so they can be tuned
+in the Inspector. **After pulling these changes run WizardsVRC > Rebuild MainWorld Scene** so the new Potion/Flee
+buttons, synced arrays and database tables are in the scene.
 
 ## For future systems
 

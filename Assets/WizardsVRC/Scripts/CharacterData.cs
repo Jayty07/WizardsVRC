@@ -27,12 +27,14 @@ namespace WizardsVRC
 /// v4: same layout; spell ids moved to the 12-tier trees (100 + school * 12 + tier), so older saves are migrated.
 /// Payload v5 appends:
 ///   counterUsed u8, then counterUsed * questCounters byte (step progress per quest)
+/// Payload v6 appends:
+///   currentHealth u16, currentMana u16 (FULL = 65535 = topped up; clamped to the gear-adjusted max when used)
     /// Worst case is about 0.9 KB raw / 1.2 KB base64 (budget: 2 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 5;
+        public const int FORMAT_VERSION = 6;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -46,6 +48,10 @@ namespace WizardsVRC
         public const int LEARNED_BYTES = 32;
         public const int LEARNED_BASE_ID = 100;
         public const int HEALTH_PER_LEVEL = 15;
+        public const int MANA_PER_LEVEL = 2;
+        public const int STARTER_MANA = 20;
+        /// <summary>currentHealth / currentMana value meaning "full" (always clamped to the real max).</summary>
+        public const int FULL = 65535;
         public const int NO_TRACKED_QUEST = 255;
         /// <summary>Must match CardDatabase.TIERS / QUEST_TIER and the tier level requirements.</summary>
         public const int SPELL_TIERS = 12;
@@ -70,7 +76,11 @@ namespace WizardsVRC
         public int xp;
         public int gold;
         public int maxHealth = 100;
-        public int maxMana = 10;
+        public int maxMana = STARTER_MANA;
+        [Tooltip("Health carried between fights (Wizard101 style). FULL = topped up. Use PlayerState.GetHealth().")]
+        public int currentHealth = FULL;
+        [Tooltip("Mana carried between fights; each pip a spell costs uses 1 mana. Use PlayerState.GetMana().")]
+        public int currentMana = FULL;
 
         [Header("Items")]
         public ushort[] equipped = new ushort[EQUIP_SLOTS];
@@ -108,7 +118,9 @@ namespace WizardsVRC
             xp = 0;
             gold = 50;
             maxHealth = GetStarterHealth(newSchool);
-            maxMana = 10;
+            maxMana = STARTER_MANA;
+            currentHealth = FULL;
+            currentMana = FULL;
 
             EnsureArrays();
             for (int i = 0; i < EQUIP_SLOTS; i++) equipped[i] = 0;
@@ -165,6 +177,8 @@ namespace WizardsVRC
             gold = other.gold;
             maxHealth = other.maxHealth;
             maxMana = other.maxMana;
+            currentHealth = other.currentHealth;
+            currentMana = other.currentMana;
             System.Array.Copy(other.equipped, equipped, EQUIP_SLOTS);
             System.Array.Copy(other.inventoryItemIds, inventoryItemIds, INVENTORY_SLOTS);
             System.Array.Copy(other.inventoryCounts, inventoryCounts, INVENTORY_SLOTS);
@@ -282,7 +296,11 @@ namespace WizardsVRC
                 xp -= level * 100;
                 level++;
                 maxHealth += HEALTH_PER_LEVEL;
+                maxMana += MANA_PER_LEVEL;
                 trainingPoints++;
+                // Levelling up refills health and mana, as in Wizard101.
+                currentHealth = FULL;
+                currentMana = FULL;
                 gained++;
             }
             return gained;
@@ -424,6 +442,9 @@ namespace WizardsVRC
             WriteU8(counterUsed);
             for (int i = 0; i < counterUsed; i++) WriteU8(questCounters[i]);
 
+            WriteU16(Mathf.Clamp(currentHealth, 0, FULL));
+            WriteU16(Mathf.Clamp(currentMana, 0, FULL));
+
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
             _buf[1] = (byte)'Z';
@@ -509,6 +530,10 @@ namespace WizardsVRC
             gold = newGold;
             maxHealth = newHealth;
             maxMana = newMana;
+            currentHealth = FULL;
+            currentMana = FULL;
+            // v6 made mana a real resource (1 per pip): older characters get the new mana curve.
+            if (version < 6) maxMana = Mathf.Max(maxMana, STARTER_MANA + MANA_PER_LEVEL * (level - 1));
 
             for (int i = 0; i < EQUIP_SLOTS; i++) equipped[i] = (ushort)ReadU16();
 
@@ -572,6 +597,12 @@ namespace WizardsVRC
                 int counterUsed = ReadU8();
                 if (counterUsed > QUEST_SLOTS || !Need(counterUsed)) { lastError = "bad counters"; return false; }
                 for (int i = 0; i < counterUsed; i++) questCounters[i] = (byte)ReadU8();
+            }
+            if (version >= 6)
+            {
+                if (!Need(4)) return false;
+                currentHealth = ReadU16();
+                currentMana = ReadU16();
             }
             return true;
         }
