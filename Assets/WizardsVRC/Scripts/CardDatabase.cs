@@ -6,10 +6,18 @@ namespace WizardsVRC
     /// <summary>
     /// Static spell card definitions (original placeholder spells). Each school has a 12-spell tree, tier k having
     /// id 100 + school * 12 + k; each tier needs the one before it (<see cref="prereqs"/>). General cards are 200+.
-    /// <see cref="aux"/> is effect-specific: pierce % for damage, heal % for drain, burn total for DoT, rounds for taunt,
+    /// <see cref="aux"/> is effect-specific: pierce % for damage and stuns, heal % for drain, burn total for DoT, rounds for taunt,
     /// minion action power, and 1 = "any school" for shields/blades/traps. Damage spells hit for a random amount from
     /// <see cref="powers"/> (min) to <see cref="powerMax"/> (max); powerMax 0 = a fixed value.
     /// </summary>
+    /// <remarks>
+    /// School roles: Storm = glass cannon (highest damage, low accuracy/health); Fire = damage over time + detonate;
+    /// Ice = tank (any-school shields, taunts, high health/resist, low damage); Life = healer (single/group heals, best
+    /// accuracy); Death = drain/self-sustain; Myth = minions + tactical counter-play (shatter, dispel, stuns, pierce);
+    /// Balance = support (universal blades/traps, tri-blades). Tier milestones: L1 low-pip attack, L5 secondary
+    /// attack/utility, L10 blade, L12 trap, L16 low-rank AoE or early minion, L22 shield/dispel, L26 mid attack,
+    /// L28 minion, L33 buff utility / high-impact trap, L35 quest spell, L42 big single-target hit, L48 7-pip AoE.
+    /// </remarks>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CardDatabase : UdonSharpBehaviour
     {
@@ -96,7 +104,7 @@ namespace WizardsVRC
             1, 2, 0, 0, 3, 0, 4, 4, 1, 0, 5, 7,
             1, 2, 0, 0, 3, 0, 4, 4, 3, 3, 5, 7,
             1, 2, 0, 0, 3, 0, 4, 4, 1, 4, 5, 7,
-            1, 2, 0, 0, 3, 1, 4, 4, 0, 3, 5, 7,
+            1, 2, 0, 0, 3, 1, 4, 4, 2, 3, 5, 7,
             1, 2, 0, 0, 3, 0, 4, 4, 1, 1, 5, 7,
             0, 1, 0, 0,
         };
@@ -118,7 +126,7 @@ namespace WizardsVRC
             90, 175, 35, 30, 210, 50, 385, 300, 30, 70, 575, 625,
             55, 250, 35, 30, 150, 50, 225, 500, 320, 900, 370, 415,
             55, 110, 35, 30, 120, 50, 240, 450, 60, 400, 385, 415,
-            70, 130, 35, 30, 300, 0, 225, 650, 50, 95, 400, 480,
+            70, 130, 35, 30, 300, 0, 225, 650, 0, 95, 400, 480,
             65, 130, 25, 25, 160, 50, 265, 500, 35, 35, 415, 450,
             50, 100, 25, 15,
         };
@@ -129,7 +137,7 @@ namespace WizardsVRC
             0, 0, 3, 6, 0, 2, 0, 13, 6, 3, 0, 0,
             0, 1, 3, 6, 1, 2, 0, 13, 1, 1, 0, 0,
             4, 4, 3, 6, 4, 2, 4, 13, 6, 4, 4, 4,
-            0, 12, 3, 6, 13, 14, 11, 13, 2, 11, 0, 0,
+            0, 12, 3, 6, 13, 14, 11, 13, 14, 11, 0, 0,
             0, 0, 3, 6, 0, 2, 0, 13, 7, 7, 0, 0,
             2, 1, 3, 5,
         };
@@ -140,7 +148,7 @@ namespace WizardsVRC
             0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
             0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
             0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1,
             0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
             0, 0, 0, 0,
         };
@@ -151,7 +159,7 @@ namespace WizardsVRC
             "Spark Sprite", "Thunder Hare", "Static Charge", "Thunder Snare", "Thunderclap", "Storm Aegis", "Skyfall Serpent", "Thunder Golem", "Gale Mark", "Overcharge", "Skyfall Leviathan", "Maelstrom Eye",
             "Thornling", "Verdant Bloom", "Thorn Edge", "Bramble Snare", "Rejuvenate", "Verdant Aegis", "Grove Stag", "Treant Warden", "Wellspring", "Bloom of Renewal", "Wildwood Stampede", "Verdant Titan",
             "Shade Wisp", "Grave Ghast", "Grave Edge", "Hex Snare", "Soul Swarm", "Veil of Dread", "Night Leech", "Bone Thrall", "Dread Mark", "Dark Tithe", "Bone Dragon", "Requiem of Ash",
-            "Mire Imp", "Mirage Lancer", "Fable Edge", "Mirage Snare", "Clay Golemling", "Unweave", "Stone Basilisk", "Stone Colossus", "Mirror Image", "Riddle of Iron", "Fabled Hydra", "Titan of Legends",
+            "Mire Imp", "Mirage Lancer", "Fable Edge", "Mirage Snare", "Clay Golemling", "Unweave", "Stone Basilisk", "Stone Colossus", "Sundering Gaze", "Riddle of Iron", "Fabled Hydra", "Titan of Legends",
             "Prism Spark", "Sand Djinn", "Accord Edge", "Sand Snare", "Sandstorm", "Balance Aegis", "Sphinx of Scales", "Sand Golem", "Elemental Tri-Blade", "Spirit Tri-Blade", "Sandstorm Sphinx", "Grand Convergence",
             "Tower Ward", "Mend", "Empower", "Steady Mind",
         };
@@ -173,7 +181,7 @@ namespace WizardsVRC
             0, 0, 0, 0, 0, 0, 0, 150, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 120, 0, 0, 0, 0,
             50, 50, 0, 0, 30, 0, 50, 90, 0, 100, 50, 30,
-            0, 0, 0, 0, 80, 0, 0, 130, 0, 0, 30, 20,
+            10, 0, 0, 0, 80, 0, 20, 130, 0, 15, 30, 20,
             0, 0, 1, 1, 0, 0, 0, 100, 0, 0, 0, 0,
             0, 0, 0, 0,
         };
@@ -343,9 +351,10 @@ namespace WizardsVRC
                 case EFFECT_DETONATE: return "Sets off all of a target's burns at once, for +" + p.ToString() + "% damage.";
                 case EFFECT_TAUNT:
                     return "Taunt: monsters must attack you for " + x.ToString() + " rounds, and you gain a " + p.ToString() + "% shield against every school.";
-                case EFFECT_STUN: return "Deals " + range + dmg + ". Targets hit lose their next turn.";
+                case EFFECT_STUN:
+                    return "Deals " + range + dmg + (x > 0 ? ", ignoring " + x.ToString() + "% of shields and resist" : "") + ". Targets hit lose their next turn.";
                 case EFFECT_SHATTER: return "Breaks every shield on the target, then deals " + range + dmg + ".";
-                case EFFECT_DISPEL: return "Removes every shield and blade on an enemy.";
+                case EFFECT_DISPEL: return "Removes every shield and blade on " + (aoe[i] != 0 ? "all enemies." : "an enemy.");
                 case EFFECT_MINION:
                     return "Summons a " + SchoolName(schools[i]) + " minion with " + p.ToString() + " health that fights beside you (" + x.ToString() + " power).";
                 case EFFECT_HEAL: return "Heals " + p.ToString() + " health" + (aoe[i] != 0 ? " to all allies." : ".");
@@ -386,8 +395,9 @@ namespace WizardsVRC
         // ------------------------------------------------------------------ monsters
         // Monster definitions live here too (one shared database behaviour); see BattleManager.roster.
 
-        public const int MONSTER_SPELLS = 4;
+        public const int MONSTER_SPELLS = 6;
 
+        // Defaults only: the scene builder overwrites the monster tables from Assets/WizardsVRC/WorldData/Monsters.asset.
         // Training Yard: 1 Gloomfang the Warden (boss), 2 Bone Thrall, 3 Marsh Sprite, 4 Courtyard Rat
         // Lantern Row (Death street): 5 Gloom Wisp, 6 Lantern Snatcher, 7 Ashwick the Snuffer (boss)
         [HideInInspector] public int[] monsterIds = { 1, 2, 3, 4, 5, 6, 7 };
@@ -395,16 +405,17 @@ namespace WizardsVRC
         [HideInInspector] public int[] monsterSchools = { 4, 5, 3, 2, 4, 4, 4 };
         [HideInInspector] public int[] monsterLevels = { 5, 3, 2, 1, 1, 2, 4 };
         [HideInInspector] public int[] monsterHps = { 900, 320, 240, 180, 180, 260, 900 };
-        /// <summary>MONSTER_SPELLS entries per monster, 0 = none.</summary>
+        /// <summary>MONSTER_SPELLS entries per monster, 0 = none. Monsters use heals on hurt allies and blades/shields on
+        /// themselves as well as attacks (see BattleManager.PickForMonster).</summary>
         [HideInInspector] public int[] monsterSpells =
         {
-            148, 149, 152, 154,
-            160, 161, 0, 0,
-            136, 137, 0, 0,
-            124, 125, 0, 0,
-            148, 0, 0, 0,
-            148, 149, 0, 0,
-            148, 149, 152, 154,
+            148, 150, 152, 154, 0, 0,
+            160, 161, 162, 0, 0, 0,
+            136, 137, 0, 0, 0, 0,
+            124, 125, 0, 0, 0, 0,
+            148, 0, 0, 0, 0, 0,
+            148, 149, 0, 0, 0, 0,
+            148, 149, 150, 154, 0, 0,
         };
         [HideInInspector] public int[] monsterXps = { 120, 45, 35, 25, 30, 40, 150 };
         [HideInInspector] public int[] monsterGoldMin = { 40, 10, 8, 5, 5, 8, 50 };
@@ -415,6 +426,12 @@ namespace WizardsVRC
         /// <summary>Body size multiplier (1 = wizard sized).</summary>
         [HideInInspector] public float[] monsterBodyScales = { 1.7f, 1f, 0.8f, 0.7f, 0.6f, 0.9f, 1.6f };
         [HideInInspector] public int[] monsterIsBoss = { 1, 0, 0, 0, 0, 0, 1 };
+        /// <summary>Body colour (wandering and ring bodies).</summary>
+        [HideInInspector] public Color[] monsterColors =
+        {
+            new Color(0.25f, 0.2f, 0.3f), new Color(0.8f, 0.78f, 0.7f), new Color(0.4f, 0.75f, 0.45f), new Color(0.5f, 0.45f, 0.4f),
+            new Color(0.35f, 0.4f, 0.55f), new Color(0.45f, 0.35f, 0.25f), new Color(0.2f, 0.22f, 0.3f),
+        };
         /// <summary>Extra health per extra wizard in the fight (bosses only).</summary>
         [HideInInspector] public int[] monsterHpPerExtraPlayer = { 450, 0, 0, 0, 0, 0, 450 };
 
@@ -436,6 +453,12 @@ namespace WizardsVRC
         public int MonsterDropItem(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterDropItems[i]; }
         public int MonsterDropChance(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterDropChances[i]; }
         public float MonsterBodyScale(int id) { int i = MonsterIndexOf(id); return i < 0 ? 1f : monsterBodyScales[i]; }
+        public Color MonsterColor(int id)
+        {
+            int i = MonsterIndexOf(id);
+            return i >= 0 && monsterColors != null && i < monsterColors.Length ? monsterColors[i] : Color.gray;
+        }
+
         public bool IsBossMonster(int id) { int i = MonsterIndexOf(id); return i >= 0 && monsterIsBoss[i] != 0; }
         public int MonsterHpPerExtraPlayer(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterHpPerExtraPlayer[i]; }
 

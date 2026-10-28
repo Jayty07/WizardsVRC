@@ -27,25 +27,39 @@ namespace WizardsVRC
 /// v4: same layout; spell ids moved to the 12-tier trees (100 + school * 12 + tier), so older saves are migrated.
 /// Payload v5 appends:
 ///   counterUsed u8, then counterUsed * questCounters byte (step progress per quest)
+/// Payload v6 appends:
+///   currentHealth u16, currentMana u16 (FULL = 65535 = topped up; clamped to the gear-adjusted max when used)
+/// v7: equipped has 8 slots (slot 7 = deck), there are 6 deck card lists (was 3), and the payload appends
+///   deckOwners u16 * DECK_COUNT (the deck item each card list belongs to, 0 = free)
     /// Worst case is about 0.9 KB raw / 1.2 KB base64 (budget: 2 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 5;
+        public const int FORMAT_VERSION = 7;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
         public const int MAX_NAME_LENGTH = 24;
-        public const int EQUIP_SLOTS = 7;
+        public const int EQUIP_SLOTS = 8;
         public const int INVENTORY_SLOTS = 100;
-        public const int DECK_COUNT = 3;
+        /// <summary>Card lists in the save: each belongs to one deck item (see deckOwners), so up to 6 decks keep their cards.</summary>
+        public const int DECK_COUNT = 6;
+        /// <summary>Save layouts before v7 had 7 equip slots and 3 decks.</summary>
+        private const int OLD_EQUIP_SLOTS = 7;
+        private const int OLD_DECK_COUNT = 3;
+        /// <summary>Item id of the Apprentice Deck every wizard starts with (see ItemDatabase).</summary>
+        public const int STARTER_DECK_ITEM = 60;
         public const int DECK_SIZE = 64;
         public const int QUEST_SLOTS = 128;
         public const int MAX_LEVEL = 100;
         public const int LEARNED_BYTES = 32;
         public const int LEARNED_BASE_ID = 100;
         public const int HEALTH_PER_LEVEL = 15;
+        public const int MANA_PER_LEVEL = 2;
+        public const int STARTER_MANA = 20;
+        /// <summary>currentHealth / currentMana value meaning "full" (always clamped to the real max).</summary>
+        public const int FULL = 65535;
         public const int NO_TRACKED_QUEST = 255;
         /// <summary>Must match CardDatabase.TIERS / QUEST_TIER and the tier level requirements.</summary>
         public const int SPELL_TIERS = 12;
@@ -58,6 +72,8 @@ namespace WizardsVRC
         public const int EQUIP_OFFHAND = 4;
         public const int EQUIP_AMULET = 5;
         public const int EQUIP_RING = 6;
+        /// <summary>The equipped deck item: battles draw from its card list.</summary>
+        public const int EQUIP_DECK = 7;
 
         private const int MAX_BLOB_SIZE = 2048;
 
@@ -70,7 +86,11 @@ namespace WizardsVRC
         public int xp;
         public int gold;
         public int maxHealth = 100;
-        public int maxMana = 10;
+        public int maxMana = STARTER_MANA;
+        [Tooltip("Health carried between fights (Wizard101 style). FULL = topped up. Use PlayerState.GetHealth().")]
+        public int currentHealth = FULL;
+        [Tooltip("Mana carried between fights; each pip a spell costs uses 1 mana. Use PlayerState.GetMana().")]
+        public int currentMana = FULL;
 
         [Header("Items")]
         public ushort[] equipped = new ushort[EQUIP_SLOTS];
@@ -80,6 +100,8 @@ namespace WizardsVRC
         [Header("Decks (flattened: deck d, card c => d * DECK_SIZE + c)")]
         public ushort[] deckCards = new ushort[DECK_COUNT * DECK_SIZE];
         public byte[] deckLengths = new byte[DECK_COUNT];
+        [Tooltip("Deck item id that owns each card list (0 = free).")]
+        public ushort[] deckOwners = new ushort[DECK_COUNT];
 
         [Header("Quests (progress/stage per quest id)")]
         public byte[] questProgress = new byte[QUEST_SLOTS];
@@ -108,13 +130,15 @@ namespace WizardsVRC
             xp = 0;
             gold = 50;
             maxHealth = GetStarterHealth(newSchool);
-            maxMana = 10;
+            maxMana = STARTER_MANA;
+            currentHealth = FULL;
+            currentMana = FULL;
 
             EnsureArrays();
             for (int i = 0; i < EQUIP_SLOTS; i++) equipped[i] = 0;
             for (int i = 0; i < INVENTORY_SLOTS; i++) { inventoryItemIds[i] = 0; inventoryCounts[i] = 0; }
             for (int i = 0; i < deckCards.Length; i++) deckCards[i] = 0;
-            for (int i = 0; i < DECK_COUNT; i++) deckLengths[i] = 0;
+            for (int i = 0; i < DECK_COUNT; i++) { deckLengths[i] = 0; deckOwners[i] = 0; }
             for (int i = 0; i < QUEST_SLOTS; i++) { questProgress[i] = 0; questCounters[i] = 0; }
             for (int i = 0; i < LEARNED_BYTES; i++) learnedSpells[i] = 0;
             trainingPoints = 0;
@@ -134,6 +158,8 @@ namespace WizardsVRC
             ushort basicSpell = (ushort)(100 + (int)newSchool * SPELL_TIERS);
             for (int c = 0; c < 4; c++) deckCards[c] = basicSpell;
             deckLengths[0] = 4;
+            equipped[EQUIP_DECK] = STARTER_DECK_ITEM;
+            deckOwners[0] = STARTER_DECK_ITEM;
             Learn(basicSpell);
 
             lastError = "";
@@ -165,11 +191,14 @@ namespace WizardsVRC
             gold = other.gold;
             maxHealth = other.maxHealth;
             maxMana = other.maxMana;
+            currentHealth = other.currentHealth;
+            currentMana = other.currentMana;
             System.Array.Copy(other.equipped, equipped, EQUIP_SLOTS);
             System.Array.Copy(other.inventoryItemIds, inventoryItemIds, INVENTORY_SLOTS);
             System.Array.Copy(other.inventoryCounts, inventoryCounts, INVENTORY_SLOTS);
             System.Array.Copy(other.deckCards, deckCards, DECK_COUNT * DECK_SIZE);
             System.Array.Copy(other.deckLengths, deckLengths, DECK_COUNT);
+            System.Array.Copy(other.deckOwners, deckOwners, DECK_COUNT);
             System.Array.Copy(other.questProgress, questProgress, QUEST_SLOTS);
             System.Array.Copy(other.questCounters, questCounters, QUEST_SLOTS);
             System.Array.Copy(other.learnedSpells, learnedSpells, LEARNED_BYTES);
@@ -184,6 +213,7 @@ namespace WizardsVRC
             if (inventoryCounts == null || inventoryCounts.Length != INVENTORY_SLOTS) inventoryCounts = new byte[INVENTORY_SLOTS];
             if (deckCards == null || deckCards.Length != DECK_COUNT * DECK_SIZE) deckCards = new ushort[DECK_COUNT * DECK_SIZE];
             if (deckLengths == null || deckLengths.Length != DECK_COUNT) deckLengths = new byte[DECK_COUNT];
+            if (deckOwners == null || deckOwners.Length != DECK_COUNT) deckOwners = new ushort[DECK_COUNT];
             if (questProgress == null || questProgress.Length != QUEST_SLOTS) questProgress = new byte[QUEST_SLOTS];
             if (questCounters == null || questCounters.Length != QUEST_SLOTS) questCounters = new byte[QUEST_SLOTS];
             if (learnedSpells == null || learnedSpells.Length != LEARNED_BYTES) learnedSpells = new byte[LEARNED_BYTES];
@@ -282,7 +312,11 @@ namespace WizardsVRC
                 xp -= level * 100;
                 level++;
                 maxHealth += HEALTH_PER_LEVEL;
+                maxMana += MANA_PER_LEVEL;
                 trainingPoints++;
+                // Levelling up refills health and mana, as in Wizard101.
+                currentHealth = FULL;
+                currentMana = FULL;
                 gained++;
             }
             return gained;
@@ -322,6 +356,61 @@ namespace WizardsVRC
             ushort basicSpell = (ushort)(LEARNED_BASE_ID + (int)school * SPELL_TIERS);
             for (int c = 0; c < 4; c++) deckCards[c] = basicSpell;
             deckLengths[0] = 4;
+        }
+
+        // ------------------------------------------------------------------ deck items
+
+        /// <summary>Before v7 decks weren't items: Deck 1 becomes the contents of an equipped Apprentice Deck.</summary>
+        private void MigrateDecks(int version)
+        {
+            if (version >= 7) return;
+            equipped[EQUIP_DECK] = STARTER_DECK_ITEM;
+            deckOwners[0] = STARTER_DECK_ITEM;
+            for (int d = 1; d < DECK_COUNT; d++) { deckOwners[d] = 0; deckLengths[d] = 0; }
+        }
+
+        /// <summary>True if the character has this item equipped or in the backpack.</summary>
+        public bool OwnsItem(int itemId)
+        {
+            EnsureArrays();
+            if (itemId <= 0) return false;
+            for (int s = 0; s < EQUIP_SLOTS; s++) if (equipped[s] == itemId) return true;
+            return FindItem(itemId) >= 0;
+        }
+
+        /// <summary>
+        /// The card list belonging to a deck item, or -1. With claim, a deck without one gets a free list (or the list of
+        /// a deck the character no longer owns), starting empty; -1 if all DECK_COUNT lists are taken.
+        /// </summary>
+        public int DeckListFor(int deckItemId, bool claim)
+        {
+            EnsureArrays();
+            if (deckItemId <= 0) return -1;
+            for (int d = 0; d < DECK_COUNT; d++) if (deckOwners[d] == deckItemId) return d;
+            if (!claim) return -1;
+            int free = -1;
+            for (int d = 0; d < DECK_COUNT && free < 0; d++) if (deckOwners[d] == 0) free = d;
+            for (int d = 0; d < DECK_COUNT && free < 0; d++) if (!OwnsItem(deckOwners[d])) free = d;
+            if (free < 0) return -1;
+            deckOwners[free] = (ushort)deckItemId;
+            deckLengths[free] = 0;
+            for (int c = 0; c < DECK_SIZE; c++) deckCards[free * DECK_SIZE + c] = 0;
+            return free;
+        }
+
+        /// <summary>True when a deck without a card list could get one (a list is free or its deck is gone).</summary>
+        public bool CanClaimDeckList()
+        {
+            EnsureArrays();
+            for (int d = 0; d < DECK_COUNT; d++) if (deckOwners[d] == 0 || !OwnsItem(deckOwners[d])) return true;
+            return false;
+        }
+
+        /// <summary>The equipped deck's card list (-1 if no deck is equipped).</summary>
+        public int ActiveDeckList()
+        {
+            EnsureArrays();
+            return DeckListFor(equipped[EQUIP_DECK], true);
         }
 
         // ------------------------------------------------------------------ deck helpers
@@ -424,6 +513,10 @@ namespace WizardsVRC
             WriteU8(counterUsed);
             for (int i = 0; i < counterUsed; i++) WriteU8(questCounters[i]);
 
+            WriteU16(Mathf.Clamp(currentHealth, 0, FULL));
+            WriteU16(Mathf.Clamp(currentMana, 0, FULL));
+            for (int d = 0; d < DECK_COUNT; d++) WriteU16(deckOwners[d]);
+
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
             _buf[1] = (byte)'Z';
@@ -493,7 +586,9 @@ namespace WizardsVRC
             for (int i = 0; i < nameLen; i++) chars[i] = (char)ReadU16();
             string newName = new string(chars);
 
-            if (!Need(1 + 1 + 4 + 4 + 2 + 2 + EQUIP_SLOTS * 2)) return false;
+            int equipSlots = version >= 7 ? EQUIP_SLOTS : OLD_EQUIP_SLOTS;
+            int deckLists = version >= 7 ? DECK_COUNT : OLD_DECK_COUNT;
+            if (!Need(1 + 1 + 4 + 4 + 2 + 2 + equipSlots * 2)) return false;
             int newSchool = ReadU8();
             if (newSchool > (int)School.Balance) { lastError = "bad school"; return false; }
             int newLevel = ReadU8();
@@ -509,8 +604,13 @@ namespace WizardsVRC
             gold = newGold;
             maxHealth = newHealth;
             maxMana = newMana;
+            currentHealth = FULL;
+            currentMana = FULL;
+            // v6 made mana a real resource (1 per pip): older characters get the new mana curve.
+            if (version < 6) maxMana = Mathf.Max(maxMana, STARTER_MANA + MANA_PER_LEVEL * (level - 1));
 
-            for (int i = 0; i < EQUIP_SLOTS; i++) equipped[i] = (ushort)ReadU16();
+            for (int i = 0; i < EQUIP_SLOTS; i++) equipped[i] = i < equipSlots ? (ushort)ReadU16() : (ushort)0;
+            for (int d = 0; d < DECK_COUNT; d++) deckOwners[d] = 0;
 
             if (!Need(1)) return false;
             int invUsed = ReadU8();
@@ -531,6 +631,12 @@ namespace WizardsVRC
 
             for (int d = 0; d < DECK_COUNT; d++)
             {
+                if (d >= deckLists)
+                {
+                    deckLengths[d] = 0;
+                    for (int c = 0; c < DECK_SIZE; c++) deckCards[d * DECK_SIZE + c] = 0;
+                    continue;
+                }
                 if (!Need(1)) return false;
                 int count = ReadU8();
                 if (count > DECK_SIZE || !Need(count * 2)) { lastError = "bad deck"; return false; }
@@ -549,6 +655,7 @@ namespace WizardsVRC
             if (version < 2)
             {
                 MigrateSpellTree();
+                MigrateDecks(version);
                 return true;
             }
             if (!Need(3)) return false;
@@ -573,6 +680,18 @@ namespace WizardsVRC
                 if (counterUsed > QUEST_SLOTS || !Need(counterUsed)) { lastError = "bad counters"; return false; }
                 for (int i = 0; i < counterUsed; i++) questCounters[i] = (byte)ReadU8();
             }
+            if (version >= 6)
+            {
+                if (!Need(4)) return false;
+                currentHealth = ReadU16();
+                currentMana = ReadU16();
+            }
+            if (version >= 7)
+            {
+                if (!Need(DECK_COUNT * 2)) return false;
+                for (int d = 0; d < DECK_COUNT; d++) deckOwners[d] = (ushort)ReadU16();
+            }
+            MigrateDecks(version);
             return true;
         }
 

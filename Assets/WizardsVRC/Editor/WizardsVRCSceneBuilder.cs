@@ -7,10 +7,12 @@ using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using VRC.SDK3.Components;
 using VRC.Udon;
+using WizardsVRC.EditorTools.WorldData;
 
 namespace WizardsVRC.EditorTools
 {
@@ -63,6 +65,14 @@ namespace WizardsVRC.EditorTools
         public static void BuildScene()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+
+            // Authored world data (monsters, zones, questlines) lives in Assets/WizardsVRC/WorldData and is never rebuilt.
+            var worldData = WorldDataStore.Load();
+            var worldReport = WorldValidator.ValidateAll(worldData, null);
+            worldReport.Log();
+            if (!worldReport.Ok && !EditorUtility.DisplayDialog("Rebuild MainWorld", "The world data has problems:\n\n" + worldReport.Summary()
+                    + "\n\nBuild anyway? Broken parts are skipped.", "Build anyway", "Cancel"))
+                return;
 
             ConfigureProject();
             if (!EnsureProgramAssets()) return;
@@ -122,6 +132,7 @@ namespace WizardsVRC.EditorTools
             var deckPages = UdonSharpUndo.AddComponent<DeckPages>(Child(systems.transform, "DeckPages", Vector3.zero).gameObject);
             var questPages = UdonSharpUndo.AddComponent<QuestPages>(Child(systems.transform, "QuestPages", Vector3.zero).gameObject);
             questPages.playerState = playerState;
+            ApplyMonsterCatalog(cardDb, worldData.monsters);
             // Encounters: the Training Yard boss fight (queue pad) plus two wandering-monster lanes beside it. Each has its
             // own synced BattleManager, local BattleClient and duel circle (see BuildEncounter).
             var encounters = new System.Collections.Generic.List<BattleClient>();
@@ -135,6 +146,7 @@ namespace WizardsVRC.EditorTools
             saveManager.listener = selectUI;
             playerState.current = activeData;
             playerState.saveManager = saveManager;
+            playerState.itemDatabase = itemDb;
 
             selectUI.saveManager = saveManager;
             selectUI.playerState = playerState;
@@ -145,10 +157,13 @@ namespace WizardsVRC.EditorTools
 
             book.playerState = playerState;
             book.itemDatabase = itemDb;
+            book.hud = hud;
+            book.selectUI = selectUI;
             hud.playerState = playerState;
             hud.itemDatabase = itemDb;
             deckPages.playerState = playerState;
             deckPages.cardDatabase = cardDb;
+            deckPages.itemDatabase = itemDb;
             book.deckPages = deckPages;
             book.questPages = questPages;
 
@@ -171,9 +186,19 @@ namespace WizardsVRC.EditorTools
             selectUI.questManager = questManager;
             hud.questManager = questManager;
             questPages.questManager = questManager;
-            var streets = BuildLanternRow(systems.transform, hubRoot, questManager, (CutscenePlayer)cutscenes[0], cardDb, itemDb, playerState, encounters);
+            var wb = new WorldBuild { data = worldData, cutsceneParent = Child(systems.transform, "ZoneCutscenes", Vector3.zero) };
+            BuildZones(systems.transform, hubRoot, questManager, cardDb, itemDb, playerState, encounters, wb);
+            ApplyQuestlines(questManager, wb, itemDb);
+            var streets = wb.behaviours;
             var questGuide = BuildQuestGuide(systems.transform, playerState, questManager, (CutscenePlayer)cutscenes[0], encounters.ToArray(),
                 interior.exitDoor, hubRoot.Find("KeepEntrance"));
+            ApplyGuideAreas(questGuide, wb, interior.exitDoor, hubRoot.Find("KeepEntrance"));
+            book.questGuide = questGuide;
+            var homeTeleport = UdonSharpUndo.AddComponent<TeleportHelper>(Child(systems.transform, "HomeTeleport", Vector3.zero).gameObject);
+            homeTeleport.defaultTarget = hubSpawn;
+            homeTeleport.hideZones = wb.zoneRoots.ToArray();
+            book.homeTeleport = homeTeleport;
+            streets.Add(homeTeleport);
             questPages.questGuide = questGuide;
 
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
@@ -218,7 +243,7 @@ namespace WizardsVRC.EditorTools
             // MonsterDatabase was merged into CardDatabase; drop its old program asset so UdonSharp doesn't look for the script.
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -391,6 +416,7 @@ namespace WizardsVRC.EditorTools
             RectTransform right = Panel(backpackView, "RightPage", new Vector2(445, 0), new Vector2(850, 1020), Parchment);
             BuildDeckPages(root, book, deck, hud);
             BuildQuestPages(root, book, quests);
+            BuildSettingsPages(root, book);
             Panel(root, "Spine", Vector2.zero, new Vector2(30, 1060), new Color(0.22f, 0.12f, 0.06f));
 
             GameObject packTab = Button(root, "BackpackTab", new Vector2(935, 380), new Vector2(80, 130), "Pack", new Color(0.85f, 0.65f, 0.3f), target, "ShowBackpack");
@@ -402,6 +428,9 @@ namespace WizardsVRC.EditorTools
             GameObject questTab = Button(root, "QuestTab", new Vector2(935, 90), new Vector2(80, 130), "Quests", new Color(0.45f, 0.3f, 0.18f), target, "ShowQuests");
             questTab.GetComponentInChildren<Text>().fontSize = 18;
             book.questTabImage = questTab.GetComponent<Image>();
+            GameObject settingsTab = Button(root, "SettingsTab", new Vector2(935, -55), new Vector2(80, 130), "Set-\ntings", new Color(0.45f, 0.3f, 0.18f), target, nameof(InventoryBook.ShowSettings));
+            settingsTab.GetComponentInChildren<Text>().fontSize = 18;
+            book.settingsTabImage = settingsTab.GetComponent<Image>();
 
             // ---- left page: character, paper-doll slots, stats
             book.nameLabel = InkLabel(left, "Name", new Vector2(0, 450), new Vector2(800, 60), "Name", 44, TextAnchor.MiddleCenter);
@@ -417,6 +446,7 @@ namespace WizardsVRC.EditorTools
             {
                 new Vector2(-255, 250), new Vector2(-255, 120), new Vector2(-255, -10),
                 new Vector2(255, 250), new Vector2(255, 120), new Vector2(255, -10), new Vector2(255, -140),
+                new Vector2(-255, -140),
             };
             int slots = CharacterData.EQUIP_SLOTS;
             book.slotIcons = new Image[slots];
@@ -430,19 +460,19 @@ namespace WizardsVRC.EditorTools
                 book.slotLabels[s] = t;
             }
 
-            book.statsLabel = InkLabel(left, "Stats", new Vector2(0, -290), new Vector2(800, 120), "", 28, TextAnchor.MiddleCenter);
+            book.statsLabel = InkLabel(left, "Stats", new Vector2(0, -290), new Vector2(800, 135), "", 23, TextAnchor.MiddleCenter);
             book.statusLabel = InkLabel(left, "Status", new Vector2(0, -385), new Vector2(800, 50), "", 26, TextAnchor.MiddleCenter);
             Button(left, "Close", new Vector2(-250, -460), new Vector2(220, 65), "Close", new Color(0.45f, 0.25f, 0.15f), target, "CloseBook");
             Button(left, "ToggleHud", new Vector2(250, -460), new Vector2(220, 65), "HUD On/Off", new Color(0.45f, 0.25f, 0.15f), hudTarget, "ToggleHud");
 
             // ---- right page: tabs, grid, paging, details
             InkLabel(right, "Title", new Vector2(0, 385), new Vector2(800, 55), "Backpack", 40, TextAnchor.MiddleCenter);
-            string[] tabs = { "All", "Hat", "Robe", "Boots", "Wand", "Athame", "Amulet", "Ring", "Potion" };
+            string[] tabs = { "All", "Hat", "Robe", "Boots", "Wand", "Athame", "Amulet", "Ring", "Deck", "Potion" };
             book.tabImages = new Image[tabs.Length];
             for (int t = 0; t < tabs.Length; t++)
             {
-                GameObject b = Button(right, "Tab" + t, new Vector2(-376 + t * 94, 460), new Vector2(90, 60), tabs[t], new Color(0.45f, 0.3f, 0.18f), target, "Tab" + t);
-                b.GetComponentInChildren<Text>().fontSize = 19;
+                GameObject b = Button(right, "Tab" + t, new Vector2(-378 + t * 84, 460), new Vector2(80, 60), tabs[t], new Color(0.45f, 0.3f, 0.18f), target, "Tab" + t);
+                b.GetComponentInChildren<Text>().fontSize = 17;
                 book.tabImages[t] = b.GetComponent<Image>();
             }
 
@@ -515,6 +545,36 @@ namespace WizardsVRC.EditorTools
             return rt;
         }
 
+        /// <summary>The book's Settings bookmark: your character, HUD / quest arrow toggles, save, go home, change character.</summary>
+        private static void BuildSettingsPages(RectTransform root, InventoryBook book)
+        {
+            UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(book);
+            Color brown = new Color(0.45f, 0.3f, 0.18f);
+            RectTransform view = Rect(root, "SettingsView", Vector2.zero, new Vector2(1800, 1100));
+            book.settingsView = view.gameObject;
+            RectTransform left = Panel(view, "LeftPage", new Vector2(-445, 0), new Vector2(850, 1020), Parchment);
+            RectTransform right = Panel(view, "RightPage", new Vector2(445, 0), new Vector2(850, 1020), Parchment);
+
+            InkLabel(left, "Title", new Vector2(0, 430), new Vector2(800, 60), "Settings", 44, TextAnchor.MiddleCenter);
+            GameObject hudBtn = Button(left, "HudToggle", new Vector2(0, 260), new Vector2(560, 85), "On-screen HUD: On", brown, target, nameof(InventoryBook.SettingToggleHud));
+            book.hudSettingLabel = hudBtn.GetComponentInChildren<Text>();
+            GameObject guideBtn = Button(left, "GuideToggle", new Vector2(0, 150), new Vector2(560, 85), "Quest arrow: On", brown, target, nameof(InventoryBook.SettingToggleGuide));
+            book.guideSettingLabel = guideBtn.GetComponentInChildren<Text>();
+            Button(left, "SaveNow", new Vector2(0, 40), new Vector2(560, 85), "Save Now", new Color(0.25f, 0.45f, 0.3f), target, nameof(InventoryBook.SettingSaveNow));
+            Button(left, "GoHome", new Vector2(0, -70), new Vector2(560, 85), "Return to Starfall Castle", new Color(0.3f, 0.35f, 0.55f), target, nameof(InventoryBook.SettingGoHome));
+            book.settingsStatus = InkLabel(left, "Status", new Vector2(0, -230), new Vector2(760, 60), "", 26, TextAnchor.MiddleCenter);
+            Button(left, "Close", new Vector2(0, -440), new Vector2(260, 65), "Close", new Color(0.45f, 0.25f, 0.15f), target, nameof(InventoryBook.CloseBook));
+
+            InkLabel(right, "Title", new Vector2(0, 430), new Vector2(800, 60), "Character", 44, TextAnchor.MiddleCenter);
+            book.settingsCharacterLabel = InkLabel(right, "Character", new Vector2(0, 280), new Vector2(760, 120), "", 34, TextAnchor.MiddleCenter);
+            InkLabel(right, "Hint", new Vector2(0, 60), new Vector2(720, 200),
+                "Your wizard is saved automatically.\nChanging character saves first, then takes you back to the room where you pick or create a wizard.",
+                24, TextAnchor.MiddleCenter);
+            GameObject change = Button(right, "ChangeCharacter", new Vector2(0, -150), new Vector2(560, 95), "Change Character", new Color(0.55f, 0.25f, 0.2f), target, nameof(InventoryBook.SettingChangeCharacter));
+            book.changeCharacterLabel = change.GetComponentInChildren<Text>();
+            view.gameObject.SetActive(false);
+        }
+
         private static void BuildDeckPages(RectTransform root, InventoryBook book, DeckPages deck, PlayerHUD hud)
         {
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(deck);
@@ -526,16 +586,14 @@ namespace WizardsVRC.EditorTools
             RectTransform left = Panel(view, "LeftPage", new Vector2(-445, 0), new Vector2(850, 1020), Parchment);
             RectTransform right = Panel(view, "RightPage", new Vector2(445, 0), new Vector2(850, 1020), Parchment);
 
-            // ---- left page: deck
-            InkLabel(left, "Title", new Vector2(0, 450), new Vector2(800, 55), "Deck", 40, TextAnchor.MiddleCenter);
-            deck.deckTabImages = new Image[CharacterData.DECK_COUNT];
-            for (int d = 0; d < CharacterData.DECK_COUNT; d++)
-            {
-                GameObject b = Button(left, "Deck" + d, new Vector2(-200 + d * 200, 385), new Vector2(180, 55), "Deck " + (d + 1), tabOff, target, "Deck" + d);
-                b.GetComponentInChildren<Text>().fontSize = 24;
-                deck.deckTabImages[d] = b.GetComponent<Image>();
-            }
-            deck.deckTitle = InkLabel(left, "DeckTitle", new Vector2(0, 320), new Vector2(800, 45), "", 28, TextAnchor.MiddleCenter);
+            // ---- left page: deck (flip through the deck items you own, equip one)
+            InkLabel(left, "Title", new Vector2(0, 450), new Vector2(800, 55), "Decks", 40, TextAnchor.MiddleCenter);
+            Button(left, "PrevDeck", new Vector2(-340, 385), new Vector2(90, 55), "<", tabOff, target, nameof(DeckPages.PrevDeck));
+            deck.deckNameLabel = InkLabel(left, "DeckName", new Vector2(-40, 385), new Vector2(480, 55), "", 30, TextAnchor.MiddleCenter);
+            Button(left, "NextDeck", new Vector2(260, 385), new Vector2(90, 55), ">", tabOff, target, nameof(DeckPages.NextDeck));
+            deck.equipDeckButton = Button(left, "EquipDeck", new Vector2(355, 385), new Vector2(90, 55), "Equip", new Color(0.25f, 0.5f, 0.3f), target, nameof(DeckPages.EquipShownDeck));
+            deck.equipDeckButton.GetComponentInChildren<Text>().fontSize = 22;
+            deck.deckTitle = InkLabel(left, "DeckTitle", new Vector2(0, 320), new Vector2(800, 45), "", 24, TextAnchor.MiddleCenter);
 
             int deckCells = DeckPages.DECK_CELLS;
             deck.deckCellRoots = new GameObject[deckCells];
@@ -913,6 +971,12 @@ namespace WizardsVRC.EditorTools
             for (int k = 0; k < SchoolLabels.Length; k++)
                 client.seatSchoolMats[k] = CutoutMat("DuelSeat" + SchoolLabels[k], seatTex, SchoolColors[k], SchoolColors[k] * 1.6f);
             client.seatRings = new Renderer[BattleManager.SLOTS];
+            client.seatScales = new float[BattleManager.SLOTS];
+            // The two halves read clearly: cool-tinted empty seats for wizards (south), warm for monsters (north), and a
+            // glowing line across the circle between them.
+            client.seatEmptyMat = CutoutMat("DuelSeatEmptyWizard", seatTex, new Color(0.45f, 0.55f, 0.8f), new Color(0.05f, 0.08f, 0.16f));
+            client.seatEmptyMonsterMat = CutoutMat("DuelSeatEmptyMonster", seatTex, new Color(0.8f, 0.45f, 0.4f), new Color(0.16f, 0.05f, 0.04f));
+            seatEmpty = client.seatEmptyMat;
             // Shields (chest height), blades (over the head) and traps (at the feet) orbit each seat while they're active.
             client.fxMats = new Material[SchoolLabels.Length + 1];
             for (int k = 0; k <= SchoolLabels.Length; k++)
@@ -949,25 +1013,23 @@ namespace WizardsVRC.EditorTools
                 client.seatRings[s] = marker.GetComponent<Renderer>();
 
                 float labelHeight = 2.5f;
+                float seatScale = 1f;
                 if (monster)
                 {
-                    bool boss = i == 0;
-                    var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                    body.name = boss ? "Boss" : "Minion" + i;
-                    body.transform.SetParent(seat, false);
-                    float scale = boss ? 1.7f : 1f;
-                    body.transform.localPosition = new Vector3(0, scale, 0);
-                    body.transform.localScale = Vector3.one * scale;
-                    body.GetComponent<Renderer>().sharedMaterial = boss ? Mat("BossBody", new Color(0.25f, 0.2f, 0.3f)) : Mat("MinionBody", new Color(0.75f, 0.65f, 0.3f));
-                    Object.DestroyImmediate(body.GetComponent<Collider>());
+                    // Seat i always holds roster[i] (BattleManager.StartBattle), so build that monster's own body here.
+                    int[] rosterIds = client.manager != null ? client.manager.roster : null;
+                    int seatMonster = rosterIds != null && i < rosterIds.Length ? rosterIds[i] : 0;
+                    GameObject body = MonsterBody(seat, client.cardDatabase, seatMonster, i == 0 ? "Boss" : "Minion" + i);
                     body.SetActive(false);
                     client.monsterBodies[i] = body;
-                    labelHeight = boss ? 4f : 2.6f;
+                    seatScale = seatMonster > 0 ? client.cardDatabase.MonsterBodyScale(seatMonster) : 1f;
+                    labelHeight = seatScale * 2.2f + 0.5f;
                 }
+                client.seatScales[s] = seatScale;
                 client.overheadLabels[s] = WorldText(root, "Label" + s, pos + new Vector3(0, labelHeight, 0), Quaternion.identity,
                     new Vector2(600, 160), 0.004f, "", 36);
 
-                float fxScale = monster && i == 0 ? 1.7f : 1f;
+                float fxScale = Mathf.Max(1f, seatScale);
                 for (int kind = 0; kind < 3; kind++)
                 {
                     Transform orbit = Child(ring.transform, "Fx" + FxKindNames[kind] + s, pos + new Vector3(0, FxHeights[kind] * fxScale, 0));
@@ -991,6 +1053,15 @@ namespace WizardsVRC.EditorTools
             }
 
             client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 5.2f, 7f), Quaternion.identity, new Vector2(1600, 420), 0.005f, "", 52);
+
+            var divider = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            divider.name = "SideDivider";
+            divider.transform.SetParent(ring.transform, false);
+            divider.transform.localPosition = new Vector3(0, 0.035f, 0);
+            divider.transform.localScale = new Vector3(DuelCircleRadius * 2f - 1.2f, 0.02f, 0.12f);
+            divider.GetComponent<Renderer>().sharedMaterial = ringMat;
+            divider.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            Object.DestroyImmediate(divider.GetComponent<Collider>());
 
             var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             orb.name = "SpellOrb";
@@ -1133,18 +1204,10 @@ namespace WizardsVRC.EditorTools
             for (int w = 0; w < wanderCount && roster != null && roster.Length > 0; w++)
             {
                 int monsterId = roster[w % roster.Length];
-                int sc = client.cardDatabase.MonsterSchool(monsterId);
                 float ms = client.cardDatabase.MonsterBodyScale(monsterId);
                 Transform wt = Child(root, "Wanderer" + w, Vector3.zero);
                 var wanderer = UdonSharpUndo.AddComponent<Wanderer>(wt.gameObject);
-                var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                body.name = "Body";
-                body.transform.SetParent(wt, false);
-                body.transform.localPosition = new Vector3(0, ms, 0);
-                body.transform.localScale = Vector3.one * ms;
-                body.GetComponent<Renderer>().sharedMaterial = client.fxMats[sc >= 0 && sc < SchoolLabels.Length ? sc : SchoolLabels.Length];
-                Object.DestroyImmediate(body.GetComponent<Collider>());
-                wanderer.body = body;
+                wanderer.body = MonsterBody(wt, client.cardDatabase, monsterId, "Body");
                 wanderer.label = WorldText(wt, "Label", new Vector3(0, ms * 2f + 0.6f, 0), Quaternion.identity, new Vector2(500, 140), 0.004f, "", 34);
                 wanderer.manager = client.manager;
                 wanderer.client = client;
@@ -1162,34 +1225,28 @@ namespace WizardsVRC.EditorTools
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(client);
             var canvasGo = new GameObject("HandCanvas", typeof(RectTransform));
             canvasGo.transform.SetParent(arenaRoot, false);
-            MakeWorldCanvas(canvasGo, new Vector2(1400, 760), new Vector3(0, 1.2f, -2.4f), 0.0006f);
+            MakeWorldCanvas(canvasGo, new Vector2(1600, 960), new Vector3(0, 1.2f, -2.4f), 0.0006f);
             RectTransform root = (RectTransform)canvasGo.transform;
             client.handRoot = canvasGo;
 
-            Panel(root, "Background", Vector2.zero, new Vector2(1400, 760), new Color(0.08f, 0.07f, 0.12f, 0.85f));
-            client.partyLabel = Label(root, "Party", new Vector2(-370, 235), new Vector2(620, 270), "", 21, TextAnchor.UpperLeft);
-            client.statusLabel = Label(root, "Status", new Vector2(330, 235), new Vector2(700, 270), "", 26, TextAnchor.UpperLeft);
+            Color gold = new Color(1f, 0.85f, 0.45f);
+            Panel(root, "Background", Vector2.zero, new Vector2(1600, 960), new Color(0.06f, 0.05f, 0.1f, 0.82f));
+            Panel(root, "TopBar", new Vector2(0, 385), new Vector2(1560, 160), new Color(0.12f, 0.1f, 0.2f, 0.9f));
+            client.partyLabel = Label(root, "Party", new Vector2(-470, 385), new Vector2(600, 150), "", 18, TextAnchor.MiddleLeft);
+            client.statusLabel = Label(root, "Status", new Vector2(320, 385), new Vector2(900, 150), "", 24, TextAnchor.MiddleLeft);
 
-            int hand = BattleClient.HAND_SIZE;
-            client.cardImages = new Image[hand];
-            client.cardNames = new Text[hand];
-            client.cardInfos = new Text[hand];
-            for (int i = 0; i < hand; i++)
-            {
-                GameObject b = Button(root, "Card" + i, new Vector2(-570 + i * 190, -25), new Vector2(180, 250), "", Color.gray, target, "Card" + i);
-                client.cardImages[i] = b.GetComponent<Image>();
-                client.cardNames[i] = Label(b.transform, "Name", new Vector2(0, 85), new Vector2(170, 70), "", 23, TextAnchor.MiddleCenter);
-                client.cardInfos[i] = Label(b.transform, "Info", new Vector2(0, -40), new Vector2(170, 160), "", 17, TextAnchor.UpperCenter);
-                b.SetActive(false);
-            }
-
+            // ---- targets, laid out like the duel circle: enemies on the far row, allies on the near row
             int slots = BattleManager.SLOTS;
             client.targetButtons = new GameObject[slots];
             client.targetLabels = new Text[slots];
+            Label(root, "EnemiesTitle", new Vector2(-690, 240), new Vector2(160, 40), "Enemies", 20, TextAnchor.MiddleLeft).color = new Color(1f, 0.6f, 0.55f);
+            Label(root, "AlliesTitle", new Vector2(-690, 140), new Vector2(160, 40), "Allies", 20, TextAnchor.MiddleLeft).color = new Color(0.6f, 0.8f, 1f);
             for (int t = 0; t < slots; t++)
             {
-                Color c = t < BattleManager.SIDE ? new Color(0.25f, 0.45f, 0.3f) : new Color(0.55f, 0.22f, 0.2f);
-                GameObject b = Button(root, "Target" + t, new Vector2(-612 + t * 175, -200), new Vector2(165, 70), "", c, target, "Target" + t);
+                bool enemy = t >= BattleManager.SIDE;
+                int i = t % BattleManager.SIDE;
+                Color c = enemy ? new Color(0.55f, 0.2f, 0.18f) : new Color(0.2f, 0.35f, 0.6f);
+                GameObject b = Button(root, "Target" + t, new Vector2(-420 + i * 290, enemy ? 240 : 140), new Vector2(270, 82), "", c, target, "Target" + t);
                 Text label = b.GetComponentInChildren<Text>();
                 label.fontSize = 20;
                 client.targetLabels[t] = label;
@@ -1197,10 +1254,76 @@ namespace WizardsVRC.EditorTools
                 b.SetActive(false);
             }
 
-            Button(root, "Pass", new Vector2(-160, -310), new Vector2(260, 70), "Pass", new Color(0.3f, 0.35f, 0.5f), target, "Pass");
-            GameObject discard = Button(root, "Discard", new Vector2(160, -310), new Vector2(260, 70), "Discard", new Color(0.4f, 0.3f, 0.25f), target, "ToggleDiscard");
+            // ---- the hand: seven cards fanned in an arc; hovering one makes it grow and rise (BattleClient.AnimateCards)
+            int hand = BattleClient.HAND_SIZE;
+            client.cardImages = new Image[hand];
+            client.cardNames = new Text[hand];
+            client.cardInfos = new Text[hand];
+            client.cardFaces = new Image[hand];
+            client.cardPips = new Text[hand];
+            client.cardAccuracies = new Text[hand];
+            client.cardSchools = new Text[hand];
+            Vector2 cardSize = new Vector2(196, 280);
+            for (int i = 0; i < hand; i++)
+            {
+                float k = i - (hand - 1) / 2f;
+                Vector2 pos = new Vector2(k * 178f, -170f - k * k * 7f);
+                GameObject b = Button(root, "Card" + i, pos, cardSize, "", Color.gray, target, "Card" + i);
+                RectTransform brt = (RectTransform)b.transform;
+                brt.localRotation = Quaternion.Euler(0, 0, -k * 4.5f);
+                Object.DestroyImmediate(b.GetComponentInChildren<Text>().gameObject);
+                RectTransform face = Panel(brt, "Face", Vector2.zero, cardSize - new Vector2(18, 18), new Color(0.93f, 0.87f, 0.72f));
+                face.GetComponent<Image>().raycastTarget = false;
+                client.cardFaces[i] = face.GetComponent<Image>();
+                RectTransform badge = Panel(brt, "PipBadge", new Vector2(-cardSize.x / 2f + 26, cardSize.y / 2f - 26), new Vector2(46, 46), new Color(0.15f, 0.12f, 0.2f));
+                badge.GetComponent<Image>().raycastTarget = false;
+                badge.localRotation = Quaternion.Euler(0, 0, 45f);
+                client.cardPips[i] = CardText(brt, "Pips", new Vector2(-cardSize.x / 2f + 26, cardSize.y / 2f - 26), new Vector2(46, 46), 26, TextAnchor.MiddleCenter, gold);
+                client.cardNames[i] = CardText(brt, "Name", new Vector2(14, cardSize.y / 2f - 34), new Vector2(150, 52), 20, TextAnchor.MiddleCenter, new Color(0.18f, 0.1f, 0.05f));
+                client.cardNames[i].fontStyle = FontStyle.Bold;
+                Panel(brt, "Art", new Vector2(0, 40), new Vector2(150, 70), new Color(0f, 0f, 0f, 0.12f)).GetComponent<Image>().raycastTarget = false;
+                Text info = CardText(brt, "Info", new Vector2(0, -50), new Vector2(166, 118), 15, TextAnchor.UpperCenter, new Color(0.2f, 0.13f, 0.07f));
+                info.resizeTextForBestFit = true;
+                info.resizeTextMinSize = 9;
+                info.resizeTextMaxSize = 15;
+                client.cardInfos[i] = info;
+                client.cardSchools[i] = CardText(brt, "School", new Vector2(-40, -cardSize.y / 2f + 18), new Vector2(100, 26), 15, TextAnchor.MiddleLeft, new Color(0.3f, 0.2f, 0.12f));
+                client.cardAccuracies[i] = CardText(brt, "Accuracy", new Vector2(55, -cardSize.y / 2f + 18), new Vector2(70, 26), 16, TextAnchor.MiddleRight, new Color(0.3f, 0.2f, 0.12f));
+                AddHoverEvents(b, target, "HoverCard" + i, "UnhoverCard" + i);
+                client.cardImages[i] = b.GetComponent<Image>();
+                b.SetActive(false);
+            }
+
+            // ---- actions
+            Button(root, "Pass", new Vector2(-480, -415), new Vector2(280, 64), "Pass", new Color(0.3f, 0.35f, 0.5f), target, "Pass");
+            GameObject discard = Button(root, "Discard", new Vector2(-160, -415), new Vector2(280, 64), "Discard", new Color(0.4f, 0.3f, 0.25f), target, "ToggleDiscard");
             client.discardImage = discard.GetComponent<Image>();
+            GameObject potion = Button(root, "Potion", new Vector2(160, -415), new Vector2(280, 64), "Potion", new Color(0.55f, 0.2f, 0.3f), target, "Potion");
+            client.potionLabel = potion.GetComponentInChildren<Text>();
+            Button(root, "Flee", new Vector2(480, -415), new Vector2(280, 64), "Flee", new Color(0.35f, 0.3f, 0.3f), target, "Flee");
             canvasGo.SetActive(false);
+        }
+
+        /// <summary>Text on a card that doesn't block clicks on the card itself.</summary>
+        private static Text CardText(Transform parent, string name, Vector2 pos, Vector2 size, int fontSize, TextAnchor anchor, Color color)
+        {
+            Text t = Label(parent, name, pos, size, "", fontSize, anchor);
+            t.color = color;
+            t.raycastTarget = false;
+            return t;
+        }
+
+        /// <summary>Pointer enter / exit on a UI element send Udon events (used for the card hover zoom).</summary>
+        private static void AddHoverEvents(GameObject go, UdonBehaviour target, string enterEvent, string exitEvent)
+        {
+            var trigger = go.AddComponent<EventTrigger>();
+            trigger.triggers = new System.Collections.Generic.List<EventTrigger.Entry>();
+            foreach (var pair in new[] { new { type = EventTriggerType.PointerEnter, ev = enterEvent }, new { type = EventTriggerType.PointerExit, ev = exitEvent } })
+            {
+                var entry = new EventTrigger.Entry { eventID = pair.type };
+                UnityEventTools.AddStringPersistentListener(entry.callback, new UnityAction<string>(target.SendCustomEvent), pair.ev);
+                trigger.triggers.Add(entry);
+            }
         }
 
         /// <summary>Non-interactive world-space uGUI text (scripts can't change TextMesh text in Udon).</summary>

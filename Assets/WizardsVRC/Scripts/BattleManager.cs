@@ -43,6 +43,17 @@ namespace WizardsVRC
         public const int KIND_STUNNED = 6;
         /// <summary>A minion appears in seat target (-1 = no free seat).</summary>
         public const int KIND_SUMMON = 7;
+        /// <summary>The actor drank a potion (uses their turn) and healed value.</summary>
+        public const int KIND_POTION = 8;
+
+        /// <summary>Pick sent instead of a card id when a wizard drinks a potion; the pick's target is the heal amount.</summary>
+        public const int PICK_POTION = -1;
+
+        /// <summary><see cref="actFlags"/> bits.</summary>
+        public const int FLAG_CRIT = 1;
+        public const int FLAG_WEAK = 2;
+        public const int FLAG_RESIST = 4;
+        public const int FLAG_BLOCKED = 8;
 
         public CardDatabase cardDatabase;
         public BattleClient client;
@@ -72,6 +83,26 @@ namespace WizardsVRC
         public bool wanderMode;
         [Tooltip("Seconds after a fight before the lane's wandering monsters come back.")]
         public int respawnSeconds = 20;
+
+        [Header("Wizard101-style rules")]
+        [Tooltip("Level from which every combatant gets the base power pip chance (gear adds to it at any level).")]
+        public int powerPipLevel = 10;
+        [Tooltip("Base % chance that a round's pip is a power pip (worth 2 pips for spells of the caster's own school).")]
+        public int basePowerPipChance = 40;
+        [Tooltip("% less damage a creature takes from its own school.")]
+        public int creatureSchoolResist = 30;
+        [Tooltip("% more damage a creature takes from the school opposite its own (Fire/Ice, Storm/Myth, Life/Death).")]
+        public int creatureSchoolWeakness = 30;
+        [Tooltip("Critical hits deal (and critical heals restore) this % of the normal amount.")]
+        public int critMultiplier = 200;
+        [Tooltip("Critical chance % of boss monsters.")]
+        public int bossCritPct = 5;
+        [Tooltip("Zone encounters: places the duel ring may appear. A fight forms at the spot nearest the wizard who " +
+                 "touched the monster (Wizard101 style). Empty = the ring stays where it was built.")]
+        public Transform[] ringSpots;
+        /// <summary>Index into ringSpots of the current fight's ring.</summary>
+        [UdonSynced] public int ringSpot;
+
         /// <summary>Server time when the last fight ended (wanderers respawn respawnSeconds later).</summary>
         [UdonSynced] public int lastEndMs;
 
@@ -86,7 +117,14 @@ namespace WizardsVRC
         [UdonSynced] public int[] slotIds = new int[SLOTS];
         [UdonSynced] public int[] hp = new int[SLOTS];
         [UdonSynced] public int[] maxHp = new int[SLOTS];
+        /// <summary>Normal (white) pips. Together with <see cref="powerPips"/> at most MAX_PIPS.</summary>
         [UdonSynced] public int[] pips = new int[SLOTS];
+        /// <summary>Power pips: worth 2 pips for spells of the slot's own school, 1 otherwise.</summary>
+        [UdonSynced] public int[] powerPips = new int[SLOTS];
+        [UdonSynced] public int[] powerPipPct = new int[SLOTS];
+        [UdonSynced] public int[] critPct = new int[SLOTS];
+        [UdonSynced] public int[] blockPct = new int[SLOTS];
+        [UdonSynced] public int[] piercePct = new int[SLOTS];
         [UdonSynced] public int[] school = new int[SLOTS];
         [UdonSynced] public int[] level = new int[SLOTS];
         [UdonSynced] public int[] dmgPct = new int[SLOTS];
@@ -118,8 +156,10 @@ namespace WizardsVRC
         [UdonSynced] public int[] actKind = new int[MAX_ACTIONS];
         [UdonSynced] public int[] actValue = new int[MAX_ACTIONS];
         [UdonSynced] public int[] actHpAfter = new int[MAX_ACTIONS];
+        [UdonSynced] public int[] actFlags = new int[MAX_ACTIONS];
 
         // owner-only scratch
+        private int _nextFlags;
         private bool[] _joined = new bool[SIDE];
         private int[] _pickCard = new int[SLOTS];
         private int[] _pickTarget = new int[SLOTS];
@@ -219,6 +259,96 @@ namespace WizardsVRC
             return n;
         }
 
+        // ------------------------------------------------------------------ pips
+
+        /// <summary>True when the spell is the slot's own school, so each power pip counts as 2.</summary>
+        public bool OnSchool(int s, int cardId)
+        {
+            int sc = cardDatabase.GetSchool(cardId);
+            return sc != CardDatabase.GENERAL && s >= 0 && s < SLOTS && sc == school[s];
+        }
+
+        /// <summary>Pip value the slot can spend on this card (power pips count double on its own school).</summary>
+        public int PipValue(int s, int cardId)
+        {
+            if (s < 0 || s >= SLOTS) return 0;
+            return pips[s] + powerPips[s] * (OnSchool(s, cardId) ? 2 : 1);
+        }
+
+        public bool CanAfford(int s, int cardId)
+        {
+            if (cardId <= 0) return true;
+            return cardDatabase.GetPipCost(cardId) <= PipValue(s, cardId);
+        }
+
+        /// <summary>
+        /// Pays for the card like Wizard101: own-school spells spend power pips first (2 each, a white pip for an odd
+        /// remainder); other spells spend white pips first and power pips as 1 each.
+        /// </summary>
+        private void SpendPips(int s, int cardId)
+        {
+            int left = cardDatabase.GetPipCost(cardId);
+            if (left <= 0) return;
+            if (OnSchool(s, cardId))
+            {
+                int use = Mathf.Min(powerPips[s], left / 2);
+                powerPips[s] -= use;
+                left -= use * 2;
+                int w = Mathf.Min(pips[s], left);
+                pips[s] -= w;
+                left -= w;
+                if (left > 0 && powerPips[s] > 0) { powerPips[s]--; left = 0; }
+            }
+            else
+            {
+                int w = Mathf.Min(pips[s], left);
+                pips[s] -= w;
+                left -= w;
+                int p = Mathf.Min(powerPips[s], left);
+                powerPips[s] -= p;
+            }
+        }
+
+        /// <summary>"3 pips + 2 power" style text.</summary>
+        public string PipText(int s)
+        {
+            if (s < 0 || s >= SLOTS) return "";
+            string t = pips[s].ToString() + " pip" + (pips[s] == 1 ? "" : "s");
+            if (powerPips[s] > 0) t += " + " + powerPips[s].ToString() + " power";
+            return t;
+        }
+
+        // ------------------------------------------------------------------ schools
+
+        /// <summary>Fire/Ice, Storm/Myth and Life/Death are opposites; Balance (and General) has none (-1).</summary>
+        public int OppositeSchool(int sc)
+        {
+            switch (sc)
+            {
+                case 0: return 1;
+                case 1: return 0;
+                case 2: return 5;
+                case 5: return 2;
+                case 3: return 4;
+                case 4: return 3;
+                default: return -1;
+            }
+        }
+
+        /// <summary>Monsters and summoned minions have school resist/weakness; wizards rely on gear.</summary>
+        public bool IsCreature(int s) { return Occupied(s) && (s >= SIDE || IsSummon(s)); }
+
+        /// <summary>"Weak to Ice, resists Fire" for a creature, or "".</summary>
+        public string MatchupText(int s)
+        {
+            if (!IsCreature(s) || cardDatabase == null) return "";
+            int sc = school[s];
+            int opp = OppositeSchool(sc);
+            if (sc < 0) return "";
+            if (opp < 0) return "Resists " + cardDatabase.SchoolName(sc);
+            return "Weak to " + cardDatabase.SchoolName(opp) + ", resists " + cardDatabase.SchoolName(sc);
+        }
+
         public string SlotName(int s)
         {
             if (!Occupied(s)) return "";
@@ -237,11 +367,71 @@ namespace WizardsVRC
             SendCustomNetworkEvent(NetworkEventTarget.Owner, enter ? nameof(NetQueueEnter) : nameof(NetQueueLeave), local.playerId);
         }
 
-        public void RequestJoin(int maxHealth, int playerSchool, int playerLevel, int dmg, int resist, int acc)
+        /// <summary>
+        /// Sends the local wizard's combat stats. Percent stats are packed to stay within the network event's
+        /// parameter limit: statsA = damage | resist &lt;&lt; 8 | (accuracy + 128) &lt;&lt; 16,
+        /// statsB = critical | block &lt;&lt; 8 | pierce &lt;&lt; 16 | power pip &lt;&lt; 24 (see <see cref="PackStats"/>).
+        /// </summary>
+        public void RequestJoin(int maxHealth, int curHealth, int playerSchool, int playerLevel, int statsA, int statsB)
         {
             VRCPlayerApi local = Networking.LocalPlayer;
             if (!Utilities.IsValid(local)) return;
-            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetJoin), local.playerId, maxHealth, playerSchool, playerLevel, dmg, resist, acc);
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetJoin), local.playerId, maxHealth, curHealth, playerSchool, playerLevel, statsA, statsB);
+        }
+
+        public int PackStats(int a, int b, int c, int d)
+        {
+            return Mathf.Clamp(a, 0, 255) | (Mathf.Clamp(b, 0, 255) << 8) | (Mathf.Clamp(c, 0, 255) << 16) | (Mathf.Clamp(d, 0, 100) << 24);
+        }
+
+        private int Unpack(int packed, int k) { return (packed >> (k * 8)) & 0xFF; }
+
+        /// <summary>Leave the fight at once (planning only). Like Wizard101, fleeing costs all of your mana (BattleClient).</summary>
+        public void RequestFlee()
+        {
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (!Utilities.IsValid(local)) return;
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetFlee), local.playerId);
+        }
+
+        [NetworkCallable]
+        public void NetFlee(int playerId)
+        {
+            if (!Networking.IsOwner(gameObject)) return;
+            int s = FindWizardSlot(playerId);
+            if (s < 0) return;
+            VacateSeat(s);
+            if (phase >= PHASE_JOINING && phase <= PHASE_PLAYBACK && !PlayersAlive()) EndFight(PHASE_DEFEAT);
+            Publish();
+        }
+
+        /// <summary>Frees a wizard seat (fled, left or defeated). Health stays as it was so the client can tell why.</summary>
+        private void VacateSeat(int s)
+        {
+            slotIds[s] = 0;
+            locked[s] = 0;
+            pips[s] = 0; powerPips[s] = 0;
+            focus[s] = 0; dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0;
+            ClearFx(shields, s); ClearFx(blades, s); ClearFx(traps, s);
+        }
+
+        private void EndFight(int endPhase)
+        {
+            phase = endPhase;
+            phaseEndMs = Now() + endSeconds * 1000;
+        }
+
+        /// <summary>Clears a seat's combat state and gives it a placeholder health until the wizard's NetJoin arrives.</summary>
+        private void ResetSeat(int s, int id)
+        {
+            slotIds[s] = id;
+            maxHp[s] = 400; hp[s] = 400;
+            pips[s] = 0; powerPips[s] = 0; powerPipPct[s] = 0; critPct[s] = 0; blockPct[s] = 0; piercePct[s] = 0;
+            school[s] = 0; level[s] = 1;
+            dmgPct[s] = 0; resistPct[s] = 0; accPct[s] = 0; focus[s] = 0; locked[s] = 0;
+            dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0;
+            ClearFx(shields, s); ClearFx(blades, s); ClearFx(traps, s);
+            if (s < SIDE) _joined[s] = id < 0;
         }
 
         public void RequestPick(int cardId, int target)
@@ -295,6 +485,7 @@ namespace WizardsVRC
                 if (WanderersHidden()) return;
                 for (int i = 0; i < SIDE; i++) queueIds[i] = 0;
                 queueIds[0] = playerId;
+                ringSpot = NearestRingSpot(playerId);
                 StartBattle();
                 if (phase != PHASE_ROAMING) return;
                 phase = PHASE_JOINING;
@@ -302,18 +493,53 @@ namespace WizardsVRC
                 Publish();
                 return;
             }
-            if (phase != PHASE_JOINING || FindWizardSlot(playerId) >= 0) return;
+            // Like Wizard101, anyone can walk into a circle with a free seat, even mid-fight; they act from the next round.
+            if (phase < PHASE_JOINING || phase > PHASE_PLAYBACK || FindWizardSlot(playerId) >= 0) return;
             for (int s = 0; s < SIDE; s++)
             {
-                if (Occupied(s)) continue;
-                slotIds[s] = playerId;
-                maxHp[s] = 400; hp[s] = 400;
-                _joined[s] = false;
-                phaseEndMs = Mathf.Max(phaseEndMs, Now() + 4000);
+                if (!SeatFree(s)) continue;
+                ResetSeat(s, playerId);
+                if (phase == PHASE_JOINING) phaseEndMs = Mathf.Max(phaseEndMs, Now() + 4000);
+                else locked[s] = 1;
                 Publish();
                 return;
             }
         }
+
+        /// <summary>The ring spot closest to the player (0 when there are no spots or the player is unknown).</summary>
+        public int NearestRingSpot(int playerId)
+        {
+            if (ringSpots == null || ringSpots.Length == 0) return 0;
+            VRCPlayerApi p = VRCPlayerApi.GetPlayerById(playerId);
+            if (!Utilities.IsValid(p)) return 0;
+            Vector3 pos = p.GetPosition();
+            int best = 0;
+            float bestD = float.MaxValue;
+            for (int i = 0; i < ringSpots.Length; i++)
+            {
+                if (ringSpots[i] == null) continue;
+                float d = (ringSpots[i].position - pos).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = i; }
+            }
+            return best;
+        }
+
+        /// <summary>The current fight's ring spot, or null when this encounter has none.</summary>
+        public Transform CurrentRingSpot()
+        {
+            if (ringSpots == null || ringSpots.Length == 0) return null;
+            return ringSpots[Mathf.Clamp(ringSpot, 0, ringSpots.Length - 1)];
+        }
+
+        /// <summary>True when a wizard seat is free (for walking into a fight in progress).</summary>
+        public bool HasFreeWizardSeat()
+        {
+            for (int s = 0; s < SIDE; s++) if (SeatFree(s)) return true;
+            return false;
+        }
+
+        /// <summary>Empty, or holding a defeated minion.</summary>
+        public bool SeatFree(int s) { return !Occupied(s) || (IsSummon(s) && hp[s] <= 0); }
 
         [NetworkCallable]
         public void NetEngage(int playerId)
@@ -334,18 +560,23 @@ namespace WizardsVRC
         }
 
         [NetworkCallable]
-        public void NetJoin(int playerId, int maxHealth, int playerSchool, int playerLevel, int dmg, int resist, int acc)
+        public void NetJoin(int playerId, int maxHealth, int curHealth, int playerSchool, int playerLevel, int statsA, int statsB)
         {
-            if (!Networking.IsOwner(gameObject) || phase != PHASE_JOINING) return;
+            if (!Networking.IsOwner(gameObject) || phase < PHASE_JOINING || phase > PHASE_PLAYBACK) return;
             int s = FindWizardSlot(playerId);
-            if (s < 0) return;
+            if (s < 0 || _joined[s]) return;
             maxHp[s] = Mathf.Clamp(maxHealth, 1, 99999);
-            hp[s] = maxHp[s];
-            school[s] = playerSchool;
+            // Wizard101 health carries over between fights: you fight with what you walked in with.
+            hp[s] = Mathf.Clamp(curHealth, 1, maxHp[s]);
+            school[s] = Mathf.Clamp(playerSchool, 0, 6);
             level[s] = playerLevel;
-            dmgPct[s] = Mathf.Clamp(dmg, 0, 200);
-            resistPct[s] = Mathf.Clamp(resist, 0, 80);
-            accPct[s] = Mathf.Clamp(acc, -50, 100);
+            dmgPct[s] = Mathf.Clamp(Unpack(statsA, 0), 0, 200);
+            resistPct[s] = Mathf.Clamp(Unpack(statsA, 1), 0, 80);
+            accPct[s] = Mathf.Clamp(Unpack(statsA, 2) - 128, -50, 100);
+            critPct[s] = Mathf.Clamp(Unpack(statsB, 0), 0, 100);
+            blockPct[s] = Mathf.Clamp(Unpack(statsB, 1), 0, 100);
+            piercePct[s] = Mathf.Clamp(Unpack(statsB, 2), 0, 100);
+            powerPipPct[s] = Mathf.Clamp(Unpack(statsB, 3) + (playerLevel >= powerPipLevel ? basePowerPipChance : 0), 0, 100);
             _joined[s] = true;
             Publish();
         }
@@ -356,7 +587,7 @@ namespace WizardsVRC
             if (!Networking.IsOwner(gameObject) || phase != PHASE_PLANNING) return;
             int s = FindWizardSlot(playerId);
             if (!Alive(s) || locked[s] != 0) return;
-            if (cardId != 0 && (cardDatabase.IndexOf(cardId) < 0 || cardDatabase.GetPipCost(cardId) > pips[s])) cardId = 0;
+            if (cardId != 0 && cardId != PICK_POTION && (cardDatabase.IndexOf(cardId) < 0 || !CanAfford(s, cardId))) cardId = 0;
             _pickCard[s] = cardId;
             _pickTarget[s] = target;
             locked[s] = 1;
@@ -402,9 +633,10 @@ namespace WizardsVRC
             for (int i = 0; i < SIDE; i++)
             {
                 if (queueIds[i] == id) { queueIds[i] = 0; changed = true; }
-                if (slotIds[i] == id) { slotIds[i] = 0; hp[i] = 0; changed = true; }
+                if (slotIds[i] == id) { VacateSeat(i); hp[i] = 0; changed = true; }
             }
             if (phase == PHASE_QUEUE && QueueCount() == 0) phase = PHASE_IDLE;
+            if (changed && phase >= PHASE_JOINING && phase <= PHASE_PLAYBACK && !PlayersAlive()) EndFight(PHASE_DEFEAT);
             if (changed) Publish();
         }
 
@@ -448,17 +680,13 @@ namespace WizardsVRC
             int n = 0;
             for (int s = 0; s < SLOTS; s++)
             {
-                slotIds[s] = 0; hp[s] = 0; maxHp[s] = 0; pips[s] = 0; school[s] = 0; level[s] = 1;
-                dmgPct[s] = 0; resistPct[s] = 0; accPct[s] = 0; focus[s] = 0; locked[s] = 0;
-                dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0;
+                ResetSeat(s, 0);
+                hp[s] = 0; maxHp[s] = 0;
             }
-            for (int k = 0; k < SLOTS * FX_MAX; k++) { shields[k] = 0; blades[k] = 0; traps[k] = 0; }
             for (int i = 0; i < SIDE; i++)
             {
                 if (queueIds[i] == 0) continue;
-                slotIds[n] = queueIds[i];
-                maxHp[n] = 400; hp[n] = 400;
-                _joined[n] = false;
+                ResetSeat(n, queueIds[i]);
                 n++;
                 queueIds[i] = 0;
             }
@@ -490,6 +718,8 @@ namespace WizardsVRC
             level[s] = monsterLevel;
             maxHp[s] = health;
             hp[s] = health;
+            powerPipPct[s] = monsterLevel >= powerPipLevel ? basePowerPipChance : 0;
+            critPct[s] = cardDatabase.IsBossMonster(kind) ? bossCritPct : 0;
         }
 
         private void BeginRound()
@@ -503,8 +733,10 @@ namespace WizardsVRC
                 if (!Alive(s)) continue;
                 // Minions act on their own and stunned wizards sit this round out.
                 if (IsSummon(s) || stunned[s] != 0) locked[s] = 1;
-                int gain = level[s] >= 10 && Random.value < 0.4f ? 2 : 1;
-                pips[s] = Mathf.Min(MAX_PIPS, pips[s] + gain);
+                // One pip per round into a free pip slot; it's a power pip on a power pip roll.
+                if (IsSummon(s) || pips[s] + powerPips[s] >= MAX_PIPS) continue;
+                if (Random.Range(0, 100) < powerPipPct[s]) powerPips[s]++;
+                else pips[s]++;
             }
             phase = PHASE_PLANNING;
             phaseEndMs = Now() + planningSeconds * 1000;
@@ -515,7 +747,14 @@ namespace WizardsVRC
         {
             if (!SideAlive(1)) phase = PHASE_VICTORY;
             else if (!PlayersAlive()) phase = PHASE_DEFEAT;
-            else { BeginRound(); return; }
+            else
+            {
+                // Defeated wizards are sent home at once (BattleClient sees its seat vacated with 0 health), which frees
+                // their seat for someone else to walk in.
+                for (int s = 0; s < SIDE; s++) if (Occupied(s) && !IsSummon(s) && hp[s] <= 0) VacateSeat(s);
+                BeginRound();
+                return;
+            }
             phaseEndMs = Now() + endSeconds * 1000;
             Publish();
         }
@@ -562,20 +801,41 @@ namespace WizardsVRC
             Publish();
         }
 
+        /// <summary>
+        /// Monster AI: heal a badly hurt ally, sometimes blade/shield itself first, otherwise attack with the biggest
+        /// affordable spell (occasionally holding pips for a bigger one, like Wizard101 monsters do).
+        /// </summary>
         private void PickForMonster(int s)
         {
             int monster = slotIds[s];
-            int best = 0;
-            int affordable = 0;
+            int mySide = SideOf(s);
+            int attack = 0, heal = 0, buff = 0, affordable = 0;
             for (int i = 0; i < CardDatabase.MONSTER_SPELLS; i++)
             {
                 int spell = cardDatabase.MonsterSpell(monster, i);
-                if (spell == 0 || cardDatabase.GetPipCost(spell) > pips[s]) continue;
+                if (spell == 0 || !CanAfford(s, spell)) continue;
                 affordable++;
-                // Prefer the strongest affordable spell, but sometimes hold pips for a bigger one later.
-                if (best == 0 || cardDatabase.GetPipCost(spell) > cardDatabase.GetPipCost(best)) best = spell;
+                int e = cardDatabase.GetEffect(spell);
+                if (e == CardDatabase.EFFECT_HEAL) { if (heal == 0 || cardDatabase.GetPower(spell) > cardDatabase.GetPower(heal)) heal = spell; }
+                else if (e == CardDatabase.EFFECT_EMPOWER || e == CardDatabase.EFFECT_WARD || e == CardDatabase.EFFECT_TRIBLADE)
+                {
+                    int[] arr = e == CardDatabase.EFFECT_WARD ? shields : blades;
+                    if (FxCount(arr, s) == 0) buff = spell;
+                }
+                else if (!cardDatabase.TargetsAllies(spell) && (attack == 0 || cardDatabase.GetPipCost(spell) > cardDatabase.GetPipCost(attack))) attack = spell;
             }
-            if (affordable > 0 && Random.value < 0.25f && pips[s] < MAX_PIPS) best = 0;
+
+            int hurt = -1;
+            for (int i = 0; i < SIDE; i++)
+            {
+                int a = mySide * SIDE + i;
+                if (Alive(a) && hp[a] * 100 < maxHp[a] * 45 && (hurt < 0 || hp[a] * 1000 / maxHp[a] < hp[hurt] * 1000 / maxHp[hurt])) hurt = a;
+            }
+            if (heal != 0 && hurt >= 0) { _pickCard[s] = heal; _pickTarget[s] = hurt; return; }
+            if (buff != 0 && Random.value < 0.4f) { _pickCard[s] = buff; _pickTarget[s] = s; return; }
+
+            int best = attack;
+            if (affordable > 0 && Random.value < 0.25f && pips[s] + powerPips[s] < MAX_PIPS) best = 0;
             _pickCard[s] = best;
             _pickTarget[s] = EnemyTarget(s);
         }
@@ -626,10 +886,15 @@ namespace WizardsVRC
             }
         }
 
-        /// <summary>One hit from slot s (power already rolled): damage bonus, blade multiplier, the target's traps/shields and resist.
-        /// pierce% of the shield block and resist is ignored.</summary>
+        /// <summary>
+        /// One hit from slot s (power already rolled), in Wizard101 order: damage bonus, blades, the target's traps,
+        /// shields, resist and creature school matchup, then a critical roll (which the target may block). pierce% of
+        /// the shield block and resist is ignored. Sets the flags for the next <see cref="AddAct"/>.
+        /// </summary>
         private int Hit(int s, int t, int power, int spellSchool, int bladeMul, int pierce)
         {
+            _nextFlags = 0;
+            pierce = Mathf.Clamp(pierce + piercePct[s], 0, 100);
             int amount = power * (100 + dmgPct[s]) / 100;
             amount = amount * bladeMul / 100;
             amount = amount * UseFx(traps, t, spellSchool, true) / 100;
@@ -637,9 +902,32 @@ namespace WizardsVRC
             shieldMul = 100 - (100 - shieldMul) * (100 - pierce) / 100;
             amount = amount * shieldMul / 100;
             amount = amount * (100 - resistPct[t] * (100 - pierce) / 100) / 100;
+            if (IsCreature(t) && spellSchool >= 0)
+            {
+                if (spellSchool == school[t])
+                {
+                    amount = amount * (100 - creatureSchoolResist * (100 - pierce) / 100) / 100;
+                    _nextFlags |= FLAG_RESIST;
+                }
+                else if (spellSchool == OppositeSchool(school[t]))
+                {
+                    amount = amount * (100 + creatureSchoolWeakness) / 100;
+                    _nextFlags |= FLAG_WEAK;
+                }
+            }
+            amount = Critical(s, t, amount);
             if (amount < 1) amount = 1;
             hp[t] = Mathf.Max(0, hp[t] - amount);
             return amount;
+        }
+
+        /// <summary>Rolls the caster's critical chance; the target's block chance can stop it. Adds to the act flags.</summary>
+        private int Critical(int s, int t, int amount)
+        {
+            if (critPct[s] <= 0 || Random.Range(0, 100) >= critPct[s]) return amount;
+            if (t >= 0 && blockPct[t] > 0 && Random.Range(0, 100) < blockPct[t]) { _nextFlags |= FLAG_BLOCKED; return amount; }
+            _nextFlags |= FLAG_CRIT;
+            return amount * critMultiplier / 100;
         }
 
         private void ClearFx(int[] arr, int s)
@@ -657,15 +945,12 @@ namespace WizardsVRC
         {
             int seat = FreeSeat(SideOf(s));
             if (seat < 0) { AddAct(group, s, -1, cardId, KIND_SUMMON, 0); return; }
-            slotIds[seat] = -cardId;
+            ResetSeat(seat, -cardId);
             school[seat] = cardDatabase.GetSchool(cardId);
             level[seat] = level[s];
             maxHp[seat] = power;
             hp[seat] = power;
-            pips[seat] = 0;
-            dmgPct[seat] = 0; resistPct[seat] = 0; accPct[seat] = 0; focus[seat] = 0; locked[seat] = 1;
-            dotLeft[seat] = 0; dotTurns[seat] = 0; stunned[seat] = 0; taunt[seat] = 0;
-            ClearFx(shields, seat); ClearFx(blades, seat); ClearFx(traps, seat);
+            locked[seat] = 1;
             AddAct(group, s, seat, cardId, KIND_SUMMON, power);
         }
 
@@ -694,21 +979,29 @@ namespace WizardsVRC
 
         private void Cast(int s, int cardId, int target, int group)
         {
-            int cost = cardDatabase.GetPipCost(cardId);
-            if (cardId == 0 || cardDatabase.IndexOf(cardId) < 0 || cost > pips[s])
+            if (cardId == PICK_POTION)
+            {
+                // Drinking a potion uses the turn; target carries the heal amount (the client spent the potion).
+                int drink = Mathf.Min(Mathf.Clamp(target, 0, 99999), maxHp[s] - hp[s]);
+                hp[s] += drink;
+                AddAct(group, s, s, 0, KIND_POTION, drink);
+                return;
+            }
+            if (cardId == 0 || cardDatabase.IndexOf(cardId) < 0 || !CanAfford(s, cardId))
             {
                 AddAct(group, s, s, 0, KIND_PASS, 0);
                 return;
             }
-            pips[s] -= cost;
 
             int accuracy = cardDatabase.GetAccuracy(cardId) + accPct[s] + focus[s];
             focus[s] = 0;
             if (Random.Range(0, 100) >= accuracy)
             {
+                // Wizard101: a fizzle keeps your pips (the card and its mana are spent).
                 AddAct(group, s, s, cardId, KIND_FIZZLE, 0);
                 return;
             }
+            SpendPips(s, cardId);
 
             int effect = cardDatabase.GetEffect(cardId);
             int power = cardDatabase.GetPower(cardId);
@@ -721,7 +1014,7 @@ namespace WizardsVRC
             {
                 int n = CollectTargets(aoe, target, 1 - mySide);
                 int spellSchool = cardDatabase.GetSchool(cardId);
-                int pierce = effect == CardDatabase.EFFECT_DAMAGE ? Mathf.Clamp(auxVal, 0, 100) : 0;
+                int pierce = effect == CardDatabase.EFFECT_DAMAGE || effect == CardDatabase.EFFECT_STUN ? Mathf.Clamp(auxVal, 0, 100) : 0;
                 // Blades are used once per cast (even when it hits every enemy); traps and shields once per target hit.
                 int bladeMul = power > 0 ? UseFx(blades, s, spellSchool, true) : 100;
                 int total = 0;
@@ -802,7 +1095,11 @@ namespace WizardsVRC
                 int t = _targets[k];
                 if (effect == CardDatabase.EFFECT_HEAL)
                 {
-                    int heal = Mathf.Min(power, maxHp[t] - hp[t]);
+                    // Heals can critical too (never blocked).
+                    _nextFlags = 0;
+                    int amount = power;
+                    if (critPct[s] > 0 && Random.Range(0, 100) < critPct[s]) { amount = amount * critMultiplier / 100; _nextFlags = FLAG_CRIT; }
+                    int heal = Mathf.Min(amount, maxHp[t] - hp[t]);
                     hp[t] += heal;
                     AddAct(group, s, t, cardId, KIND_HEAL, heal);
                 }
@@ -884,7 +1181,7 @@ namespace WizardsVRC
 
         private void AddAct(int group, int actor, int target, int cardId, int kind, int value)
         {
-            if (actCount >= MAX_ACTIONS) return;
+            if (actCount >= MAX_ACTIONS) { _nextFlags = 0; return; }
             actGroup[actCount] = group;
             actActor[actCount] = actor;
             actTarget[actCount] = target;
@@ -892,6 +1189,8 @@ namespace WizardsVRC
             actKind[actCount] = kind;
             actValue[actCount] = value;
             actHpAfter[actCount] = target >= 0 ? hp[target] : 0;
+            actFlags[actCount] = _nextFlags;
+            _nextFlags = 0;
             actCount++;
         }
     }

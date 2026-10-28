@@ -5,9 +5,10 @@ using UnityEngine.UI;
 namespace WizardsVRC
 {
     /// <summary>
-    /// The book's Deck tab. Left page: the selected deck (unique cards with copy counts) and a Deck 1/2/3 switch.
-    /// Right page: the spellbook (known spells, filter tabs, paged grid) and a details box with Add/Remove.
-    /// Shown/hidden by <see cref="InventoryBook"/>; writes to PlayerState.current deck arrays.
+    /// The book's Deck tab. Left page: one of your deck items (unique cards with copy counts), arrows to flip through
+    /// the decks you own, and Equip. Right page: the spellbook (known spells, filter tabs, paged grid) and a details box
+    /// with Add/Remove. Each deck item keeps its own cards; battles use the equipped one. Capacity and copies per spell
+    /// come from the deck item (ItemDatabase.deckCapacity / deckMaxCopies).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class DeckPages : UdonSharpBehaviour
@@ -20,10 +21,12 @@ namespace WizardsVRC
 
         public PlayerState playerState;
         public CardDatabase cardDatabase;
+        public ItemDatabase itemDatabase;
 
         [Header("Left page: deck")]
         public Text deckTitle;
-        public Image[] deckTabImages;
+        public Text deckNameLabel;
+        public GameObject equipDeckButton;
         public GameObject[] deckCellRoots;
         public Image[] deckCellIcons;
         public Text[] deckCellNames;
@@ -46,7 +49,9 @@ namespace WizardsVRC
         private Color _tabOn = new Color(0.85f, 0.65f, 0.3f);
         private Color _tabOff = new Color(0.45f, 0.3f, 0.18f);
 
-        private int _deck;
+        private int _deckItem;
+        private int[] _owned = new int[CharacterData.INVENTORY_SLOTS + 1];
+        private int _ownedCount;
         private int _filter;
         private int _page;
         private int _selected;
@@ -58,9 +63,29 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ uGUI events
 
-        public void Deck0() { SetDeck(0); }
-        public void Deck1() { SetDeck(1); }
-        public void Deck2() { SetDeck(2); }
+        public void PrevDeck() { StepDeck(-1); }
+        public void NextDeck() { StepDeck(1); }
+
+        /// <summary>Equip the deck shown on the left page (battles draw from it).</summary>
+        public void EquipShownDeck()
+        {
+            if (!HasCharacter() || _deckItem <= 0) return;
+            CharacterData c = playerState.current;
+            if (c.equipped[CharacterData.EQUIP_DECK] == _deckItem) return;
+            if (playerState.inCombat) { SetStatus("You can't change decks in the middle of a duel."); return; }
+            string reason = itemDatabase.CheckCanEquip(c, _deckItem);
+            if (reason != "") { SetStatus(reason); return; }
+            if (c.DeckListFor(_deckItem, false) < 0 && !c.CanClaimDeckList()) { SetStatus("Your spellbook can only keep " + CharacterData.DECK_COUNT.ToString() + " decks."); return; }
+            int inv = c.FindItem(_deckItem);
+            if (inv < 0 || !c.RemoveItemAt(inv, 1)) return;
+            int previous = c.equipped[CharacterData.EQUIP_DECK];
+            c.equipped[CharacterData.EQUIP_DECK] = (ushort)_deckItem;
+            if (previous != 0) c.AddItem(previous, 1);
+            c.DeckListFor(_deckItem, true);
+            playerState.MarkDirty();
+            SetStatus("Equipped " + itemDatabase.GetName(_deckItem) + ".");
+            Refresh();
+        }
 
         public void Filter0() { SetFilter(0); }
         public void Filter1() { SetFilter(1); }
@@ -117,9 +142,15 @@ namespace WizardsVRC
             if (!HasCharacter() || _selected <= 0) return;
             CharacterData c = playerState.current;
             if (!cardDatabase.Knows(c, _selected)) { SetStatus("You haven't learned that spell yet."); return; }
-            if (c.DeckCount(_deck) >= CardDatabase.DECK_MAX) { SetStatus("This deck is full (" + CardDatabase.DECK_MAX.ToString() + " cards)."); return; }
-            if (c.CountInDeck(_deck, _selected) >= CardDatabase.MAX_COPIES) { SetStatus("Max " + CardDatabase.MAX_COPIES.ToString() + " copies of one spell."); return; }
-            if (!c.AddToDeck(_deck, _selected)) return;
+            if (_deckItem <= 0) { SetStatus("You don't own a deck. Find one, then equip it."); return; }
+            if (playerState.inCombat) { SetStatus("You can't change decks in the middle of a duel."); return; }
+            int list = c.DeckListFor(_deckItem, true);
+            if (list < 0) { SetStatus("Your spellbook can only keep " + CharacterData.DECK_COUNT.ToString() + " decks."); return; }
+            int cap = itemDatabase.GetDeckCapacity(_deckItem);
+            int copies = itemDatabase.GetDeckMaxCopies(_deckItem);
+            if (c.DeckCount(list) >= cap) { SetStatus("This deck is full (" + cap.ToString() + " spells)."); return; }
+            if (c.CountInDeck(list, _selected) >= copies) { SetStatus("This deck holds at most " + copies.ToString() + " copies of one spell."); return; }
+            if (!c.AddToDeck(list, _selected)) return;
             playerState.MarkDirty();
             SetStatus("Added " + cardDatabase.GetName(_selected) + ".");
             Refresh();
@@ -129,7 +160,9 @@ namespace WizardsVRC
         {
             if (!HasCharacter() || _selected <= 0) return;
             CharacterData c = playerState.current;
-            if (!c.RemoveFromDeck(_deck, _selected)) return;
+            if (playerState.inCombat) { SetStatus("You can't change decks in the middle of a duel."); return; }
+            int list = c.DeckListFor(_deckItem, false);
+            if (list < 0 || !c.RemoveFromDeck(list, _selected)) return;
             playerState.MarkDirty();
             SetStatus("Removed " + cardDatabase.GetName(_selected) + ".");
             Refresh();
@@ -138,6 +171,7 @@ namespace WizardsVRC
         /// <summary>Called by InventoryBook when the Deck tab is opened.</summary>
         public void Open()
         {
+            if (HasCharacter()) _deckItem = playerState.current.equipped[CharacterData.EQUIP_DECK];
             _selected = 0;
             SetStatus("");
             Refresh();
@@ -145,12 +179,35 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ state
 
-        private void SetDeck(int deck)
+        /// <summary>Flip to the previous/next deck item you own (equipped first, then the backpack).</summary>
+        private void StepDeck(int dir)
         {
-            _deck = Mathf.Clamp(deck, 0, CharacterData.DECK_COUNT - 1);
+            if (!HasCharacter()) return;
+            BuildOwned(playerState.current);
+            if (_ownedCount == 0) return;
+            int at = 0;
+            for (int i = 0; i < _ownedCount; i++) if (_owned[i] == _deckItem) at = i;
+            at = (at + dir + _ownedCount) % _ownedCount;
+            _deckItem = _owned[at];
             _selected = 0;
             SetStatus("");
             Refresh();
+        }
+
+        private void BuildOwned(CharacterData c)
+        {
+            _ownedCount = 0;
+            int eq = c.equipped[CharacterData.EQUIP_DECK];
+            if (eq > 0) _owned[_ownedCount++] = eq;
+            int used = c.UsedInventorySlots();
+            for (int i = 0; i < used; i++)
+            {
+                int id = c.inventoryItemIds[i];
+                if (id == 0 || c.inventoryCounts[i] == 0 || itemDatabase == null || !itemDatabase.IsDeck(id)) continue;
+                bool seen = false;
+                for (int k = 0; k < _ownedCount; k++) if (_owned[k] == id) seen = true;
+                if (!seen) _owned[_ownedCount++] = id;
+            }
         }
 
         private void SetFilter(int filter)
@@ -185,10 +242,15 @@ namespace WizardsVRC
         private void BuildLists(CharacterData c)
         {
             _deckUniqueCount = 0;
-            int len = c.DeckCount(_deck);
+            BuildOwned(c);
+            bool stillOwned = false;
+            for (int i = 0; i < _ownedCount; i++) if (_owned[i] == _deckItem) stillOwned = true;
+            if (!stillOwned) _deckItem = _ownedCount > 0 ? _owned[0] : 0;
+            int list = c.DeckListFor(_deckItem, false);
+            int len = list >= 0 ? c.DeckCount(list) : 0;
             for (int k = 0; k < len; k++)
             {
-                int id = c.deckCards[_deck * CharacterData.DECK_SIZE + k];
+                int id = c.deckCards[list * CharacterData.DECK_SIZE + k];
                 bool seen = false;
                 for (int u = 0; u < _deckUniqueCount; u++)
                     if (_deckUnique[u] == id) { seen = true; break; }
@@ -217,11 +279,18 @@ namespace WizardsVRC
             c.EnsureArrays();
             BuildLists(c);
 
+            int list = c.DeckListFor(_deckItem, false);
+            int count = list >= 0 ? c.DeckCount(list) : 0;
+            bool equipped = _deckItem > 0 && c.equipped[CharacterData.EQUIP_DECK] == _deckItem;
+            int cap = _deckItem > 0 ? itemDatabase.GetDeckCapacity(_deckItem) : 0;
+            int copies = _deckItem > 0 ? itemDatabase.GetDeckMaxCopies(_deckItem) : 0;
+            if (deckNameLabel != null)
+                deckNameLabel.text = _deckItem > 0 ? itemDatabase.GetName(_deckItem) + (equipped ? "  (equipped)" : "") : "No deck";
             if (deckTitle != null)
-                deckTitle.text = "Deck " + (_deck + 1).ToString() + "   " + c.DeckCount(_deck).ToString() + " / " + CardDatabase.DECK_MAX.ToString() + " cards";
-            if (deckTabImages != null)
-                for (int d = 0; d < deckTabImages.Length; d++)
-                    if (deckTabImages[d] != null) deckTabImages[d].color = d == _deck ? _tabOn : _tabOff;
+                deckTitle.text = _deckItem > 0
+                    ? count.ToString() + " / " + cap.ToString() + " spells, up to " + copies.ToString() + " copies each" + (_ownedCount > 1 ? "   (" + _ownedCount.ToString() + " decks owned)" : "")
+                    : "Find a deck and equip it.";
+            if (equipDeckButton != null) equipDeckButton.SetActive(_deckItem > 0 && !equipped);
 
             for (int cell = 0; cell < DECK_CELLS; cell++)
             {
@@ -231,7 +300,7 @@ namespace WizardsVRC
                 int id = _deckUnique[cell];
                 if (deckCellIcons[cell] != null) deckCellIcons[cell].color = cardDatabase.GetColor(id);
                 if (deckCellNames[cell] != null) deckCellNames[cell].text = cardDatabase.GetName(id);
-                if (deckCellCounts[cell] != null) deckCellCounts[cell].text = "x" + c.CountInDeck(_deck, id).ToString();
+                if (deckCellCounts[cell] != null) deckCellCounts[cell].text = "x" + c.CountInDeck(list, id).ToString();
             }
 
             if (schoolFilterLabel != null) schoolFilterLabel.text = cardDatabase.SchoolName((int)c.school);
@@ -255,10 +324,10 @@ namespace WizardsVRC
             bool show = _selected > 0;
             if (detailsPanel != null) detailsPanel.SetActive(show);
             if (!show) return;
-            int inDeck = c.CountInDeck(_deck, _selected);
+            int inDeck = list >= 0 ? c.CountInDeck(list, _selected) : 0;
             if (detailName != null) detailName.text = cardDatabase.GetName(_selected);
             if (detailBody != null)
-                detailBody.text = cardDatabase.GetDetails(_selected) + "\nIn this deck: " + inDeck.ToString() + " / " + CardDatabase.MAX_COPIES.ToString();
+                detailBody.text = cardDatabase.GetDetails(_selected) + "\nIn this deck: " + inDeck.ToString() + " / " + copies.ToString();
             if (addButton != null) addButton.SetActive(cardDatabase.Knows(c, _selected));
             if (removeButton != null) removeButton.SetActive(inDeck > 0);
         }

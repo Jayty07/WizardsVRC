@@ -27,6 +27,10 @@ namespace WizardsVRC
         /// <summary>Street NPCs start at 8 (index into streetNpcCutscenes = id - NPC_STREET_FIRST).</summary>
         public const int NPC_STREET_FIRST = 8;
         public const int NPC_TILDA = 8;
+        /// <summary><see cref="NpcMarker"/> results.</summary>
+        public const int MARKER_NONE = 0;
+        public const int MARKER_NEW = 1;
+        public const int MARKER_TALK = 2;
         /// <summary>questSpell value meaning "the player's own school's quest-tier spell".</summary>
         public const int SPELL_OWN_SCHOOL_QUEST = -1;
 
@@ -46,8 +50,12 @@ namespace WizardsVRC
         public Cutscene headmasterReport;
         public Cutscene headmasterHint;
         public Cutscene headmasterIdle;
-        /// <summary>One cutscene per street NPC (index = npc id - NPC_STREET_FIRST).</summary>
+        /// <summary>One cutscene per street NPC (index = npc id - NPC_STREET_FIRST): what they say when no quest needs them.</summary>
         public Cutscene[] streetNpcCutscenes;
+        /// <summary>Optional dialogue per quest, played by the giver when the quest is offered (null = their default lines).</summary>
+        public Cutscene[] questOfferCutscenes;
+        /// <summary>Optional dialogue per Talk step (quest * MAX_STEPS + step), played when that step is handed in.</summary>
+        public Cutscene[] stepCutscenes;
 
         [Header("Names (indexed by School)")]
         public string[] schoolNames;
@@ -124,7 +132,7 @@ namespace WizardsVRC
         }
 
         /// <summary>A QuestTarget was clicked.</summary>
-        public void OnInteract(int targetId) { Progress(STEP_INTERACT, targetId); }
+        public bool OnInteract(int targetId) { return Progress(STEP_INTERACT, targetId); }
 
         /// <summary>The player walked into a QuestTarget trigger.</summary>
         public void OnExplore(int targetId) { Progress(STEP_EXPLORE, targetId); }
@@ -174,7 +182,57 @@ namespace WizardsVRC
 
         public void OnHeadmasterFinished() { OnTalk(NPC_HEADMASTER); }
 
-        public void TalkTilda() { TalkStreetNpc(NPC_TILDA); }
+        public void TalkTilda() { TalkNpc(NPC_TILDA); }
+
+        /// <summary>
+        /// Talk to a zone NPC (see <see cref="QuestNpc"/>): plays the dialogue of the step that needs them, else the offer
+        /// of a quest they give, else their default lines. When it ends, <see cref="OnTalk"/> hands in / starts quests.
+        /// </summary>
+        public void TalkNpc(int npc)
+        {
+            if (Busy() || !HasCharacter()) return;
+            Cutscene cs = DialogueFor(npc);
+            _talkingNpc = npc;
+            if (cs == null) { OnStreetNpcFinished(); return; }
+            cutscenePlayer.Play(cs);
+        }
+
+        private Cutscene DialogueFor(int npc)
+        {
+            int own = (int)playerState.current.school;
+            for (int q = 0; q < QuestCount(); q++)
+            {
+                if (!IsActive(q)) continue;
+                int i = StepIndex(q);
+                if (stepTypes[i] == STEP_TALK && NpcMatches(stepParams[i], npc, own) && stepCutscenes != null && i < stepCutscenes.Length && stepCutscenes[i] != null)
+                    return stepCutscenes[i];
+            }
+            for (int q = 0; q < QuestCount(); q++)
+            {
+                if (IsStarted(q) || !Available(q) || questAutoStart[q] != 0 || !NpcMatches(questGivers[q], npc, own)) continue;
+                if (questOfferCutscenes != null && q < questOfferCutscenes.Length && questOfferCutscenes[q] != null) return questOfferCutscenes[q];
+            }
+            int k = npc - NPC_STREET_FIRST;
+            return streetNpcCutscenes != null && k >= 0 && k < streetNpcCutscenes.Length ? streetNpcCutscenes[k] : null;
+        }
+
+        /// <summary>MARKER_TALK if an active quest wants you to talk to this NPC, MARKER_NEW if they have a quest to give.</summary>
+        public int NpcMarker(int npc)
+        {
+            if (!HasCharacter()) return MARKER_NONE;
+            int own = (int)playerState.current.school;
+            int result = MARKER_NONE;
+            for (int q = 0; q < QuestCount(); q++)
+            {
+                if (IsActive(q))
+                {
+                    int i = StepIndex(q);
+                    if (stepTypes[i] == STEP_TALK && NpcMatches(stepParams[i], npc, own)) return MARKER_TALK;
+                }
+                else if (!IsStarted(q) && questAutoStart[q] == 0 && Available(q) && NpcMatches(questGivers[q], npc, own)) result = MARKER_NEW;
+            }
+            return result;
+        }
 
         public void OnStreetNpcFinished()
         {
@@ -183,13 +241,6 @@ namespace WizardsVRC
             if (npc >= 0) OnTalk(npc);
         }
 
-        private void TalkStreetNpc(int npc)
-        {
-            int i = npc - NPC_STREET_FIRST;
-            if (Busy() || streetNpcCutscenes == null || i < 0 || i >= streetNpcCutscenes.Length) return;
-            _talkingNpc = npc;
-            cutscenePlayer.Play(streetNpcCutscenes[i]);
-        }
 
         // ------------------------------------------------------------------ quest log
 
@@ -280,15 +331,18 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ progression
 
-        private void Progress(int type, int param)
+        /// <summary>Advances every active step of this type and param; true if any did.</summary>
+        private bool Progress(int type, int param)
         {
-            if (!HasCharacter()) return;
+            if (!HasCharacter()) return false;
+            bool any = false;
             for (int q = 0; q < QuestCount(); q++)
             {
                 if (!IsActive(q)) continue;
                 int i = StepIndex(q);
-                if (stepTypes[i] == type && stepParams[i] == param) Advance(q, 1);
+                if (stepTypes[i] == type && stepParams[i] == param) { Advance(q, 1); any = true; }
             }
+            return any;
         }
 
         /// <summary>Adds to the current step's counter; moves to the next step (or completes the quest) when it is full.</summary>

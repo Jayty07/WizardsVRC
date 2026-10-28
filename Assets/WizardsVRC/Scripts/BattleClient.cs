@@ -21,6 +21,12 @@ namespace WizardsVRC
 
         [Header("World")]
         public Transform hubReturn;
+        [Tooltip("Where a defeated wizard is sent (e.g. the zone's entrance). Empty = hubReturn.")]
+        public Transform defeatReturn;
+        [Tooltip("The encounter's root (ring, seats, labels, hand panel). Moved to the manager's ring spot when a fight starts.")]
+        public Transform encounterRoot;
+        [Tooltip("Body size per seat (the builder fills it from each seat's monster) for cast effects over their heads.")]
+        public float[] seatScales;
         public Transform[] seats;
         public GameObject ring;
         public GameObject[] monsterBodies;
@@ -53,6 +59,8 @@ namespace WizardsVRC
         [Tooltip("Indexed by School.")]
         public Material[] seatSchoolMats;
         public Material seatEmptyMat;
+        [Tooltip("Empty seats on the monsters' half (tinted so the two sides read clearly). Empty = seatEmptyMat.")]
+        public Material seatEmptyMonsterMat;
 
         [Header("Shields / blades / traps orbiting each seat")]
         [Tooltip("Index slot * 3 + kind (0 shields, 1 blades, 2 traps).")]
@@ -71,8 +79,7 @@ namespace WizardsVRC
         [Header("Quests")]
         public QuestManager questManager;
 
-        [Header("School combat traits (indexed by School): % health, + damage, + resist, + accuracy")]
-        public int[] schoolHealthPct = { 100, 125, 85, 105, 100, 100, 100 };
+        [Header("School combat traits (indexed by School): + damage, + resist, + accuracy (health: PlayerState.schoolHealthPct)")]
         public int[] schoolDamage = { 10, 0, 25, 0, 5, 10, 5 };
         public int[] schoolResist = { 0, 20, 0, 0, 5, 0, 5 };
         public int[] schoolAccuracy = { 0, 0, -10, 10, 0, 0, 5 };
@@ -86,9 +93,18 @@ namespace WizardsVRC
 
         [Header("Hand panel")]
         public GameObject handRoot;
+        [Tooltip("Card frames (coloured by school); the card buttons themselves.")]
         public Image[] cardImages;
         public Text[] cardNames;
         public Text[] cardInfos;
+        [Tooltip("Parchment face inside each card frame (dimmed when the card can't be cast).")]
+        public Image[] cardFaces;
+        public Text[] cardPips;
+        public Text[] cardAccuracies;
+        public Text[] cardSchools;
+        [Tooltip("Hovered cards grow by this much and rise toward you (Wizard101 style).")]
+        public float hoverScale = 1.45f;
+        public float hoverRaise = 135f;
         public Text statusLabel;
         public Text partyLabel;
         public GameObject[] targetButtons;
@@ -96,14 +112,24 @@ namespace WizardsVRC
         public Image discardImage;
 
         [Header("Rewards")]
-        public int[] lootTable = { 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51 };
+        public int[] lootTable = { 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51, 61, 62 };
+
+        [Header("Defeat")]
+        [Tooltip("Health (% of max) you are sent home with after being defeated.")]
+        public int defeatHealthPct = 25;
+
+        [Header("Fizzles")]
+        [Tooltip("Off (Wizard101): a fizzled card goes back into your deck at a random spot. On: it goes to the end of your hand instead.")]
+        public bool fizzleReturnsToHand;
+        [Tooltip("Potion button label (optional).")]
+        public Text potionLabel;
 
         private bool _inBattle;
 
         public bool IsInBattle() { return _inBattle; }
 
         /// <summary>True when the local player has a character and isn't already fighting (used by wandering monsters).</summary>
-        public bool CanFight() { return !_inBattle && playerState != null && playerState.HasCharacter(); }
+        public bool CanFight() { return !_inBattle && playerState != null && playerState.HasCharacter() && !playerState.inCombat; }
 
         private int _slot = -1;
         private bool _seated;
@@ -112,6 +138,11 @@ namespace WizardsVRC
         private int _battleSeen;
         private int _roundSeen;
         private int _phaseSeen;
+        /// <summary>Health/mana were already written back to the character for this fight (victory, defeat or flee).</summary>
+        private bool _vitalsDone;
+        private bool _leaving;
+        private bool _defeated;
+        private float _rejoinBlockUntil;
 
         private int[] _pile = new int[CharacterData.DECK_SIZE];
         private int _pileCount;
@@ -145,6 +176,8 @@ namespace WizardsVRC
         private GameObject _spellAnim;
 
         private Color _cardDim = new Color(0.35f, 0.35f, 0.35f);
+        private Color _faceOn = new Color(0.93f, 0.87f, 0.72f);
+        private Color _faceOff = new Color(0.55f, 0.53f, 0.5f);
 
         // ------------------------------------------------------------------ uGUI events
 
@@ -155,6 +188,22 @@ namespace WizardsVRC
         public void Card4() { ClickCard(4); }
         public void Card5() { ClickCard(5); }
         public void Card6() { ClickCard(6); }
+
+        // Pointer enter / exit on each card (EventTrigger). VRChat can send these twice, so they're idempotent.
+        public void HoverCard0() { SetHover(0); }
+        public void HoverCard1() { SetHover(1); }
+        public void HoverCard2() { SetHover(2); }
+        public void HoverCard3() { SetHover(3); }
+        public void HoverCard4() { SetHover(4); }
+        public void HoverCard5() { SetHover(5); }
+        public void HoverCard6() { SetHover(6); }
+        public void UnhoverCard0() { ClearHover(0); }
+        public void UnhoverCard1() { ClearHover(1); }
+        public void UnhoverCard2() { ClearHover(2); }
+        public void UnhoverCard3() { ClearHover(3); }
+        public void UnhoverCard4() { ClearHover(4); }
+        public void UnhoverCard5() { ClearHover(5); }
+        public void UnhoverCard6() { ClearHover(6); }
 
         public void Target0() { ClickTarget(0); }
         public void Target1() { ClickTarget(1); }
@@ -180,6 +229,72 @@ namespace WizardsVRC
             RefreshHand();
         }
 
+        /// <summary>Leave the fight now. Like Wizard101 you keep your health but lose all of your mana.</summary>
+        public void Flee()
+        {
+            if (!_inBattle || _leaving || _slot < 0 || !manager.Alive(_slot)) return;
+            int ph = manager.phase;
+            if (ph != BattleManager.PHASE_PLANNING && ph != BattleManager.PHASE_JOINING) return;
+            if (playerState != null && playerState.HasCharacter())
+            {
+                playerState.SetHealth(BattleToCharacterHealth(manager.hp[_slot]));
+                playerState.SetMana(0);
+            }
+            _vitalsDone = true;
+            manager.RequestFlee();
+            _LeaveBattle();
+        }
+
+        /// <summary>Drink a potion as this round's action: a health potion if you're hurt, otherwise a mana potion.</summary>
+        public void Potion()
+        {
+            if (!CanAct() || playerState == null || !playerState.HasCharacter()) return;
+            CharacterData c = playerState.current;
+            bool hurt = manager.hp[_slot] < manager.maxHp[_slot];
+            bool drained = playerState.GetMana() < playerState.MaxMana();
+            int inv = FindPotion(c, hurt, false);
+            if (inv < 0) inv = FindPotion(c, false, drained);
+            if (inv < 0)
+            {
+                _note = hurt || drained ? "You have no potions that would help." : "You're already at full health and mana.";
+                RefreshHand();
+                return;
+            }
+            int itemId = c.inventoryItemIds[inv];
+            int heal = itemDatabase.GetPotionHealth(itemId);
+            int mana = itemDatabase.GetPotionMana(itemId);
+            c.RemoveItemAt(inv, 1);
+            if (mana > 0) playerState.RestoreMana(mana);
+            playerState.MarkDirty();
+            Submit(BattleManager.PICK_POTION, heal, "You drink a " + itemDatabase.GetName(itemId) + ".");
+        }
+
+        /// <summary>Inventory index of a potion restoring health (wantHealth) or mana (wantMana), or -1.</summary>
+        private int FindPotion(CharacterData c, bool wantHealth, bool wantMana)
+        {
+            if (itemDatabase == null || (!wantHealth && !wantMana)) return -1;
+            int used = c.UsedInventorySlots();
+            for (int i = 0; i < used; i++)
+            {
+                int id = c.inventoryItemIds[i];
+                if (id == 0 || c.inventoryCounts[i] == 0 || !itemDatabase.IsPotion(id)) continue;
+                if (wantHealth && itemDatabase.GetPotionHealth(id) > 0) return i;
+                if (wantMana && itemDatabase.GetPotionMana(id) > 0) return i;
+            }
+            return -1;
+        }
+
+        private int CountPotions()
+        {
+            if (playerState == null || !playerState.HasCharacter() || itemDatabase == null) return 0;
+            CharacterData c = playerState.current;
+            int used = c.UsedInventorySlots();
+            int n = 0;
+            for (int i = 0; i < used; i++)
+                if (c.inventoryItemIds[i] != 0 && itemDatabase.IsPotion(c.inventoryItemIds[i])) n += c.inventoryCounts[i];
+            return n;
+        }
+
         // ------------------------------------------------------------------ entry points
 
         public void LocalQueue(bool enter)
@@ -190,8 +305,74 @@ namespace WizardsVRC
 
         private void Start()
         {
+            CacheCardLayout();
             if (handRoot != null) handRoot.SetActive(false);
             OnBattleState();
+        }
+
+        // ------------------------------------------------------------------ card fan (hover / select animation)
+
+        private Vector2[] _cardBasePos = new Vector2[HAND_SIZE];
+        private Quaternion[] _cardBaseRot = new Quaternion[HAND_SIZE];
+        private int[] _cardBaseSibling = new int[HAND_SIZE];
+        private int _hover = -1;
+        private bool _layoutCached;
+
+        private void CacheCardLayout()
+        {
+            if (cardImages == null) return;
+            for (int i = 0; i < HAND_SIZE && i < cardImages.Length; i++)
+            {
+                if (cardImages[i] == null) continue;
+                RectTransform rt = cardImages[i].rectTransform;
+                _cardBasePos[i] = rt.anchoredPosition;
+                _cardBaseRot[i] = rt.localRotation;
+                _cardBaseSibling[i] = rt.GetSiblingIndex();
+            }
+            _layoutCached = true;
+        }
+
+        private void SetHover(int i)
+        {
+            if (_hover == i) return;
+            _hover = i;
+            RestoreCardOrder();
+            if (i >= 0 && i < _handCount && cardImages != null && i < cardImages.Length && cardImages[i] != null)
+                cardImages[i].rectTransform.SetAsLastSibling();
+        }
+
+        private void ClearHover(int i)
+        {
+            if (_hover != i) return;
+            _hover = -1;
+            RestoreCardOrder();
+        }
+
+        private void RestoreCardOrder()
+        {
+            if (!_layoutCached || cardImages == null) return;
+            for (int i = 0; i < HAND_SIZE && i < cardImages.Length; i++)
+                if (cardImages[i] != null) cardImages[i].rectTransform.SetSiblingIndex(_cardBaseSibling[i]);
+        }
+
+        /// <summary>Eases every card toward its pose: hovered = big, upright and raised; selected = slightly raised.</summary>
+        private void AnimateCards()
+        {
+            if (!_layoutCached || cardImages == null || handRoot == null || !handRoot.activeSelf) return;
+            float t = Mathf.Clamp01(Time.deltaTime * 14f);
+            for (int i = 0; i < HAND_SIZE && i < cardImages.Length; i++)
+            {
+                if (cardImages[i] == null || !cardImages[i].gameObject.activeSelf) continue;
+                RectTransform rt = cardImages[i].rectTransform;
+                Vector2 pos = _cardBasePos[i];
+                Quaternion rot = _cardBaseRot[i];
+                float scale = 1f;
+                if (i == _hover) { pos += new Vector2(0f, hoverRaise); rot = Quaternion.identity; scale = hoverScale; }
+                else if (i == _selHand) { pos += new Vector2(0f, hoverRaise * 0.45f); scale = 1.1f; }
+                rt.anchoredPosition = Vector2.Lerp(rt.anchoredPosition, pos, t);
+                rt.localRotation = Quaternion.Slerp(rt.localRotation, rot, t);
+                rt.localScale = Vector3.Lerp(rt.localScale, new Vector3(scale, scale, 1f), t);
+            }
         }
 
         /// <summary>Called on every client after the synced battle state changes.</summary>
@@ -199,13 +380,19 @@ namespace WizardsVRC
         {
             if (manager == null) return;
             int phase = manager.phase;
+            if (phase != BattleManager.PHASE_IDLE) PlaceRing();
             bool active = phase >= BattleManager.PHASE_JOINING;
             if (ring != null) ring.SetActive(active);
             if (active) { UpdateSeatRings(); UpdateFx(); }
             UpdateMinions(phase);
             for (int m = 0; m < BattleManager.SIDE; m++)
                 if (monsterBodies != null && m < monsterBodies.Length && monsterBodies[m] != null)
-                    monsterBodies[m].SetActive(phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m) && !manager.IsSummon(BattleManager.SIDE + m));
+                {
+                    // Each monster seat's body is built from the encounter's roster (seat m = roster[m]), so it always
+                    // shows the monster actually sitting there.
+                    bool show = phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m) && !manager.IsSummon(BattleManager.SIDE + m);
+                    monsterBodies[m].SetActive(show);
+                }
 
             VRCPlayerApi local = Networking.LocalPlayer;
             int mySlot = Utilities.IsValid(local) ? manager.FindWizardSlot(local.playerId) : -1;
@@ -220,7 +407,9 @@ namespace WizardsVRC
                 SetBanner("");
             }
             // Joined a wandering-monster fight during its join window: the battle id didn't change, so arrive now.
-            if (!_inBattle && mySlot >= 0 && manager.wanderMode && phase >= BattleManager.PHASE_JOINING && phase <= BattleManager.PHASE_PLAYBACK) ArriveAtArena(mySlot);
+            // (Not right after leaving: after fleeing our seat is still listed until the owner processes it.)
+            if (!_inBattle && mySlot >= 0 && manager.wanderMode && phase >= BattleManager.PHASE_JOINING && phase <= BattleManager.PHASE_PLAYBACK &&
+                Time.time >= _rejoinBlockUntil) ArriveAtArena(mySlot);
             if (phase >= BattleManager.PHASE_JOINING && phase <= BattleManager.PHASE_PLAYBACK && _inBattle && !_seated) TakeSeat();
 
             if (phase == BattleManager.PHASE_PLANNING && manager.round != _roundSeen)
@@ -246,6 +435,7 @@ namespace WizardsVRC
 
             if (phase == BattleManager.PHASE_PLAYBACK && _phaseSeen != BattleManager.PHASE_PLAYBACK)
             {
+                if (_inBattle) { SpendCastMana(); ReturnFizzledCards(); }
                 _playIndex = 0;
                 if (!_playing)
                 {
@@ -258,20 +448,58 @@ namespace WizardsVRC
             {
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
                 bool won = phase == BattleManager.PHASE_VICTORY;
+                // A wizard who fell in the final round goes home defeated even if the party won.
+                bool iWon = won && _slot >= 0 && manager.hp[_slot] > 0;
                 string msg = won ? "Victory!" : "Defeat...";
-                if (_inBattle && won) msg += "\n" + GrantRewards();
-                if (_inBattle && !won) msg += "\nYou return to the hub to recover.";
+                if (_inBattle && iWon)
+                {
+                    if (playerState != null) playerState.SetHealth(Mathf.Max(1, BattleToCharacterHealth(manager.hp[_slot])));
+                    _vitalsDone = true;
+                    msg += "\n" + GrantRewards();
+                }
+                else if (_inBattle)
+                {
+                    ApplyDefeat();
+                    msg += "\nYou were defeated and return home to recover.";
+                }
                 SetBanner(msg);
                 _note = msg;
                 if (_inBattle) SendCustomEventDelayedSeconds(nameof(_LeaveBattle), Mathf.Max(2, manager.endSeconds - 1));
             }
 
             if (phase == BattleManager.PHASE_IDLE && _inBattle) _LeaveBattle();
-            if (_inBattle && mySlot < 0 && phase != BattleManager.PHASE_IDLE) _LeaveBattle();
+            if (_inBattle && !_leaving && mySlot < 0 && phase != BattleManager.PHASE_IDLE)
+            {
+                // Our seat was vacated: with 0 health that means we were defeated mid-fight (Wizard101 sends you home).
+                if (_slot >= 0 && manager.hp[_slot] <= 0)
+                {
+                    ApplyDefeat();
+                    _note = "You were defeated!";
+                    _leaving = true;
+                    if (handRoot != null) handRoot.SetActive(false);
+                    SendCustomEventDelayedSeconds(nameof(_LeaveBattle), 1.5f);
+                }
+                else _LeaveBattle();
+            }
 
             _phaseSeen = phase;
             RefreshLabels();
             RefreshHand();
+        }
+
+        /// <summary>Moves the whole encounter (ring, seats, labels, hand) to the fight's ring spot.</summary>
+        private void PlaceRing()
+        {
+            if (encounterRoot == null) return;
+            Transform spot = manager.CurrentRingSpot();
+            if (spot == null) return;
+            if ((encounterRoot.position - spot.position).sqrMagnitude < 0.0001f) return;
+            encounterRoot.SetPositionAndRotation(spot.position, spot.rotation);
+        }
+
+        private float SeatScale(int s)
+        {
+            return seatScales != null && s >= 0 && s < seatScales.Length && seatScales[s] > 0f ? seatScales[s] : 1f;
         }
 
         // ------------------------------------------------------------------ battle enter / leave
@@ -282,7 +510,20 @@ namespace WizardsVRC
             if (!Utilities.IsValid(local) || playerState == null || !playerState.HasCharacter()) return;
             _inBattle = true;
             _seated = false;
+            _leaving = false;
+            _defeated = false;
+            _vitalsDone = false;
             _slot = slot;
+            playerState.inCombat = true;
+            if (manager.phase == BattleManager.PHASE_PLANNING || manager.phase == BattleManager.PHASE_PLAYBACK)
+            {
+                // Walked into a fight in progress: sit out the current round, act from the next one.
+                _battleSeen = manager.battleId;
+                _roundSeen = manager.round;
+                _submitted = true;
+                _note = "You join the duel! You'll act next round.";
+                for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
+            }
             Transform spot = !manager.wanderMode && stagingSpots != null && slot < stagingSpots.Length && stagingSpots[slot] != null ? stagingSpots[slot] : seats[slot];
             local.TeleportTo(spot.position, spot.rotation);
         }
@@ -310,13 +551,83 @@ namespace WizardsVRC
 
             BuildPile(c);
             _handCount = 0;
-            _note = "Waiting for the other wizards...";
+            if (!_submitted || manager.phase == BattleManager.PHASE_JOINING) _note = "Waiting for the other wizards...";
             int sc = (int)c.school;
-            manager.RequestJoin(
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_HEALTH) * Trait(schoolHealthPct, sc, 100) / 100, sc, c.level,
+            // Health carries over between fights (the school health trait is already part of MaxHealth).
+            int maxHealth = playerState.MaxHealth();
+            int curHealth = Mathf.Max(1, playerState.GetHealth());
+            playerState.combatHealth = -1;
+            int statsA = manager.PackStats(
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_DAMAGE) + Trait(schoolDamage, sc, 0),
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_RESIST) + Trait(schoolResist, sc, 0),
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_ACCURACY) + Trait(schoolAccuracy, sc, 0));
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_ACCURACY) + Trait(schoolAccuracy, sc, 0) + 128, 0);
+            int statsB = manager.PackStats(
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_CRITICAL),
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_BLOCK),
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_PIERCE),
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_POWERPIP));
+            manager.RequestJoin(maxHealth, curHealth, sc, c.level, statsA, statsB);
+        }
+
+        /// <summary>In-battle health is on the same scale as the character's health.</summary>
+        private int BattleToCharacterHealth(int battleHp) { return battleHp; }
+
+        /// <summary>Feeds the HUD the health the duel is showing, so it drops as each hit lands.</summary>
+        private void UpdateHudHealth()
+        {
+            if (playerState == null || !playerState.HasCharacter() || _slot < 0 || !_seated) return;
+            // Until our stats reach the referee the seat holds placeholder health; don't show that.
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me) || manager.FindWizardSlot(me.playerId) != _slot || manager.maxHp[_slot] != playerState.MaxHealth()) return;
+            playerState.combatHealth = _shownHp[_slot];
+        }
+
+        /// <summary>Wizard101 sends a defeated wizard home with a little health; nothing else is lost.</summary>
+        private void ApplyDefeat()
+        {
+            _defeated = true;
+            if (_vitalsDone || playerState == null || !playerState.HasCharacter()) return;
+            _vitalsDone = true;
+            playerState.SetHealth(Mathf.Max(1, playerState.MaxHealth() * defeatHealthPct / 100));
+            playerState.SaveNow();
+        }
+
+        /// <summary>Each pip a spell costs uses 1 mana when it is cast, even if it fizzles (Wizard101 rule).</summary>
+        /// <summary>A fizzled card isn't lost: it goes back into the deck (random spot), or to the end of the hand.</summary>
+        private void ReturnFizzledCards()
+        {
+            if (_slot < 0) return;
+            for (int i = 0; i < manager.actCount; i++)
+            {
+                if (manager.actActor[i] != _slot || manager.actKind[i] != BattleManager.KIND_FIZZLE) continue;
+                int card = manager.actCard[i];
+                if (card <= 0) continue;
+                if (fizzleReturnsToHand && _handCount < HAND_SIZE) _hand[_handCount++] = card;
+                else if (_pileCount < _pile.Length)
+                {
+                    // Cards are drawn from the end of the pile, so insert at a random position.
+                    int at = Random.Range(0, _pileCount + 1);
+                    for (int k = _pileCount; k > at; k--) _pile[k] = _pile[k - 1];
+                    _pile[at] = card;
+                    _pileCount++;
+                }
+            }
+        }
+
+        private void SpendCastMana()
+        {
+            if (_slot < 0 || playerState == null || !playerState.HasCharacter()) return;
+            int spent = 0;
+            for (int i = 0; i < manager.actCount; i++)
+            {
+                if (i > 0 && manager.actGroup[i] == manager.actGroup[i - 1]) continue;
+                if (manager.actActor[i] != _slot) continue;
+                int k = manager.actKind[i];
+                int card = manager.actCard[i];
+                if (card <= 0 || k == BattleManager.KIND_PASS || k == BattleManager.KIND_DOT || k == BattleManager.KIND_STUNNED || k == BattleManager.KIND_POTION) continue;
+                spent += cardDatabase.GetPipCost(card);
+            }
+            if (spent > 0) playerState.SpendMana(spent);
         }
 
         private int Trait(int[] arr, int school, int fallback)
@@ -327,15 +638,26 @@ namespace WizardsVRC
         public void _LeaveBattle()
         {
             if (!_inBattle) return;
+            if (!_vitalsDone && _slot >= 0 && playerState != null && playerState.HasCharacter())
+            {
+                // Left some other way (fight reset, timeout): keep whatever health we had.
+                if (manager.hp[_slot] > 0) playerState.SetHealth(BattleToCharacterHealth(manager.hp[_slot]));
+            }
+            _vitalsDone = true;
             _inBattle = false;
             _seated = false;
+            _leaving = false;
             _slot = -1;
+            _rejoinBlockUntil = Time.time + 5f;
+            _nextEngage = Time.time + 5f;
+            if (playerState != null) { playerState.inCombat = false; playerState.combatHealth = -1; }
             if (handRoot != null) handRoot.SetActive(false);
             VRCPlayerApi local = Networking.LocalPlayer;
             if (Utilities.IsValid(local))
             {
                 local.Immobilize(false);
-                if (hubReturn != null) local.TeleportTo(hubReturn.position, hubReturn.rotation);
+                Transform back = _defeated && defeatReturn != null ? defeatReturn : hubReturn;
+                if (back != null) local.TeleportTo(back.position, back.rotation);
             }
             if (playerState != null && playerState.HasCharacter()) playerState.SaveNow();
         }
@@ -378,10 +700,12 @@ namespace WizardsVRC
         private void BuildPile(CharacterData c)
         {
             _pileCount = 0;
-            int len = c.DeckCount(0);
-            for (int i = 0; i < len; i++)
+            // Battles draw from the equipped deck item's card list.
+            int list = c.ActiveDeckList();
+            int len = list >= 0 ? c.DeckCount(list) : 0;
+            for (int i = 0; i < len && _pileCount < _pile.Length; i++)
             {
-                int id = c.deckCards[i];
+                int id = c.deckCards[list * CharacterData.DECK_SIZE + i];
                 if (cardDatabase.IndexOf(id) >= 0) _pile[_pileCount++] = id;
             }
             if (_pileCount == 0)
@@ -403,6 +727,7 @@ namespace WizardsVRC
 
         private void RemoveFromHand(int i)
         {
+            SetHover(-1);
             for (int k = i; k < _handCount - 1; k++) _hand[k] = _hand[k + 1];
             _handCount--;
         }
@@ -423,9 +748,15 @@ namespace WizardsVRC
                 RefreshHand();
                 return;
             }
-            if (cardDatabase.GetPipCost(card) > manager.pips[_slot])
+            if (!manager.CanAfford(_slot, card))
             {
                 _note = "Not enough pips for " + cardDatabase.GetName(card) + ".";
+                RefreshHand();
+                return;
+            }
+            if (!HasManaFor(card))
+            {
+                _note = "Not enough mana for " + cardDatabase.GetName(card) + ". Drink a potion or flee.";
                 RefreshHand();
                 return;
             }
@@ -438,6 +769,12 @@ namespace WizardsVRC
             _selHand = i;
             _note = cardDatabase.GetName(card) + ": pick a " + (cardDatabase.TargetsAllies(card) ? "wizard." : "monster.");
             RefreshHand();
+        }
+
+        /// <summary>Spells cost 1 mana per pip (0-pip spells are free).</summary>
+        private bool HasManaFor(int card)
+        {
+            return playerState == null || !playerState.HasCharacter() || cardDatabase.GetPipCost(card) <= playerState.GetMana();
         }
 
         private void ClickTarget(int target)
@@ -480,6 +817,8 @@ namespace WizardsVRC
             else if (kind == BattleManager.KIND_FIZZLE) text += "'s " + cardDatabase.GetName(card) + " fizzles!";
             else if (kind == BattleManager.KIND_DOT) text += " burns for " + manager.actValue[_playIndex].ToString() + " damage!";
             else if (kind == BattleManager.KIND_STUNNED) text += " is stunned and loses a turn!";
+            else if (kind == BattleManager.KIND_POTION)
+                text += " drinks a potion" + (manager.actValue[_playIndex] > 0 ? " and recovers " + manager.actValue[_playIndex].ToString() + " health!" : ".");
             else if (kind == BattleManager.KIND_SUMMON)
                 text += firstTargetSlot >= 0 ? " summons " + cardDatabase.GetName(card) + "!" : " tries to summon, but there's no free seat!";
             else text += " casts " + cardDatabase.GetName(card) + "!";
@@ -539,13 +878,24 @@ namespace WizardsVRC
                 int t = manager.actTarget[i];
                 int k = manager.actKind[i];
                 int v = manager.actValue[i];
-                if (k == BattleManager.KIND_DAMAGE) text += "\n" + manager.SlotName(t) + " takes " + v.ToString() + " damage";
-                else if (k == BattleManager.KIND_HEAL) text += "\n" + manager.SlotName(t) + " heals " + v.ToString();
+                int f = manager.actFlags[i];
+                if (k == BattleManager.KIND_DAMAGE) text += "\n" + manager.SlotName(t) + " takes " + v.ToString() + " damage" + FlagText(f);
+                else if (k == BattleManager.KIND_HEAL) text += "\n" + manager.SlotName(t) + " heals " + v.ToString() + FlagText(f);
                 else if (k == BattleManager.KIND_BUFF) text += "\n" + manager.SlotName(t) + BuffText(manager.actCard[i], v);
                 if (t >= 0 && t < BattleManager.SLOTS) _shownHp[t] = manager.actHpAfter[i];
             }
             SetBanner(text);
             RefreshLabels();
+        }
+
+        private string FlagText(int f)
+        {
+            string t = "";
+            if ((f & BattleManager.FLAG_CRIT) != 0) t += "  CRITICAL!";
+            if ((f & BattleManager.FLAG_BLOCKED) != 0) t += "  (critical blocked)";
+            if ((f & BattleManager.FLAG_WEAK) != 0) t += "  (weak to it!)";
+            if ((f & BattleManager.FLAG_RESIST) != 0) t += "  (resisted)";
+            return t;
         }
 
         private int FirstTarget(int actor)
@@ -618,11 +968,11 @@ namespace WizardsVRC
             _castLen = manager.CastSeconds(school);
             _castPeak = manager.CastPeakSeconds(school);
             int mi = fxMats == null || fxMats.Length == 0 ? -1 : (school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1);
-            float scale = from == BattleManager.BOSS_SLOT ? 1.7f : 1f;
+            float scale = SeatScale(from);
             _ringBase = seats[from].position + Vector3.up * 0.05f;
             _glyphBase = seats[from].position + Vector3.up * (2.6f * scale);
             _orbFrom = seats[from].position + Vector3.up * (1.3f * scale);
-            _orbTo = seats[to].position + Vector3.up * (to == BattleManager.BOSS_SLOT ? 1.9f : 1.1f);
+            _orbTo = seats[to].position + Vector3.up * (1.1f * SeatScale(to));
             if (castRing != null)
             {
                 if (castRingRenderer != null && seatSchoolMats != null && school >= 0 && school < seatSchoolMats.Length)
@@ -676,7 +1026,7 @@ namespace WizardsVRC
             int i = _castSchool >= 0 && _castSchool < castBursts.Length - 1 ? _castSchool : castBursts.Length - 1;
             ParticleSystem ps = castBursts[i];
             if (ps == null) return;
-            float scale = _castFrom == BattleManager.BOSS_SLOT ? 1.7f : 1f;
+            float scale = SeatScale(_castFrom);
             ps.transform.position = seats[_castFrom].position + Vector3.up * (1.2f * scale);
             ps.Play();
         }
@@ -901,8 +1251,9 @@ namespace WizardsVRC
                 Renderer r = seatRings[s];
                 if (r == null) continue;
                 int sc = manager.school[s];
+                Material empty = s >= BattleManager.SIDE && seatEmptyMonsterMat != null ? seatEmptyMonsterMat : seatEmptyMat;
                 Material m = manager.slotIds[s] != 0 && seatSchoolMats != null && sc >= 0 && sc < seatSchoolMats.Length
-                    ? seatSchoolMats[sc] : seatEmptyMat;
+                    ? seatSchoolMats[sc] : empty;
                 if (m != null && r.sharedMaterial != m) r.sharedMaterial = m;
             }
         }
@@ -938,6 +1289,7 @@ namespace WizardsVRC
         private void Update()
         {
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); }
+            if (_inBattle && manager != null) { UpdateHudHealth(); AnimateCards(); }
             if (_inBattle && !_seated && manager != null && manager.phase == BattleManager.PHASE_ROAMING && arenaCenter != null && Time.time >= _nextEngage)
             {
                 VRCPlayerApi me = Networking.LocalPlayer;
@@ -949,8 +1301,10 @@ namespace WizardsVRC
                     manager.RequestEngage();
                 }
             }
-            // Wandering-monster lane: anyone who walks up to the circle during the join window joins the fight.
-            if (manager != null && manager.wanderMode && manager.phase == BattleManager.PHASE_JOINING && CanFight() && arenaCenter != null && Time.time >= _nextEngage)
+            // Wandering-monster lane: like Wizard101, anyone who walks into the circle joins the fight if a seat is free,
+            // during the join window or in any later round.
+            if (manager != null && manager.wanderMode && manager.phase >= BattleManager.PHASE_JOINING && manager.phase <= BattleManager.PHASE_PLAYBACK &&
+                manager.HasFreeWizardSeat() && CanFight() && arenaCenter != null && Time.time >= _nextEngage)
             {
                 VRCPlayerApi me = Networking.LocalPlayer;
                 Vector3 p = me.GetPosition() - arenaCenter.position;
@@ -979,11 +1333,22 @@ namespace WizardsVRC
         private string StatusText()
         {
             string s = "Round " + manager.round.ToString();
-            if (_slot >= 0) s += "    Pips " + manager.pips[_slot].ToString() + " / " + BattleManager.MAX_PIPS.ToString();
+            if (_slot >= 0) s += "    " + PipGlyphs(_slot);
+            if (playerState != null && playerState.HasCharacter()) s += "    Mana " + playerState.GetMana().ToString() + " / " + playerState.MaxMana().ToString();
             if (manager.phase == BattleManager.PHASE_PLANNING) s += "    Time " + manager.SecondsLeft().ToString() + "s";
             s += "    Deck " + _pileCount.ToString();
             if (_note.Length > 0) s += "\n" + _note;
             return s;
+        }
+
+        /// <summary>Pips as Wizard101-style dots: white pips, then power pips, then empty slots.</summary>
+        private string PipGlyphs(int s)
+        {
+            string g = "";
+            for (int i = 0; i < manager.pips[s]; i++) g += "\u25CF";
+            for (int i = 0; i < manager.powerPips[s]; i++) g += "\u25C6";
+            for (int i = manager.pips[s] + manager.powerPips[s]; i < BattleManager.MAX_PIPS; i++) g += "\u25CB";
+            return "Pips " + g + "  (" + manager.PipText(s) + ")";
         }
 
         private void RefreshLabels()
@@ -1010,7 +1375,8 @@ namespace WizardsVRC
         private string SlotLine(int s, bool compact)
         {
             string line = manager.SlotName(s) + (compact ? "  " : "\n") + _shownHp[s].ToString() + " / " + manager.maxHp[s].ToString() + " HP";
-            line += "  " + manager.pips[s].ToString() + " pips";
+            line += "  " + manager.PipText(s);
+            if (!compact && manager.IsCreature(s)) line += "\n" + manager.MatchupText(s);
             int sh = manager.FxCount(manager.shields, s), bl = manager.FxCount(manager.blades, s), tr = manager.FxCount(manager.traps, s);
             if (sh > 0) line += "  Shields " + sh.ToString();
             if (bl > 0) line += "  Blades " + bl.ToString();
@@ -1026,20 +1392,25 @@ namespace WizardsVRC
         private void RefreshHand()
         {
             if (!_inBattle || manager == null) return;
-            int myPips = _slot >= 0 ? manager.pips[_slot] : 0;
             for (int i = 0; i < HAND_SIZE; i++)
             {
                 bool has = i < _handCount;
                 if (cardImages[i] != null) cardImages[i].gameObject.SetActive(has);
                 if (!has) continue;
                 int card = _hand[i];
-                bool usable = cardDatabase.GetPipCost(card) <= myPips;
+                bool usable = manager.CanAfford(_slot, card) && HasManaFor(card);
                 Color col = cardDatabase.GetColor(card);
-                if (!usable && !_discardMode) col = _cardDim;
-                if (i == _selHand) col = Color.Lerp(col, Color.white, 0.45f);
+                if (!usable && !_discardMode) col = Color.Lerp(col, _cardDim, 0.7f);
+                if (i == _selHand) col = Color.Lerp(col, Color.white, 0.55f);
+                if (_discardMode) col = Color.Lerp(col, new Color(0.9f, 0.5f, 0.2f), 0.35f);
                 cardImages[i].color = col;
+                if (cardFaces != null && i < cardFaces.Length && cardFaces[i] != null)
+                    cardFaces[i].color = usable || _discardMode ? _faceOn : _faceOff;
                 cardNames[i].text = cardDatabase.GetName(card);
-                cardInfos[i].text = cardDatabase.GetPipCost(card).ToString() + " pips  " + cardDatabase.GetAccuracy(card).ToString() + "%\n" + cardDatabase.GetEffectText(card);
+                cardInfos[i].text = cardDatabase.GetEffectText(card);
+                if (cardPips != null && i < cardPips.Length && cardPips[i] != null) cardPips[i].text = cardDatabase.GetPipCost(card).ToString();
+                if (cardAccuracies != null && i < cardAccuracies.Length && cardAccuracies[i] != null) cardAccuracies[i].text = cardDatabase.GetAccuracy(card).ToString() + "%";
+                if (cardSchools != null && i < cardSchools.Length && cardSchools[i] != null) cardSchools[i].text = cardDatabase.SchoolName(cardDatabase.GetSchool(card));
             }
 
             bool picking = CanAct() && _selHand >= 0 && _selHand < _handCount;
@@ -1049,8 +1420,9 @@ namespace WizardsVRC
                 if (targetButtons == null || t >= targetButtons.Length || targetButtons[t] == null) continue;
                 bool show = picking && manager.Alive(t) && (manager.SideOf(t) == 0) == allies;
                 targetButtons[t].SetActive(show);
-                if (show) targetLabels[t].text = manager.SlotName(t);
+                if (show) targetLabels[t].text = manager.SlotName(t) + "\n" + _shownHp[t].ToString() + " / " + manager.maxHp[t].ToString();
             }
+            if (potionLabel != null) potionLabel.text = "Potion (" + CountPotions().ToString() + ")";
             if (discardImage != null) discardImage.color = _discardMode ? new Color(0.8f, 0.55f, 0.2f) : new Color(0.4f, 0.3f, 0.25f);
             if (statusLabel != null) statusLabel.text = StatusText();
         }

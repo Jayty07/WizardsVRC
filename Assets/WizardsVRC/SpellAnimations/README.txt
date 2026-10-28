@@ -75,7 +75,7 @@ id   school    lv  spell
 165  Myth      22  Unweave
 166  Myth      26  Stone Basilisk
 167  Myth      28  Stone Colossus
-168  Myth      33  Mirror Image
+168  Myth      33  Sundering Gaze
 169  Myth      35  Riddle of Iron
 170  Myth      42  Fabled Hydra
 171  Myth      48  Titan of Legends

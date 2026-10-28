@@ -24,7 +24,17 @@ namespace WizardsVRC
         public Text label;
         public Transform beacon;
 
-        [Header("Areas")]
+        [Header("Areas (keep interior, zones): each is a height band reached through a door from the castle")]
+        public float[] areaMinY;
+        public float[] areaMaxY;
+        [Tooltip("Door in the castle that leads into the area.")]
+        public Transform[] areaEntrances;
+        [Tooltip("Door inside the area that leads back to the castle.")]
+        public Transform[] areaExits;
+        public string[] areaEntranceNames;
+        public string[] areaExitNames;
+
+        [Header("Legacy single interior (used only when no areas are set)")]
         [Tooltip("Anything above this height is inside the keep interior.")]
         public float interiorMinY = 100f;
         public Transform interiorExit;
@@ -64,10 +74,24 @@ namespace WizardsVRC
             Vector3 goal = target.position;
             string goalName = questManager.GetObjectiveTargetName(q);
             Vector3 feet = local.GetPosition();
-            bool playerInside = feet.y > interiorMinY;
-            bool goalInside = goal.y > interiorMinY;
-            if (playerInside && !goalInside && interiorExit != null) { goal = interiorExit.position; goalName = interiorExitName; }
-            else if (!playerInside && goalInside && keepEntrance != null) { goal = keepEntrance.position; goalName = keepEntranceName; }
+            if (areaMinY != null && areaMinY.Length > 0)
+            {
+                // Different areas: leave yours through its exit, or (from the castle) head for the goal area's door.
+                int pa = AreaOf(feet.y);
+                int ga = AreaOf(goal.y);
+                if (pa != ga)
+                {
+                    if (pa >= 0 && Has(areaExits, pa)) { goal = areaExits[pa].position; goalName = NameAt(areaExitNames, pa); }
+                    else if (ga >= 0 && Has(areaEntrances, ga)) { goal = areaEntrances[ga].position; goalName = NameAt(areaEntranceNames, ga); }
+                }
+            }
+            else
+            {
+                bool playerInside = feet.y > interiorMinY;
+                bool goalInside = goal.y > interiorMinY;
+                if (playerInside && !goalInside && interiorExit != null) { goal = interiorExit.position; goalName = interiorExitName; }
+                else if (!playerInside && goalInside && keepEntrance != null) { goal = keepEntrance.position; goalName = keepEntranceName; }
+            }
 
             if (beacon != null)
             {
@@ -113,6 +137,18 @@ namespace WizardsVRC
             if (q == CharacterData.NO_TRACKED_QUEST) return null;
             return questManager.GetObjectiveTarget(q);
         }
+
+        /// <summary>Index of the area containing height y, or -1 for the castle.</summary>
+        private int AreaOf(float y)
+        {
+            for (int i = 0; i < areaMinY.Length; i++)
+                if (areaMaxY != null && i < areaMaxY.Length && y >= areaMinY[i] && y < areaMaxY[i]) return i;
+            return -1;
+        }
+
+        private bool Has(Transform[] arr, int i) { return arr != null && i >= 0 && i < arr.Length && arr[i] != null; }
+
+        private string NameAt(string[] arr, int i) { return arr != null && i >= 0 && i < arr.Length ? arr[i] : ""; }
 
         private void Show(Transform t, bool on)
         {
