@@ -195,7 +195,8 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   They face whoever is watching. `Tools/make_fx_icons.py` regenerates the shield / blade / trap set from the badges.
 - **Floating combat text** over every combatant: damage numbers in the spell's school colour with its icon (CRITICAL! on
   crits), heals, Fizzled!, burns, Stunned!, and new shields / blades / traps. Several in one step stack up.
-- **Combat UI:** the card panel hides while the round plays out, and its backing is see-through.
+- **Combat UI:** the card panel hides while the round plays out, and its backing is see-through. **Flee** asks first
+  ("Flee the battle?" with Flee / Stay; it says whether your party fights on) and closes itself if the round starts.
 - **Defeat:** a monster (or minion) defeated this round stays in its seat until the hit that defeats it plays, holds
   for a moment (`BattleClient.defeatDelay`), then squashes into the floor in PSX steps (`defeatFadeSeconds`).
 - **Sounds:** hit, heal and defeat sounds in the duel, the circle sound at the start, card hover / click / spell select,

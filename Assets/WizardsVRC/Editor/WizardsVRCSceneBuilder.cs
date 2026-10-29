@@ -1537,6 +1537,18 @@ namespace WizardsVRC.EditorTools
             GameObject potion = Button(root, "Potion", new Vector2(160, -415), new Vector2(280, 64), "Potion", new Color(0.55f, 0.2f, 0.3f), target, "Potion");
             client.potionLabel = potion.GetComponentInChildren<Text>();
             Button(root, "Flee", new Vector2(480, -415), new Vector2(280, 64), "Flee", new Color(0.35f, 0.3f, 0.3f), target, "Flee");
+
+            // ---- flee confirmation: a dimmer over the whole hand (blocks clicks on the cards) and a box with Flee / Stay
+            RectTransform confirm = Panel(root, "FleeConfirm", Vector2.zero, new Vector2(1600, 960), new Color(0f, 0f, 0.02f, 0.6f));
+            confirm.GetComponent<Image>().raycastTarget = true;
+            Panel(confirm, "Border", new Vector2(0, -20), new Vector2(788, 408), new Color(0.78f, 0.6f, 0.28f, 1f));
+            Panel(confirm, "Box", new Vector2(0, -20), new Vector2(776, 396), new Color(0.1f, 0.08f, 0.16f, 0.98f));
+            Label(confirm, "Title", new Vector2(0, 110), new Vector2(740, 70), "Flee the battle?", 46, TextAnchor.MiddleCenter).color = gold;
+            client.fleeConfirmLabel = Label(confirm, "Body", new Vector2(0, 10), new Vector2(720, 110), "", 26, TextAnchor.MiddleCenter);
+            Button(confirm, "ConfirmFlee", new Vector2(-175, -130), new Vector2(300, 76), "Flee", new Color(0.62f, 0.2f, 0.17f), target, "ConfirmFlee");
+            Button(confirm, "CancelFlee", new Vector2(175, -130), new Vector2(300, 76), "Stay", new Color(0.24f, 0.36f, 0.56f), target, "CancelFlee");
+            confirm.gameObject.SetActive(false);
+            client.fleeConfirmRoot = confirm.gameObject;
             canvasGo.SetActive(false);
         }
 

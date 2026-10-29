@@ -335,7 +335,7 @@ namespace WizardsVRC.EditorTools
                     string click = nameof(UiAudio.PlayClick), hover = hud ? nameof(UiAudio.PlayHudHover) : nameof(UiAudio.PlayHover);
                     if (low.Contains("delete") || (n == "Yes" && parent.Contains("Delete"))) click = nameof(UiAudio.PlayDelete);
                     else if (low.Contains("tab")) click = nameof(UiAudio.PlayTab);
-                    else if (low.Contains("cancel") || n == "No" || low.Contains("close") || low == "flee" || low == "back" || low == "leave" || low == "remove")
+                    else if (low.Contains("cancel") || n == "No" || low.Contains("close") || low == "back" || low == "leave" || low == "remove")
                         click = nameof(UiAudio.PlayCancel);
                     else if (low.Contains("next") || low.Contains("prev") || low.Contains("page"))
                     {

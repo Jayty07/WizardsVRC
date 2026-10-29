@@ -197,6 +197,9 @@ namespace WizardsVRC
 
         [Header("Hand panel")]
         public GameObject handRoot;
+        [Tooltip("Confirmation box shown over the hand when Flee is pressed (Flee / Stay).")]
+        public GameObject fleeConfirmRoot;
+        public Text fleeConfirmLabel;
         [Tooltip("Card frames (coloured by school); the card buttons themselves.")]
         public Image[] cardImages;
         public Text[] cardNames;
@@ -338,12 +341,47 @@ namespace WizardsVRC
             RefreshHand();
         }
 
-        /// <summary>Leave the fight now. Like Wizard101 you keep your health but lose all of your mana.</summary>
+        /// <summary>The Flee button: asks first (Flee / Stay) before leaving the fight.</summary>
         public void Flee()
         {
-            if (!_inBattle || _leaving || _slot < 0 || !manager.Alive(_slot)) return;
+            if (!CanFlee()) return;
+            if (fleeConfirmRoot == null) { FleeNow(); return; }
+            if (fleeConfirmLabel != null)
+            {
+                int others = 0;
+                for (int i = 0; i < BattleManager.SIDE; i++) if (i != _slot && manager.Alive(i) && !manager.IsSummon(i)) others++;
+                fleeConfirmLabel.text = "You keep your health, but you lose all of your mana.\n" +
+                    (others > 0 ? "Your party will fight on without you." : "You are fighting alone, so the duel ends.");
+            }
+            fleeConfirmRoot.SetActive(true);
+        }
+
+        public void ConfirmFlee()
+        {
+            CloseFleeConfirm();
+            if (CanFlee()) FleeNow();
+        }
+
+        public void CancelFlee()
+        {
+            CloseFleeConfirm();
+        }
+
+        private void CloseFleeConfirm()
+        {
+            if (fleeConfirmRoot != null && fleeConfirmRoot.activeSelf) fleeConfirmRoot.SetActive(false);
+        }
+
+        private bool CanFlee()
+        {
+            if (!_inBattle || _leaving || _slot < 0 || !manager.Alive(_slot)) return false;
             int ph = manager.phase;
-            if (ph != BattleManager.PHASE_PLANNING && ph != BattleManager.PHASE_JOINING) return;
+            return ph == BattleManager.PHASE_PLANNING || ph == BattleManager.PHASE_JOINING;
+        }
+
+        /// <summary>Leave the fight now. Like Wizard101 you keep your health but lose all of your mana.</summary>
+        private void FleeNow()
+        {
             if (playerState != null && playerState.HasCharacter())
             {
                 playerState.SetHealth(BattleToCharacterHealth(manager.hp[_slot]));
@@ -616,6 +654,9 @@ namespace WizardsVRC
                 else _LeaveBattle();
             }
 
+            // The confirmation only makes sense while you could still flee (it closes when the round plays out).
+            if (!CanFlee()) CloseFleeConfirm();
+
             _phaseSeen = phase;
             RefreshLabels();
             RefreshHand();
@@ -783,6 +824,7 @@ namespace WizardsVRC
 
         public void _LeaveBattle()
         {
+            CloseFleeConfirm();
             if (!_inBattle) return;
             if (!_vitalsDone && _slot >= 0 && playerState != null && playerState.HasCharacter())
             {
