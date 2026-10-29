@@ -201,8 +201,8 @@ namespace WizardsVRC.EditorTools
             HubGate gate = null;
             if (hub != null) hub.gates.TryGetValue(k, out gate);
             Vector3 mouth = g.Local(start) - openDir * (cs * 0.5f);
-            var gaps = new List<Rect>();
-            Rect tunnelRect = new Rect();
+            var gaps = new List<UnityEngine.Rect>();
+            UnityEngine.Rect tunnelRect = new UnityEngine.Rect();
             if (gate != null)
             {
                 Vector3 right = Vector3.Cross(Vector3.up, -openDir);
@@ -214,7 +214,7 @@ namespace WizardsVRC.EditorTools
                         Vector3 c = mouth + right * a - openDir * b;
                         x0 = Mathf.Min(x0, c.x); x1 = Mathf.Max(x1, c.x); z0 = Mathf.Min(z0, c.z); z1 = Mathf.Max(z1, c.z);
                     }
-                tunnelRect = Rect.MinMaxRect(x0, z0, x1, z1);
+                tunnelRect = UnityEngine.Rect.MinMaxRect(x0, z0, x1, z1);
                 gaps.Add(tunnelRect);
             }
             EdgeWalls(root, W, H, gaps);
@@ -229,7 +229,7 @@ namespace WizardsVRC.EditorTools
                     for (int x = 0; x < g.width; x++)
                     {
                         Vector3 c = g.Local(x, y);
-                        if (tunnelRect.Overlaps(new Rect(c.x - cs / 2f, c.z - cs / 2f, cs, cs))) noHouse.Add(new Vector2Int(x, y));
+                        if (tunnelRect.Overlaps(new UnityEngine.Rect(c.x - cs / 2f, c.z - cs / 2f, cs, cs))) noHouse.Add(new Vector2Int(x, y));
                     }
             foreach (var r in RectsAt(g, (x, y) => g.At(x, y) == '#' && !noHouse.Contains(new Vector2Int(x, y)), 3, 3))
                 House(layout, g, z, r, houseIndex++, bld, roof, window);

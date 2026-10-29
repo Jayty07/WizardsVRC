@@ -125,7 +125,7 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>The tunnel's footprint (zone-local XZ bounds of its walls), for keeping houses and map edges out of it.</summary>
-        private static Rect TunnelFootprint(TunnelEnd e, Transform zoneRoot)
+        private static UnityEngine.Rect TunnelFootprint(TunnelEnd e, Transform zoneRoot)
         {
             float hw = TunW / 2f + TunT;
             var corners = new[] { new Vector3(-hw - 1f, 0, -1f), new Vector3(TunL2 + hw + 1f, 0, -1f), new Vector3(-hw - 1f, 0, TunL1 + TunL3 + 1f),
@@ -136,11 +136,11 @@ namespace WizardsVRC.EditorTools
                 Vector3 p = zoneRoot.InverseTransformPoint(e.root.TransformPoint(c));
                 x0 = Mathf.Min(x0, p.x); x1 = Mathf.Max(x1, p.x); z0 = Mathf.Min(z0, p.z); z1 = Mathf.Max(z1, p.z);
             }
-            return Rect.MinMaxRect(x0, z0, x1, z1);
+            return UnityEngine.Rect.MinMaxRect(x0, z0, x1, z1);
         }
 
         /// <summary>The four invisible walls round a map's edge, with a gap wherever a tunnel goes through.</summary>
-        private static void EdgeWalls(Transform root, float W, float H, List<Rect> gaps)
+        private static void EdgeWalls(Transform root, float W, float H, List<UnityEngine.Rect> gaps)
         {
             Transform bounds = Child(root, "Bounds", Vector3.zero);
             // Each edge as a line: (along X or Z, fixed coordinate, half length).
