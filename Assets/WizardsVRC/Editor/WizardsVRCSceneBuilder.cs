@@ -67,6 +67,7 @@ namespace WizardsVRC.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
             // Authored world data (monsters, zones, questlines) lives in Assets/WizardsVRC/WorldData and is never rebuilt.
+            // Checked here so you can cancel before the scene is replaced; loaded again after the new scene is created.
             var worldData = WorldDataStore.Load();
             var worldReport = WorldValidator.ValidateAll(worldData, null);
             worldReport.Log();
@@ -93,6 +94,9 @@ namespace WizardsVRC.EditorTools
                 Debug.LogWarning("[WizardsVRC] Ignored an error from another editor window while creating the scene: " + e.Message);
                 scene = SceneManager.GetActiveScene();
             }
+            // Opening/creating a scene unloads assets nothing in it uses, which includes the world data loaded above
+            // (Unity then reports those objects as null). Load it again now that the new scene exists.
+            worldData = WorldDataStore.Load();
 
             // ---------------- lighting
             var sun = new GameObject("Directional Light");
