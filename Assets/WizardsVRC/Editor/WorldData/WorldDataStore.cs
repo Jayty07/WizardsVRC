@@ -65,8 +65,9 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             if (!AssetDatabase.IsValidFolder(Folder))
             {
-                Directory.CreateDirectory(Folder);
-                AssetDatabase.Refresh();
+                // CreateFolder registers the folder with the AssetDatabase straight away (a plain directory may not be).
+                if (Directory.Exists(Folder)) AssetDatabase.Refresh();
+                else AssetDatabase.CreateFolder("Assets/WizardsVRC", "WorldData");
             }
             bool created = false;
             if (AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) == null && FindFirst<MonsterCatalog>() == null)
@@ -119,12 +120,19 @@ namespace WizardsVRC.EditorTools.WorldData
         public static List<T> FindAll<T>() where T : Object
         {
             var list = new List<T>();
-            if (!AssetDatabase.IsValidFolder(Folder)) return list;
-            foreach (string guid in AssetDatabase.FindAssets("t:" + typeof(T).Name, new[] { Folder }))
-            {
-                var a = AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guid));
-                if (a != null) list.Add(a);
-            }
+            if (AssetDatabase.IsValidFolder(Folder))
+                foreach (string guid in AssetDatabase.FindAssets("t:" + typeof(T).Name, new[] { Folder }))
+                {
+                    var a = AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guid));
+                    if (a != null && !list.Contains(a)) list.Add(a);
+                }
+            // Also load the files directly, in case the search index hasn't caught up with assets created just now.
+            if (Directory.Exists(Folder))
+                foreach (string file in Directory.GetFiles(Folder, "*.asset", SearchOption.AllDirectories))
+                {
+                    var a = AssetDatabase.LoadAssetAtPath<T>(file.Replace('\\', '/'));
+                    if (a != null && !list.Contains(a)) list.Add(a);
+                }
             return list;
         }
 

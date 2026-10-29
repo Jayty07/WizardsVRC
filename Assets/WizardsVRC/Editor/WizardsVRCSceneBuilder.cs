@@ -126,6 +126,7 @@ namespace WizardsVRC.EditorTools
             descriptor.spawns = new[] { selectSpawn };
             descriptor.RespawnHeightY = RespawnHeight;
             descriptor.ReferenceCamera = refCamGo;
+            AddPipelineManager(world);
 
             // ---------------- systems
             var systems = new GameObject("Systems");
@@ -233,7 +234,39 @@ namespace WizardsVRC.EditorTools
             AddSceneToBuildSettings();
             AssetDatabase.SaveAssets();
             Debug.Log("[WizardsVRC] Generated " + ScenePath);
+            ReportWorld(worldData, wb);
             if (sdkPanel != null) EditorApplication.delayCall += () => EditorWindow.GetWindow(sdkPanel);
+        }
+
+        /// <summary>
+        /// The VRChat SDK expects a PipelineManager next to the scene descriptor (it normally adds one itself when you add
+        /// the descriptor by hand). Found by name so this compiles whichever SDK assembly it lives in.
+        /// </summary>
+        private static void AddPipelineManager(GameObject world)
+        {
+            foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                System.Type t = asm.GetType("VRC.Core.PipelineManager", false);
+                if (t == null) continue;
+                if (world.GetComponent(t) == null) world.AddComponent(t);
+                return;
+            }
+        }
+
+        /// <summary>Says what the world data produced, so a missing zone or questline is obvious.</summary>
+        private static void ReportWorld(WorldDataStore.Data data, WorldBuild wb)
+        {
+            var names = new System.Collections.Generic.List<string>();
+            foreach (var root in wb.zoneRoots) names.Add(root.name);
+            int quests = 0;
+            foreach (var ql in data.questlines) if (ql != null && ql.includeInBuild) quests += ql.quests.Count;
+            string summary = "Zones built: " + (names.Count > 0 ? string.Join(", ", names) : "none") + ". Authored quests: " + quests +
+                             ". World data folder: " + WorldDataStore.Folder + " (" + data.zones.Count + " zone asset(s), " + data.questlines.Count + " questline asset(s)).";
+            if (names.Count > 0) { Debug.Log("[WizardsVRC] " + summary); return; }
+            Debug.LogError("[WizardsVRC] " + summary + " No zones were built, so there is no Lantern Row. Check that " + WorldDataStore.Folder +
+                           " contains Zone_LanternRow.asset with Include In Build ticked, then rebuild.");
+            EditorUtility.DisplayDialog("Rebuild MainWorld", summary + "\n\nNo zones were built (so no Lantern Row). Check " + WorldDataStore.Folder +
+                                                             " in the Project window: it should contain Zone_LanternRow.asset with Include In Build ticked.", "OK");
         }
 
         /// <summary>Closes the VRChat SDK Control Panel if it's open and returns its window type (null if it wasn't open).</summary>
