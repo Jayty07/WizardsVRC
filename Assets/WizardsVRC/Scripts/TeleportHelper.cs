@@ -14,12 +14,15 @@ namespace WizardsVRC
         public GameObject[] showZones;
         [Tooltip("Zone roots switched off for the local player when this door is used, so nothing of them renders.")]
         public GameObject[] hideZones;
+        [Tooltip("Local area culling: the destination's area is switched on before the player is moved there.")]
+        public AreaCuller culler;
 
         public void TeleportTo(Transform target)
         {
             if (target == null) return;
             VRCPlayerApi local = Networking.LocalPlayer;
             if (!Utilities.IsValid(local)) return;
+            if (culler != null) culler.Prepare(target.position);
             local.TeleportTo(target.position, target.rotation);
         }
 

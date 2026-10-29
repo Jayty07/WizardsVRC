@@ -96,6 +96,11 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("Decorative street lamps along the roads (0 = none, 1 = lots).")]
         [Range(0f, 1f)] public float lampDensity = 0.25f;
 
+        [Header("Performance")]
+        [Tooltip("Small props (lamps, windows, flowers, stalls, merlons...) stop drawing beyond about this many metres. " +
+                 "The whole zone is also switched off for a player who isn't in it, and nothing past the fog is drawn.")]
+        [Range(30f, 200f)] public float detailDistance = 80f;
+
         [Header("Door from the castle")]
         [Tooltip("Door position in the castle (Hub-local coordinates).")]
         public Vector3 hubDoorPosition = new Vector3(0f, 2.5f, -81f);

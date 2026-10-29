@@ -297,6 +297,9 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ entry points
 
+        [Tooltip("Switches areas on before this client teleports the player (arena, ring seat, way home).")]
+        public AreaCuller culler;
+
         [Tooltip("Boss arena queue pad: save id of the quest the player must finish before it works (-1 = always).")]
         public int queueRequiredQuest = -1;
         [Tooltip("Shown on the pad while it's locked.")]
@@ -538,6 +541,7 @@ namespace WizardsVRC
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
             }
             Transform spot = !manager.wanderMode && stagingSpots != null && slot < stagingSpots.Length && stagingSpots[slot] != null ? stagingSpots[slot] : seats[slot];
+            if (culler != null) culler.Prepare(spot.position);
             local.TeleportTo(spot.position, spot.rotation);
         }
 
@@ -549,6 +553,7 @@ namespace WizardsVRC
             CharacterData c = playerState.current;
 
             Transform seat = seats[_slot];
+            if (culler != null) culler.Prepare(seat.position);
             local.TeleportTo(seat.position, seat.rotation);
             local.Immobilize(true);
 
@@ -670,7 +675,11 @@ namespace WizardsVRC
             {
                 local.Immobilize(false);
                 Transform back = _defeated && defeatReturn != null ? defeatReturn : hubReturn;
-                if (back != null) local.TeleportTo(back.position, back.rotation);
+                if (back != null)
+                {
+                    if (culler != null) culler.Prepare(back.position);
+                    local.TeleportTo(back.position, back.rotation);
+                }
             }
             if (playerState != null && playerState.HasCharacter()) playerState.SaveNow();
         }

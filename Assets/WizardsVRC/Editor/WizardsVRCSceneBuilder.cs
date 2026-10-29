@@ -146,7 +146,8 @@ namespace WizardsVRC.EditorTools
             refCamGo.transform.SetParent(world.transform, false);
             var refCam = refCamGo.AddComponent<Camera>();
             refCam.nearClipPlane = 0.05f;
-            refCam.farClipPlane = 1500f;
+            // Nothing past the fog is drawn (see WizardsVRCSceneBuilder.Culling.cs).
+            refCam.farClipPlane = DrawDistance();
             refCam.enabled = false;
 
             // ---------------- areas
@@ -252,6 +253,20 @@ namespace WizardsVRC.EditorTools
             streets.Add(homeTeleport);
             questPages.questGuide = questGuide;
 
+            // Local area culling: the hub, the boss arena and each zone are off for a player who isn't in them.
+            var cullAreas = new System.Collections.Generic.List<GameObject> { hubRoot.gameObject };
+            var cullBounds = new System.Collections.Generic.List<Bounds> { hubPlan.cullBounds };
+            var arenaGo = GameObject.Find("BossArena");
+            if (arenaGo != null)
+            {
+                cullAreas.Add(arenaGo);
+                cullBounds.Add(new Bounds(ArenaOrigin + new Vector3(0, 45f, 0), new Vector3(170f, 210f, 120f)));
+            }
+            cullAreas.AddRange(wb.cullRoots);
+            cullBounds.AddRange(wb.cullBounds);
+            var areaCuller = BuildAreaCuller(systems.transform, cullAreas, cullBounds, scene, encounters);
+            streets.Add(areaCuller);
+
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
             toSync.AddRange(quests);
             toSync.AddRange(learning);
@@ -342,7 +357,7 @@ namespace WizardsVRC.EditorTools
             // MonsterDatabase was merged into CardDatabase; drop its old program asset so UdonSharp doesn't look for the script.
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -467,7 +482,11 @@ namespace WizardsVRC.EditorTools
             var root = new GameObject("Hub").transform;
 
             if (hub.zone != null) BuildHubZone(root, hub, interior, data);
-            else BuildCastle(root);
+            else
+            {
+                BuildCastle(root);
+                AddDistanceCulling(root.Find("Castle"), DefaultDetailDistance);
+            }
 
             var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pad.name = "SpawnLandingPad";

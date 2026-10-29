@@ -50,6 +50,8 @@ namespace WizardsVRC.EditorTools
             public Vector3 keepFrontPos = new Vector3(0, 6.1f, 42.5f);
             public string keepLabel = "Hall of Schools (click door)";
             public readonly Dictionary<string, HubGate> gates = new Dictionary<string, HubGate>();
+            /// <summary>World bounds of the hub for the AreaCuller (the classic castle's by default).</summary>
+            public Bounds cullBounds = new Bounds(new Vector3(0, 45f, -5f), new Vector3(240f, 210f, 260f));
             public readonly List<UdonSharpBehaviour> behaviours = new List<UdonSharpBehaviour>();
         }
 
@@ -215,6 +217,10 @@ namespace WizardsVRC.EditorTools
                 hub.keepFrontPos = dp - back * 3f + new Vector3(0, 0.1f, 0);
                 hub.keepLabel = "Headmaster's Office (click door)";
             }
+
+            AddDistanceCulling(root, z.detailDistance);
+            float span = 4f * cs + 80f;
+            hub.cullBounds = new Bounds(new Vector3(0, 45f, 0), new Vector3(W + span, 210f, H + span));
         }
 
         /// <summary>

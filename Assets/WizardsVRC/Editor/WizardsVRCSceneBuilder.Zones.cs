@@ -39,6 +39,9 @@ namespace WizardsVRC.EditorTools
             public readonly List<float> areaMin = new List<float>(), areaMax = new List<float>();
             public readonly List<Transform> areaIn = new List<Transform>(), areaOut = new List<Transform>();
             public readonly List<string> areaInNames = new List<string>(), areaOutNames = new List<string>();
+            /// <summary>Zone roots and their bounds for the AreaCuller.</summary>
+            public readonly List<GameObject> cullRoots = new List<GameObject>();
+            public readonly List<Bounds> cullBounds = new List<Bounds>();
         }
 
         // ================================================================== monsters
@@ -264,6 +267,10 @@ namespace WizardsVRC.EditorTools
                 if (e != null && ZoneGrid.IsRingDigit(e.Symbol))
                     BuildZoneEncounter(root, g, z, e, start, spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb);
 
+            // Culling: small props drop out with distance; the whole zone is off for anyone not in it.
+            AddDistanceCulling(root, z.detailDistance);
+            wb.cullRoots.Add(root.gameObject);
+            wb.cullBounds.Add(ZoneCullBounds(root.position, W, H));
             root.gameObject.SetActive(false);
         }
 

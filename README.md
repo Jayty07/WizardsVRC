@@ -120,6 +120,12 @@ decks) and Duel Master Holloway (a practice duel against training dummies that n
 **Sunpetal Gardens** gate open (Lv 1-3 weeds, newts and moths, boss Old Briarwick). Finishing the gardens opens the
 **Lantern Row** gate (now Lv 4-6) and the boss arena pad. The locks are the gates' *Required Quest* in the hub map.
 
+## Performance
+
+Each player's client only runs what's near them: areas you aren't in (hub, boss arena, every zone) are switched off
+locally, nothing past the fog is drawn, and small props are chunked so they stop drawing beyond each zone's Detail
+Distance. See *Performance (culling)* in [WORLD_BUILDING.md](WORLD_BUILDING.md).
+
 ## Building zones, monsters and quests
 
 Streets, battle ring spots, patrol routes, NPCs, monsters (with their spell lists) and questlines are all edited as

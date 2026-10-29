@@ -167,6 +167,22 @@ or each other. When the hub has a Street Gate for a zone, that gate is its way i
 placed with *Hub Door Position / Yaw* (Hub-local coordinates; select `Hub` in the built scene to find a spot), and *Hub
 Return Position* is where you appear when you come back.
 
+### Performance (culling)
+
+Every zone is culled on each player's own client automatically, so you don't have to do anything when you add one:
+
+- **Areas you're not in are switched off.** The hub, the boss arena and every street zone are deactivated locally
+  unless you're inside them: no rendering, no physics, no scripts. Teleports switch the destination on just before you
+  arrive (`AreaCuller` in `Systems`). The Headmaster's office and the cutscene sets always stay on.
+- **Nothing past the fog is drawn.** The camera's far clip is the fog end + 50 m (220 m by default).
+- **Small props drop out with distance.** Lamps, windows, flowers, stalls, merlons and other props up to 3.5 m are grouped
+  into 32 m chunks that stop drawing beyond the zone's **Detail Distance** (80 m by default, in the zone's *Performance*
+  section). Big buildings, walls and trees stay until the fog. Anything scripts use (patrols, rings, NPCs, quest points,
+  gates) is never grouped.
+
+Tips: keep zones at least 100 m apart in height (the checks enforce it), lower Detail Distance for dense mazes, and
+lower `Lamp Density` if a zone has lots of lamps. The rebuild log says how many props were chunked per zone.
+
 ## Monsters
 
 Open `Monsters.asset`. Each monster has:
