@@ -120,7 +120,7 @@ Like Wizard101, new wizards don't meet a real monster until they know the basics
 Headmaster's office you find your professor at their school hall, report back, then take the castle tour: Gatekeeper
 Bramwell (exploring the grounds), Quartermaster Pell (backpack, gear, potions), Librarian Wren (cards, pips, accuracy,
 decks) and Duel Master Holloway (a practice duel against training dummies that never attack). Only then does the
-**Sunpetal Gardens** gate open (Lv 1-3 weeds, newts and moths, boss Old Briarwick). Fights there (and on the practice
+**Sunpetal Gardens** gate open (Lv 1-3 weeds, newts and moths, boss Old Briarwick, who has no heal so new wizards can beat him). Fights there (and on the practice
 ring) are **even fights**: one monster per wizard, starting with the one you touched; a second wizard brings in the next
 patrol monster to reach the circle, and other patrol monsters that wander into the circle fade away. Finishing the gardens opens the
 **Lantern Row** gate (now Lv 4-6) and the boss arena pad. The locks are the gates' *Required Quest* in the hub map.

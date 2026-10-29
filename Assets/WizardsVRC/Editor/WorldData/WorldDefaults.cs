@@ -41,8 +41,10 @@ namespace WizardsVRC.EditorTools.WorldData
                 M(8, "Puddle Newt", School.Ice, 1, 170, false, 0, new[] { 112 }, 20, 4, 10, 0, 0, 0.6f, new Color(0.45f, 0.7f, 0.85f), "Sunpetal Gardens ponds."),
                 M(9, "Thistle Sprout", School.Life, 1, 150, false, 0, new[] { 136 }, 18, 3, 9, 0, 0, 0.6f, new Color(0.45f, 0.75f, 0.3f), "Sunpetal Gardens. Walking weeds; the first monsters most wizards fight."),
                 M(10, "Mischief Moth", School.Myth, 2, 190, false, 0, new[] { 160 }, 28, 5, 12, 11, 15, 0.7f, new Color(0.8f, 0.7f, 0.95f), "Sunpetal Gardens rose beds. Drops moth dust (quest 14)."),
-                M(11, "Old Briarwick", School.Life, 3, 650, true, 300, new[] { 136, 137, 138 }, 120, 30, 60, 61, 40, 1.5f, new Color(0.35f, 0.42f, 0.2f),
-                  "Sunpetal Gardens boss in the briar patch. Drops the Scholar's Deck."),
+                // No heal (Verdant Bloom): he's the first boss most wizards meet, and out-healing a new wizard's damage
+                // made the fight drag on.
+                M(11, "Old Briarwick", School.Life, 3, 650, true, 300, new[] { 136, 138 }, 120, 30, 60, 61, 40, 1.5f, new Color(0.35f, 0.42f, 0.2f),
+                  "Sunpetal Gardens boss in the briar patch. Drops the Scholar's Deck. No heal: first boss for new wizards."),
                 M(12, "Training Dummy", School.Balance, 1, 120, false, 0, new int[0], 15, 1, 3, 0, 0, 1f, new Color(0.7f, 0.55f, 0.35f),
                   "Starfall Castle practice ring. Never attacks (no spells), so new wizards can learn the duel ring safely."),
             };

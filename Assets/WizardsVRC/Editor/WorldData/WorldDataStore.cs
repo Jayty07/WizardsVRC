@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 4;
+        public const int CurrentVersion = 5;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -165,6 +165,23 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 2) UpgradeTo2();
             if (from < 3) UpgradeTo3();
             if (from < 4) UpgradeTo4();
+            if (from < 5) UpgradeTo5();
+        }
+
+        /// <summary>v5: Old Briarwick (first area boss) loses his heal, Verdant Bloom, if his spells are still the defaults.</summary>
+        private static void UpgradeTo5()
+        {
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            var m = cat != null ? cat.Find(11) : null;
+            if (m == null || m.spells == null) return;
+            if (m.spells.Count == 3 && m.spells[0] == 136 && m.spells[1] == 137 && m.spells[2] == 138)
+            {
+                m.spells.Remove(137);
+                if (m.notes != null && !m.notes.Contains("No heal")) m.notes += " No heal: first boss for new wizards.";
+                EditorUtility.SetDirty(cat);
+                Debug.Log("[WizardsVRC] Upgraded world data: " + m.name + " no longer heals (removed Verdant Bloom).");
+            }
+            else Debug.Log("[WizardsVRC] Monster 11 (" + m.name + ") has edited spells, so its heal was left as you set it.");
         }
 
         /// <summary>World 1 (Starfall Isle) with its goal, storylines and finale.</summary>
