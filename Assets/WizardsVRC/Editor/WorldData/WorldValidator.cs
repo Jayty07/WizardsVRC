@@ -128,6 +128,33 @@ namespace WizardsVRC.EditorTools.WorldData
             }
         }
 
+        /// <summary>Height map: valid characters, matching size, and paths that change height too steeply for stairs.</summary>
+        private static void ValidateHeights(ZoneDefinition z, ZoneGrid g, string zn, Report r)
+        {
+            string[] h = z.HeightRows();
+            if (h.Length == 0) return;
+            var bad = new HashSet<char>();
+            foreach (string row in h) foreach (char c in row) if (ZoneDefinition.LevelOf(c) == int.MinValue) bad.Add(c);
+            foreach (char c in bad) r.Error(zn + ": height map character '" + c + "' isn't a height (use 0-9, or a-e for below ground).");
+            int widest = 0;
+            foreach (string row in h) widest = Mathf.Max(widest, row.Length);
+            if (h.Length != g.height || widest != g.width)
+                r.Warn(zn + ": the height map is " + widest + " x " + h.Length + " but the map is " + g.width + " x " + g.height + "; missing cells are ground level.");
+            int steep = 0;
+            Vector2Int first = Vector2Int.zero;
+            for (int y = 0; y < g.height; y++)
+                for (int x = 0; x < g.width; x++)
+                    foreach (var d in new[] { new Vector2Int(1, 0), new Vector2Int(0, 1) })
+                    {
+                        int x1 = x + d.x, y1 = y + d.y;
+                        if (!g.Paved(x, y) || !g.Paved(x1, y1)) continue;
+                        if (Mathf.Abs(g.Level(x, y) - g.Level(x1, y1)) > ZoneGrid.MaxStairSteps && steep++ == 0) first = new Vector2Int(x, y);
+                    }
+            if (steep > 0)
+                r.Warn(zn + ": " + steep + " path edge(s) climb more than " + ZoneGrid.MaxStairSteps + " height steps, too steep for stairs (first at column " +
+                       first.x + ", row " + first.y + "). They become walls.");
+        }
+
         public static void ValidateZone(ZoneDefinition z, MonsterCatalog cat, Report r)
         {
             string zn = "Zone '" + z.zoneKey + "'";
@@ -138,6 +165,7 @@ namespace WizardsVRC.EditorTools.WorldData
 
             var starts = g.Find('S');
             if (starts.Count == 0) r.Error(zn + ": the map needs an S (entrance).");
+            ValidateHeights(z, g, zn, r);
             if (starts.Count > 1) r.Warn(zn + ": several S cells; the first one (top-left) is the entrance.");
 
             // symbols
@@ -194,13 +222,27 @@ namespace WizardsVRC.EditorTools.WorldData
                     if (l.IsBuilding)
                     {
                         if (cells.Count != fp.width * fp.height) r.Warn(ln + " doesn't fill a rectangle; it's built over its whole bounding box.");
-                        if (g.FrontSide(fp) == Vector2Int.zero) r.Error(ln + " has no open cell next to it for its door.");
+                        if (g.DoorDirection(l) == Vector2Int.zero) r.Error(ln + " has no open cell next to it (at its own height) for its door.");
                     }
                     else if (!l.Solid && cells.Count > 1) r.Warn(ln + " is placed " + cells.Count + " times; only the first is used.");
                     if (!z.isHub && (l.kind == LandmarkKind.Keep || l.kind == LandmarkKind.StreetGate || l.kind == LandmarkKind.ArenaPad ||
                                      l.kind == LandmarkKind.BankChest || l.kind == LandmarkKind.BackpackPedestal || l.kind == LandmarkKind.NoticeBoard))
                         r.Warn(ln + ": this landmark only works in the hub (Is Hub), so it is left out here.");
                     if (l.kind == LandmarkKind.StreetGate && string.IsNullOrEmpty(l.targetZone)) r.Error(ln + ": set Target Zone (the zone key it leads to).");
+                    if ((l.IsBuilding || l.kind == LandmarkKind.Fountain || l.kind == LandmarkKind.Tower || l.kind == LandmarkKind.Waterfall) && cells.Count > 1)
+                    {
+                        bool flat = true;
+                        for (int y = fp.yMin; y < fp.yMax; y++) for (int x = fp.xMin; x < fp.xMax; x++) if (g.Level(x, y) != g.Level(fp.xMin, fp.yMin)) flat = false;
+                        if (!flat) r.Warn(ln + " stands on cells of different heights; give its whole block one height.");
+                    }
+                    if (l.kind == LandmarkKind.Waterfall)
+                    {
+                        bool water = false;
+                        foreach (var c in cells)
+                            foreach (var d in ZoneGrid.Dirs)
+                                if (ZoneGrid.IsWater(g.At(c.x + d.x, c.y + d.y)) && g.Level(c.x + d.x, c.y + d.y) < g.Level(c)) water = true;
+                        if (!water) r.Warn(ln + " needs water ('~') next to it on a lower level to pour into.");
+                    }
                 }
 
             // encounters, rings and patrols

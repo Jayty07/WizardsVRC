@@ -41,7 +41,14 @@ namespace WizardsVRC.EditorTools.WorldData
         /// <summary>Notice board with Change Character / Backpack buttons.</summary>
         NoticeBoard,
         Gazebo,
+        /// <summary>A small shop or house (fills its block, door + awning + hanging sign with the label). Scenery.</summary>
+        Shop,
+        /// <summary>A waterfall pouring off this cell (paint it on the high side, next to water '~' below).</summary>
+        Waterfall,
     }
+
+    /// <summary>Which side a building's door is on (Auto = the open side facing the map centre).</summary>
+    public enum DoorSide { Auto, North, East, South, West }
 
     /// <summary>
     /// One explorable area (a street, a dungeon...). The layout is a text map: each character is one square cell
@@ -52,7 +59,7 @@ namespace WizardsVRC.EditorTools.WorldData
     public class ZoneDefinition : ScriptableObject
     {
         public const string Legend =
-            "#  building (solid)        =  low wall (solid)       ^  tree (solid)\n" +
+            "#  building (solid)        =  low wall (solid)       ^  tree (solid)          ~  water (solid)\n" +
             ".  road                    ,  grass / courtyard      S  entrance (spawn + door back to the castle)\n" +
             "1-9  battle ring spot for encounter 1-9 (needs a 3x3 open plaza)\n" +
             "a-i  patrol route of encounter 1-9 (a = 1, b = 2...): a 1-cell-wide line or loop of letters\n" +
@@ -80,6 +87,16 @@ namespace WizardsVRC.EditorTools.WorldData
 
         [Header("Layout")]
         [TextArea(12, 60)] public string map = "#####\n#.S.#\n#####";
+
+        public const string HeightLegend =
+            "Height map: one character per map cell (same rows and columns as the map).\n" +
+            "0 = ground, 1-9 = raised that many steps, a-e = sunk 1-5 steps. Blank / missing = 0.\n" +
+            "Where two paved cells (road, plaza, NPC...) meet at different heights (at most 2 steps) the builder adds stairs;\n" +
+            "everywhere else a stone retaining wall. Lawns, trees and water need no stairs. Keep battle-ring plazas flat.";
+        [Tooltip(HeightLegend)]
+        [TextArea(6, 60)] public string heightMap = "";
+        [Tooltip("Height of one step in the height map, in metres.")]
+        [Range(0.5f, 4f)] public float heightStep = 1.5f;
 
         [Header("Look")]
         public Color groundColor = new Color(0.13f, 0.16f, 0.13f);
@@ -125,6 +142,24 @@ namespace WizardsVRC.EditorTools.WorldData
             foreach (string r in rows) w = Mathf.Max(w, r.Length);
             for (int i = 0; i < rows.Count; i++) rows[i] = rows[i].PadRight(w, '#');
             return rows.ToArray();
+        }
+
+        /// <summary>Height-map rows (may be shorter or fewer than the map; missing cells are level 0).</summary>
+        public string[] HeightRows()
+        {
+            if (string.IsNullOrEmpty(heightMap)) return new string[0];
+            var rows = new List<string>();
+            foreach (string r in heightMap.Replace("\r", "").Split('\n')) if (r.Trim().Length > 0) rows.Add(r.TrimEnd());
+            return rows.ToArray();
+        }
+
+        /// <summary>Level for a height-map character ('0'-'9' up, 'a'-'e' down), or int.MinValue if it isn't one.</summary>
+        public static int LevelOf(char c)
+        {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'e') return -(c - 'a' + 1);
+            if (c == ' ' || c == '.') return 0;
+            return int.MinValue;
         }
 
         public ZoneNpc FindNpc(char c)
@@ -237,6 +272,8 @@ namespace WizardsVRC.EditorTools.WorldData
         public int requiredQuest = -1;
         [Tooltip("Street Gate / Arena Pad: shown while locked, e.g. \"Finish the Training Grounds first\".")]
         public string lockedHint = "";
+        [Tooltip("School halls, the keep, the library and shops: which side the door is on (Auto = the open side facing the map's centre).")]
+        public DoorSide doorSide = DoorSide.Auto;
 
         public char Symbol { get { return string.IsNullOrEmpty(symbol) ? '\0' : symbol[0]; } }
 
@@ -246,14 +283,15 @@ namespace WizardsVRC.EditorTools.WorldData
             get
             {
                 return kind == LandmarkKind.SchoolHall || kind == LandmarkKind.Keep || kind == LandmarkKind.Fountain || kind == LandmarkKind.Library ||
-                       kind == LandmarkKind.ShopStall || kind == LandmarkKind.Tower || kind == LandmarkKind.Statue;
+                       kind == LandmarkKind.ShopStall || kind == LandmarkKind.Tower || kind == LandmarkKind.Statue || kind == LandmarkKind.Shop ||
+                       kind == LandmarkKind.Waterfall;
             }
         }
 
         /// <summary>Buildings that fill a block of cells and get a door.</summary>
         public bool IsBuilding
         {
-            get { return kind == LandmarkKind.SchoolHall || kind == LandmarkKind.Keep || kind == LandmarkKind.Library; }
+            get { return kind == LandmarkKind.SchoolHall || kind == LandmarkKind.Keep || kind == LandmarkKind.Library || kind == LandmarkKind.Shop; }
         }
     }
 }

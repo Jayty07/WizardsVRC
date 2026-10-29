@@ -78,28 +78,39 @@ namespace WizardsVRC.EditorTools.WorldData
     [CustomEditor(typeof(ZoneDefinition))]
     public class ZoneDefinitionEditor : Editor
     {
-        private static readonly string[] BaseBrushes = { "#", "=", "^", ".", ",", "S", "1", "2", "3", "4", "5", "a", "b", "c", "d", "e" };
+        private static readonly string[] BaseBrushes = { "#", "=", "^", "~", ".", ",", "S", "1", "2", "3", "4", "5", "a", "b", "c", "d", "e" };
         private string _brush = ".";
         private WorldValidator.Report _report;
         private string _reportFor;
         private bool _showText;
+        private bool _showHeights = true;
 
         public override void OnInspectorGUI()
         {
             var z = (ZoneDefinition)target;
             serializedObject.Update();
-            DrawPropertiesExcluding(serializedObject, "m_Script", "map", "npcs", "points", "encounters", "landmarks");
+            DrawPropertiesExcluding(serializedObject, "m_Script", "map", "heightMap", "npcs", "points", "encounters", "landmarks");
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Map", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(ZoneDefinition.Legend, MessageType.None);
             DrawBrushes(z);
             DrawPreview(z);
-            _showText = EditorGUILayout.Foldout(_showText, "Edit map as text", true);
+            _showHeights = EditorGUILayout.ToggleLeft("Shade by height (lighter = higher; white edges = stairs, black = walls)", _showHeights);
+            _showText = EditorGUILayout.Foldout(_showText, "Edit map and height map as text", true);
             if (_showText)
             {
                 var mapProp = serializedObject.FindProperty("map");
                 mapProp.stringValue = EditorGUILayout.TextArea(mapProp.stringValue, WorldEditorUI.Mono, GUILayout.MinHeight(200));
+                EditorGUILayout.HelpBox(ZoneDefinition.HeightLegend, MessageType.None);
+                var hProp = serializedObject.FindProperty("heightMap");
+                hProp.stringValue = EditorGUILayout.TextArea(hProp.stringValue, WorldEditorUI.Mono, GUILayout.MinHeight(120));
+                if (string.IsNullOrEmpty(hProp.stringValue) && GUILayout.Button("Start a flat height map (all 0)"))
+                {
+                    var rows = new List<string>();
+                    foreach (string r in new ZoneGrid(z).rows) rows.Add(new string('0', r.Length));
+                    hProp.stringValue = string.Join("\n", rows);
+                }
             }
 
             EditorGUILayout.Space();
@@ -159,8 +170,22 @@ namespace WizardsVRC.EditorTools.WorldData
                     char c = g.At(x, y);
                     var r = new Rect(area.x + x * px, area.y + y * px, px - 1, px - 1);
                     Color col = CellColor(z, g, c);
+                    if (_showHeights && g.HasHeights)
+                    {
+                        int lv = g.Level(x, y);
+                        col = lv >= 0 ? Color.Lerp(col, Color.white, Mathf.Min(0.6f, lv * 0.14f)) : Color.Lerp(col, Color.black, Mathf.Min(0.6f, -lv * 0.18f));
+                    }
                     if (g.Walkable(x, y) && !reach.Contains(new Vector2Int(x, y)) && reach.Count > 0) col = Color.Lerp(col, Color.red, 0.5f);
                     EditorGUI.DrawRect(r, col);
+                    if (_showHeights && g.HasHeights)
+                    {
+                        // Edges to the east and south: white where stairs join, black where a wall drops.
+                        var here = new Vector2Int(x, y);
+                        if (x + 1 < g.width && g.Level(x + 1, y) != g.Level(x, y))
+                            EditorGUI.DrawRect(new Rect(r.xMax - 1, r.y, 2, px), g.HasStairs(here, new Vector2Int(x + 1, y)) ? Color.white : Color.black);
+                        if (y + 1 < g.height && g.Level(x, y + 1) != g.Level(x, y))
+                            EditorGUI.DrawRect(new Rect(r.x, r.yMax - 1, px, 2), g.HasStairs(here, new Vector2Int(x, y + 1)) ? Color.white : Color.black);
+                    }
                     bool marked = c == 'S' || ZoneGrid.IsRingDigit(c) || g.IsCustom(c) || (!ZoneGrid.IsBuiltIn(c) && !g.IsCustom(c));
                     if (marked && px >= 11f) GUI.Label(r, c.ToString(), WorldEditorUI.CellLabel);
                 }
@@ -196,6 +221,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 case '.': return Color.Lerp(z.roadColor, Color.white, 0.45f);
                 case ',': return Color.Lerp(z.grassColor, Color.green, 0.3f);
                 case 'S': return new Color(0.3f, 1f, 0.4f);
+                case '~': return new Color(0.25f, 0.55f, 0.95f);
             }
             if (ZoneGrid.IsRingDigit(c)) return new Color(1f, 0.6f, 0.15f);
             if (ZoneGrid.IsPatrolLetter(c)) return new Color(0.95f, 0.85f, 0.35f);
@@ -237,6 +263,19 @@ namespace WizardsVRC.EditorTools.WorldData
             if (dh > 0) rows.Add(new string('#', Mathf.Max(1, g.width)));
             if (dh < 0 && rows.Count > 3) rows.RemoveAt(rows.Count - 1);
             z.map = string.Join("\n", rows);
+            // Keep the height map the same size (new cells at ground level).
+            var hRows = new List<string>(z.HeightRows());
+            if (hRows.Count > 0)
+            {
+                for (int i = 0; i < hRows.Count; i++)
+                {
+                    if (dw > 0) hRows[i] = hRows[i] + "0";
+                    if (dw < 0 && hRows[i].Length > 3) hRows[i] = hRows[i].Substring(0, hRows[i].Length - 1);
+                }
+                if (dh > 0) hRows.Add(new string('0', Mathf.Max(1, g.width + dw)));
+                if (dh < 0 && hRows.Count > 3) hRows.RemoveAt(hRows.Count - 1);
+                z.heightMap = string.Join("\n", hRows);
+            }
             EditorUtility.SetDirty(z);
         }
     }

@@ -3,7 +3,10 @@ using UnityEngine;
 
 namespace WizardsVRC.EditorTools.WorldData
 {
-    /// <summary>Reads a zone's text map: cell classes, cell positions and patrol routes. Shared by the builder and the inspector.</summary>
+    /// <summary>
+    /// Reads a zone's text map and height map: cell classes, cell levels and positions, which moves are possible (stairs
+    /// join paved cells across level changes) and patrol routes. Shared by the builder, the validator and the inspector.
+    /// </summary>
     public class ZoneGrid
     {
         /// <summary>Wizard seats sit 7.27 m from the ring centre; keep this much open space around a ring spot.</summary>
@@ -14,6 +17,14 @@ namespace WizardsVRC.EditorTools.WorldData
         public readonly int width;
         public readonly int height;
         public readonly float cell;
+        /// <summary>Metres per height-map step.</summary>
+        public readonly float step;
+        /// <summary>Lowest and highest level on the map (0 when there's no height map).</summary>
+        public readonly int minLevel, maxLevel;
+        private readonly int[,] _levels;
+
+        /// <summary>Most steps a staircase climbs (more is a wall you can't get up).</summary>
+        public const int MaxStairSteps = 2;
 
         public ZoneGrid(ZoneDefinition zone)
         {
@@ -22,11 +33,36 @@ namespace WizardsVRC.EditorTools.WorldData
             height = rows.Length;
             width = height > 0 ? rows[0].Length : 0;
             cell = zone.cellSize;
+            step = Mathf.Max(0.1f, zone.heightStep);
+            _levels = new int[Mathf.Max(1, width), Mathf.Max(1, height)];
+            string[] h = zone.HeightRows();
+            for (int y = 0; y < height && y < h.Length; y++)
+                for (int x = 0; x < width && x < h[y].Length; x++)
+                {
+                    int v = ZoneDefinition.LevelOf(h[y][x]);
+                    _levels[x, y] = v == int.MinValue ? 0 : v;
+                }
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                {
+                    minLevel = Mathf.Min(minLevel, _levels[x, y]);
+                    maxLevel = Mathf.Max(maxLevel, _levels[x, y]);
+                }
         }
+
+        /// <summary>Height-map level of a cell (0 off the map).</summary>
+        public int Level(int x, int y) { return x < 0 || y < 0 || x >= width || y >= height ? 0 : _levels[x, y]; }
+        public int Level(Vector2Int c) { return Level(c.x, c.y); }
+
+        /// <summary>Ground height of a cell in metres (zone-local).</summary>
+        public float Elevation(int x, int y) { return Level(x, y) * step; }
+
+        public bool HasHeights { get { return minLevel != 0 || maxLevel != 0; } }
 
         public char At(int x, int y) { return x < 0 || y < 0 || x >= width || y >= height ? '#' : rows[y][x]; }
 
-        public static bool IsSolid(char c) { return c == '#' || c == '=' || c == '^'; }
+        public static bool IsSolid(char c) { return c == '#' || c == '=' || c == '^' || c == '~'; }
+        public static bool IsWater(char c) { return c == '~'; }
         public static bool IsRingDigit(char c) { return c >= '1' && c <= '9'; }
         public static bool IsPatrolLetter(char c) { return c >= 'a' && c <= 'i'; }
         public static bool IsBuiltIn(char c) { return IsSolid(c) || c == '.' || c == ',' || c == 'S' || IsRingDigit(c) || IsPatrolLetter(c); }
@@ -49,6 +85,36 @@ namespace WizardsVRC.EditorTools.WorldData
             return !Solid(x, y) && (IsBuiltIn(c) || IsCustom(c));
         }
 
+        /// <summary>Walkable and paved (anything but lawn): stairs can join paved cells at different heights.</summary>
+        public bool Paved(int x, int y) { return Walkable(x, y) && At(x, y) != ','; }
+
+        /// <summary>Stairs go between these two neighbouring cells (both paved, 1..MaxStairSteps apart).</summary>
+        public bool HasStairs(Vector2Int a, Vector2Int b)
+        {
+            int d = Mathf.Abs(Level(a) - Level(b));
+            return d > 0 && d <= MaxStairSteps && Paved(a.x, a.y) && Paved(b.x, b.y);
+        }
+
+        /// <summary>A player can walk from a to the neighbouring cell b: same height, or stairs.</summary>
+        public bool CanStep(Vector2Int a, Vector2Int b)
+        {
+            if (!Walkable(b.x, b.y)) return false;
+            return Level(a) == Level(b) || HasStairs(a, b);
+        }
+
+        /// <summary>The side a building's door is on: its Door Side setting, or the open side facing the map centre.</summary>
+        public Vector2Int DoorDirection(ZoneLandmark l)
+        {
+            switch (l.doorSide)
+            {
+                case global::WizardsVRC.EditorTools.WorldData.DoorSide.North: return new Vector2Int(0, -1);
+                case global::WizardsVRC.EditorTools.WorldData.DoorSide.East: return new Vector2Int(1, 0);
+                case global::WizardsVRC.EditorTools.WorldData.DoorSide.South: return new Vector2Int(0, 1);
+                case global::WizardsVRC.EditorTools.WorldData.DoorSide.West: return new Vector2Int(-1, 0);
+            }
+            return FrontSide(Footprint(l.Symbol));
+        }
+
         /// <summary>Bounding block of a landmark's cells (empty when it isn't on the map).</summary>
         public RectInt Footprint(char c)
         {
@@ -69,11 +135,13 @@ namespace WizardsVRC.EditorTools.WorldData
             Vector2 mid = new Vector2(r.x + r.width * 0.5f, r.y + r.height * 0.5f);
             Vector2Int best = Vector2Int.zero;
             float bestScore = float.MinValue;
+            // Only open cells at the building's own height count (a door into a retaining wall is no use).
+            int lv = Level(r.x, r.y);
             foreach (var d in Dirs)
             {
                 int open = 0;
-                if (d.y != 0) { int yy = d.y < 0 ? r.yMin - 1 : r.yMax; for (int x = r.xMin; x < r.xMax; x++) if (Walkable(x, yy)) open++; }
-                else { int xx = d.x < 0 ? r.xMin - 1 : r.xMax; for (int y = r.yMin; y < r.yMax; y++) if (Walkable(xx, y)) open++; }
+                if (d.y != 0) { int yy = d.y < 0 ? r.yMin - 1 : r.yMax; for (int x = r.xMin; x < r.xMax; x++) if (Walkable(x, yy) && Level(x, yy) == lv) open++; }
+                else { int xx = d.x < 0 ? r.xMin - 1 : r.xMax; for (int y = r.yMin; y < r.yMax; y++) if (Walkable(xx, y) && Level(xx, y) == lv) open++; }
                 if (open == 0) continue;
                 Vector2 toCenter = (center - mid);
                 float score = toCenter.sqrMagnitude > 0.01f ? Vector2.Dot(toCenter.normalized, new Vector2(d.x, d.y)) : 0f;
@@ -83,10 +151,12 @@ namespace WizardsVRC.EditorTools.WorldData
             return best;
         }
 
-        /// <summary>Cell centre in zone-local space: row 0 is the north (+Z) edge, column 0 the west (-X) edge.</summary>
+        /// <summary>
+        /// Cell centre in zone-local space at the cell's ground height: row 0 is the north (+Z) edge, column 0 the west (-X) edge.
+        /// </summary>
         public Vector3 Local(int x, int y)
         {
-            return new Vector3((x + 0.5f - width * 0.5f) * cell, 0f, (height * 0.5f - y - 0.5f) * cell);
+            return new Vector3((x + 0.5f - width * 0.5f) * cell, Elevation(x, y), (height * 0.5f - y - 0.5f) * cell);
         }
 
         public Vector3 Local(Vector2Int c) { return Local(c.x, c.y); }
@@ -117,13 +187,13 @@ namespace WizardsVRC.EditorTools.WorldData
                 foreach (var d in Dirs)
                 {
                     var n = p + d;
-                    if (!seen.Contains(n) && Walkable(n.x, n.y)) { seen.Add(n); queue.Enqueue(n); }
+                    if (!seen.Contains(n) && CanStep(p, n)) { seen.Add(n); queue.Enqueue(n); }
                 }
             }
             return seen;
         }
 
-        /// <summary>Direction (in map steps) from a cell toward its most open walkable neighbour.</summary>
+        /// <summary>Direction (in map steps) from a cell toward its most open walkable neighbour (at its own height).</summary>
         public Vector2Int OpenDirection(Vector2Int c)
         {
             Vector2Int best = Dirs[0];
@@ -131,7 +201,9 @@ namespace WizardsVRC.EditorTools.WorldData
             foreach (var d in Dirs)
             {
                 int score = 0;
-                for (int k = 1; k <= 3; k++) if (Walkable(c.x + d.x * k, c.y + d.y * k)) score++; else break;
+                for (int k = 1; k <= 3; k++)
+                    if (Walkable(c.x + d.x * k, c.y + d.y * k) && Level(c.x + d.x * k, c.y + d.y * k) == Level(c)) score++;
+                    else break;
                 if (score > bestScore) { bestScore = score; best = d; }
             }
             return best;
@@ -140,7 +212,7 @@ namespace WizardsVRC.EditorTools.WorldData
         /// <summary>A map step as a zone-local direction (row index grows southward = -Z).</summary>
         public static Vector3 ToLocalDir(Vector2Int d) { return new Vector3(d.x, 0f, -d.y); }
 
-        /// <summary>Cells that block a ring spot (inside the ring clearance but not walkable).</summary>
+        /// <summary>Cells that block a ring spot (inside the ring clearance but not walkable, or at another height).</summary>
         public List<Vector2Int> RingBlockers(Vector2Int ring)
         {
             var list = new List<Vector2Int>();
@@ -149,7 +221,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 for (int x = ring.x - r; x <= ring.x + r; x++)
                 {
                     float d = new Vector2(x - ring.x, y - ring.y).magnitude * cell;
-                    if (d <= RingClearance && !Walkable(x, y)) list.Add(new Vector2Int(x, y));
+                    if (d <= RingClearance && (!Walkable(x, y) || Level(x, y) != Level(ring))) list.Add(new Vector2Int(x, y));
                 }
             return list;
         }

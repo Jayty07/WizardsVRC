@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 7;
+        public const int CurrentVersion = 8;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -168,6 +168,40 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 5) UpgradeTo5();
             if (from < 6) UpgradeTo6();
             if (from < 7) UpgradeTo7();
+            if (from < 8) UpgradeTo8();
+        }
+
+        /// <summary>
+        /// v8: the hub gets heights (north terrace, sunken fountain plaza, raised library / arena / garden), a waterfall and
+        /// pond, defined door paths, an observatory, a gazebo and shops. Only if its map is still the old default.
+        /// </summary>
+        private static void UpgradeTo8()
+        {
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || !z.isHub) continue;
+                if (Normalize(z.map) != Normalize(WorldDefaults.HubMapV2) || !string.IsNullOrEmpty(z.heightMap))
+                {
+                    Debug.Log("[WizardsVRC] Your hub map (" + z.displayName + ") has been edited, so the new hub layout (terrace, waterfall, " +
+                              "shops) wasn't applied. You can paint '~' water, Shop / Waterfall landmarks and a Height Map yourself.");
+                    continue;
+                }
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                WorldDefaults.FillStarfallCastle(fresh);
+                z.map = fresh.map;
+                z.heightMap = fresh.heightMap;
+                z.heightStep = fresh.heightStep;
+                WorldDefaults.AddHubV8Landmarks(z);
+                EditorUtility.SetDirty(z);
+                Debug.Log("[WizardsVRC] Upgraded world data: " + z.displayName + " now has a terrace, a waterfall, walk-in school halls and shops.");
+            }
+        }
+
+        private static string Normalize(string map)
+        {
+            var rows = new List<string>();
+            foreach (string r in (map ?? "").Replace("\r", "").Split('\n')) if (r.Trim().Length > 0) rows.Add(r.TrimEnd());
+            return string.Join("\n", rows);
         }
 
         private const int MendId = 201;

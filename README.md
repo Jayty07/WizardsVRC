@@ -60,6 +60,8 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Editor/WorldData/` | World authoring: Monster Catalog, Zone and Questline asset types, inspectors (map painter, spell picker, checks) |
 | `Assets/WizardsVRC/WorldData/` | **Your authored world data** (created on first rebuild). Commit it. See [WORLD_BUILDING.md](WORLD_BUILDING.md) |
 | `Assets/WizardsVRC/Scripts/QuestNpc.cs` | Zone NPC: click to talk, floating ! / ? quest markers |
+| `Assets/WizardsVRC/Shaders/PSXWater.shader`, `PSXWaterfall.shader` | Spyro-style PSX water (vertex waves with a brightness shimmer, two scrolling pixel ripple layers, sparkles, affine warp, 15-bit dithered colour) and waterfall (racing streaks, foamy lip and foot, sway). Materials `Materials/PSX_Water`, `PSX_WaterSea`, `PSX_WaterFoam`, `PSX_Waterfall` are made once and then yours to tune; put them on any subdivided plane / sheet |
+| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Terrain.cs` | Zone ground from the map + **height map**: raised / sunken blocks with retaining walls, cobbles with kerbs, lawns, stairs, copings / parapets, water with rims, waterfalls |
 | `Assets/WizardsVRC/Shaders/PSXBillboard.shader` | Pixel labels that face each player's camera (GPU only, VR-safe: faces the point between the eyes), stay upright, vertex-snap and dither out with distance |
 | `Assets/WizardsVRC/Fonts/PsxNameFont.txt` | The PSX pixel font for NPC name tags, hint lines and quest markers, as editable `#`/`.` glyph grids (7 rows, or 9 with descenders). The builder bakes each label into `Materials/NameTags/` on rebuild (`WizardsVRCSceneBuilder.NameTags.cs`) |
 | `Assets/WizardsVRC/Scripts/Wanderer.cs` | Patrolling monster: walks a route (loop or line) from the server clock, starts the fight on touch |
@@ -71,10 +73,13 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
   (There is no `VRC_SceneLightmapSettings` component in the current SDK; lighting uses normal Unity Lighting settings.)
 - `SelectRoom` (y = -500) — closed room, light, spawn point, world-space canvas (`VRCUiShape`) with 4 slot panels,
   school picker, delete confirmation.
-- `Hub` (origin) — **Starfall Castle**, built from the hub zone map (`WorldData/Zone_StarfallCastle.asset`): castle walls
-  and towers on an island, a quarter for each of the seven schools with its professor at the hall door, the Headmaster's
-  tower (door to the office), the Starfall fountain with the arrival point, the Bazaar, the Library, the Training
-  Grounds (practice ring + boss arena pad), and quest-locked gates to Sunpetal Gardens and Lantern Row in the south wall.
+- `Hub` (origin) — **Starfall Castle**, built from the hub zone map and height map (`WorldData/Zone_StarfallCastle.asset`):
+  castle walls and towers on an island in a PSX sea, a walk-in hall with a classroom and professor for each of the seven
+  schools, the Headmaster's tower (door to the office) on a north terrace with a waterfall pouring into a pond below, the
+  Starfall fountain and arrival point in a sunken plaza with grand stairs, the Bazaar and shops (hats, wands, potions,
+  bakery, pets, cards, the inn), the raised Library, the Training Grounds (practice ring) and the boss arena pad on a
+  dais, an observatory and a gazebo, cobbled paths with kerbs, and quest-locked gates to Sunpetal Gardens and Lantern Row
+  in the south wall.
   It also has the notice board ("Change Character" / Backpack), the **Practice Chest** and the **Backpack pedestal**.
   Without a hub zone the older hand-made castle is built.
 - `KeepInterior` (y = 200) — the Headmaster's office (new characters start here). With outdoor schools that's all;

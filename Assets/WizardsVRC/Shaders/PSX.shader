@@ -1,5 +1,5 @@
 // PSX-style lit shader: vertex snapping, partial affine texture warping,
-// per-vertex lighting, point-filtered textures, fog. Built-in pipeline, VR-safe.
+// per-vertex lighting, point-filtered textures, fog, optional world-space UVs. Built-in pipeline, VR-safe.
 Shader "WizardsVRC/PSX"
 {
     Properties
@@ -9,6 +9,7 @@ Shader "WizardsVRC/PSX"
         _EmissionColor ("Emission", Color) = (0,0,0,0)
         _SnapRes ("Vertex Snap Resolution (0 = off)", Float) = 900
         _Affine ("Affine Warp (0-1)", Range(0,1)) = 0.2
+        _WorldUV ("World-space UVs: metres per texture tile (0 = mesh UVs)", Float) = 0
     }
     SubShader
     {
@@ -30,6 +31,7 @@ Shader "WizardsVRC/PSX"
             fixed4 _EmissionColor;
             float _SnapRes;
             float _Affine;
+            float _WorldUV;
 
             struct appdata
             {
@@ -60,10 +62,19 @@ Shader "WizardsVRC/PSX"
                 if (_SnapRes > 0)
                     clip.xy = round(clip.xy / w * _SnapRes) / _SnapRes * w;
                 o.pos = clip;
+                float3 n = UnityObjectToWorldNormal(v.normal);
                 float2 uv = TRANSFORM_TEX(v.uv, _MainTex);
+                if (_WorldUV > 0)
+                {
+                    // Texture tiles at a fixed size in the world whatever the object's scale: top faces use XZ,
+                    // walls use the axis they face along (good for paving, lawns and retaining walls).
+                    float3 wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                    float3 an = abs(n);
+                    float2 w2 = an.y > 0.6 ? wp.xz : (an.x > an.z ? wp.zy : wp.xy);
+                    uv = w2 / _WorldUV + _MainTex_ST.zw;
+                }
                 o.uv = uv;
                 o.affineUv = float3(uv * w, w);
-                float3 n = UnityObjectToWorldNormal(v.normal);
                 float ndl = max(0, dot(n, normalize(_WorldSpaceLightPos0.xyz)));
                 o.light = ShadeSH9(float4(n, 1)) + _LightColor0.rgb * ndl;
                 UNITY_TRANSFER_FOG(o, o.pos);

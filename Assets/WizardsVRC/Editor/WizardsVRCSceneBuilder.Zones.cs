@@ -175,8 +175,6 @@ namespace WizardsVRC.EditorTools
             float cs = g.cell;
 
             Material ground = PMat(k + "_Ground", z.groundColor, 8f);
-            Material road = PMat(k + "_Road", z.roadColor, 3f);
-            Material grass = PMat(k + "_Grass", z.grassColor, 3f);
             Material bld = PMat(k + "_Building", z.buildingColor, 2f);
             Material roof = PMat(k + "_Roof", z.roofColor, 2f);
             Material low = PMat(k + "_LowWall", z.lowWallColor, 2f);
@@ -190,7 +188,8 @@ namespace WizardsVRC.EditorTools
 
             // ---- ground, boundary and the map layers
             float W = g.width * cs, H = g.height * cs;
-            Block(root, "Ground", new Vector3(0, -0.25f, 0), new Vector3(W, 0.5f, H), ground);
+            float baseY = g.minLevel * g.step;
+            Block(root, "Ground", new Vector3(0, baseY - 0.25f, 0), new Vector3(W, 0.5f, H), ground);
             Transform bounds = Child(root, "Bounds", Vector3.zero);
             foreach (var side in new[] { new Vector4(0, H / 2f, W, 1f), new Vector4(0, -H / 2f, W, 1f), new Vector4(W / 2f, 0, 1f, H), new Vector4(-W / 2f, 0, 1f, H) })
             {
@@ -199,8 +198,8 @@ namespace WizardsVRC.EditorTools
             }
 
             Transform layout = Child(root, "Layout", Vector3.zero);
-            foreach (var r in Rects(g, ch => !ZoneGrid.IsSolid(ch) && ch != ',', 6, 6)) Slab(layout, "Road", g, r, 0.03f, road);
-            foreach (var r in Rects(g, ch => ch == ',', 6, 6)) Slab(layout, "Grass", g, r, 0.04f, grass);
+            var stairCells = new HashSet<Vector2Int>();
+            BuildTerrain(layout, g, MakeTerrainMats(z, k), baseY, stairCells);
             int houseIndex = 0;
             foreach (var r in Rects(g, ch => ch == '#', 3, 3)) House(layout, g, z, r, houseIndex++, bld, roof, window);
             foreach (var r in Rects(g, ch => ch == '=', 6, 6))
@@ -210,7 +209,7 @@ namespace WizardsVRC.EditorTools
                 Block(layout, "LowWallCap", c + new Vector3(0, 1.45f, 0), new Vector3(r.width * cs + 0.3f, 0.12f, r.height * cs + 0.3f), roof);
             }
             foreach (var t in g.Find('^')) Tree(layout, g, t, trunk, leaves);
-            StreetLamps(layout, g, z, wood, glow);
+            StreetLamps(layout, g, z, wood, glow, stairCells);
             if (z.landmarks != null && z.landmarks.Count > 0)
                 BuildLandmarks(root, g, z, null, null, wb.data, bld, roof, PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)),
                     PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f), door, window, wood);
@@ -304,7 +303,10 @@ namespace WizardsVRC.EditorTools
 
         // ------------------------------------------------------------------ layout pieces
 
-        /// <summary>Greedy rectangles of matching cells (fewer, bigger blocks), each at most maxW x maxH cells.</summary>
+        /// <summary>
+        /// Greedy rectangles of matching cells (fewer, bigger blocks), each at most maxW x maxH cells. A rectangle never
+        /// spans two heights, so things built over it sit flat on the ground.
+        /// </summary>
         private static List<RectInt> Rects(ZoneGrid g, System.Func<char, bool> match, int maxW, int maxH)
         {
             var used = new bool[g.width, g.height];
@@ -313,13 +315,15 @@ namespace WizardsVRC.EditorTools
                 for (int x = 0; x < g.width; x++)
                 {
                     if (used[x, y] || !match(g.At(x, y))) continue;
+                    int lv = g.Level(x, y);
                     int w = 1;
-                    while (w < maxW && x + w < g.width && !used[x + w, y] && match(g.At(x + w, y))) w++;
+                    while (w < maxW && x + w < g.width && !used[x + w, y] && match(g.At(x + w, y)) && g.Level(x + w, y) == lv) w++;
                     int h = 1;
                     while (h < maxH && y + h < g.height)
                     {
                         bool rowOk = true;
-                        for (int i = 0; i < w; i++) if (used[x + i, y + h] || !match(g.At(x + i, y + h))) { rowOk = false; break; }
+                        for (int i = 0; i < w; i++)
+                            if (used[x + i, y + h] || !match(g.At(x + i, y + h)) || g.Level(x + i, y + h) != lv) { rowOk = false; break; }
                         if (!rowOk) break;
                         h++;
                     }
@@ -405,7 +409,7 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>Decorative lamp posts along road cells that border buildings, away from ring plazas.</summary>
-        private static void StreetLamps(Transform parent, ZoneGrid g, ZoneDefinition z, Material post, Material glow)
+        private static void StreetLamps(Transform parent, ZoneGrid g, ZoneDefinition z, Material post, Material glow, HashSet<Vector2Int> stairCells)
         {
             if (z.lampDensity <= 0f) return;
             var rings = new List<Vector2Int>();
@@ -414,7 +418,7 @@ namespace WizardsVRC.EditorTools
             for (int y = 0; y < g.height && count < 150; y++)
                 for (int x = 0; x < g.width && count < 150; x++)
                 {
-                    if (g.At(x, y) != '.' || g.Hash(x, y, 7) > z.lampDensity * 0.4f) continue;
+                    if (g.At(x, y) != '.' || g.Hash(x, y, 7) > z.lampDensity * 0.4f || stairCells.Contains(new Vector2Int(x, y))) continue;
                     bool nearRing = false;
                     foreach (var r in rings) if (Mathf.Abs(r.x - x) <= 2 && Mathf.Abs(r.y - y) <= 2) nearRing = true;
                     if (nearRing) continue;

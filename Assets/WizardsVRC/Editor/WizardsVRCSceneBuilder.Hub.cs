@@ -77,7 +77,7 @@ namespace WizardsVRC.EditorTools
             if (plan.zone.landmarks != null)
                 foreach (var l in plan.zone.landmarks)
                     if (l != null && l.kind == LandmarkKind.SchoolHall && plan.grid.Find(l.Symbol).Count > 0 &&
-                        plan.grid.FrontSide(plan.grid.Footprint(l.Symbol)) != Vector2Int.zero)
+                        plan.grid.DoorDirection(l) != Vector2Int.zero)
                         halls.Add(l.school);
             plan.outdoorSchools = halls.Count == 7;
             if (!plan.outdoorSchools && halls.Count > 0)
@@ -99,8 +99,6 @@ namespace WizardsVRC.EditorTools
             float cs = g.cell, W = g.width * cs, H = g.height * cs;
 
             Material ground = PMat(k + "_Ground", z.groundColor, 24f);
-            Material road = PMat(k + "_Road", z.roadColor, 6f);
-            Material grass = PMat(k + "_Grass", z.grassColor, 6f);
             Material stone = PMat(k + "_Building", z.buildingColor, 3f);
             Material roof = PMat(k + "_Roof", z.roofColor, 2f);
             Material low = PMat(k + "_LowWall", z.lowWallColor, 2f);
@@ -115,7 +113,9 @@ namespace WizardsVRC.EditorTools
             Material dirt = PMat("Dirt", new Color(0.62f, 0.45f, 0.28f), 6f);
             Material cliff = PMat("Cliff", new Color(0.55f, 0.42f, 0.36f), 6f);
 
-            // ---- ground: an island in the sea (castle style) or a plain slab
+            // ---- ground: an island in the sea (castle style) or a plain slab, at the lowest level of the height map;
+            // higher ground is built on top of it by BuildTerrain.
+            float baseY = g.minLevel * g.step;
             if (z.castleStyle)
             {
                 float m = cs * 2f, hw = W / 2f + m, hh = H / 2f + m, c = m * 1.5f;
@@ -124,10 +124,13 @@ namespace WizardsVRC.EditorTools
                     new Vector2(-hw + c, -hh), new Vector2(hw - c, -hh), new Vector2(hw, -hh + c), new Vector2(hw, hh - c),
                     new Vector2(hw - c, hh), new Vector2(-hw + c, hh), new Vector2(-hw, hh - c), new Vector2(-hw, -hh + c),
                 };
-                string dims = Mathf.RoundToInt(W) + "x" + Mathf.RoundToInt(H);
-                Shape(root, "IslandCliff", PrismMesh("PSX_HubIsland_" + dims, poly, -7f, -0.2f), Vector3.zero, Vector3.one, cliff, true, Quaternion.identity);
-                Shape(root, "IslandTop", PrismMesh("PSX_HubIslandTop_" + dims, poly, -0.2f, 0f), Vector3.zero, Vector3.one, ground, true, Quaternion.identity);
-                Block(root, "Sea", new Vector3(0, -6.5f, 0), new Vector3(W + 420f, 1f, H + 420f), PMat("Water", new Color(0.15f, 0.5f, 0.95f), 30f, new Color(0.05f, 0.18f, 0.35f)));
+                string dims = Mathf.RoundToInt(W) + "x" + Mathf.RoundToInt(H) + (g.minLevel != 0 ? "_b" + Mathf.RoundToInt(-baseY * 10f) : "");
+                Shape(root, "IslandCliff", PrismMesh("PSX_HubIsland_" + dims, poly, -7f, baseY - 0.2f), Vector3.zero, Vector3.one, cliff, true, Quaternion.identity);
+                Shape(root, "IslandTop", PrismMesh("PSX_HubIslandTop_" + dims, poly, baseY - 0.2f, baseY), Vector3.zero, Vector3.one, ground, true, Quaternion.identity);
+                // The sea: a big subdivided PSX water plane (it heaves slowly; the island's cliffs stand in it).
+                var sea = Shape(root, "Sea", GridMesh(40, 40, false), new Vector3(0, -6.2f, 0), new Vector3(W + 420f, 1f, H + 420f), PsxSeaMat(), false,
+                    Quaternion.identity);
+                sea.isStatic = false;
                 for (int i = 0; i < poly.Length; i++)
                 {
                     Vector2 a = poly[i], b = poly[(i + 1) % poly.Length];
@@ -138,7 +141,7 @@ namespace WizardsVRC.EditorTools
                     }
                 }
             }
-            else Block(root, "Ground", new Vector3(0, -0.25f, 0), new Vector3(W, 0.5f, H), ground);
+            else Block(root, "Ground", new Vector3(0, baseY - 0.25f, 0), new Vector3(W, 0.5f, H), ground);
 
             Transform bounds = Child(root, "Bounds", Vector3.zero);
             foreach (var side in new[] { new Vector4(0, H / 2f, W, 1f), new Vector4(0, -H / 2f, W, 1f), new Vector4(W / 2f, 0, 1f, H), new Vector4(-W / 2f, 0, 1f, H) })
@@ -147,10 +150,10 @@ namespace WizardsVRC.EditorTools
                 wall.size = new Vector3(side.z, 30f, side.w);
             }
 
-            // ---- paving, lawns, walls, hedges, trees
+            // ---- terrain (heights, paving, lawns, kerbs, stairs, water), walls, hedges, trees
             Transform layout = Child(root, "Layout", Vector3.zero);
-            foreach (var r in Rects(g, ch => ch != ',' && !ZoneGrid.IsSolid(ch) && !SolidLandmark(z, ch), 6, 6)) Slab(layout, "Paving", g, r, 0.03f, road);
-            foreach (var r in Rects(g, ch => ch == ',', 6, 6)) Slab(layout, "Lawn", g, r, 0.02f, grass);
+            var stairCells = new HashSet<Vector2Int>();
+            BuildTerrain(layout, g, MakeTerrainMats(z, k), baseY, stairCells);
             int houseIndex = 0;
             foreach (var r in Rects(g, ch => ch == '#', 3, 3))
             {
@@ -174,7 +177,7 @@ namespace WizardsVRC.EditorTools
                 }
                 else Tree(layout, g, t, trunk, leaves);
             }
-            HubLamps(layout, g, z, wood, window);
+            HubLamps(layout, g, z, wood, window, stairCells);
 
             // ---- landmarks
             BuildLandmarks(root, g, z, hub, interior, data, stone, roof, gold, banner, door, window, wood);
@@ -231,7 +234,7 @@ namespace WizardsVRC.EditorTools
             Material stone, Material roof, Material gold, Material banner, Material door, Material window, Material wood)
         {
             float cs = g.cell;
-            int stall = 0;
+            int stall = 0, shop = 0;
             if (z.landmarks != null)
                 foreach (var l in z.landmarks)
                 {
@@ -269,6 +272,8 @@ namespace WizardsVRC.EditorTools
                         }
                         case LandmarkKind.Statue: Statue(root, p, open, stone, gold, l.label); break;
                         case LandmarkKind.Gazebo: Gazebo(root, p, wood, roof, gold); break;
+                        case LandmarkKind.Shop: Shop(root, g, l, shop++, gold, door, window, wood); break;
+                        case LandmarkKind.Waterfall: WaterfallLandmark(root, g, l, PMat("WaterfallRock", new Color(0.5f, 0.47f, 0.45f), 3f)); break;
                         case LandmarkKind.StreetGate: if (hub != null) HubGateLandmark(root, g, l, cell, hub, data, stone); break;
                         case LandmarkKind.ArenaPad:
                             if (hub == null) break;
@@ -352,7 +357,7 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>Lamp posts along the paths, at the edge of the paving next to a lawn or wall.</summary>
-        private static void HubLamps(Transform parent, ZoneGrid g, ZoneDefinition z, Material post, Material glow)
+        private static void HubLamps(Transform parent, ZoneGrid g, ZoneDefinition z, Material post, Material glow, HashSet<Vector2Int> stairCells)
         {
             if (z.lampDensity <= 0f) return;
             var rings = new List<Vector2Int>();
@@ -361,14 +366,14 @@ namespace WizardsVRC.EditorTools
             for (int y = 0; y < g.height && count < 120; y++)
                 for (int x = 0; x < g.width && count < 120; x++)
                 {
-                    if (g.At(x, y) != '.' || g.Hash(x, y, 7) > z.lampDensity * 0.35f) continue;
+                    if (g.At(x, y) != '.' || g.Hash(x, y, 7) > z.lampDensity * 0.35f || stairCells.Contains(new Vector2Int(x, y))) continue;
                     bool nearRing = false;
                     foreach (var r in rings) if (Mathf.Abs(r.x - x) <= 2 && Mathf.Abs(r.y - y) <= 2) nearRing = true;
                     if (nearRing) continue;
                     foreach (var d in ZoneGrid.Dirs)
                     {
                         char n = g.At(x + d.x, y + d.y);
-                        if (n != ',' && n != '^' && n != '=') continue;
+                        if ((n != ',' && n != '^' && n != '=') || g.Level(x + d.x, y + d.y) != g.Level(x, y)) continue;
                         Lamp(parent, g.Local(x, y) + ZoneGrid.ToLocalDir(d) * (g.cell * 0.42f), post, glow);
                         count++;
                         break;
@@ -384,33 +389,65 @@ namespace WizardsVRC.EditorTools
             return t;
         }
 
+        private const float HallWallThick = 0.6f;
+
         /// <summary>
-        /// A building filling its map block, with its door on the side facing the map centre. Returns the door's centre
-        /// on the front face (at ground level) and the outward direction.
+        /// A building filling its map block, with its door on its door side (Door Side, or the open side facing the map
+        /// centre). Returns the door's centre on the front face (at ground level) and the outward direction. Hollow: real
+        /// walls, ceiling and floor with an open doorway you can walk through (the inside is the block minus the walls).
         /// </summary>
         private static Vector3 HubBuilding(Transform parent, ZoneGrid g, ZoneLandmark l, float height, float roofH, Material wall, Material roofMat,
-            Material gold, Material doorMat, out Vector3 front, out float across)
+            Material gold, Material doorMat, out Vector3 front, out float across, bool hollow = false, bool turrets = true, float doorH = 5.2f,
+            Material floorMat = null)
         {
             float cs = g.cell;
             var fp = g.Footprint(l.Symbol);
-            Vector2Int d = g.FrontSide(fp);
+            Vector2Int d = g.DoorDirection(l);
             if (d == Vector2Int.zero) d = new Vector2Int(0, 1);
             front = ZoneGrid.ToLocalDir(d);
             Vector3 c = RectCenter(g, fp);
             float sx = fp.width * cs - 1f, sz = fp.height * cs - 1f;
             float depth = d.x != 0 ? sx : sz;
             across = d.x != 0 ? sz : sx;
-            Block(parent, "Building_" + l.symbol, c + new Vector3(0, height / 2f, 0), new Vector3(sx, height, sz), wall);
+            Quaternion rot = Quaternion.LookRotation(front);
+            float doorW = doorH * 0.7f;
+            if (hollow)
+            {
+                // Walls in the building's own frame (+Z = out of the door).
+                Transform b = Child(parent, "Building_" + l.symbol, c);
+                b.localRotation = rot;
+                float t = HallWallThick, gapW = doorW + 0.6f, gapH = doorH + 0.4f;
+                float seg = (across - gapW) / 2f;
+                foreach (float sgn in new[] { -1f, 1f })
+                {
+                    Block(b, "FrontWall", new Vector3(sgn * (gapW / 2f + seg / 2f), height / 2f, depth / 2f - t / 2f), new Vector3(seg, height, t), wall);
+                    Block(b, "SideWall", new Vector3(sgn * (across / 2f - t / 2f), height / 2f, 0), new Vector3(t, height, depth - 2f * t), wall);
+                }
+                Block(b, "Lintel", new Vector3(0, (gapH + height) / 2f, depth / 2f - t / 2f), new Vector3(gapW, height - gapH, t), wall);
+                Block(b, "BackWall", new Vector3(0, height / 2f, -depth / 2f + t / 2f), new Vector3(across, height, t), wall);
+                Block(b, "Ceiling", new Vector3(0, height - 0.25f, 0), new Vector3(across - 0.1f, 0.5f, depth - 0.1f), wall);
+                if (floorMat != null)
+                    Deco(b, PrimitiveType.Cube, "Floor", new Vector3(0, 0.07f, 0), new Vector3(across - 2f * t, 0.06f, depth - 2f * t), floorMat, Quaternion.identity, false);
+                // The doors stand open, swung inwards against the wall.
+                foreach (float sgn in new[] { -1f, 1f })
+                {
+                    Transform hinge = Child(b, "DoorHinge", new Vector3(sgn * gapW / 2f, 0, depth / 2f - t));
+                    hinge.localRotation = Quaternion.Euler(0, sgn * -100f, 0);
+                    Block(hinge, "DoorLeaf", new Vector3(-sgn * gapW / 4f, doorH / 2f, -0.08f), new Vector3(gapW / 2f - 0.05f, doorH, 0.15f), doorMat);
+                }
+            }
+            else Block(parent, "Building_" + l.symbol, c + new Vector3(0, height / 2f, 0), new Vector3(sx, height, sz), wall);
             Block(parent, "Eaves_" + l.symbol, c + new Vector3(0, height + 0.2f, 0), new Vector3(sx + 1.2f, 0.4f, sz + 1.2f), roofMat);
             Shape(parent, "Roof_" + l.symbol, PyramidMesh(), c + new Vector3(0, height + 0.4f + roofH / 2f, 0), new Vector3(sx + 1f, roofH, sz + 1f), roofMat, false, Quaternion.identity);
             Vector3 face = c + front * (depth / 2f);
-            Quaternion rot = Quaternion.LookRotation(front);
-            Block(parent, "Door_" + l.symbol, face + front * 0.08f + new Vector3(0, 2.6f, 0), new Vector3(3.6f, 5.2f, 0.2f), doorMat, rot);
-            Block(parent, "DoorArch_" + l.symbol, face + front * 0.12f + new Vector3(0, 5.5f, 0), new Vector3(4.4f, 0.6f, 0.3f), gold, rot);
-            // Front corner turrets.
-            Vector3 side = Vector3.Cross(Vector3.up, front);
-            foreach (float s in new[] { -1f, 1f })
-                Tower(parent, face + side * (s * across / 2f), 1.4f, height + 3f, 4f, roofMat, wall, gold);
+            if (!hollow) Block(parent, "Door_" + l.symbol, face + front * 0.08f + new Vector3(0, doorH / 2f, 0), new Vector3(doorW, doorH, 0.2f), doorMat, rot);
+            Block(parent, "DoorArch_" + l.symbol, face + front * 0.12f + new Vector3(0, doorH + 0.3f, 0), new Vector3(doorW + 0.8f, 0.6f, 0.3f), gold, rot);
+            if (turrets)
+            {
+                Vector3 side = Vector3.Cross(Vector3.up, front);
+                foreach (float s2 in new[] { -1f, 1f })
+                    Tower(parent, face + side * (s2 * across / 2f), 1.4f, height + 3f, 4f, roofMat, wall, gold);
+            }
             return face;
         }
 
@@ -436,9 +473,13 @@ namespace WizardsVRC.EditorTools
             var roofMat = PMat("HallRoof" + sn, Color.Lerp(col, Color.black, 0.3f), 2f);
             var bright = PMat("School" + sn + "Glow", col, 1f, col * 0.6f);
             var cloth = PMat("School" + sn + "Cloth", col, 1f);
+            // With every school in the hub, each hall is a walk-in classroom with its professor inside.
+            bool walkIn = hub != null && hub.outdoorSchools && interior != null;
+            const float hallH = 10f;
+            var floorMat = PsxTexMat("ClassFloor" + sn, Color.Lerp(new Color(0.62f, 0.5f, 0.38f), col, 0.12f), TileTexture(TerrainTexDir + "/StoneWall.png"), 1.6f);
             Vector3 front;
             float across;
-            Vector3 face = HubBuilding(root, g, l, 10f, 6f, wall, roofMat, gold, door, out front, out across);
+            Vector3 face = HubBuilding(root, g, l, hallH, 6f, wall, roofMat, gold, door, out front, out across, walkIn, true, 5.2f, floorMat);
             Vector3 side = Vector3.Cross(Vector3.up, front);
             float outYaw = Mathf.Atan2(-front.x, -front.z) * Mathf.Rad2Deg;
             FrontWindows(root, face, front, across, 6.6f, bright);
@@ -447,14 +488,91 @@ namespace WizardsVRC.EditorTools
                 StarBanner(root, face + front * 0.15f + side * t + new Vector3(0, 4.2f, 0), outYaw, cloth, gold);
             LandmarkSign(root, face + front * 0.4f + new Vector3(0, 9.2f, 0), front, string.IsNullOrEmpty(l.label) ? "School of " + sn : l.label, col);
             SchoolPorch(root, s, face + front * 1.8f, front, col, bright);
-            if (hub == null || !hub.outdoorSchools || interior == null) return;
+            if (!walkIn) return;
 
-            // The professor waits outside the door (Talk / Learn Spells); the "classroom" transform frames their cutscene.
-            var room = Child(root, "Classroom_" + sn, face + front * 3.2f);
+            // ---- the classroom inside: local +Z is the back wall, the door is behind you as you face the professor
+            var fp = g.Footprint(l.Symbol);
+            Vector3 c = RectCenter(g, fp);
+            float depth = (Mathf.Abs(front.x) > 0.5f ? fp.width : fp.height) * g.cell - 1f;
+            float inW = across - 2f * HallWallThick, inD = depth - 2f * HallWallThick;
+            var room = Child(root, "Classroom_" + sn, c);
             room.localRotation = Quaternion.LookRotation(-front);
             interior.classrooms[s] = room;
-            Color hat = Color.Lerp(col, Color.black, 0.35f);
-            interior.professors[s] = Wizard(room, "Professor" + sn, Vector3.zero, 0f, col, hat, s == 1 || s == 6, ProfessorNames[s]);
+            var trim = PMat("HallTrim", new Color(0.45f, 0.38f, 0.55f), 2f);
+            var wood = PMat("Wood", new Color(0.55f, 0.34f, 0.18f), 2f);
+            interior.professors[s] = FurnishClassroom(room, s, inW, inD, hallH - 0.5f, trim, wood);
+            // Glowing windows down both side walls, and a school-coloured runner from the door to the lectern.
+            for (float zz = -inD / 2f + 3f; zz < inD / 2f - 2f; zz += 5f)
+                foreach (float x in new[] { -inW / 2f + 0.04f, inW / 2f - 0.04f })
+                    Block(room, "InnerWindow", new Vector3(x, 4.6f, zz), new Vector3(0.08f, 2.4f, 1.3f), bright);
+            Deco(room, PrimitiveType.Cube, "Runner", new Vector3(0, 0.12f, -inD / 4f), new Vector3(2.2f, 0.04f, inD / 2f - 1f), cloth, Quaternion.identity, false);
+        }
+
+        private static readonly Color[] ShopWalls =
+        {
+            new Color(0.93f, 0.88f, 0.76f), new Color(0.86f, 0.8f, 0.9f), new Color(0.82f, 0.9f, 0.86f), new Color(0.95f, 0.84f, 0.72f),
+        };
+        private static readonly Color[] ShopRoofs =
+        {
+            new Color(0.75f, 0.22f, 0.18f), new Color(0.2f, 0.36f, 0.72f), new Color(0.22f, 0.55f, 0.35f), new Color(0.55f, 0.28f, 0.65f),
+            new Color(0.8f, 0.55f, 0.15f),
+        };
+
+        /// <summary>
+        /// A little timber-framed shop or house filling its block: plaster walls, dark beams, a coloured roof and striped
+        /// awning over the door, shop windows and a hanging sign with the landmark's label. Scenery (the door stays shut).
+        /// </summary>
+        private static void Shop(Transform root, ZoneGrid g, ZoneLandmark l, int index, Material gold, Material door, Material window, Material wood)
+        {
+            var fp = g.Footprint(l.Symbol);
+            float hash = g.Hash(fp.xMin, fp.yMin, 31);
+            Color wallCol = ShopWalls[index % ShopWalls.Length], roofCol = ShopRoofs[(index + Mathf.FloorToInt(hash * 3f)) % ShopRoofs.Length];
+            var wall = PMat("ShopWall" + index % ShopWalls.Length, wallCol, 2f);
+            var roofMat = PMat("ShopRoof" + ColorUtility.ToHtmlStringRGB(roofCol), roofCol, 2f);
+            var beam = PMat("TimberBeam", new Color(0.3f, 0.19f, 0.12f), 2f);
+            float h = 5.6f + hash * 1.8f;
+            Vector3 front;
+            float across;
+            Vector3 face = HubBuilding(root, g, l, h, 4.5f, wall, roofMat, gold, door, out front, out across, false, false, 3f);
+            Vector3 side = Vector3.Cross(Vector3.up, front);
+            Quaternion rot = Quaternion.LookRotation(front);
+            float depth = (Mathf.Abs(front.x) > 0.5f ? fp.width : fp.height) * g.cell - 1f;
+            Vector3 c = RectCenter(g, fp);
+
+            // Timber frame on every corner and a beam round the building at first-floor height.
+            foreach (float sx in new[] { -1f, 1f })
+                foreach (float sz in new[] { -1f, 1f })
+                    Block(root, "Beam", c + side * (sx * (across / 2f + 0.05f)) + front * (sz * (depth / 2f + 0.05f)) + new Vector3(0, h / 2f, 0), new Vector3(0.4f, h, 0.4f), beam, rot);
+            Block(root, "BeamBand", c + new Vector3(0, 3.4f, 0), new Vector3(Mathf.Abs(front.x) > 0.5f ? depth + 0.3f : across + 0.3f, 0.3f,
+                Mathf.Abs(front.x) > 0.5f ? across + 0.3f : depth + 0.3f), beam);
+            foreach (float t in new[] { -1.4f, 1.4f })
+                Block(root, "DoorPost", face + front * 0.12f + side * t + new Vector3(0, 1.6f, 0), new Vector3(0.3f, 3.2f, 0.2f), beam, rot);
+            FrontWindows(root, face, front, across, 1.9f, window);
+            FrontWindows(root, face, front, across, 4.5f, window);
+
+            // Striped awning over the door and windows, tilted down and out.
+            var stripe = PMat("AwningStripe", new Color(0.97f, 0.95f, 0.9f), 1f);
+            float aw = Mathf.Min(across - 1f, 7f);
+            int strips = Mathf.Max(3, Mathf.RoundToInt(aw / 0.9f));
+            for (int i = 0; i < strips; i++)
+            {
+                float x = (i + 0.5f) / strips * aw - aw / 2f;
+                Block(root, "Awning", face + front * 0.9f + side * x + new Vector3(0, 3.75f, 0), new Vector3(aw / strips + 0.01f, 0.08f, 1.8f),
+                    i % 2 == 0 ? roofMat : stripe, rot * Quaternion.Euler(18f, 0, 0));
+            }
+
+            // Hanging sign on a bracket beside the door, plus the shop's name over the awning.
+            Vector3 bracket = face + side * (across / 2f - 1.2f) + new Vector3(0, 4.6f, 0);
+            Block(root, "SignBracket", bracket + front * 0.6f, new Vector3(0.12f, 0.12f, 1.2f), beam, rot);
+            Block(root, "SignBoard", bracket + front * 1.05f + new Vector3(0, -0.5f, 0), new Vector3(0.1f, 0.8f, 0.9f), wood, rot);
+            Shape(root, "SignGem", GemMesh(), bracket + front * 1.05f + new Vector3(0, -0.5f, 0), new Vector3(0.35f, 0.5f, 0.35f), gold, false, Quaternion.identity);
+            if (!string.IsNullOrEmpty(l.label)) LandmarkSign(root, face + front * 0.5f + new Vector3(0, h - 0.6f, 0), front, l.label, new Color(1f, 0.92f, 0.65f));
+
+            // Crates and a barrel by the door, and sometimes a chimney.
+            Block(root, "Crate", face + front * 1.2f - side * (across / 2f - 1f) + new Vector3(0, 0.4f, 0), new Vector3(0.8f, 0.8f, 0.8f), wood, rot * Quaternion.Euler(0, 15f, 0));
+            Shape(root, "Barrel", CylMesh(), face + front * 1.1f + side * 2.2f + new Vector3(0, 0.5f, 0), new Vector3(0.7f, 0.5f, 0.7f), beam, true, Quaternion.identity);
+            if (hash > 0.4f)
+                Block(root, "Chimney", c - front * (depth * 0.2f) + side * (across * 0.25f) + new Vector3(0, h + 2.4f, 0), new Vector3(0.9f, 2.6f, 0.9f), wall);
         }
 
         /// <summary>Two school-themed props flanking a hall door.</summary>
@@ -559,9 +677,11 @@ namespace WizardsVRC.EditorTools
             Vector3 c = RectCenter(g, fp);
             float rad = Mathf.Max(2f, Mathf.Min(fp.width, fp.height) * g.cell * 0.5f - 0.4f);
             float f = Mathf.Clamp(rad / 4.5f, 1f, 2.2f);
-            var waterBright = PMat("WaterBright", new Color(0.4f, 0.8f, 1f), 4f, new Color(0.25f, 0.55f, 0.8f));
+            // PSX water in the basin (a subdivided disc-sized plane inside the rim) and falling-water jets.
+            var waterBright = PsxWaterfallMat();
             Shape(root, "FountainBasin", CylMesh(), c + new Vector3(0, 0.45f, 0), new Vector3(rad * 2f, 0.45f, rad * 2f), stone, true, Quaternion.Euler(0, 22.5f, 0));
-            Shape(root, "FountainWater", CylMesh(), c + new Vector3(0, 0.92f, 0), new Vector3(rad * 2f - 1f, 0.03f, rad * 2f - 1f), waterBright, false, Quaternion.Euler(0, 22.5f, 0));
+            Shape(root, "FountainWater", GridMesh(8, 8, false), c + new Vector3(0, 0.88f, 0), new Vector3(rad * 1.3f, 1f, rad * 1.3f), PsxWaterMat(), false,
+                Quaternion.Euler(0, 22.5f, 0));
             Shape(root, "FountainPillar", CylMesh(), c + new Vector3(0, 1.3f * f, 0), new Vector3(1.4f * f, 1.3f * f, 1.4f * f), stone, true, Quaternion.identity);
             Shape(root, "FountainStar", GemMesh(), c + new Vector3(0, 2.8f * f, 0), new Vector3(3f, 0.5f, 3f) * f, gold, false, Quaternion.identity);
             Shape(root, "StarfallCrystal", GemMesh(), c + new Vector3(0, 5f * f, 0), new Vector3(1.8f, 3.4f, 1.8f) * f,

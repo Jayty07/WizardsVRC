@@ -240,33 +240,53 @@ namespace WizardsVRC.EditorTools
             var room = Child(info.root, "Classroom_" + SchoolLabels[s], center);
             room.localRotation = Quaternion.Euler(0, yaw, 0);
             info.classrooms[s] = room;
-            float W = size.x, D = size.y, back = D / 2f;
+            info.professors[s] = FurnishClassroom(room, s, size.x, size.y, h, trim, wood);
+        }
+
+        /// <summary>
+        /// A school's classroom in a room W x D x h centred on 'room' (local +Z = the back wall, the way in at -Z): rug,
+        /// chalkboard, lectern, rows of desks sized to the room, banners, the school's theme props and the professor at
+        /// the front facing the door. Returns the professor.
+        /// </summary>
+        private static Transform FurnishClassroom(Transform room, int s, float W, float D, float h, Material trim, Material wood)
+        {
+            float back = D / 2f;
             Color col = SchoolColors[s];
             var tint = PMat("School" + SchoolLabels[s] + "Tint", Color.Lerp(col, Color.black, 0.45f), 4f);
             var bright = PMat("School" + SchoolLabels[s] + "Glow", col, 1f, col * 0.6f);
             var cloth = PMat("School" + SchoolLabels[s] + "Cloth", col, 1f);
 
-            Block(room, "Rug", new Vector3(0, 0.02f, 0), new Vector3(W - 3f, 0.04f, D - 4f), tint);
-            Block(room, "Board", new Vector3(0, 3.4f, back - 0.25f), new Vector3(6f, 2.6f, 0.12f), PMat("Chalkboard", new Color(0.15f, 0.25f, 0.2f), 1f));
+            Deco(room, PrimitiveType.Cube, "Rug", new Vector3(0, 0.1f, 0), new Vector3(W - 3f, 0.04f, D - 4f), tint, Quaternion.identity, false);
+            float boardW = Mathf.Clamp(W * 0.42f, 6f, 10f);
+            Block(room, "Board", new Vector3(0, 3.4f, back - 0.25f), new Vector3(boardW, 2.6f, 0.12f), PMat("Chalkboard", new Color(0.15f, 0.25f, 0.2f), 1f));
             WorldText(room, "BoardText", new Vector3(0, 3.6f, back - 0.33f), Quaternion.identity, new Vector2(1000, 300), 0.005f, "School of " + SchoolLabels[s], 110).color = col;
-            Block(room, "Lectern", new Vector3(0, 0.6f, back - 3.2f), new Vector3(1.2f, 1.2f, 0.7f), wood);
-            for (int r = 0; r < 2; r++)
-                for (int c = -1; c <= 1; c++)
+            Block(room, "Lectern", new Vector3(0, 0.6f, back - 3.4f), new Vector3(1.2f, 1.2f, 0.7f), wood);
+            // Desks fill the middle of the room in rows facing the board, leaving an aisle down the middle to the door.
+            int cols = Mathf.Clamp(Mathf.FloorToInt((W - 4f) / 2.8f), 2, 6);
+            if (cols % 2 == 1) cols--;
+            int rows = Mathf.Clamp(Mathf.FloorToInt((D - 9f) / 2.4f), 2, 5);
+            for (int r = 0; r < rows; r++)
+                for (int c = 0; c < cols; c++)
                 {
-                    Block(room, "Desk", new Vector3(c * 2.8f, 0.45f, -1.5f - r * 2.4f), new Vector3(1.8f, 0.9f, 0.8f), wood);
-                    Block(room, "Stool", new Vector3(c * 2.8f, 0.25f, -2.4f - r * 2.4f), new Vector3(0.6f, 0.5f, 0.6f), trim);
+                    int half = cols / 2;
+                    float x = (c < half ? c - half : c - half + 1) * 2.8f - (c < half ? -0.6f : 0.6f);
+                    float z = back - 6.6f - r * 2.4f;
+                    Block(room, "Desk", new Vector3(x, 0.45f, z), new Vector3(1.8f, 0.9f, 0.8f), wood);
+                    Block(room, "Stool", new Vector3(x, 0.25f, z - 0.9f), new Vector3(0.6f, 0.5f, 0.6f), trim);
                 }
+            int banners = Mathf.Clamp(Mathf.FloorToInt(D / 5f), 2, 4);
             foreach (float x in new[] { -W / 2f + 0.25f, W / 2f - 0.25f })
-                for (int b = 0; b < 2; b++)
+                for (int b = 0; b < banners; b++)
                 {
-                    Block(room, "Banner", new Vector3(x, 4.2f, -1.5f + b * 4f), new Vector3(0.08f, 2.6f, 1.3f), cloth);
-                    Shape(room, "BannerGem", GemMesh(), new Vector3(x * 0.98f, 4.6f, -1.5f + b * 4f), new Vector3(0.4f, 0.6f, 0.4f), bright, false, Quaternion.identity);
+                    float z = -D / 2f + 2.5f + b * (D - 5f) / Mathf.Max(1, banners - 1);
+                    Block(room, "Banner", new Vector3(x, 4.2f, z), new Vector3(0.08f, 2.6f, 1.3f), cloth);
+                    Shape(room, "BannerGem", GemMesh(), new Vector3(x * 0.98f, 4.6f, z), new Vector3(0.4f, 0.6f, 0.4f), bright, false, Quaternion.identity);
                 }
-            PointLight(room, new Vector3(0, h - 1.2f, 0), Color.Lerp(col, Color.white, 0.4f), 14f, 1.6f);
+            PointLight(room, new Vector3(0, h - 1.2f, 0), Color.Lerp(col, Color.white, 0.4f), Mathf.Max(14f, Mathf.Max(W, D) * 0.9f), 1.6f);
             ThemeProps(room, s, W, D, h, col, bright, trim);
 
             Color hat = Color.Lerp(col, Color.black, 0.35f);
-            info.professors[s] = Wizard(room, "Professor" + SchoolLabels[s], new Vector3(0, 0, back - 2f), 0f, col, hat, s == 1 || s == 6, ProfessorNames[s]);
+            return Wizard(room, "Professor" + SchoolLabels[s], new Vector3(0, 0, back - 2.2f), 0f, col, hat, s == 1 || s == 6, ProfessorNames[s]);
         }
 
         private static void ThemeProps(Transform room, int s, float W, float D, float h, Color col, Material bright, Material trim)

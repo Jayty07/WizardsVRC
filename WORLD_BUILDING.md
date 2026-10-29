@@ -46,7 +46,7 @@ A zone is drawn as a **text map**. Each character is one square cell (`Cell Size
 In the inspector you can **paint** on the coloured map preview with a brush, or open *Edit map as text*.
 
 ```
-#  building (solid, random height, lit windows)   =  low wall (solid)   ^  tree (solid)
+#  building (solid, random height, lit windows)   =  low wall (solid)   ^  tree (solid)   ~  water (solid)
 .  road                                           ,  grass / courtyard  S  entrance (spawn + door back to the castle)
 1-9  battle ring spot for encounter 1-9
 a-i  patrol route for encounter 1-9 (a = 1, b = 2 ...)
@@ -61,6 +61,26 @@ Rules the checks enforce:
 - A **patrol route** is a 1-cell-wide **line** (monsters walk to the end and back) or **loop** (they walk round and round)
   of its letter. Make it pass close to its ring.
 - The outer edge should be `#`. It also gets an invisible wall.
+
+Roads and plazas are cobbled with a kerb where they meet lawn, lawns are grassy, and the ground textures tile at a fixed
+size whatever the cell size (`Textures/Terrain`, made by `Tools/make_psx_textures.py`; the zone colours tint them).
+
+### Heights (terraces, sunken plazas, ponds)
+
+Each zone has a **Height Map** under the map (*Edit map and height map as text*; *Start a flat height map* makes one): one
+character per map cell, **0** = ground, **1-9** = raised that many steps, **a-e** = sunk 1-5 steps. **Height Step** is the
+size of a step (1.5 m by default). The builder then:
+
+- raises or lowers every cell, with **stone retaining walls** wherever the ground changes height;
+- adds **stairs** (with stone cheeks) wherever two *paved* cells (road, plaza, an NPC's or point's cell...) meet at different
+  heights, up to **2 steps** apart. Lawns, trees and water never get stairs, so a raised lawn is a wall you can't climb;
+- caps every drop with a **coping** stone, or a waist-high **parapet** along paths more than 2.5 m above the ground below;
+- fills **water** (`~`) a little below its lowest rim, with a low stone rim (and an invisible fence) round it. Paint the
+  water's cells lower than the ground round it for a proper pond.
+
+Keep buildings, fountains and battle-ring plazas on one height each (the checks warn otherwise). The map preview shades
+cells by height, with white edges where stairs join and black edges where walls drop; red tint still means "can't be
+reached from S".
 
 ### Making it feel like Wizard101
 
@@ -115,16 +135,19 @@ Several cells with the same symbol make several of them (3 lamps = 3 `L`s); a st
 ### Landmarks
 
 Buildings and fixtures, mostly for the hub. Add one to the zone's **Landmarks** list with a map symbol, then paint it.
-Buildings fill the block of cells you paint and put their door on the side facing the map's centre; fixtures take one cell.
+Buildings fill the block of cells you paint and put their door on the side facing the map's centre (at their own height),
+or on the side you pick with **Door Side**; fixtures take one cell.
 
 | Kind | Where | What it builds |
 | --- | --- | --- |
-| School Hall | hub | a hall in the school's colours; its **professor** (Talk / Learn Spells) waits at the door. One per school. |
+| School Hall | hub | a walk-in hall in the school's colours with a full **classroom** inside (desks, chalkboard, banners, the school's props) and its **professor** (Talk / Learn Spells) at the front. One per school. |
 | Keep | hub | the Headmaster's tower; its door leads to the Headmaster's office (where new characters start) |
 | Fountain | any | basin with the Starfall Crystal (solid) |
 | Library, Tower, Statue | any | scenery buildings (Library and halls are solid blocks with a door) |
 | Shop Stall | any | a market stall per cell |
 | Gazebo | any | a walk-in gazebo |
+| Shop | any | a timber-framed shop or house filling its block: door, striped awning, shop windows, a hanging sign and its **Label** over the door (scenery) |
+| Waterfall | any | paint it on the high side of a drop with water (`~`) below: a stone spring, a channel, the falling water (PSX waterfall shader), foam and spray |
 | Street Gate | hub | portal arch to **Target Zone**; with **Required Quest** it stays locked (showing **Locked Hint**) until that quest is done |
 | Arena Pad | hub | the boss arena teleporter (also lockable with Required Quest) |
 | Bank Chest, Backpack Pedestal, Notice Board | hub | the practice chest, the book pedestal, and the Change Character / Backpack board |
@@ -134,18 +157,21 @@ Buildings fill the block of cells you paint and put their door on the side facin
 Tick **Is Hub** on one zone and it becomes Starfall Castle: it's built at the castle's place (Height is ignored), `S` is
 where players arrive, and its **Street Gates** are the way into the other zones (so those zones need no door position).
 **Castle Style** turns the map's edge into castle walls with towers on an island in the sea. When the hub has a School
-Hall for all seven schools, the professors stand outdoors in their quarters and the keep interior is just the
+Hall for all seven schools, every hall is a walk-in classroom with its professor inside and the keep interior is just the
 Headmaster's office; otherwise the old indoor Hall of Schools is used. Without a hub zone the old hand-made castle is built.
 
-The default hub is laid out like Wizard City's Ravenwood and Commons:
+The default hub is laid out like Wizard City's Ravenwood and Commons, on several levels:
 
 ```
-          Storm   Headmaster's Tower   Balance  Myth           (north)
- Fire                                                   Life
-     School Green          Starfall fountain            (east green)
- Ice                    C chest    P backpack           Death
-   Bazaar (stalls, Pell)   S arrival, A Bramwell, N board    Training Grounds (H Holloway, practice ring 1)
-   Library (Wren, tome)                                       Z boss arena pad
+ Observatory  Storm   Headmaster's Tower   Balance  Myth        NORTH TERRACE (+2 steps, parapet along its edge)
+              ===== avenue ==== X waterfall =======              3 flights of stairs down
+ Fire         ~~~ pond (-2) ~~~        Y gazebo         Life
+ hats shop                                     wands shop
+ Ice                 SUNKEN PLAZA (-1): Starfall fountain,      Death
+ potion shop         C chest, P backpack, S arrival, A, N       Training Grounds (H, ring 1)
+   Bazaar (stalls, Pell)       grand stairs                     ARENA DAIS (+1): Z boss arena pad
+ LIBRARY RISE (+1)             RAISED GARDEN (+1)
+   bakery  pets                                   inn   cards
         R Lantern Row gate                   G Sunpetal Gardens gate     (south wall)
 ```
 
