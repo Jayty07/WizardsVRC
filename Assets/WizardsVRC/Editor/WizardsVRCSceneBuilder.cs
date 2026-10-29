@@ -931,7 +931,10 @@ namespace WizardsVRC.EditorTools
         // Matches the seat sockets painted at 200/256 of the disc radius in DuelCircle.png.
         private const float DuelSeatRadius = DuelCircleRadius * 200f / 256f;
         private static readonly string[] FxKindNames = { "Shield", "Blade", "Trap" };
-        private static readonly float[] FxHeights = { 1.1f, 2.15f, 0.12f };
+        // Shields at chest height, blades overhead, traps low (icons stand upright, so not on the ground).
+        private static readonly float[] FxHeights = { 1.1f, 2.2f, 0.45f };
+        private static readonly float[] FxIconSizes = { 0.5f, 0.42f, 0.42f };
+        private const string FxIconDir = TexturesDir + "/FxIcons";
         private static readonly float[] MonsterSeatAngles = { 337.5f, 22.5f, 292.5f, 67.5f };
 
         private static Texture2D PixelTexture(string path)
@@ -1117,6 +1120,21 @@ namespace WizardsVRC.EditorTools
                 fm.SetColor("_EmissionColor", c * 1.3f);
                 client.fxMats[k] = fm;
             }
+            // Icon art per kind and school (Textures/FxIcons/<Shield|Blade|Trap><School|General>.png), plus a bright
+            // version that blinks when one breaks. Index kind * 8 + school (7 = General).
+            client.fxIconMats = new Material[3 * 8];
+            client.fxIconFlashMats = new Material[3 * 8];
+            client.fxIconTextures = new Texture[3 * 8];
+            for (int kind = 0; kind < 3; kind++)
+                for (int k = 0; k < 8; k++)
+                {
+                    string label = FxKindNames[kind] + (k < SchoolLabels.Length ? SchoolLabels[k] : "General");
+                    Texture2D tex = PixelTexture(FxIconDir + "/" + label + ".png");
+                    if (tex == null) { Debug.LogWarning("[WizardsVRC] Missing effect icon " + FxIconDir + "/" + label + ".png"); continue; }
+                    client.fxIconTextures[kind * 8 + k] = tex;
+                    client.fxIconMats[kind * 8 + k] = CutoutMat("FxIcon" + label, tex, Color.white, Color.white * 0.6f);
+                    client.fxIconFlashMats[kind * 8 + k] = CutoutMat("FxIconFlash" + label, tex, Color.white, Color.white * 3f);
+                }
             int fxMax = BattleManager.FX_MAX;
             client.fxOrbits = new Transform[BattleManager.SLOTS * 3];
             client.fxIcons = new Renderer[BattleManager.SLOTS * 3 * fxMax];
@@ -1167,13 +1185,13 @@ namespace WizardsVRC.EditorTools
                     client.fxOrbits[s * 3 + kind] = orbit;
                     for (int k = 0; k < fxMax; k++)
                     {
-                        var icon = GameObject.CreatePrimitive(kind == 0 ? PrimitiveType.Cylinder : PrimitiveType.Cube);
+                        // Upright icon, turned to face each viewer by BattleClient.
+                        var icon = GameObject.CreatePrimitive(PrimitiveType.Quad);
                         icon.name = FxKindNames[kind] + k;
                         icon.transform.SetParent(orbit, false);
-                        icon.transform.localScale = kind == 0 ? new Vector3(0.3f, 0.015f, 0.3f)
-                            : (kind == 1 ? new Vector3(0.06f, 0.42f, 0.025f) : new Vector3(0.24f, 0.02f, 0.24f));
+                        icon.transform.localScale = new Vector3(FxIconSizes[kind], FxIconSizes[kind], 1f);
                         var ir = icon.GetComponent<Renderer>();
-                        ir.sharedMaterial = client.fxMats[SchoolLabels.Length];
+                        ir.sharedMaterial = client.fxIconMats[kind * 8 + SchoolLabels.Length] ?? client.fxMats[SchoolLabels.Length];
                         ir.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                         Object.DestroyImmediate(icon.GetComponent<Collider>());
                         icon.SetActive(false);

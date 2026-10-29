@@ -225,7 +225,7 @@ namespace WizardsVRC.EditorTools
             client.breakPopRenderers = new Renderer[pops];
             for (int i = 0; i < pops; i++)
             {
-                var c = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                var c = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 c.name = "BreakPop" + i;
                 c.transform.SetParent(ring, false);
                 Object.DestroyImmediate(c.GetComponent<Collider>());
@@ -272,7 +272,7 @@ namespace WizardsVRC.EditorTools
             }
             client.schoolIcons = new Texture[SchoolLabels.Length + 1];
             for (int k = 0; k <= SchoolLabels.Length; k++)
-                client.schoolIcons[k] = PixelTexture(TexturesDir + "/CastGlyph" + (k < SchoolLabels.Length ? SchoolLabels[k] : "General") + ".png");
+                client.schoolIcons[k] = PixelTexture(FxIconDir + "/School" + (k < SchoolLabels.Length ? SchoolLabels[k] : "General") + ".png");
 
             var hit = Child(ring, "HitAudio", Vector3.zero).gameObject.AddComponent<AudioSource>();
             hit.playOnAwake = false;

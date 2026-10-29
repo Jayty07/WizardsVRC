@@ -169,6 +169,9 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Shields, blades and traps** circle the combatant (shields at chest height, blades overhead, traps at the feet); each new
   one of a kind sits right next to the last. They appear when their spell plays and, when a hit uses one up, it blinks,
   bursts and its value floats off (-50% for a shield, +25% for a blade or trap, with the school's icon).
+- **Effect icons** (`Textures/FxIcons`): shields are glossy heraldic shields with the school's symbol, blades are the
+  school badge with a sword, traps are dark spiked shields with the symbol; damage numbers use the school badges.
+  They face whoever is watching. `Tools/make_fx_icons.py` regenerates the shield / blade / trap set from the badges.
 - **Floating combat text** over every combatant: damage numbers in the spell's school colour with its icon (CRITICAL! on
   crits), heals, Fizzled!, burns, Stunned!, and new shields / blades / traps. Several in one step stack up.
 - **Combat UI:** the card panel hides while the round plays out, and its backing is see-through.

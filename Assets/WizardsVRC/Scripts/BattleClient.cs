@@ -69,6 +69,12 @@ namespace WizardsVRC
         public Renderer[] fxIcons;
         [Tooltip("Indexed by School; the last entry is for General (any school).")]
         public Material[] fxMats;
+        [Tooltip("Icon per kind and school: index kind * 8 + school (7 = General). Shields, blades, traps.")]
+        public Material[] fxIconMats;
+        [Tooltip("Bright versions of fxIconMats, blinked when one breaks.")]
+        public Material[] fxIconFlashMats;
+        [Tooltip("Same icons as textures, for the floating text.")]
+        public Texture[] fxIconTextures;
 
         [Header("Duel circle layers and the start flash")]
         [Tooltip("Inner sigil disc (turns slowly, glow pulses).")]
@@ -1256,12 +1262,13 @@ namespace WizardsVRC
                         if (!on) continue;
                         int f = manager.FxSchool(arr[s * max + k]);
                         int mi = f < 0 || f >= fxMats.Length - 1 ? fxMats.Length - 1 : f;
-                        if (fxMats.Length > 0 && r.sharedMaterial != fxMats[mi]) r.sharedMaterial = fxMats[mi];
+                        Material want = IconMat(fxIconMats, kind, f);
+                        if (want == null) want = fxMats[mi];
+                        if (r.sharedMaterial != want) r.sharedMaterial = want;
                         // Stacked effects sit side by side (the newest next to the last), and the group circles the combatant.
                         float ang = (k - (n - 1) * 0.5f) * _fxStackDeg[kind];
                         Quaternion around = Quaternion.Euler(0f, ang, 0f);
                         r.transform.localPosition = around * Vector3.forward * _fxRadius[kind];
-                        r.transform.localRotation = kind == 0 ? around * Quaternion.Euler(90f, 0f, 0f) : (kind == 1 ? around : around * Quaternion.Euler(0f, 45f, 0f));
                     }
                 }
             }
@@ -1272,6 +1279,30 @@ namespace WizardsVRC
             if (fxOrbits == null) return;
             for (int i = 0; i < fxOrbits.Length; i++)
                 if (fxOrbits[i] != null) fxOrbits[i].localRotation = Quaternion.Euler(0f, Time.time * _fxSpin[i % 3], 0f);
+            // The icons circle the combatant but always face whoever is watching (like Wizard101's).
+            if (fxIcons == null) return;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me)) return;
+            Vector3 head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
+            for (int i = 0; i < fxIcons.Length; i++)
+            {
+                Renderer r = fxIcons[i];
+                if (r == null || !r.gameObject.activeSelf) continue;
+                Vector3 look = r.transform.position - head;
+                if (look.sqrMagnitude > 0.0001f) r.transform.rotation = Quaternion.LookRotation(look);
+            }
+        }
+
+        /// <summary>Icon material for an effect kind and school (-1 / out of range = General), or null.</summary>
+        private Material IconMat(Material[] mats, int kind, int school)
+        {
+            int i = FxIconIndex(kind, school);
+            return mats != null && i < mats.Length ? mats[i] : null;
+        }
+
+        private int FxIconIndex(int kind, int school)
+        {
+            return kind * 8 + (school >= 0 && school < 7 ? school : 7);
         }
 
         // ------------------------------------------------------------------ summoned minions
@@ -1672,10 +1703,10 @@ namespace WizardsVRC
                     int idx = (slot * 3 + kind) * max + k;
                     if (idx < fxIcons.Length && fxIcons[idx] != null && fxIcons[idx].gameObject.activeInHierarchy) at = fxIcons[idx].transform.position;
                 }
-                SpawnPop(at, FxMat(fxSchool));
+                SpawnPop(at, FxIconIndex(kind, fxSchool), FxMat(fxSchool));
                 int pct = manager.FxPct(v);
                 string txt = (kind == BattleManager.FX_SHIELD ? "-" : "+") + pct.ToString() + "%";
-                Float(slot, txt, SchoolTextColor(fxSchool), fxSchool);
+                FloatTex(slot, txt, SchoolTextColor(fxSchool), FxTexture(kind, fxSchool));
             }
             CompactShown(_fxSh);
             CompactShown(_fxBl);
@@ -1802,18 +1833,23 @@ namespace WizardsVRC
         // ------------------------------------------------------------------ breaking effects
 
         private Material[] _popMats;
+        private Material[] _popFlashMats;
 
-        private void SpawnPop(Vector3 at, Material m)
+        /// <summary>The broken effect's icon blinks bright, swells and vanishes where it was.</summary>
+        private void SpawnPop(Vector3 at, int iconIndex, Material fallback)
         {
             if (breakPops == null || breakPops.Length == 0 || _popStart == null || _popStart.Length == 0) return;
-            if (_popMats == null || _popMats.Length != breakPops.Length) _popMats = new Material[breakPops.Length];
+            if (_popMats == null || _popMats.Length != breakPops.Length) { _popMats = new Material[breakPops.Length]; _popFlashMats = new Material[breakPops.Length]; }
             int i = _popNext;
             _popNext = (_popNext + 1) % breakPops.Length;
             if (breakPops[i] == null) return;
+            Material m = fxIconMats != null && iconIndex >= 0 && iconIndex < fxIconMats.Length && fxIconMats[iconIndex] != null ? fxIconMats[iconIndex] : fallback;
+            Material fm = fxIconFlashMats != null && iconIndex >= 0 && iconIndex < fxIconFlashMats.Length && fxIconFlashMats[iconIndex] != null ? fxIconFlashMats[iconIndex] : pipMat;
             _popMats[i] = m;
+            _popFlashMats[i] = fm;
             _popStart[i] = Time.time;
             breakPops[i].position = at;
-            breakPops[i].localScale = Vector3.one * 0.35f;
+            breakPops[i].localScale = new Vector3(0.5f, 0.5f, 1f);
             breakPops[i].gameObject.SetActive(true);
         }
 
@@ -1831,12 +1867,19 @@ namespace WizardsVRC
                 Renderer r = breakPopRenderers != null && i < breakPopRenderers.Length ? breakPopRenderers[i] : null;
                 if (r != null)
                 {
-                    Material m = ((int)(age / 0.06f)) % 2 == 0 && pipMat != null ? pipMat : (_popMats != null ? _popMats[i] : null);
+                    bool flash = ((int)(age / 0.06f)) % 2 == 0;
+                    Material m = flash && _popFlashMats != null ? _popFlashMats[i] : (_popMats != null ? _popMats[i] : null);
                     if (m != null && r.sharedMaterial != m) r.sharedMaterial = m;
                 }
-                float sc = t < 0.35f ? Mathf.Lerp(1f, 2.6f, t / 0.35f) : Mathf.Lerp(2.6f, 0f, (t - 0.35f) / 0.65f);
-                p.localScale = Vector3.one * (0.35f * sc);
-                p.rotation = Quaternion.Euler(Mathf.Floor(age * 30f) * 47f, Mathf.Floor(age * 30f) * 31f, 0f);
+                // Holds and blinks, then swells and shrinks away, turning a little as it breaks.
+                float sc = t < 0.3f ? 1f : (t < 0.55f ? Mathf.Lerp(1f, 1.7f, (t - 0.3f) / 0.25f) : Mathf.Lerp(1.7f, 0f, (t - 0.55f) / 0.45f));
+                p.localScale = new Vector3(0.5f * sc, 0.5f * sc, 1f);
+                VRCPlayerApi me = Networking.LocalPlayer;
+                if (Utilities.IsValid(me))
+                {
+                    Vector3 look = p.position - me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
+                    if (look.sqrMagnitude > 0.0001f) p.rotation = Quaternion.LookRotation(look) * Quaternion.Euler(0f, 0f, t > 0.55f ? (t - 0.55f) * 120f : 0f);
+                }
             }
         }
 
@@ -1876,7 +1919,16 @@ namespace WizardsVRC
             else if (k == BattleManager.KIND_BUFF)
             {
                 string b = BuffFloat(card, v);
-                if (b.Length > 0) Float(t, b, SchoolTextColor(sc), sc);
+                if (b.Length == 0) return;
+                int e = cardDatabase.GetEffect(card);
+                Texture fx = null;
+                if (e == CardDatabase.EFFECT_WARD) fx = FxTexture(BattleManager.FX_SHIELD, cardDatabase.ShieldSchool(card));
+                else if (e == CardDatabase.EFFECT_TAUNT) fx = FxTexture(BattleManager.FX_SHIELD, CardDatabase.ANY_SCHOOL);
+                else if (e == CardDatabase.EFFECT_EMPOWER) fx = FxTexture(BattleManager.FX_BLADE, cardDatabase.BladeSchool(card));
+                else if (e == CardDatabase.EFFECT_TRIBLADE) fx = FxTexture(BattleManager.FX_BLADE, CardDatabase.ANY_SCHOOL);
+                else if (e == CardDatabase.EFFECT_TRAP) fx = FxTexture(BattleManager.FX_TRAP, cardDatabase.TrapSchool(card));
+                if (fx != null) FloatTex(t, b, SchoolTextColor(sc), fx);
+                else Float(t, b, SchoolTextColor(sc), sc);
             }
         }
 
@@ -1900,6 +1952,24 @@ namespace WizardsVRC
         /// </summary>
         private void Float(int slot, string text, Color color, int icon)
         {
+            Texture tex = null;
+            if (icon != -2 && schoolIcons != null && schoolIcons.Length > 0)
+            {
+                int n = schoolIcons.Length;
+                tex = schoolIcons[icon >= 0 && icon < n - 1 ? icon : n - 1];
+            }
+            FloatTex(slot, text, color, tex);
+        }
+
+        private Texture FxTexture(int kind, int school)
+        {
+            int i = FxIconIndex(kind, school);
+            return fxIconTextures != null && i < fxIconTextures.Length ? fxIconTextures[i] : null;
+        }
+
+        /// <summary>Floats text with an icon (null = none).</summary>
+        private void FloatTex(int slot, string text, Color color, Texture iconTex)
+        {
             if (floaters == null || floaters.Length == 0 || _floatStart == null || slot < 0 || slot >= BattleManager.SLOTS || seats == null) return;
             int i = _floatNext;
             _floatNext = (_floatNext + 1) % floaters.Length;
@@ -1915,11 +1985,10 @@ namespace WizardsVRC
             if (floaterIcons != null && i < floaterIcons.Length && floaterIcons[i] != null)
             {
                 RawImage img = floaterIcons[i];
-                bool show = icon != -2 && schoolIcons != null && schoolIcons.Length > 0;
+                bool show = iconTex != null;
                 if (show)
                 {
-                    int n = schoolIcons.Length;
-                    img.texture = schoolIcons[icon >= 0 && icon < n - 1 ? icon : n - 1];
+                    img.texture = iconTex;
                     img.color = Color.white;
                 }
                 img.gameObject.SetActive(show);
