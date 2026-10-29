@@ -150,10 +150,12 @@ namespace WizardsVRC.EditorTools
             refCam.enabled = false;
 
             // ---------------- areas
-            Interior interior = BuildInterior();
+            // The hub zone (if the world data has one) decides whether the schools are indoors or out in the castle grounds.
+            HubLayout hubPlan = PlanHub(worldData);
+            Interior interior = BuildInterior(hubPlan.outdoorSchools);
             Transform selectSpawn = interior.officeSpawn;
             Canvas selectCanvas = interior.selectCanvas;
-            Transform hubSpawn = BuildHub(out Canvas hubCanvas);
+            Transform hubSpawn = BuildHub(out Canvas hubCanvas, hubPlan, interior, worldData);
 
             var descriptor = world.AddComponent<VRCSceneDescriptor>();
             descriptor.spawns = new[] { selectSpawn };
@@ -219,13 +221,15 @@ namespace WizardsVRC.EditorTools
             BuildInventoryBook(book, hud, deckPages, questPages);
             BuildHud(hud);
             Transform hubRoot = hubSpawn.parent;
-            var chest = BuildLootChest(hubRoot, playerState, itemDb);
-            var pedestal = BuildBackpackPedestal(hubRoot, book);
-            var queuePad = BuildQueuePad(hubRoot, battleClient);
+            var chest = BuildLootChest(hubRoot, hubPlan.chestPos, playerState, itemDb);
+            var pedestal = BuildBackpackPedestal(hubRoot, hubPlan.pedestalPos, book);
+            var queuePad = BuildQueuePad(hubRoot, hubPlan.padPos, battleClient);
+            battleClient.queueRequiredQuest = hubPlan.padRequiredQuest;
+            if (!string.IsNullOrEmpty(hubPlan.padLockedHint)) battleClient.queueLockedText = "Boss Arena Teleporter\n(locked: " + hubPlan.padLockedHint + ")";
             BuildArena(battleClient, new[] { laneA, laneB });
             var cutscenes = BuildCutscenes(systems.transform, selectUI, interior);
             var learning = BuildSpellLearning(systems.transform, playerState, cardDb, hud, out SpellTrainer trainer, out InteractionMenu interactionMenu);
-            var quests = BuildQuests(systems.transform, interior, (CutscenePlayer)cutscenes[0], playerState, hud, hubRoot, trainer, interactionMenu, queuePad.transform);
+            var quests = BuildQuests(systems.transform, interior, (CutscenePlayer)cutscenes[0], playerState, hud, hubRoot, trainer, interactionMenu, queuePad.transform, hubPlan);
             var questManager = (QuestManager)quests[0];
             questManager.cardDatabase = cardDb;
             questManager.popup = trainer.popup;
@@ -234,12 +238,12 @@ namespace WizardsVRC.EditorTools
             hud.questManager = questManager;
             questPages.questManager = questManager;
             var wb = new WorldBuild { data = worldData, cutsceneParent = Child(systems.transform, "ZoneCutscenes", Vector3.zero) };
-            BuildZones(systems.transform, hubRoot, questManager, cardDb, itemDb, playerState, encounters, wb);
+            BuildZones(systems.transform, hubRoot, questManager, cardDb, itemDb, playerState, encounters, wb, hubPlan);
             ApplyQuestlines(questManager, wb, itemDb);
             var streets = wb.behaviours;
             var questGuide = BuildQuestGuide(systems.transform, playerState, questManager, (CutscenePlayer)cutscenes[0], encounters.ToArray(),
                 interior.exitDoor, hubRoot.Find("KeepEntrance"));
-            ApplyGuideAreas(questGuide, wb, interior.exitDoor, hubRoot.Find("KeepEntrance"));
+            ApplyGuideAreas(questGuide, wb, interior.exitDoor, hubRoot.Find("KeepEntrance"), interior.outdoorSchools);
             book.questGuide = questGuide;
             var homeTeleport = UdonSharpUndo.AddComponent<TeleportHelper>(Child(systems.transform, "HomeTeleport", Vector3.zero).gameObject);
             homeTeleport.defaultTarget = hubSpawn;
@@ -267,7 +271,7 @@ namespace WizardsVRC.EditorTools
             AddSceneToBuildSettings();
             AssetDatabase.SaveAssets();
             Debug.Log("[WizardsVRC] Generated " + ScenePath);
-            ReportWorld(worldData, wb);
+            ReportWorld(worldData, wb, hubPlan);
             if (sdkPanel != null) EditorApplication.delayCall += () => EditorWindow.GetWindow(sdkPanel);
         }
 
@@ -287,13 +291,15 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>Says what the world data produced, so a missing zone or questline is obvious.</summary>
-        private static void ReportWorld(WorldDataStore.Data data, WorldBuild wb)
+        private static void ReportWorld(WorldDataStore.Data data, WorldBuild wb, HubLayout hub)
         {
             var names = new System.Collections.Generic.List<string>();
             foreach (var root in wb.zoneRoots) names.Add(root.name);
             int quests = 0;
             foreach (var ql in data.questlines) if (ql != null && ql.includeInBuild) quests += ql.quests.Count;
-            string summary = "Zones built: " + (names.Count > 0 ? string.Join(", ", names) : "none") + ". Authored quests: " + quests +
+            string hubText = hub.zone == null ? "classic castle (no hub zone)" : "'" + hub.zone.zoneKey + "' map" +
+                             (hub.outdoorSchools ? ", schools outdoors" : ", schools in the keep") + ", " + hub.gates.Count + " gate(s)";
+            string summary = "Hub: " + hubText + ". Zones built: " + (names.Count > 0 ? string.Join(", ", names) : "none") + ". Authored quests: " + quests +
                              ". World data folder: " + WorldDataStore.Folder + " (" + data.zones.Count + " zone asset(s), " + data.questlines.Count + " questline asset(s)).";
             if (names.Count > 0) { Debug.Log("[WizardsVRC] " + summary); return; }
             Debug.LogError("[WizardsVRC] " + summary + " No zones were built, so there is no Lantern Row. Check that " + WorldDataStore.Folder +
@@ -336,7 +342,7 @@ namespace WizardsVRC.EditorTools
             // MonsterDatabase was merged into CardDatabase; drop its old program asset so UdonSharp doesn't look for the script.
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -452,25 +458,32 @@ namespace WizardsVRC.EditorTools
 
         // ================================================================== hub
 
-        private static Transform BuildHub(out Canvas hubCanvas)
+        /// <summary>
+        /// The castle hub: built from the hub zone's map when there is one (see WizardsVRCSceneBuilder.Hub.cs), otherwise
+        /// the classic hand-placed castle. Fills in where the chest, pedestal, notice board, arena pad and keep door go.
+        /// </summary>
+        private static Transform BuildHub(out Canvas hubCanvas, HubLayout hub, Interior interior, WorldDataStore.Data data)
         {
             var root = new GameObject("Hub").transform;
 
-            BuildCastle(root);
+            if (hub.zone != null) BuildHubZone(root, hub, interior, data);
+            else BuildCastle(root);
 
             var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pad.name = "SpawnLandingPad";
             pad.transform.SetParent(root, false);
-            pad.transform.localPosition = new Vector3(0, 0.05f, 0);
+            pad.transform.localPosition = hub.spawnPos - new Vector3(0, 0.1f, 0);
             pad.transform.localScale = new Vector3(3f, 0.05f, 3f);
             pad.GetComponent<Renderer>().sharedMaterial = Mat("LandingPad", new Color(0.35f, 0.55f, 0.9f));
 
-            Transform spawn = Child(root, "HubSpawn", new Vector3(0, 0.15f, 0));
+            Transform spawn = Child(root, "HubSpawn", hub.spawnPos);
+            spawn.localRotation = Quaternion.Euler(0, hub.spawnYaw, 0);
+            hub.spawn = spawn;
 
             var canvasGo = new GameObject("HubCanvas", typeof(RectTransform));
             canvasGo.transform.SetParent(root, false);
-            hubCanvas = MakeWorldCanvas(canvasGo, new Vector2(600, 360), new Vector3(-4f, 1.6f, 4f), 0.004f);
-            canvasGo.transform.localRotation = Quaternion.Euler(0, 180f, 0);
+            hubCanvas = MakeWorldCanvas(canvasGo, new Vector2(600, 360), hub.canvasPos, 0.004f);
+            canvasGo.transform.localRotation = hub.canvasRot;
             return spawn;
         }
 
@@ -782,12 +795,12 @@ namespace WizardsVRC.EditorTools
             canvasGo.SetActive(false);
         }
 
-        private static LootChest BuildLootChest(Transform hubRoot, PlayerState playerState, ItemDatabase itemDb)
+        private static LootChest BuildLootChest(Transform hubRoot, Vector3 at, PlayerState playerState, ItemDatabase itemDb)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = "PracticeChest";
             go.transform.SetParent(hubRoot, false);
-            go.transform.localPosition = new Vector3(-5f, 0.35f, 10f);
+            go.transform.localPosition = at + new Vector3(0, 0.35f, 0);
             go.transform.localScale = new Vector3(1.2f, 0.7f, 0.8f);
             go.GetComponent<Renderer>().sharedMaterial = Mat("Chest", new Color(0.5f, 0.32f, 0.15f));
 
@@ -797,7 +810,7 @@ namespace WizardsVRC.EditorTools
             labelGo.AddComponent<Canvas>().renderMode = RenderMode.WorldSpace;
             var labelRt = (RectTransform)labelGo.transform;
             labelRt.sizeDelta = new Vector2(600, 200);
-            labelRt.localPosition = new Vector3(-5f, 1.5f, 10f);
+            labelRt.localPosition = at + new Vector3(0, 1.5f, 0);
             labelRt.localScale = Vector3.one * 0.004f;
             var tm = Label(labelGo.transform, "Text", Vector2.zero, new Vector2(600, 200), "Practice Chest", 56, TextAnchor.MiddleCenter);
 
@@ -808,19 +821,19 @@ namespace WizardsVRC.EditorTools
             return chest;
         }
 
-        private static EventRelay BuildBackpackPedestal(Transform hubRoot, InventoryBook book)
+        private static EventRelay BuildBackpackPedestal(Transform hubRoot, Vector3 at, InventoryBook book)
         {
-            Block(hubRoot, "BackpackPedestal", new Vector3(2.5f, 0.5f, 3f), new Vector3(0.6f, 1f, 0.6f), Mat("Pedestal", new Color(0.5f, 0.5f, 0.55f)));
+            Block(hubRoot, "BackpackPedestal", at + new Vector3(0, 0.5f, 0), new Vector3(0.6f, 1f, 0.6f), Mat("Pedestal", new Color(0.5f, 0.5f, 0.55f)));
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = "BackpackBook";
             go.transform.SetParent(hubRoot, false);
-            go.transform.localPosition = new Vector3(2.5f, 1.07f, 3f);
+            go.transform.localPosition = at + new Vector3(0, 1.07f, 0);
             go.transform.localScale = new Vector3(0.45f, 0.12f, 0.35f);
             go.GetComponent<Renderer>().sharedMaterial = Mat("BookCover", new Color(0.36f, 0.2f, 0.1f));
 
             var label = new GameObject("BackpackLabel");
             label.transform.SetParent(hubRoot, false);
-            label.transform.localPosition = new Vector3(2.5f, 1.6f, 3f);
+            label.transform.localPosition = at + new Vector3(0, 1.6f, 0);
             var tm = label.AddComponent<TextMesh>();
             tm.anchor = TextAnchor.MiddleCenter;
             tm.characterSize = 0.05f;
@@ -838,9 +851,8 @@ namespace WizardsVRC.EditorTools
 
         private static readonly Vector3 ArenaOrigin = new Vector3(0f, 0f, 400f);
 
-        private static BattleQueuePad BuildQueuePad(Transform hubRoot, BattleClient client)
+        private static BattleQueuePad BuildQueuePad(Transform hubRoot, Vector3 pos, BattleClient client)
         {
-            Vector3 pos = new Vector3(30f, 0.06f, 4f);
             var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pad.name = "ArenaTeleporterPad";
             pad.transform.SetParent(hubRoot, false);
@@ -1567,7 +1579,8 @@ namespace WizardsVRC.EditorTools
 
             // ---- cutscene data + flow
             var intro = MakeCutscene(sets, "IntroCutscene", "Narrator", IntroLines, "intro", introShots);
-            var headmaster = MakeCutscene(sets, "HeadmasterGreeting", "Headmaster Greymantle", ProphecyLines, "prophecy", headShots);
+            var headmaster = MakeCutscene(sets, "HeadmasterGreeting", "Headmaster Greymantle", interior.outdoorSchools ? ProphecyLinesOutdoor : ProphecyLines, "prophecy", headShots);
+            if (interior.outdoorSchools) Unvoice(headmaster, 5);
             intro.onFinished = flow;
             intro.onFinishedEvent = nameof(IntroFlow.OnIntroFinished);
             headmaster.onFinished = flow;

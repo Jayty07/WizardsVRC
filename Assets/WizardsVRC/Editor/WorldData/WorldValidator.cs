@@ -65,14 +65,44 @@ namespace WizardsVRC.EditorTools.WorldData
             else ValidateMonsters(data.monsters, cards, r);
             var heights = new Dictionary<float, string>();
             var zoneKeys = new HashSet<string>();
+            int hubs = 0;
+            var schools = new HashSet<School>();
             foreach (var z in data.zones)
             {
                 if (!z.includeInBuild) continue;
                 if (!zoneKeys.Add(z.zoneKey)) r.Error("Two zones use the key '" + z.zoneKey + "'.");
-                foreach (var kv in heights)
-                    if (Mathf.Abs(kv.Key - z.height) < 100f) r.Error("Zones '" + kv.Value + "' and '" + z.zoneKey + "' are less than 100 m apart in height.");
-                heights[z.height] = z.zoneKey;
+                if (z.isHub) hubs++;
+                else
+                {
+                    foreach (var kv in heights)
+                        if (Mathf.Abs(kv.Key - z.height) < 100f) r.Error("Zones '" + kv.Value + "' and '" + z.zoneKey + "' are less than 100 m apart in height.");
+                    heights[z.height] = z.zoneKey;
+                }
+                if (z.landmarks != null)
+                    foreach (var l in z.landmarks)
+                        if (l != null && l.kind == LandmarkKind.SchoolHall && !schools.Add(l.school)) r.Error("There are two School Halls for " + l.school + ".");
                 ValidateZone(z, data.monsters, r);
+            }
+            if (hubs > 1) r.Error("Only one zone can be the hub (Is Hub).");
+            // Street gates must lead somewhere real; quest locks must name real quests.
+            var questIds = new HashSet<int> { QuestManager.QUEST_PROPHECY, QuestManager.QUEST_TRIAL };
+            foreach (var ql in data.questlines) if (ql != null && ql.includeInBuild) foreach (var q in ql.quests) if (q != null) questIds.Add(q.saveId);
+            foreach (var z in data.zones)
+            {
+                if (!z.includeInBuild || z.landmarks == null) continue;
+                foreach (var l in z.landmarks)
+                {
+                    if (l == null) continue;
+                    if (l.kind == LandmarkKind.StreetGate)
+                    {
+                        ZoneDefinition target = null;
+                        foreach (var t in data.zones) if (t != null && t.includeInBuild && t.zoneKey == l.targetZone) target = t;
+                        if (target == null) r.Error("Zone '" + z.zoneKey + "': gate '" + l.symbol + "' leads to zone '" + l.targetZone + "', which doesn't exist (or isn't included).");
+                        else if (target.isHub) r.Error("Zone '" + z.zoneKey + "': gate '" + l.symbol + "' can't lead to the hub.");
+                    }
+                    if (l.requiredQuest >= 0 && !questIds.Contains(l.requiredQuest))
+                        r.Error("Zone '" + z.zoneKey + "': landmark '" + l.symbol + "' needs quest " + l.requiredQuest + ", which doesn't exist.");
+                }
             }
             ValidateQuests(data, r);
             return r;
@@ -102,8 +132,8 @@ namespace WizardsVRC.EditorTools.WorldData
             string zn = "Zone '" + z.zoneKey + "'";
             var g = new ZoneGrid(z);
             if (g.height == 0) { r.Error(zn + ": the map is empty."); return; }
-            if (z.height >= 100f && z.height < 400f) r.Error(zn + ": height " + z.height + " overlaps the keep interior (100-300). Use 600 or more.");
-            if (z.height < 100f) r.Error(zn + ": height must be far above the castle (600 or more).");
+            if (!z.isHub && z.height >= 100f && z.height < 400f) r.Error(zn + ": height " + z.height + " overlaps the keep interior (100-300). Use 600 or more.");
+            if (!z.isHub && z.height < 100f) r.Error(zn + ": height must be far above the castle (600 or more).");
 
             var starts = g.Find('S');
             if (starts.Count == 0) r.Error(zn + ": the map needs an S (entrance).");
@@ -151,6 +181,26 @@ namespace WizardsVRC.EditorTools.WorldData
                 CheckSymbol(z, p.Symbol, "Point '" + p.key + "'", symbols, r);
                 if (g.Find(p.Symbol).Count == 0) r.Warn(zn + ": point '" + p.key + "' (symbol " + p.symbol + ") isn't on the map.");
             }
+            if (z.landmarks != null)
+                foreach (var l in z.landmarks)
+                {
+                    if (l == null) continue;
+                    string ln = zn + ": " + l.kind + " '" + l.symbol + "'";
+                    CheckSymbol(z, l.Symbol, l.kind + " landmark", symbols, r);
+                    var cells = g.Find(l.Symbol);
+                    if (cells.Count == 0) { r.Warn(ln + " isn't on the map."); continue; }
+                    var fp = g.Footprint(l.Symbol);
+                    if (l.IsBuilding)
+                    {
+                        if (cells.Count != fp.width * fp.height) r.Warn(ln + " doesn't fill a rectangle; it's built over its whole bounding box.");
+                        if (g.FrontSide(fp) == Vector2Int.zero) r.Error(ln + " has no open cell next to it for its door.");
+                    }
+                    else if (!l.Solid && cells.Count > 1) r.Warn(ln + " is placed " + cells.Count + " times; only the first is used.");
+                    if (!z.isHub && (l.kind == LandmarkKind.Keep || l.kind == LandmarkKind.StreetGate || l.kind == LandmarkKind.ArenaPad ||
+                                     l.kind == LandmarkKind.BankChest || l.kind == LandmarkKind.BackpackPedestal || l.kind == LandmarkKind.NoticeBoard))
+                        r.Warn(ln + ": this landmark only works in the hub (Is Hub), so it is left out here.");
+                    if (l.kind == LandmarkKind.StreetGate && string.IsNullOrEmpty(l.targetZone)) r.Error(ln + ": set Target Zone (the zone key it leads to).");
+                }
 
             // encounters, rings and patrols
             var ringSymbols = new HashSet<char>();

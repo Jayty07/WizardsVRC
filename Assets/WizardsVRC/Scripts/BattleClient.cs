@@ -297,9 +297,22 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ entry points
 
+        [Tooltip("Boss arena queue pad: save id of the quest the player must finish before it works (-1 = always).")]
+        public int queueRequiredQuest = -1;
+        [Tooltip("Shown on the pad while it's locked.")]
+        public string queueLockedText = "Boss Arena Teleporter\n(locked: keep following the story)";
+
+        private bool QueueUnlocked()
+        {
+            // The trial quest always gets you in, so older saves already on it aren't locked out.
+            return queueRequiredQuest < 0 || (questManager != null &&
+                   (questManager.IsComplete(queueRequiredQuest) || questManager.IsStarted(QuestManager.QUEST_TRIAL)));
+        }
+
         public void LocalQueue(bool enter)
         {
             if (enter && (playerState == null || !playerState.HasCharacter())) return;
+            if (enter && !QueueUnlocked()) return;
             if (manager != null) manager.RequestQueue(enter);
         }
 
@@ -1320,7 +1333,8 @@ namespace WizardsVRC
             if (padLabel != null)
             {
                 int phase = manager.phase;
-                if (phase == BattleManager.PHASE_IDLE) padLabel.text = "Boss Arena Teleporter\nStep on the pad (up to 4 wizards)";
+                if (!QueueUnlocked()) padLabel.text = queueLockedText;
+                else if (phase == BattleManager.PHASE_IDLE) padLabel.text = "Boss Arena Teleporter\nStep on the pad (up to 4 wizards)";
                 else if (phase == BattleManager.PHASE_QUEUE)
                     padLabel.text = "Teleporting in " + manager.SecondsLeft().ToString() + "s\nWizards: " + manager.QueueCount().ToString() + " / 4";
                 else padLabel.text = "Battle in progress\nPlease wait";

@@ -69,8 +69,14 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
   (There is no `VRC_SceneLightmapSettings` component in the current SDK; lighting uses normal Unity Lighting settings.)
 - `SelectRoom` (y = -500) — closed room, light, spawn point, world-space canvas (`VRCUiShape`) with 4 slot panels,
   school picker, delete confirmation.
-- `Hub` (origin) — ground, plaza, landing pad + `HubSpawn`, NPC placeholder, "Change Character" board.
-- `Hub` also has a **Practice Chest** (random loot for testing) and a **Backpack pedestal**.
+- `Hub` (origin) — **Starfall Castle**, built from the hub zone map (`WorldData/Zone_StarfallCastle.asset`): castle walls
+  and towers on an island, a quarter for each of the seven schools with its professor at the hall door, the Headmaster's
+  tower (door to the office), the Starfall fountain with the arrival point, the Bazaar, the Library, the Training
+  Grounds (practice ring + boss arena pad), and quest-locked gates to Sunpetal Gardens and Lantern Row in the south wall.
+  It also has the notice board ("Change Character" / Backpack), the **Practice Chest** and the **Backpack pedestal**.
+  Without a hub zone the older hand-made castle is built.
+- `KeepInterior` (y = 200) — the Headmaster's office (new characters start here). With outdoor schools that's all;
+  otherwise also the Hall of Schools with a classroom per school.
 - `Systems` — `SaveManager`, `PlayerState`, `TeleportHelper`, `ActiveCharacter` / `ScratchCharacter` (`CharacterData`),
   `ItemDatabase`, `InventoryBook` (book canvas opens in front of you: **B** on desktop, hub button, or pedestal),
   `PlayerHUD`.
@@ -104,6 +110,15 @@ Saves happen on create, on select/swap (the previous character is saved first), 
 **B** (desktop), the hub button or the backpack pedestal opens it. Bookmarks: **Pack** (equipment and items),
 **Deck** (decks and spells), **Quests**, and **Settings** (HUD and quest-arrow toggles, Save Now, Return to Starfall
 Castle, and Change Character, which saves and takes you back to the select room).
+
+## The start of the game
+
+Like Wizard101, new wizards don't meet a real monster until they know the basics. After choosing a school in the
+Headmaster's office you find your professor at their school hall, report back, then take the castle tour: Gatekeeper
+Bramwell (exploring the grounds), Quartermaster Pell (backpack, gear, potions), Librarian Wren (cards, pips, accuracy,
+decks) and Duel Master Holloway (a practice duel against training dummies that never attack). Only then does the
+**Sunpetal Gardens** gate open (Lv 1-3 weeds, newts and moths, boss Old Briarwick). Finishing the gardens opens the
+**Lantern Row** gate (now Lv 4-6) and the boss arena pad. The locks are the gates' *Required Quest* in the hub map.
 
 ## Building zones, monsters and quests
 

@@ -88,7 +88,7 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             var z = (ZoneDefinition)target;
             serializedObject.Update();
-            DrawPropertiesExcluding(serializedObject, "m_Script", "map", "npcs", "points", "encounters");
+            DrawPropertiesExcluding(serializedObject, "m_Script", "map", "npcs", "points", "encounters", "landmarks");
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Map", EditorStyles.boldLabel);
@@ -106,6 +106,7 @@ namespace WizardsVRC.EditorTools.WorldData
             EditorGUILayout.PropertyField(serializedObject.FindProperty("npcs"), true);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("points"), true);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("encounters"), true);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("landmarks"), new GUIContent("Landmarks (school halls, keep, gates, shops...)"), true);
             serializedObject.ApplyModifiedProperties();
 
             EditorGUILayout.Space();
@@ -126,6 +127,8 @@ namespace WizardsVRC.EditorTools.WorldData
             var brushes = new List<string>(BaseBrushes);
             foreach (var n in z.npcs) if (n != null && !string.IsNullOrEmpty(n.symbol) && !brushes.Contains(n.symbol)) brushes.Add(n.symbol);
             foreach (var p in z.points) if (p != null && !string.IsNullOrEmpty(p.symbol) && !brushes.Contains(p.symbol)) brushes.Add(p.symbol);
+            if (z.landmarks != null)
+                foreach (var l in z.landmarks) if (l != null && !string.IsNullOrEmpty(l.symbol) && !brushes.Contains(l.symbol)) brushes.Add(l.symbol);
             int sel = Mathf.Max(0, brushes.IndexOf(_brush));
             EditorGUILayout.LabelField("Paint brush (click or drag on the map)", EditorStyles.miniBoldLabel);
             sel = GUILayout.SelectionGrid(sel, brushes.ToArray(), 16, EditorStyles.miniButton);
@@ -198,7 +201,30 @@ namespace WizardsVRC.EditorTools.WorldData
             if (ZoneGrid.IsPatrolLetter(c)) return new Color(0.95f, 0.85f, 0.35f);
             if (z.FindNpc(c) != null) return new Color(0.35f, 0.85f, 1f);
             if (z.FindPoint(c) != null) return new Color(0.95f, 0.45f, 0.95f);
+            var l = z.FindLandmark(c);
+            if (l != null)
+            {
+                if (l.kind == LandmarkKind.SchoolHall) return Color.Lerp(SchoolColor(l.school), Color.white, 0.2f);
+                if (l.kind == LandmarkKind.Keep) return new Color(0.55f, 0.45f, 0.85f);
+                if (l.kind == LandmarkKind.StreetGate) return new Color(0.3f, 0.95f, 0.85f);
+                if (l.Solid) return new Color(0.75f, 0.65f, 0.5f);
+                return new Color(1f, 0.95f, 0.6f);
+            }
             return Color.red;
+        }
+
+        private static Color SchoolColor(School s)
+        {
+            switch (s)
+            {
+                case School.Fire: return new Color(0.85f, 0.3f, 0.12f);
+                case School.Ice: return new Color(0.4f, 0.7f, 0.95f);
+                case School.Storm: return new Color(0.6f, 0.35f, 0.85f);
+                case School.Life: return new Color(0.35f, 0.8f, 0.35f);
+                case School.Death: return new Color(0.35f, 0.35f, 0.38f);
+                case School.Myth: return new Color(0.85f, 0.75f, 0.2f);
+                default: return new Color(0.8f, 0.6f, 0.35f);
+            }
         }
 
         private static void Resize(ZoneDefinition z, int dw, int dh)

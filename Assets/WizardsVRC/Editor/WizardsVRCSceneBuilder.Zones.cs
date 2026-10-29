@@ -142,15 +142,17 @@ namespace WizardsVRC.EditorTools
         // ================================================================== zones
 
         private static void BuildZones(Transform systems, Transform hubRoot, QuestManager qm, CardDatabase cardDb, ItemDatabase itemDb,
-            PlayerState playerState, List<BattleClient> encounters, WorldBuild wb)
+            PlayerState playerState, List<BattleClient> encounters, WorldBuild wb, HubLayout hub)
         {
+            // The hub's geometry was built with the castle; its NPCs, points and practice ring go in now.
+            BuildHubContents(hub, systems, qm, cardDb, itemDb, playerState, encounters, wb);
             foreach (var z in wb.data.zones)
-                if (z != null && z.includeInBuild) BuildZone(z, systems, hubRoot, qm, cardDb, itemDb, playerState, encounters, wb);
+                if (z != null && z.includeInBuild && !z.isHub) BuildZone(z, systems, hubRoot, qm, cardDb, itemDb, playerState, encounters, wb, hub);
             qm.streetNpcCutscenes = wb.npcCutscenes.ToArray();
         }
 
         private static void BuildZone(ZoneDefinition z, Transform systems, Transform hubRoot, QuestManager qm, CardDatabase cardDb, ItemDatabase itemDb,
-            PlayerState playerState, List<BattleClient> encounters, WorldBuild wb)
+            PlayerState playerState, List<BattleClient> encounters, WorldBuild wb, HubLayout hub)
         {
             var g = new ZoneGrid(z);
             var starts = g.Find('S');
@@ -202,15 +204,25 @@ namespace WizardsVRC.EditorTools
             }
             foreach (var t in g.Find('^')) Tree(layout, g, t, trunk, leaves);
             StreetLamps(layout, g, z, wood, glow);
+            if (z.landmarks != null && z.landmarks.Count > 0)
+                BuildLandmarks(root, g, z, null, null, wb.data, bld, roof, PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)),
+                    PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f), door, window, wood);
 
-            // ---- entrance: spawn, exit door, and the door in the castle
+            // ---- entrance: spawn, exit door, and the way in from the castle (a hub gate, or a door placed by position)
             Vector2Int start = starts[0];
             Vector2Int open = g.OpenDirection(start);
             Vector3 openDir = ZoneGrid.ToLocalDir(open);
             Transform spawn = Child(root, "Spawn", g.Local(start) + new Vector3(0, 0.05f, 0));
             spawn.localRotation = Quaternion.LookRotation(openDir);
-            Transform hubReturn = Child(hubRoot, k + "Return", z.hubReturnPosition);
-            hubReturn.localRotation = Quaternion.Euler(0, z.hubReturnYaw, 0);
+            HubGate gate = null;
+            if (hub != null) hub.gates.TryGetValue(k, out gate);
+            Transform hubReturn;
+            if (gate != null) hubReturn = gate.front;
+            else
+            {
+                hubReturn = Child(hubRoot, k + "Return", z.hubReturnPosition);
+                hubReturn.localRotation = Quaternion.Euler(0, z.hubReturnYaw, 0);
+            }
 
             var outDoor = ZoneDoor(root, "ExitDoor", g.Local(start) - openDir * (cs * 0.45f) + new Vector3(0, 2.5f, 0), Quaternion.LookRotation(openDir),
                 Quaternion.LookRotation(-openDir), door, "Starfall Castle\n(click door)");
@@ -219,18 +231,30 @@ namespace WizardsVRC.EditorTools
             toHub.hideZones = new[] { root.gameObject };
             wb.behaviours.Add(toHub);
 
-            Quaternion hubRot = Quaternion.Euler(0, z.hubDoorYaw, 0);
-            var inDoor = ZoneDoor(hubRoot, k + "Door", z.hubDoorPosition, hubRot, hubRot, door, z.displayName + "\n(click door)  " + z.levelRange);
-            var toZone = UdonSharpUndo.AddComponent<TeleportHelper>(inDoor);
-            toZone.defaultTarget = spawn;
-            toZone.showZones = new[] { root.gameObject };
-            wb.behaviours.Add(toZone);
+            GameObject inDoor;
+            if (gate != null)
+            {
+                // The gate's QuestGate checks the quest lock, then uses this teleporter.
+                inDoor = gate.clickable;
+                gate.teleport.defaultTarget = spawn;
+                gate.teleport.showZones = new[] { root.gameObject };
+                gate.gate.openIfStarted = QuestsInZone(z, wb.data);
+            }
+            else
+            {
+                Quaternion hubRot = Quaternion.Euler(0, z.hubDoorYaw, 0);
+                inDoor = ZoneDoor(hubRoot, k + "Door", z.hubDoorPosition, hubRot, hubRot, door, z.displayName + "\n(click door)  " + z.levelRange);
+                var toZone = UdonSharpUndo.AddComponent<TeleportHelper>(inDoor);
+                toZone.defaultTarget = spawn;
+                toZone.showZones = new[] { root.gameObject };
+                wb.behaviours.Add(toZone);
+            }
 
             wb.areaMin.Add(z.height - 50f);
             wb.areaMax.Add(z.height + 60f);
             wb.areaIn.Add(inDoor.transform);
             wb.areaOut.Add(outDoor.transform);
-            wb.areaInNames.Add(z.displayName + " door (castle)");
+            wb.areaInNames.Add(z.displayName + (gate != null ? " gate (castle)" : " door (castle)"));
             wb.areaOutNames.Add("Door back to Starfall Castle");
 
             // ---- NPCs, points, encounters
@@ -241,6 +265,30 @@ namespace WizardsVRC.EditorTools
                     BuildZoneEncounter(root, g, z, e, start, spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb);
 
             root.gameObject.SetActive(false);
+        }
+
+        /// <summary>Save ids of quests with a step (or giver) among this zone's NPCs or points.</summary>
+        private static int[] QuestsInZone(ZoneDefinition z, WorldDataStore.Data data)
+        {
+            var keys = new HashSet<string>();
+            foreach (var n in z.npcs) if (n != null && !string.IsNullOrEmpty(n.key)) keys.Add(n.key);
+            foreach (var p in z.points) if (p != null && !string.IsNullOrEmpty(p.key)) keys.Add(p.key);
+            var ids = new List<int>();
+            foreach (var ql in data.questlines)
+            {
+                if (ql == null || !ql.includeInBuild) continue;
+                foreach (var q in ql.quests)
+                {
+                    if (q == null) continue;
+                    bool here = !q.startsAutomatically && keys.Contains(q.giverNpc ?? "");
+                    foreach (var st in q.steps)
+                        if (st != null && (keys.Contains(st.npc ?? "") && st.kind == QuestStepKind.Talk ||
+                                           keys.Contains(st.point ?? "") && (st.kind == QuestStepKind.Interact || st.kind == QuestStepKind.Explore)))
+                            here = true;
+                    if (here && !ids.Contains(q.saveId)) ids.Add(q.saveId);
+                }
+            }
+            return ids.ToArray();
         }
 
         // ------------------------------------------------------------------ layout pieces
@@ -773,14 +821,14 @@ namespace WizardsVRC.EditorTools
 
         // ================================================================== guide areas
 
-        private static void ApplyGuideAreas(QuestGuide guide, WorldBuild wb, Transform interiorExit, Transform keepEntrance)
+        private static void ApplyGuideAreas(QuestGuide guide, WorldBuild wb, Transform interiorExit, Transform keepEntrance, bool outdoorSchools)
         {
             var min = new List<float> { InteriorOrigin.y * 0.5f };
             var max = new List<float> { InteriorOrigin.y + 100f };
             var into = new List<Transform> { keepEntrance };
             var outof = new List<Transform> { interiorExit };
-            var inNames = new List<string> { "Keep door (Hall of Schools)" };
-            var outNames = new List<string> { "Door to the Courtyard" };
+            var inNames = new List<string> { outdoorSchools ? "Headmaster's Tower door" : "Keep door (Hall of Schools)" };
+            var outNames = new List<string> { outdoorSchools ? "Door to the castle grounds" : "Door to the Courtyard" };
             min.AddRange(wb.areaMin);
             max.AddRange(wb.areaMax);
             into.AddRange(wb.areaIn);

@@ -31,13 +31,56 @@ namespace WizardsVRC.EditorTools.WorldData
         public static bool IsPatrolLetter(char c) { return c >= 'a' && c <= 'i'; }
         public static bool IsBuiltIn(char c) { return IsSolid(c) || c == '.' || c == ',' || c == 'S' || IsRingDigit(c) || IsPatrolLetter(c); }
 
-        /// <summary>True for symbols defined by the zone's NPC or point lists.</summary>
-        public bool IsCustom(char c) { return zone.FindNpc(c) != null || zone.FindPoint(c) != null; }
+        /// <summary>True for symbols defined by the zone's NPC, point or landmark lists.</summary>
+        public bool IsCustom(char c) { return zone.FindNpc(c) != null || zone.FindPoint(c) != null || zone.FindLandmark(c) != null; }
+
+        /// <summary>Walls, trees and solid landmarks (buildings, fountains, stalls).</summary>
+        public bool Solid(int x, int y)
+        {
+            char c = At(x, y);
+            if (IsSolid(c)) return true;
+            var lm = zone.FindLandmark(c);
+            return lm != null && lm.Solid;
+        }
 
         public bool Walkable(int x, int y)
         {
             char c = At(x, y);
-            return !IsSolid(c) && (IsBuiltIn(c) || IsCustom(c));
+            return !Solid(x, y) && (IsBuiltIn(c) || IsCustom(c));
+        }
+
+        /// <summary>Bounding block of a landmark's cells (empty when it isn't on the map).</summary>
+        public RectInt Footprint(char c)
+        {
+            int x0 = int.MaxValue, y0 = int.MaxValue, x1 = -1, y1 = -1;
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                    if (rows[y][x] == c) { x0 = Mathf.Min(x0, x); y0 = Mathf.Min(y0, y); x1 = Mathf.Max(x1, x); y1 = Mathf.Max(y1, y); }
+            return x1 < 0 ? new RectInt(0, 0, 0, 0) : new RectInt(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+        }
+
+        /// <summary>
+        /// The side a building's door opens on: among the sides with open cells next to them, the one facing the map's
+        /// centre most. Returns a map step (0,0 when no side is open).
+        /// </summary>
+        public Vector2Int FrontSide(RectInt r)
+        {
+            Vector2 center = new Vector2(width * 0.5f, height * 0.5f);
+            Vector2 mid = new Vector2(r.x + r.width * 0.5f, r.y + r.height * 0.5f);
+            Vector2Int best = Vector2Int.zero;
+            float bestScore = float.MinValue;
+            foreach (var d in Dirs)
+            {
+                int open = 0;
+                if (d.y != 0) { int yy = d.y < 0 ? r.yMin - 1 : r.yMax; for (int x = r.xMin; x < r.xMax; x++) if (Walkable(x, yy)) open++; }
+                else { int xx = d.x < 0 ? r.xMin - 1 : r.xMax; for (int y = r.yMin; y < r.yMax; y++) if (Walkable(xx, y)) open++; }
+                if (open == 0) continue;
+                Vector2 toCenter = (center - mid);
+                float score = toCenter.sqrMagnitude > 0.01f ? Vector2.Dot(toCenter.normalized, new Vector2(d.x, d.y)) : 0f;
+                score += open * 0.01f;
+                if (score > bestScore) { bestScore = score; best = d; }
+            }
+            return best;
         }
 
         /// <summary>Cell centre in zone-local space: row 0 is the north (+Z) edge, column 0 the west (-X) edge.</summary>

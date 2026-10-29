@@ -5,7 +5,7 @@ Everything that makes up the explorable world is **data you edit in the Unity In
 | What | Asset | Holds |
 | --- | --- | --- |
 | Monsters | `Monsters.asset` (Monster Catalog) | id, name, school, level, health, **spell list**, XP, gold, drops, body size/colour |
-| Zones | `Zone_*.asset` (Zone) | the street layout as a text map, **battle ring spots**, **patrol routes**, NPCs, quest points, doors, colours |
+| Zones | `Zone_*.asset` (Zone) | the layout as a text map, **battle ring spots**, **patrol routes**, NPCs, quest points, **landmarks** (school halls, gates, shops...), colours. One zone is the **castle hub**. |
 | Quests | `Questline_*.asset` (Questline) | quests with steps, rewards, prerequisites, givers and dialogue |
 
 All of them live in **`Assets/WizardsVRC/WorldData/`**. They are plain text files, so git versions them like code.
@@ -22,8 +22,13 @@ Rebuilding the scene never touches them.
    ```
 3. On another computer (or after pulling), run **WizardsVRC > Rebuild MainWorld Scene** and your world is rebuilt from the data.
 
-The first rebuild creates the folder with the defaults (the original monsters, the new maze-style Lantern Row and its
-questline). Commit it once so it's in the repo from then on.
+The first rebuild creates the folder with the defaults: the monsters, the **Starfall Castle hub**, **Sunpetal Gardens**
+(the gentle first street), the maze-style **Lantern Row**, and their questlines. Commit it once so it's in the repo from
+then on.
+
+A folder made by an older version is **upgraded once** on the next rebuild: the hub, Sunpetal Gardens, the tutorial
+questline and the new monsters are added, and Lantern Row moves later in the story (Lv 4-6). Only values that still hold
+the old defaults are changed, so your edits are kept. `WorldDataVersion.txt` records that the upgrade ran; commit it too.
 
 ## The workflow
 
@@ -44,7 +49,7 @@ In the inspector you can **paint** on the coloured map preview with a brush, or 
 .  road                                           ,  grass / courtyard  S  entrance (spawn + door back to the castle)
 1-9  battle ring spot for encounter 1-9
 a-i  patrol route for encounter 1-9 (a = 1, b = 2 ...)
-any other symbol: an NPC or point from the zone's lists (it stands on road)
+any other symbol: an NPC, point or landmark from the zone's lists
 ```
 
 Rules the checks enforce:
@@ -105,11 +110,62 @@ NPCs show a floating **!** when they have a quest for you and **?** when one of 
 Looks: StreetLamp (lights up when used), GlowingItem (disappears when picked up), Crate, Signpost, None.
 Several cells with the same symbol make several of them (3 lamps = 3 `L`s); a step's count says how many are needed.
 
+### Landmarks
+
+Buildings and fixtures, mostly for the hub. Add one to the zone's **Landmarks** list with a map symbol, then paint it.
+Buildings fill the block of cells you paint and put their door on the side facing the map's centre; fixtures take one cell.
+
+| Kind | Where | What it builds |
+| --- | --- | --- |
+| School Hall | hub | a hall in the school's colours; its **professor** (Talk / Learn Spells) waits at the door. One per school. |
+| Keep | hub | the Headmaster's tower; its door leads to the Headmaster's office (where new characters start) |
+| Fountain | any | basin with the Starfall Crystal (solid) |
+| Library, Tower, Statue | any | scenery buildings (Library and halls are solid blocks with a door) |
+| Shop Stall | any | a market stall per cell |
+| Gazebo | any | a walk-in gazebo |
+| Street Gate | hub | portal arch to **Target Zone**; with **Required Quest** it stays locked (showing **Locked Hint**) until that quest is done |
+| Arena Pad | hub | the boss arena teleporter (also lockable with Required Quest) |
+| Bank Chest, Backpack Pedestal, Notice Board | hub | the practice chest, the book pedestal, and the Change Character / Backpack board |
+
+### The castle hub
+
+Tick **Is Hub** on one zone and it becomes Starfall Castle: it's built at the castle's place (Height is ignored), `S` is
+where players arrive, and its **Street Gates** are the way into the other zones (so those zones need no door position).
+**Castle Style** turns the map's edge into castle walls with towers on an island in the sea. When the hub has a School
+Hall for all seven schools, the professors stand outdoors in their quarters and the keep interior is just the
+Headmaster's office; otherwise the old indoor Hall of Schools is used. Without a hub zone the old hand-made castle is built.
+
+The default hub is laid out like Wizard City's Ravenwood and Commons:
+
+```
+          Storm   Headmaster's Tower   Balance  Myth           (north)
+ Fire                                                   Life
+     School Green          Starfall fountain            (east green)
+ Ice                    C chest    P backpack           Death
+   Bazaar (stalls, Pell)   S arrival, A Bramwell, N board    Training Grounds (H Holloway, practice ring 1)
+   Library (Wren, tome)                                       Z boss arena pad
+        R Lantern Row gate                   G Sunpetal Gardens gate     (south wall)
+```
+
+The story order the defaults set up (nothing with real monsters until the castle tour is done):
+
+| Save id | Quest | Teaches / unlocks |
+| --- | --- | --- |
+| 0 | The Prophecy (built in) | meet your professor at their school hall, report to the Headmaster |
+| 8 | Finding Your Way | Gatekeeper Bramwell: explore the School Green, Bazaar and Training Grounds |
+| 9 | Tools of the Trade | Quartermaster Pell: the backpack, equipment, potions (reward: healing potion) |
+| 10 | The Spellbook | Librarian Wren: cards, pips, accuracy, the deck page (reward: mana draught) |
+| 11 | First Duel | Duel Master Holloway: the practice ring against training dummies that never attack. **Opens the Sunpetal Gardens gate.** |
+| 12 | Out Into the World | Bramwell sends you to Gardener Moss |
+| 13-15 | Weeds in the Garden, Pest Control, The Briar Heart | Sunpetal Gardens (Lv 1-3), boss Old Briarwick. **15 opens the Lantern Row gate and the boss arena.** |
+| 2-7 | Lantern Row | now Lv 4-6, after the gardens |
+
 ### Placement
 
-Each zone is built at its own **Height** (600, 700, 800...; at least 100 apart) so zones never overlap the castle or each
-other. The **door in the castle** is placed with *Hub Door Position / Yaw* (Hub-local coordinates; select `Hub` in the
-built scene to find a spot), and *Hub Return Position* is where you appear when you come back.
+Each street zone is built at its own **Height** (600, 700, 800...; at least 100 apart) so zones never overlap the castle
+or each other. When the hub has a Street Gate for a zone, that gate is its way in. Otherwise the **door in the castle** is
+placed with *Hub Door Position / Yaw* (Hub-local coordinates; select `Hub` in the built scene to find a spot), and *Hub
+Return Position* is where you appear when you come back.
 
 ## Monsters
 
@@ -152,7 +208,27 @@ Step kinds:
 The Questline inspector lists every NPC key, point key, monster id and the next free save id, so you don't have to look
 them up. The guide arrow and HUD tracker work automatically from the step's target.
 
-## The default Lantern Row
+## The default Sunpetal Gardens
+
+```
+#############################
+#^,,,,,,,,,,,^,,,,,,,,,,,,,^#
+#,==========,,,,==========,,#
+#,=,,,,,,,,=.....=,,,,,,,=,,#
+#,=,ddd,,,,=..Y..=,,ccccc=,,#     Y = overgrown gazebo, ring 3: Mischief Moths (loop c)
+#,=,d4d,,,,=..X..=,,c.3.c=,,#     ring 4: Old Briarwick in the briar patch, X = Explore point
+#,=,ddd,,,,.......,,c...c=,,#
+...
+#,,.......bbbbbbbbbbbb....,,#     patrol line b: Puddle Newts by the ponds (ring 2)
+...
+#,,,,,,=,,,aaaaaaaa=,,,=,,,,#     ring 1: Thistle Sprouts, patrol loop a
+...
+#,,^,,,,,,,,M..,,,,,,,^,,,,,#     M = Gardener Moss
+#,,,,,,,,,,,,.S.,,,,,,,,,,,,#     S = gate from the castle
+#############################
+```
+
+## The default Lantern Row (Lv 4-6)
 
 ```
 #################################

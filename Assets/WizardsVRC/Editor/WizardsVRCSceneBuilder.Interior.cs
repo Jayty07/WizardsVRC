@@ -9,6 +9,7 @@ namespace WizardsVRC.EditorTools
 {
     // Keep interior (a separate walkable set above the island): Headmaster's office (spawn), the Hall of Schools and one
     // themed classroom + professor per school. Doors on the keep and in the hall teleport between it and the castle.
+    // When the hub map has a hall for every school, only the office is built and the professors stand outdoors.
     public static partial class WizardsVRCSceneBuilder
     {
         private static readonly Vector3 InteriorOrigin = new Vector3(0f, 200f, 0f);
@@ -20,6 +21,8 @@ namespace WizardsVRC.EditorTools
             public Transform[] professors = new Transform[7];
             public Transform exitDoor;
             public Canvas selectCanvas;
+            /// <summary>Professors stand at their school halls in the hub; the keep interior is just the office.</summary>
+            public bool outdoorSchools;
         }
 
         private static readonly string[] ProfessorNames =
@@ -66,14 +69,35 @@ namespace WizardsVRC.EditorTools
             "Take this for your journey. Explore the castle, and when you are ready, the Training Yard will test your spells.",
         };
         private static readonly string[] HintLines = { "Your professor awaits in the Hall of Schools, just beyond my door. Go on!" };
+
+        // Outdoor-schools versions (the hub map has a quarter for every school). Lines that differ from the recorded
+        // voice clips play without voice (see Unvoice).
+        private static readonly string[] ProphecyLinesOutdoor =
+        {
+            ProphecyLines[0], ProphecyLines[1], ProphecyLines[2], ProphecyLines[3], ProphecyLines[4],
+            "So tell me, which school of magic calls to you? Choose, and your professor will be waiting at their school's hall out in the castle grounds.",
+        };
+        private static readonly string[] ReportLinesOutdoor =
+        {
+            ReportLines[0], ReportLines[1],
+            "Take this for your journey. Before you set foot outside the walls, find Gatekeeper Bramwell by the Starfall fountain. He will show you the castle.",
+        };
+        private static readonly string[] HintLinesOutdoor = { "Your professor waits at their school's hall in the castle grounds. Follow the guide arrow outside!" };
+
+        /// <summary>Drops the recorded voice from lines whose text no longer matches the recording.</summary>
+        private static void Unvoice(Cutscene cs, params int[] lines)
+        {
+            if (cs == null || cs.voices == null) return;
+            foreach (int i in lines) if (i >= 0 && i < cs.voices.Length) cs.voices[i] = null;
+        }
         private static readonly string[] IdleLines = { "The prophecy chose well. Keep training, young wizard; Morvane will not wait forever." };
 
         // ------------------------------------------------------------ geometry
 
-        private static Interior BuildInterior()
+        private static Interior BuildInterior(bool officeOnly)
         {
             if (_rng == null) _rng = new System.Random(7);
-            var info = new Interior();
+            var info = new Interior { outdoorSchools = officeOnly };
             var root = new GameObject("KeepInterior").transform;
             root.position = InteriorOrigin;
             info.root = root;
@@ -87,6 +111,8 @@ namespace WizardsVRC.EditorTools
             var window = PMat("Window", new Color(1f, 0.85f, 0.4f), 1f, new Color(0.9f, 0.7f, 0.25f));
             var doorMat = PMat("Door", new Color(0.35f, 0.2f, 0.12f), 2f);
             const float hallH = 9f, roomH = 7f, doorW = 4f, doorH = 5f;
+
+            if (officeOnly) return BuildOffice(info, root, floorMat, wallMat, trim, carpet, gold, wood, window, doorMat, roomH, doorH);
 
             // ---- Hall of Schools: x[-6,6] z[0,50]
             Block(root, "HallFloor", new Vector3(0, -0.25f, 25), new Vector3(12, 0.5f, 50), floorMat);
@@ -109,40 +135,7 @@ namespace WizardsVRC.EditorTools
             for (int i = 0; i < 3; i++) PointLight(root, new Vector3(0, hallH - 1.5f, 8 + i * 17), new Color(1f, 0.88f, 0.7f), 20f, 1.4f);
             Shape(root, "HallStar", GemMesh(), new Vector3(0, hallH - 1.2f, 25), new Vector3(1.4f, 2f, 1.4f), gold, false, Quaternion.identity);
 
-            // ---- Headmaster's office: x[-7,7] z[-12,0] (spawn room)
-            var office = Child(root, "HeadmasterOffice", new Vector3(0, 0, -6));
-            info.office = office;
-            BuildRoomShell(root, "Office", new Vector3(0, 0, -6), new Vector2(14, 12), roomH, floorMat, wallMat, trim);
-            WallAlongX(root, "OfficeWallS", -12, -7, 7, roomH, new float[0], 0, 0, wallMat);
-            WallAlongZ(root, "OfficeWallW", -7, -12, 0, roomH, new float[0], 0, 0, wallMat);
-            WallAlongZ(root, "OfficeWallE", 7, -12, 0, roomH, new float[0], 0, 0, wallMat);
-            Block(office, "Rug", new Vector3(0, 0.02f, -0.5f), new Vector3(7, 0.04f, 6), PMat("OfficeRug", new Color(0.25f, 0.2f, 0.6f), 2f));
-            var shelf = PMat("Bookshelf", new Color(0.35f, 0.2f, 0.1f), 2f);
-            var books = new[] { PMat("BookRed", new Color(0.8f, 0.2f, 0.2f), 1f), PMat("BookBlue", new Color(0.2f, 0.35f, 0.85f), 1f), PMat("BookGreen", new Color(0.2f, 0.65f, 0.3f), 1f) };
-            for (int i = 0; i < 4; i++)
-            {
-                float x = -5.25f + i * 3.5f;
-                if (i == 1 || i == 2) x = i == 1 ? -2.6f : 2.6f;
-                Block(office, "Shelf", new Vector3(x, 1.75f, -5.65f), new Vector3(2.2f, 3.5f, 0.6f), shelf);
-                for (int r = 0; r < 3; r++)
-                    for (int b = 0; b < 5; b++)
-                        Block(office, "Book", new Vector3(x - 0.8f + b * 0.4f, 0.75f + r * 1.05f, -5.4f), new Vector3(0.28f, 0.7f, 0.3f), books[(b + r + i) % 3]);
-            }
-            Block(office, "Desk", new Vector3(0, 0.5f, -2.2f), new Vector3(3.2f, 1f, 1.2f), wood);
-            Shape(office, "DeskOrb", GemMesh(), new Vector3(-1f, 1.35f, -2.2f), new Vector3(0.35f, 0.5f, 0.35f), PMat("Crystal_9FD8FF", new Color(0.62f, 0.85f, 1f), 1f, new Color(0.37f, 0.5f, 0.6f)), false, Quaternion.identity);
-            Block(office, "Window", new Vector3(0, 4f, -5.78f), new Vector3(3f, 2.6f, 0.1f), window);
-            Block(office, "Fireplace", new Vector3(-6.6f, 1.2f, 2f), new Vector3(0.8f, 2.4f, 2.6f), trim);
-            Shape(office, "Fire", ConeMesh(), new Vector3(-6.1f, 0.6f, 2f), new Vector3(0.9f, 1f, 0.9f), PMat("Flame", new Color(1f, 0.55f, 0.1f), 1f, new Color(1f, 0.4f, 0.05f)), false, Quaternion.identity);
-            for (int i = 0; i < 2; i++) Planter(office, new Vector3(-5.5f + i * 11f, 0, 5.2f), PMat("Dirt", new Color(0.62f, 0.45f, 0.28f), 6f));
-            PointLight(office, new Vector3(0, 5.5f, -1f), new Color(1f, 0.85f, 0.65f), 16f, 1.5f);
-            PointLight(office, new Vector3(-5.5f, 1.5f, 2f), new Color(1f, 0.55f, 0.2f), 6f, 1.2f);
-            info.headmaster = Wizard(office, "Headmaster", new Vector3(0, 0, -3.6f), 180f, new Color(0.2f, 0.25f, 0.6f), new Color(0.25f, 0.2f, 0.55f), true, "Headmaster Greymantle");
-            info.officeSpawn = Child(office, "OfficeSpawn", new Vector3(0, 0.05f, 2.5f));
-            info.officeSpawn.rotation = Quaternion.Euler(0, 180f, 0);
-            var canvasGo = new GameObject("SelectCanvas", typeof(RectTransform));
-            canvasGo.transform.SetParent(office, false);
-            info.selectCanvas = MakeWorldCanvas(canvasGo, new Vector2(1600, 900), new Vector3(6.75f, 3.2f, 0), 0.0055f);
-            canvasGo.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+            BuildOfficeRoom(info, root, floorMat, wallMat, trim, gold, wood, window, roomH);
             HallSign(root, new Vector3(0, doorH + 1.1f, 0.3f), 180f, "Headmaster's Office", gold);
 
             // ---- classrooms: three each side of the hall, Balance at the north end
@@ -178,6 +171,65 @@ namespace WizardsVRC.EditorTools
             HallSign(root, new Vector3(-5.6f, 4.1f, 3f), -90f, "To the Courtyard (click door)", gold);
             info.hallEntry = Child(root, "HallEntry", new Vector3(0, 0.05f, 3f));
             info.hallEntry.rotation = Quaternion.identity;
+            return info;
+        }
+
+        /// <summary>Headmaster's office: x[-7,7] z[-12,0] in the interior (spawn room, select canvas on the east wall).</summary>
+        private static void BuildOfficeRoom(Interior info, Transform root, Material floorMat, Material wallMat, Material trim, Material gold, Material wood,
+            Material window, float roomH)
+        {
+            var office = Child(root, "HeadmasterOffice", new Vector3(0, 0, -6));
+            info.office = office;
+            BuildRoomShell(root, "Office", new Vector3(0, 0, -6), new Vector2(14, 12), roomH, floorMat, wallMat, trim);
+            WallAlongX(root, "OfficeWallS", -12, -7, 7, roomH, new float[0], 0, 0, wallMat);
+            WallAlongZ(root, "OfficeWallW", -7, -12, 0, roomH, new float[0], 0, 0, wallMat);
+            WallAlongZ(root, "OfficeWallE", 7, -12, 0, roomH, new float[0], 0, 0, wallMat);
+            Block(office, "Rug", new Vector3(0, 0.02f, -0.5f), new Vector3(7, 0.04f, 6), PMat("OfficeRug", new Color(0.25f, 0.2f, 0.6f), 2f));
+            var shelf = PMat("Bookshelf", new Color(0.35f, 0.2f, 0.1f), 2f);
+            var books = new[] { PMat("BookRed", new Color(0.8f, 0.2f, 0.2f), 1f), PMat("BookBlue", new Color(0.2f, 0.35f, 0.85f), 1f), PMat("BookGreen", new Color(0.2f, 0.65f, 0.3f), 1f) };
+            for (int i = 0; i < 4; i++)
+            {
+                float x = -5.25f + i * 3.5f;
+                if (i == 1 || i == 2) x = i == 1 ? -2.6f : 2.6f;
+                Block(office, "Shelf", new Vector3(x, 1.75f, -5.65f), new Vector3(2.2f, 3.5f, 0.6f), shelf);
+                for (int r = 0; r < 3; r++)
+                    for (int b = 0; b < 5; b++)
+                        Block(office, "Book", new Vector3(x - 0.8f + b * 0.4f, 0.75f + r * 1.05f, -5.4f), new Vector3(0.28f, 0.7f, 0.3f), books[(b + r + i) % 3]);
+            }
+            Block(office, "Desk", new Vector3(0, 0.5f, -2.2f), new Vector3(3.2f, 1f, 1.2f), wood);
+            Shape(office, "DeskOrb", GemMesh(), new Vector3(-1f, 1.35f, -2.2f), new Vector3(0.35f, 0.5f, 0.35f), PMat("Crystal_9FD8FF", new Color(0.62f, 0.85f, 1f), 1f, new Color(0.37f, 0.5f, 0.6f)), false, Quaternion.identity);
+            Block(office, "Window", new Vector3(0, 4f, -5.78f), new Vector3(3f, 2.6f, 0.1f), window);
+            Block(office, "Fireplace", new Vector3(-6.6f, 1.2f, 2f), new Vector3(0.8f, 2.4f, 2.6f), trim);
+            Shape(office, "Fire", ConeMesh(), new Vector3(-6.1f, 0.6f, 2f), new Vector3(0.9f, 1f, 0.9f), PMat("Flame", new Color(1f, 0.55f, 0.1f), 1f, new Color(1f, 0.4f, 0.05f)), false, Quaternion.identity);
+            for (int i = 0; i < 2; i++) Planter(office, new Vector3(-5.5f + i * 11f, 0, 5.2f), PMat("Dirt", new Color(0.62f, 0.45f, 0.28f), 6f));
+            PointLight(office, new Vector3(0, 5.5f, -1f), new Color(1f, 0.85f, 0.65f), 16f, 1.5f);
+            PointLight(office, new Vector3(-5.5f, 1.5f, 2f), new Color(1f, 0.55f, 0.2f), 6f, 1.2f);
+            info.headmaster = Wizard(office, "Headmaster", new Vector3(0, 0, -3.6f), 180f, new Color(0.2f, 0.25f, 0.6f), new Color(0.25f, 0.2f, 0.55f), true, "Headmaster Greymantle");
+            info.officeSpawn = Child(office, "OfficeSpawn", new Vector3(0, 0.05f, 2.5f));
+            info.officeSpawn.rotation = Quaternion.Euler(0, 180f, 0);
+            var canvasGo = new GameObject("SelectCanvas", typeof(RectTransform));
+            canvasGo.transform.SetParent(office, false);
+            info.selectCanvas = MakeWorldCanvas(canvasGo, new Vector2(1600, 900), new Vector3(6.75f, 3.2f, 0), 0.0055f);
+            canvasGo.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+        }
+
+        /// <summary>Office only (the schools are outdoors): a closed north wall with the door out to the castle grounds.</summary>
+        private static Interior BuildOffice(Interior info, Transform root, Material floorMat, Material wallMat, Material trim, Material carpet, Material gold,
+            Material wood, Material window, Material doorMat, float roomH, float doorH)
+        {
+            BuildOfficeRoom(info, root, floorMat, wallMat, trim, gold, wood, window, roomH);
+            WallAlongX(root, "OfficeWallN", 0, -7, 7, roomH, new float[0], 0, 0, wallMat);
+            Block(root, "OfficeCarpet", new Vector3(0, 0.03f, -1.6f), new Vector3(2.4f, 0.04f, 3f), carpet);
+            var exit = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            exit.name = "ExitDoor";
+            exit.transform.SetParent(root, false);
+            exit.transform.localPosition = new Vector3(0, 1.8f, -0.3f);
+            exit.transform.localScale = new Vector3(2.4f, 3.6f, 0.2f);
+            exit.GetComponent<Renderer>().sharedMaterial = doorMat;
+            info.exitDoor = exit.transform;
+            HallSign(root, new Vector3(0, 4.4f, -0.36f), 0f, "To the Castle Grounds (click door)", gold);
+            info.hallEntry = Child(root, "HallEntry", new Vector3(0, 0.05f, -1.8f));
+            info.hallEntry.rotation = Quaternion.Euler(0, 180f, 0);
             return info;
         }
 
@@ -397,8 +449,9 @@ namespace WizardsVRC.EditorTools
 
         /// <summary>Quest manager, NPC talk relays, doors and the quest cutscenes (filmed in the real rooms).</summary>
         private static List<UdonSharpBehaviour> BuildQuests(Transform systems, Interior info, CutscenePlayer player, PlayerState playerState,
-            PlayerHUD hud, Transform hubRoot, SpellTrainer trainer, InteractionMenu menu, Transform arenaPad)
+            PlayerHUD hud, Transform hubRoot, SpellTrainer trainer, InteractionMenu menu, Transform arenaPad, HubLayout hub)
         {
+            bool outdoor = info.outdoorSchools;
             var list = new List<UdonSharpBehaviour>();
             var qm = UdonSharpUndo.AddComponent<QuestManager>(Child(systems, "QuestManager", Vector3.zero).gameObject);
             qm.playerState = playerState;
@@ -434,10 +487,12 @@ namespace WizardsVRC.EditorTools
             qm.stepTargetNames = new string[nq * MS];
             qm.stepTargets = new Transform[nq * MS];
             for (int i = 0; i < nq * MS; i++) { qm.stepCounts[i] = 1; qm.stepTexts[i] = ""; qm.stepTargetNames[i] = ""; }
-            SetStep(qm, 0, 0, QuestManager.STEP_TALK, QuestManager.NPC_OWN_PROFESSOR, 1, "Find {professor} in the {school} classroom (Hall of Schools)", "{professor}", null);
+            SetStep(qm, 0, 0, QuestManager.STEP_TALK, QuestManager.NPC_OWN_PROFESSOR, 1,
+                outdoor ? "Find {professor} at the School of {school} in the castle grounds" : "Find {professor} in the {school} classroom (Hall of Schools)", "{professor}", null);
             SetStep(qm, 0, 1, QuestManager.STEP_TALK, QuestManager.NPC_HEADMASTER, 1, "Return to Headmaster Greymantle's office", "Headmaster Greymantle", null);
             SetStep(qm, 1, 0, QuestManager.STEP_TALK, QuestManager.NPC_OWN_PROFESSOR, 1, "Speak with {professor} about your trial", "{professor}", null);
-            SetStep(qm, 1, 1, QuestManager.STEP_BOSS, 1, 1, "Defeat Gloomfang the Warden in the arena (Training Yard)", "Arena teleporter", arenaPad);
+            SetStep(qm, 1, 1, QuestManager.STEP_BOSS, 1, 1, outdoor ? "Defeat Gloomfang the Warden in the arena (Training Grounds)" : "Defeat Gloomfang the Warden in the arena (Training Yard)",
+                "Arena teleporter", arenaPad);
             SetStep(qm, 1, 2, QuestManager.STEP_TALK, QuestManager.NPC_OWN_PROFESSOR, 1, "Return to {professor}", "{professor}", null);
             qm.professorTargets = (Transform[])info.professors.Clone();
             qm.headmasterTarget = info.headmaster;
@@ -468,10 +523,12 @@ namespace WizardsVRC.EditorTools
             }
 
             Transform[] officeShots = OfficeShots(info);
-            qm.headmasterReport = MakeCutscene(sets, "HeadmasterReport", "Headmaster Greymantle", ReportLines, "hm_report", officeShots);
+            qm.headmasterReport = MakeCutscene(sets, "HeadmasterReport", "Headmaster Greymantle", outdoor ? ReportLinesOutdoor : ReportLines, "hm_report", officeShots);
+            if (outdoor) Unvoice(qm.headmasterReport, 2);
             qm.headmasterReport.onFinished = qm;
             qm.headmasterReport.onFinishedEvent = nameof(QuestManager.OnHeadmasterFinished);
-            qm.headmasterHint = MakeCutscene(sets, "HeadmasterHint", "Headmaster Greymantle", HintLines, "hm_hint", new[] { officeShots[1] });
+            qm.headmasterHint = MakeCutscene(sets, "HeadmasterHint", "Headmaster Greymantle", outdoor ? HintLinesOutdoor : HintLines, "hm_hint", new[] { officeShots[1] });
+            if (outdoor) Unvoice(qm.headmasterHint, 0);
             qm.headmasterHint.onFinished = qm;
             qm.headmasterHint.onFinishedEvent = nameof(QuestManager.OnHeadmasterFinished);
             qm.headmasterIdle = MakeCutscene(sets, "HeadmasterIdle", "Headmaster Greymantle", IdleLines, "hm_idle", new[] { officeShots[2] });
@@ -482,9 +539,9 @@ namespace WizardsVRC.EditorTools
             list.Add(qm.headmasterIdle);
             list.Add(Relay(info.headmaster.gameObject, qm, nameof(QuestManager.TalkHeadmaster)));
 
-            // Doors: hall -> courtyard (in front of the keep), keep door -> hall.
-            Transform keepFront = Child(hubRoot, "KeepFrontSpawn", new Vector3(0, 6.1f, 42.5f));
-            keepFront.rotation = Quaternion.Euler(0, 180f, 0);
+            // Doors: hall (or office) -> castle grounds in front of the keep, keep door -> hall (or office).
+            Transform keepFront = Child(hubRoot, "KeepFrontSpawn", hub.keepFrontPos);
+            keepFront.localRotation = Quaternion.LookRotation(hub.keepOut);
             var exit = UdonSharpUndo.AddComponent<TeleportHelper>(info.exitDoor.gameObject);
             exit.defaultTarget = keepFront;
             list.Add(exit);
@@ -492,13 +549,15 @@ namespace WizardsVRC.EditorTools
             var keepDoor = GameObject.CreatePrimitive(PrimitiveType.Cube);
             keepDoor.name = "KeepEntrance";
             keepDoor.transform.SetParent(hubRoot, false);
-            keepDoor.transform.localPosition = new Vector3(0, 8.5f, 45.85f);
+            keepDoor.transform.localPosition = hub.keepDoorPos;
+            keepDoor.transform.localRotation = Quaternion.LookRotation(hub.keepOut);
             keepDoor.transform.localScale = new Vector3(4f, 5f, 0.2f);
             keepDoor.GetComponent<Renderer>().sharedMaterial = PMat("Door", new Color(0.35f, 0.2f, 0.12f), 2f);
             var enter = UdonSharpUndo.AddComponent<TeleportHelper>(keepDoor);
             enter.defaultTarget = info.hallEntry;
             list.Add(enter);
-            WorldText(hubRoot, "KeepEntranceLabel", new Vector3(0, 11.6f, 45.7f), Quaternion.identity, new Vector2(1200, 160), 0.004f, "Hall of Schools (click door)", 70).color = new Color(1f, 0.85f, 0.4f);
+            WorldText(hubRoot, "KeepEntranceLabel", hub.keepDoorPos + new Vector3(0, 3.1f, 0) + hub.keepOut * 0.15f, Quaternion.LookRotation(-hub.keepOut), new Vector2(1200, 160), 0.004f,
+                hub.keepLabel, 70).color = new Color(1f, 0.85f, 0.4f);
             return list;
         }
 

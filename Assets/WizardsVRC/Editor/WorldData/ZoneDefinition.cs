@@ -16,6 +16,33 @@ namespace WizardsVRC.EditorTools.WorldData
 
     public enum ZonePointLook { StreetLamp, GlowingItem, Crate, Signpost, None }
 
+    /// <summary>Buildings and fixtures a map can place (mostly for the hub). The first group are solid buildings.</summary>
+    public enum LandmarkKind
+    {
+        /// <summary>A school's hall; its professor (Talk / Learn Spells) stands at the door. One per school.</summary>
+        SchoolHall,
+        /// <summary>The Headmaster's tower; its door leads to the Headmaster's office.</summary>
+        Keep,
+        /// <summary>A fountain with the Starfall Crystal.</summary>
+        Fountain,
+        Library,
+        /// <summary>A market stall (one cell).</summary>
+        ShopStall,
+        Tower,
+        Statue,
+        /// <summary>A gate to another zone (Target Zone), optionally locked until a quest is finished.</summary>
+        StreetGate,
+        /// <summary>The Training Yard boss arena teleporter pad.</summary>
+        ArenaPad,
+        /// <summary>The practice loot chest.</summary>
+        BankChest,
+        /// <summary>A pedestal that opens the book.</summary>
+        BackpackPedestal,
+        /// <summary>Notice board with Change Character / Backpack buttons.</summary>
+        NoticeBoard,
+        Gazebo,
+    }
+
     /// <summary>
     /// One explorable area (a street, a dungeon...). The layout is a text map: each character is one square cell
     /// (see the legend in the inspector). Saved as a text asset in Assets/WizardsVRC/WorldData so it is versioned
@@ -29,7 +56,8 @@ namespace WizardsVRC.EditorTools.WorldData
             ".  road                    ,  grass / courtyard      S  entrance (spawn + door back to the castle)\n" +
             "1-9  battle ring spot for encounter 1-9 (needs a 3x3 open plaza)\n" +
             "a-i  patrol route of encounter 1-9 (a = 1, b = 2...): a 1-cell-wide line or loop of letters\n" +
-            "Other letters/symbols: NPCs and points from the lists below (each stands on road).";
+            "Other letters/symbols: NPCs, points and landmarks from the lists below. NPCs and points stand on road;\n" +
+            "buildings (school hall, keep, library...) fill the block of cells you paint and open their door to the side facing the map's centre.";
 
         [Tooltip("Unique key, used in names and by quests.")]
         public string zoneKey = "NewZone";
@@ -37,6 +65,11 @@ namespace WizardsVRC.EditorTools.WorldData
         public string levelRange = "Lv 1-3";
         [Tooltip("Untick to leave this zone out of the build.")]
         public bool includeInBuild = true;
+        [Tooltip("The castle hub: built at the castle's place (height is ignored), always visible, S is where players arrive, " +
+                 "and Street Gate landmarks are the doors to the other zones. Only one zone can be the hub.")]
+        public bool isHub;
+        [Tooltip("Castle look: the map edge becomes castle walls with towers, on an island in the sea, with leafy trees.")]
+        public bool castleStyle;
 
         [Header("Placement")]
         [Tooltip("Height the zone is built at, far from the castle (0), keep interior (200) and arena (400). " +
@@ -75,6 +108,7 @@ namespace WizardsVRC.EditorTools.WorldData
         public List<ZoneNpc> npcs = new List<ZoneNpc>();
         public List<ZonePoint> points = new List<ZonePoint>();
         public List<ZoneEncounter> encounters = new List<ZoneEncounter>();
+        public List<ZoneLandmark> landmarks = new List<ZoneLandmark>();
 
         /// <summary>Map rows, padded to the same width with '#'.</summary>
         public string[] Rows()
@@ -97,6 +131,13 @@ namespace WizardsVRC.EditorTools.WorldData
         public ZonePoint FindPoint(char c)
         {
             foreach (var p in points) if (p != null && p.Symbol == c) return p;
+            return null;
+        }
+
+        public ZoneLandmark FindLandmark(char c)
+        {
+            if (landmarks == null) return null;
+            foreach (var l in landmarks) if (l != null && l.Symbol == c) return l;
             return null;
         }
 
@@ -166,5 +207,44 @@ namespace WizardsVRC.EditorTools.WorldData
 
         public char Symbol { get { return string.IsNullOrEmpty(ringSymbol) ? '\0' : ringSymbol[0]; } }
         public char PatrolSymbol { get { char d = Symbol; return d >= '1' && d <= '9' ? (char)('a' + (d - '1')) : '\0'; } }
+    }
+}
+
+namespace WizardsVRC.EditorTools.WorldData
+{
+    [Serializable]
+    public class ZoneLandmark
+    {
+        [Tooltip("Map character. Buildings: paint a block of cells with it (the footprint). Fixtures: one cell.")]
+        public string symbol = "F";
+        public LandmarkKind kind = LandmarkKind.SchoolHall;
+        [Tooltip("School Hall: which school.")]
+        public School school = School.Fire;
+        [Tooltip("Sign text (blank = picked for you).")]
+        public string label = "";
+        [Tooltip("Street Gate: zone key of the zone it leads to.")]
+        public string targetZone = "";
+        [Tooltip("Street Gate / Arena Pad: save id of the quest that must be finished first (-1 = always open).")]
+        public int requiredQuest = -1;
+        [Tooltip("Street Gate / Arena Pad: shown while locked, e.g. \"Finish the Training Grounds first\".")]
+        public string lockedHint = "";
+
+        public char Symbol { get { return string.IsNullOrEmpty(symbol) ? '\0' : symbol[0]; } }
+
+        /// <summary>Buildings block movement; fixtures (gates, pads, chests...) stand on walkable cells.</summary>
+        public bool Solid
+        {
+            get
+            {
+                return kind == LandmarkKind.SchoolHall || kind == LandmarkKind.Keep || kind == LandmarkKind.Fountain || kind == LandmarkKind.Library ||
+                       kind == LandmarkKind.ShopStall || kind == LandmarkKind.Tower || kind == LandmarkKind.Statue;
+            }
+        }
+
+        /// <summary>Buildings that fill a block of cells and get a door.</summary>
+        public bool IsBuilding
+        {
+            get { return kind == LandmarkKind.SchoolHall || kind == LandmarkKind.Keep || kind == LandmarkKind.Library; }
+        }
     }
 }

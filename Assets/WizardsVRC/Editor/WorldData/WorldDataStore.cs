@@ -60,7 +60,14 @@ namespace WizardsVRC.EditorTools.WorldData
         [MenuItem("WizardsVRC/World Data/New Questline")]
         public static void NewQuestline() { CreateNew<Questline>("Questline_New", q => { }); }
 
-        /// <summary>Creates the default assets (from the game's original content) for anything that is missing.</summary>
+        /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
+        public const int CurrentVersion = 2;
+        public const string VersionPath = Folder + "/WorldDataVersion.txt";
+
+        /// <summary>
+        /// Creates the default assets (from the game's original content) the first time, and upgrades a folder made by an
+        /// older version once (adding the castle hub, Sunpetal Gardens and the tutorial quests) without touching your edits.
+        /// </summary>
         public static void EnsureDefaults()
         {
             if (!AssetDatabase.IsValidFolder(Folder))
@@ -69,6 +76,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 if (Directory.Exists(Folder)) AssetDatabase.Refresh();
                 else AssetDatabase.CreateFolder("Assets/WizardsVRC", "WorldData");
             }
+            bool hadData = FindAll<ZoneDefinition>().Count > 0 || FindAll<Questline>().Count > 0;
             bool created = false;
             if (AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) == null && FindFirst<MonsterCatalog>() == null)
             {
@@ -79,23 +87,125 @@ namespace WizardsVRC.EditorTools.WorldData
             }
             if (FindAll<ZoneDefinition>().Count == 0)
             {
-                var z = ScriptableObject.CreateInstance<ZoneDefinition>();
-                WorldDefaults.FillLanternRow(z);
-                AssetDatabase.CreateAsset(z, Folder + "/Zone_LanternRow.asset");
+                CreateZone("Zone_StarfallCastle", WorldDefaults.FillStarfallCastle);
+                CreateZone("Zone_SunpetalGardens", WorldDefaults.FillSunpetalGardens);
+                CreateZone("Zone_LanternRow", WorldDefaults.FillLanternRow);
                 created = true;
             }
             if (FindAll<Questline>().Count == 0)
             {
-                var q = ScriptableObject.CreateInstance<Questline>();
-                WorldDefaults.FillLanternRowQuests(q);
-                AssetDatabase.CreateAsset(q, Folder + "/Questline_LanternRow.asset");
+                CreateQuestline("Questline_Tutorial", WorldDefaults.FillTutorialQuests);
+                CreateQuestline("Questline_SunpetalGardens", WorldDefaults.FillGardenQuests);
+                CreateQuestline("Questline_LanternRow", WorldDefaults.FillLanternRowQuests);
                 created = true;
             }
+            int version = ReadVersion();
+            if (hadData && version < CurrentVersion)
+            {
+                Upgrade(version);
+                created = true;
+            }
+            if (version < CurrentVersion) WriteVersion(CurrentVersion);
             if (created)
             {
                 AssetDatabase.SaveAssets();
-                Debug.Log("[WizardsVRC] Created default world data in " + Folder + ". Commit this folder to keep your edits.");
+                Debug.Log("[WizardsVRC] Created/updated default world data in " + Folder + ". Commit this folder to keep your edits.");
             }
+        }
+
+        private static void CreateZone(string file, System.Action<ZoneDefinition> fill)
+        {
+            var z = ScriptableObject.CreateInstance<ZoneDefinition>();
+            fill(z);
+            AssetDatabase.CreateAsset(z, AssetDatabase.GenerateUniqueAssetPath(Folder + "/" + file + ".asset"));
+        }
+
+        private static void CreateQuestline(string file, System.Action<Questline> fill)
+        {
+            var q = ScriptableObject.CreateInstance<Questline>();
+            fill(q);
+            AssetDatabase.CreateAsset(q, AssetDatabase.GenerateUniqueAssetPath(Folder + "/" + file + ".asset"));
+        }
+
+        private static int ReadVersion()
+        {
+            try { return File.Exists(VersionPath) ? int.Parse(File.ReadAllText(VersionPath).Trim()) : 1; }
+            catch (System.Exception) { return 1; }
+        }
+
+        private static void WriteVersion(int v)
+        {
+            File.WriteAllText(VersionPath, v + "\n");
+            AssetDatabase.ImportAsset(VersionPath);
+        }
+
+        /// <summary>
+        /// One-time upgrade of a folder made by an older version. Adds what's missing (by zone key, quest save id and
+        /// monster id) and only changes values that still hold the old defaults, so nothing you edited is overwritten.
+        /// </summary>
+        private static void Upgrade(int from)
+        {
+            if (from >= 2) return;
+            var zones = FindAll<ZoneDefinition>();
+            var questlines = FindAll<Questline>();
+            var report = new List<string>();
+
+            // Monsters: add the new ones; move the Lantern Row monsters up to Lv 4-6 if they're still the old defaults.
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            if (cat != null)
+            {
+                var defaults = ScriptableObject.CreateInstance<MonsterCatalog>();
+                WorldDefaults.FillMonsters(defaults);
+                int[] oldLevel = { 0, 0, 0, 0, 0, 1, 2, 4 }, oldHp = { 0, 0, 0, 0, 0, 180, 260, 900 };
+                foreach (var d in defaults.monsters)
+                {
+                    var have = cat.Find(d.id);
+                    if (have == null) { cat.monsters.Add(d); report.Add("monster " + d.id + " " + d.name); continue; }
+                    if (d.id >= 5 && d.id <= 7 && have.level == oldLevel[d.id] && have.health == oldHp[d.id])
+                    {
+                        have.level = d.level;
+                        have.health = d.health;
+                        have.healthPerExtraWizard = d.healthPerExtraWizard;
+                        have.xp = d.xp;
+                        have.goldMin = d.goldMin;
+                        have.goldMax = d.goldMax;
+                        if (d.id == 7 && have.dropItem == 61) { have.dropItem = d.dropItem; have.notes = d.notes; }
+                        report.Add(d.name + " to level " + d.level);
+                    }
+                }
+                Object.DestroyImmediate(defaults);
+                EditorUtility.SetDirty(cat);
+            }
+
+            // Zones: the castle hub (unless you already made one) and Sunpetal Gardens.
+            bool hasHub = false, hasGardens = false;
+            foreach (var z in zones) { hasHub |= z.isHub; hasGardens |= z.zoneKey == "SunpetalGardens"; }
+            if (!hasHub) { CreateZone("Zone_StarfallCastle", WorldDefaults.FillStarfallCastle); report.Add("Starfall Castle hub map"); }
+            if (!hasGardens) { CreateZone("Zone_SunpetalGardens", WorldDefaults.FillSunpetalGardens); report.Add("Sunpetal Gardens"); }
+            foreach (var z in zones)
+                if (z.zoneKey == "LanternRow" && z.levelRange == "Lv 1-3") { z.levelRange = "Lv 4-6"; EditorUtility.SetDirty(z); }
+
+            // Questlines: the tutorial (8-12) and the gardens (13-15) unless those save ids are taken; Lantern Row now follows the gardens.
+            var used = new HashSet<int>();
+            foreach (var ql in questlines) foreach (var q in ql.quests) if (q != null) used.Add(q.saveId);
+            if (!used.Contains(8) && !used.Contains(12)) { CreateQuestline("Questline_Tutorial", WorldDefaults.FillTutorialQuests); report.Add("tutorial quests 8-12"); }
+            if (!used.Contains(13) && !used.Contains(15)) { CreateQuestline("Questline_SunpetalGardens", WorldDefaults.FillGardenQuests); report.Add("Sunpetal Gardens quests 13-15"); }
+            int[] oldMin = { 0, 0, 1, 1, 2, 3, 1, 1 }, newMin = { 0, 0, 3, 4, 4, 5, 3, 3 };
+            foreach (var ql in questlines)
+            {
+                bool dirty = false;
+                foreach (var q in ql.quests)
+                {
+                    if (q == null || q.saveId < 2 || q.saveId > 7) continue;
+                    if (q.minLevel == oldMin[q.saveId]) { q.minLevel = newMin[q.saveId]; dirty = true; }
+                    if (q.saveId != 2) continue;
+                    if (q.prerequisite == QuestManager.QUEST_PROPHECY) { q.prerequisite = 15; dirty = true; report.Add("Lantern Row now opens after Sunpetal Gardens"); }
+                    if (q.description == WorldDefaults.OldLanternRowIntro) { q.description = WorldDefaults.LanternRowIntro; dirty = true; }
+                    if (q.steps.Count > 0 && q.steps[0].objective == WorldDefaults.OldLanternRowIntroStep) { q.steps[0].objective = WorldDefaults.LanternRowIntroStep; dirty = true; }
+                }
+                if (dirty) EditorUtility.SetDirty(ql);
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data: added/updated " + string.Join(", ", report) + ".");
         }
 
         private static float NextFreeHeight()
