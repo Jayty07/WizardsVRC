@@ -267,6 +267,14 @@ namespace WizardsVRC.EditorTools
             var areaCuller = BuildAreaCuller(systems.transform, cullAreas, cullBounds, scene, encounters);
             streets.Add(areaCuller);
 
+            // Interface sounds: every button gets a click / hover sound; cards, the book and cutscenes call it directly.
+            var uiAudio = BuildUiAudio(systems.transform);
+            foreach (var ec in encounters) ec.uiAudio = uiAudio;
+            book.uiAudio = uiAudio;
+            ((CutscenePlayer)cutscenes[0]).uiAudio = uiAudio;
+            Debug.Log("[WizardsVRC] Interface sounds on " + WireUiSounds(scene, uiAudio) + " buttons.");
+            streets.Add(uiAudio);
+
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
             toSync.AddRange(quests);
             toSync.AddRange(learning);
@@ -357,7 +365,7 @@ namespace WizardsVRC.EditorTools
             // MonsterDatabase was merged into CardDatabase; drop its old program asset so UdonSharp doesn't look for the script.
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -1049,10 +1057,8 @@ namespace WizardsVRC.EditorTools
             Material ringMat = Mat("DuelRing", new Color(0.95f, 0.8f, 0.35f));
             ringMat.EnableKeyword("_EMISSION");
             ringMat.SetColor("_EmissionColor", new Color(0.9f, 0.7f, 0.25f) * 1.5f);
-            // Duel circle: rune band, 8 seat sockets and a central sigil, painted on one flat disc.
-            Texture2D circleTex = PixelTexture(TexturesDir + "/DuelCircle.png");
-            FlatDecal(ring.transform, "CircleDisc", new Vector3(0, 0.02f, 0), DuelCircleRadius * 2f,
-                CutoutMat("DuelCircle", circleTex, Color.white, new Color(0.35f, 0.35f, 0.4f)));
+            // Duel circle: seat band (fixed), turning sigil and rune band, and the start flash (WizardsVRCSceneBuilder.CombatFx.cs).
+            BuildCircleLayers(ring.transform, name, client);
 
             // Turn clock in the middle of the ring: the hand sweeps the planning timer, then points at each caster.
             var clock = Child(ring.transform, "TurnClock", Vector3.zero);
@@ -1176,6 +1182,9 @@ namespace WizardsVRC.EditorTools
                 }
             }
 
+            // Pips in front of every seat, with swirling motes.
+            BuildSeatPips(ring.transform, client);
+
             client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 5.2f, 7f), Quaternion.identity, new Vector2(1600, 420), 0.005f, "", 52);
 
             var divider = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -1284,6 +1293,9 @@ namespace WizardsVRC.EditorTools
                 client.castBursts[k] = ps;
             }
 
+            // Breaking shields / blades / traps, floating combat text and hit / heal / defeat sounds.
+            BuildCombatFeedback(ring.transform, client);
+
             // Summoned minions: one body per seat, parented to the ring. BattleClient grows them at the ring's centre and
             // walks them to their seat, so it works wherever the ring is placed.
             client.minionBodies = new Transform[slots];
@@ -1320,6 +1332,8 @@ namespace WizardsVRC.EditorTools
             client.summonFlash = flash.transform;
 
             BuildHandPanel(root, client);
+            // Lift everything in the ring clear of zone paving and lawns (their slabs stand ~7 cm proud of the ground).
+            ring.transform.localPosition = new Vector3(0, RingLift, 0);
             ring.SetActive(false);
             client.ring = ring;
 
@@ -1354,8 +1368,9 @@ namespace WizardsVRC.EditorTools
             client.handRoot = canvasGo;
 
             Color gold = new Color(1f, 0.85f, 0.45f);
-            Panel(root, "Background", Vector2.zero, new Vector2(1600, 960), new Color(0.06f, 0.05f, 0.1f, 0.82f));
-            Panel(root, "TopBar", new Vector2(0, 385), new Vector2(1560, 160), new Color(0.12f, 0.1f, 0.2f, 0.9f));
+            // See-through backing so the duel stays visible behind the cards.
+            Panel(root, "Background", Vector2.zero, new Vector2(1600, 960), new Color(0.06f, 0.05f, 0.1f, 0.38f));
+            Panel(root, "TopBar", new Vector2(0, 385), new Vector2(1560, 160), new Color(0.12f, 0.1f, 0.2f, 0.55f));
             client.partyLabel = Label(root, "Party", new Vector2(-470, 385), new Vector2(600, 150), "", 18, TextAnchor.MiddleLeft);
             client.statusLabel = Label(root, "Status", new Vector2(320, 385), new Vector2(900, 150), "", 24, TextAnchor.MiddleLeft);
 

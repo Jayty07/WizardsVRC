@@ -160,6 +160,21 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   school, accuracy and full effect. Pips show as dots (white, power, empty).
 - **Two clear sides:** wizards always sit on the south half (blue seat sockets), monsters on the north half (red), with
   a glowing line between. Each monster seat shows the model of the monster actually in that seat.
+- **Duel presentation:** when a fight forms, the circle appears in a white flash (column of light, sparks, the circle
+  sound) and settles into its normal look. Its inner sigil and outer rune band then turn opposite ways in PSX-style
+  steps while the sigil's glow pulses; the seat band stays put so the sockets line up with the seats.
+- **Pips at the seats:** every combatant has their pips as gems in an arc in front of their seat (white = pip, gold = power
+  pip), with white and gold motes swirling round them, more the more pips they hold. A caster's pips drop when their
+  spell actually plays.
+- **Shields, blades and traps** circle the combatant (shields at chest height, blades overhead, traps at the feet); each new
+  one of a kind sits right next to the last. They appear when their spell plays and, when a hit uses one up, it blinks,
+  bursts and its value floats off (-50% for a shield, +25% for a blade or trap, with the school's icon).
+- **Floating combat text** over every combatant: damage numbers in the spell's school colour with its icon (CRITICAL! on
+  crits), heals, Fizzled!, burns, Stunned!, and new shields / blades / traps. Several in one step stack up.
+- **Combat UI:** the card panel hides while the round plays out, and its backing is see-through.
+- **Sounds:** hit, heal and defeat sounds in the duel, the circle sound at the start, card hover / click / spell select,
+  and click / hover sounds on every button (OK, Cancel, Delete, Next / Prev, tabs...). The book opening, potions and
+  dialogue pop-ups have their own (`Audio/UI`).
 - **Monster AI:** monsters heal an ally under 45% health, sometimes put a blade or shield on themselves first, and
   otherwise cast their biggest affordable attack (occasionally saving pips).
 

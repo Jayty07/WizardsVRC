@@ -70,6 +70,60 @@ namespace WizardsVRC
         [Tooltip("Indexed by School; the last entry is for General (any school).")]
         public Material[] fxMats;
 
+        [Header("Duel circle layers and the start flash")]
+        [Tooltip("Inner sigil disc (turns slowly, glow pulses).")]
+        public Transform circleSigil;
+        [Tooltip("Outer rune band (turns the other way).")]
+        public Transform circleRunes;
+        [Tooltip("Sigil material; its glow pulses.")]
+        public Material circleSigilMat;
+        public Color circleSigilGlow = new Color(0.35f, 0.35f, 0.45f);
+        [Tooltip("White copy of the circle shown when a fight starts; it settles into the real circle.")]
+        public Transform circleFlash;
+        public Material circleFlashMat;
+        public Transform flashPillar;
+        public Light flashLight;
+        public ParticleSystem startSparks;
+        public AudioSource circleAudio;
+        public AudioClip circleSound;
+        public float startFlashSeconds = 1.1f;
+        [Tooltip("PSX look: the circle turns in steps of this many degrees, a few times a second.")]
+        public float circleStepDegrees = 4f;
+        public float sigilDegreesPerSecond = 9f;
+        public float runeDegreesPerSecond = -6f;
+
+        [Header("Pips at each seat (Wizard101 style)")]
+        [Tooltip("Index slot * BattleManager.MAX_PIPS + k, in an arc in front of the seat.")]
+        public Renderer[] pipIcons;
+        public Material pipMat;
+        public Material powerPipMat;
+        [Tooltip("White motes swirling round each combatant, more the more pips they hold (one per seat).")]
+        public ParticleSystem[] pipSwirls;
+        [Tooltip("Gold motes for power pips (one per seat).")]
+        public ParticleSystem[] powerSwirls;
+        public float swirlInterval = 0.4f;
+
+        [Header("Effect breaks and floating combat text")]
+        [Tooltip("Shards that flash and burst where a shield / blade / trap breaks.")]
+        public Transform[] breakPops;
+        public Renderer[] breakPopRenderers;
+        public Transform[] floaters;
+        public Text[] floaterTexts;
+        public RawImage[] floaterIcons;
+        [Tooltip("Indexed by School; the last entry is the General icon.")]
+        public Texture[] schoolIcons;
+        public float floaterSeconds = 1.9f;
+
+        [Header("Sounds")]
+        [Tooltip("Positional source for hits, heals and defeats (moved to whoever it happens to).")]
+        public AudioSource hitAudio;
+        [Tooltip("Played when a wizard takes damage (one picked at random).")]
+        public AudioClip[] wizardHitSounds;
+        public AudioClip healSound;
+        public AudioClip defeatSound;
+        [Tooltip("Local interface sounds (cards).")]
+        public UiAudio uiAudio;
+
         [Header("Summoned minions (one body per seat, parented to the ring)")]
         public Transform[] minionBodies;
         [Tooltip("Index slot * 2 + part; recoloured to the minion's school (uses fxMats).")]
@@ -90,6 +144,25 @@ namespace WizardsVRC
 
         private float[] _fxRadius = { 0.75f, 0.45f, 0.9f };
         private float[] _fxSpin = { 70f, -110f, 45f };
+        /// <summary>Degrees between stacked effects of one kind: each new one sits right next to the last.</summary>
+        private float[] _fxStackDeg = { 42f, 30f, 38f };
+
+        // What the circle shows: the synced state, except during round playback, when it changes step by step.
+        private int[] _fxSh = new int[BattleManager.SLOTS * BattleManager.FX_MAX];
+        private int[] _fxBl = new int[BattleManager.SLOTS * BattleManager.FX_MAX];
+        private int[] _fxTr = new int[BattleManager.SLOTS * BattleManager.FX_MAX];
+        private int[] _shownPips = new int[BattleManager.SLOTS];
+        private int[] _shownPower = new int[BattleManager.SLOTS];
+        private float _flashStart = -100f;
+        private int _flashBattle = -1;
+        private float _nextSwirl;
+        private float[] _popStart;
+        private int _popNext;
+        private float[] _floatStart;
+        private Vector3[] _floatBase;
+        private int _floatNext;
+        private int[] _stack = new int[BattleManager.SLOTS];
+        private Vector3[] _pipBase;
 
         [Header("Hand panel")]
         public GameObject handRoot;
@@ -323,6 +396,13 @@ namespace WizardsVRC
         {
             CacheCardLayout();
             if (handRoot != null) handRoot.SetActive(false);
+            _popStart = new float[breakPops != null ? breakPops.Length : 0];
+            for (int i = 0; i < _popStart.Length; i++) _popStart[i] = -100f;
+            _floatStart = new float[floaters != null ? floaters.Length : 0];
+            _floatBase = new Vector3[_floatStart.Length];
+            for (int i = 0; i < _floatStart.Length; i++) _floatStart[i] = -100f;
+            _pipBase = new Vector3[pipIcons != null ? pipIcons.Length : 0];
+            for (int i = 0; i < _pipBase.Length; i++) if (pipIcons[i] != null) _pipBase[i] = pipIcons[i].transform.localPosition;
             OnBattleState();
         }
 
@@ -352,6 +432,7 @@ namespace WizardsVRC
         {
             if (_hover == i) return;
             _hover = i;
+            if (i >= 0 && i < _handCount && uiAudio != null) uiAudio.PlayCardHover();
             RestoreCardOrder();
             if (i >= 0 && i < _handCount && cardImages != null && i < cardImages.Length && cardImages[i] != null)
                 cardImages[i].rectTransform.SetAsLastSibling();
@@ -399,7 +480,10 @@ namespace WizardsVRC
             if (phase != BattleManager.PHASE_IDLE) PlaceRing();
             bool active = phase >= BattleManager.PHASE_JOINING;
             if (ring != null) ring.SetActive(active);
-            if (active) { UpdateSeatRings(); UpdateFx(); }
+            // Outside round playback the circle shows the synced shields, pips etc. as they are.
+            if (!_playing && phase != BattleManager.PHASE_PLAYBACK) SyncShownState();
+            if (active && manager.battleId != _flashBattle) StartFlash();
+            if (active) { UpdateSeatRings(); UpdateFx(); UpdatePips(); }
             UpdateMinions(phase);
             for (int m = 0; m < BattleManager.SIDE; m++)
                 if (monsterBodies != null && m < monsterBodies.Length && monsterBodies[m] != null)
@@ -501,6 +585,16 @@ namespace WizardsVRC
             _phaseSeen = phase;
             RefreshLabels();
             RefreshHand();
+            UpdateHandVisible();
+        }
+
+        /// <summary>The hand panel only shows while you're choosing (hidden while the spells play out, like Wizard101).</summary>
+        private void UpdateHandVisible()
+        {
+            if (handRoot == null) return;
+            int ph = manager.phase;
+            bool show = _inBattle && _seated && !_leaving && (ph == BattleManager.PHASE_JOINING || ph == BattleManager.PHASE_PLANNING);
+            if (handRoot.activeSelf != show) handRoot.SetActive(show);
         }
 
         /// <summary>Moves the whole encounter (ring, seats, labels, hand) to the fight's ring spot.</summary>
@@ -762,6 +856,7 @@ namespace WizardsVRC
         private void ClickCard(int i)
         {
             if (!CanAct() || i >= _handCount) return;
+            if (uiAudio != null) uiAudio.PlayCardClick();
             int card = _hand[i];
             if (_discardMode)
             {
@@ -810,6 +905,7 @@ namespace WizardsVRC
         private void Submit(int card, int target, string note)
         {
             manager.RequestPick(card, target);
+            if (uiAudio != null && card > 0) uiAudio.PlaySpellSelect();
             _submitted = true;
             _selHand = -1;
             _discardMode = false;
@@ -834,6 +930,12 @@ namespace WizardsVRC
             int card = manager.actCard[_playIndex];
             int kind = manager.actKind[_playIndex];
             int firstTargetSlot = manager.actTarget[_playIndex];
+            if (actor >= 0 && actor < BattleManager.SLOTS)
+            {
+                _shownPips[actor] = manager.pips[actor];
+                _shownPower[actor] = manager.powerPips[actor];
+                UpdatePips();
+            }
             string text = manager.SlotName(actor);
             if (kind == BattleManager.KIND_PASS) text += " passes.";
             else if (kind == BattleManager.KIND_FIZZLE) text += "'s " + cardDatabase.GetName(card) + " fizzles!";
@@ -886,6 +988,9 @@ namespace WizardsVRC
         {
             _playing = false;
             for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
+            SyncShownState();
+            UpdateFx();
+            UpdatePips();
             EndCast();
             _HideSpellAnimation();
             RefreshLabels();
@@ -895,6 +1000,7 @@ namespace WizardsVRC
         private void ApplyStep()
         {
             string text = _stepHeader;
+            for (int s = 0; s < BattleManager.SLOTS; s++) _stack[s] = 0;
             for (int i = _stepStart; i < _stepEnd && i < manager.actCount; i++)
             {
                 int t = manager.actTarget[i];
@@ -904,10 +1010,17 @@ namespace WizardsVRC
                 if (k == BattleManager.KIND_DAMAGE) text += "\n" + manager.SlotName(t) + " takes " + v.ToString() + " damage" + FlagText(f);
                 else if (k == BattleManager.KIND_HEAL) text += "\n" + manager.SlotName(t) + " heals " + v.ToString() + FlagText(f);
                 else if (k == BattleManager.KIND_BUFF) text += "\n" + manager.SlotName(t) + BuffText(manager.actCard[i], v);
+                // Shields / blades / traps this hit used up break first, then the result floats up.
+                BreakLoggedFx(i);
+                FloatAct(i);
+                AddShownFx(i);
+                int before = t >= 0 && t < BattleManager.SLOTS ? _shownHp[t] : 0;
                 if (t >= 0 && t < BattleManager.SLOTS) _shownHp[t] = manager.actHpAfter[i];
+                ActSound(i, before);
             }
             SetBanner(text);
             RefreshLabels();
+            UpdateFx();
         }
 
         private string FlagText(int f)
@@ -991,7 +1104,7 @@ namespace WizardsVRC
             _castPeak = manager.CastPeakSeconds(school);
             int mi = fxMats == null || fxMats.Length == 0 ? -1 : (school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1);
             float scale = SeatScale(from);
-            _ringBase = seats[from].position + Vector3.up * 0.05f;
+            _ringBase = seats[from].position + Vector3.up * 0.15f;
             _glyphBase = seats[from].position + Vector3.up * (2.6f * scale);
             _orbFrom = seats[from].position + Vector3.up * (1.3f * scale);
             _orbTo = seats[to].position + Vector3.up * (1.1f * SeatScale(to));
@@ -1131,8 +1244,8 @@ namespace WizardsVRC
             {
                 for (int kind = 0; kind < 3; kind++)
                 {
-                    int[] arr = kind == 0 ? manager.shields : (kind == 1 ? manager.blades : manager.traps);
-                    int n = manager.Occupied(s) ? manager.FxCount(arr, s) : 0;
+                    int[] arr = kind == 0 ? _fxSh : (kind == 1 ? _fxBl : _fxTr);
+                    int n = manager.Occupied(s) ? ShownCount(arr, s) : 0;
                     for (int k = 0; k < max; k++)
                     {
                         int idx = (s * 3 + kind) * max + k;
@@ -1144,7 +1257,8 @@ namespace WizardsVRC
                         int f = manager.FxSchool(arr[s * max + k]);
                         int mi = f < 0 || f >= fxMats.Length - 1 ? fxMats.Length - 1 : f;
                         if (fxMats.Length > 0 && r.sharedMaterial != fxMats[mi]) r.sharedMaterial = fxMats[mi];
-                        float ang = k * 360f / n;
+                        // Stacked effects sit side by side (the newest next to the last), and the group circles the combatant.
+                        float ang = (k - (n - 1) * 0.5f) * _fxStackDeg[kind];
                         Quaternion around = Quaternion.Euler(0f, ang, 0f);
                         r.transform.localPosition = around * Vector3.forward * _fxRadius[kind];
                         r.transform.localRotation = kind == 0 ? around * Quaternion.Euler(90f, 0f, 0f) : (kind == 1 ? around : around * Quaternion.Euler(0f, 45f, 0f));
@@ -1310,7 +1424,10 @@ namespace WizardsVRC
 
         private void Update()
         {
-            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); }
+            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); AnimateCircle(); AnimatePips(); }
+            AnimateFlash();
+            AnimatePops();
+            AnimateFloaters();
             if (_inBattle && manager != null) { UpdateHudHealth(); AnimateCards(); }
             if (_inBattle && !_seated && manager != null && manager.phase == BattleManager.PHASE_ROAMING && arenaCenter != null && Time.time >= _nextEngage)
             {
@@ -1448,6 +1565,417 @@ namespace WizardsVRC
             if (potionLabel != null) potionLabel.text = "Potion (" + CountPotions().ToString() + ")";
             if (discardImage != null) discardImage.color = _discardMode ? new Color(0.8f, 0.55f, 0.2f) : new Color(0.4f, 0.3f, 0.25f);
             if (statusLabel != null) statusLabel.text = StatusText();
+        }
+
+        // ------------------------------------------------------------------ shown state (shields, pips) during playback
+
+        /// <summary>Copies the synced shields / blades / traps and pips into what the circle shows.</summary>
+        private void SyncShownState()
+        {
+            if (manager == null) return;
+            int n = BattleManager.SLOTS * BattleManager.FX_MAX;
+            for (int i = 0; i < n; i++)
+            {
+                _fxSh[i] = manager.shields[i];
+                _fxBl[i] = manager.blades[i];
+                _fxTr[i] = manager.traps[i];
+            }
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+            {
+                _shownPips[s] = manager.pips[s];
+                _shownPower[s] = manager.powerPips[s];
+            }
+        }
+
+        private int ShownCount(int[] arr, int s)
+        {
+            int n = 0;
+            for (int k = 0; k < BattleManager.FX_MAX; k++) if (arr[s * BattleManager.FX_MAX + k] != 0) n++;
+            return n;
+        }
+
+        /// <summary>Same rule as BattleManager.AddFx: append, dropping the oldest when full.</summary>
+        private void AddShown(int[] arr, int s, int packed)
+        {
+            if (s < 0 || s >= BattleManager.SLOTS) return;
+            int max = BattleManager.FX_MAX, b = s * max;
+            int n = ShownCount(arr, s);
+            if (n >= max)
+            {
+                for (int k = 0; k < max - 1; k++) arr[b + k] = arr[b + k + 1];
+                n = max - 1;
+            }
+            arr[b + n] = packed;
+        }
+
+        /// <summary>Clears the first entry equal to packed (without closing the gap, see CompactShown); returns its index or -1.</summary>
+        private int RemoveShown(int[] arr, int s, int packed)
+        {
+            int max = BattleManager.FX_MAX, b = s * max;
+            for (int k = 0; k < max; k++)
+                if (arr[b + k] == packed) { arr[b + k] = 0; return k; }
+            return -1;
+        }
+
+        /// <summary>Closes the gaps left by RemoveShown (the circle lays effects out from index 0).</summary>
+        private void CompactShown(int[] arr)
+        {
+            int max = BattleManager.FX_MAX;
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+            {
+                int w = 0;
+                for (int k = 0; k < max; k++)
+                {
+                    int v = arr[s * max + k];
+                    arr[s * max + k] = 0;
+                    if (v != 0) arr[s * max + w++] = v;
+                }
+            }
+        }
+
+        /// <summary>A shield / blade / trap cast this step appears now (not when the round's result arrived).</summary>
+        private void AddShownFx(int i)
+        {
+            if (manager.actKind[i] != BattleManager.KIND_BUFF) return;
+            int card = manager.actCard[i];
+            int t = manager.actTarget[i];
+            int v = manager.actValue[i];
+            int e = cardDatabase.GetEffect(card);
+            if (e == CardDatabase.EFFECT_WARD) AddShown(_fxSh, t, manager.PackFx(card, cardDatabase.ShieldSchool(card), v));
+            else if (e == CardDatabase.EFFECT_TAUNT) AddShown(_fxSh, t, manager.PackFx(card, CardDatabase.ANY_SCHOOL, v));
+            else if (e == CardDatabase.EFFECT_EMPOWER) AddShown(_fxBl, t, manager.PackFx(card, cardDatabase.BladeSchool(card), v));
+            else if (e == CardDatabase.EFFECT_TRAP) AddShown(_fxTr, t, manager.PackFx(card, cardDatabase.TrapSchool(card), v));
+            else if (e == CardDatabase.EFFECT_TRIBLADE)
+            {
+                int first = cardDatabase.TriBladeFirstSchool(card);
+                for (int j = 0; j < 3; j++) AddShown(_fxBl, t, manager.PackFx(card, first + j, v));
+            }
+        }
+
+        /// <summary>Every shield / blade / trap the referee logged against act i flashes, breaks and shows its percent.</summary>
+        private void BreakLoggedFx(int i)
+        {
+            int max = BattleManager.FX_MAX;
+            for (int j = 0; j < manager.fxLogCount && j < BattleManager.MAX_FX_LOG; j++)
+            {
+                if (manager.fxLogAct[j] != i) continue;
+                int slot = manager.fxLogSlot[j];
+                int kind = manager.fxLogKind[j];
+                int v = manager.fxLogValue[j];
+                if (slot < 0 || slot >= BattleManager.SLOTS || kind < 0 || kind > 2) continue;
+                int[] arr = kind == BattleManager.FX_SHIELD ? _fxSh : (kind == BattleManager.FX_BLADE ? _fxBl : _fxTr);
+                int fxSchool = manager.FxSchool(v);
+                Vector3 at = seats[slot].position + Vector3.up * (1.2f * SeatScale(slot));
+                int k = RemoveShown(arr, slot, v);
+                if (k >= 0 && fxIcons != null)
+                {
+                    int idx = (slot * 3 + kind) * max + k;
+                    if (idx < fxIcons.Length && fxIcons[idx] != null && fxIcons[idx].gameObject.activeInHierarchy) at = fxIcons[idx].transform.position;
+                }
+                SpawnPop(at, FxMat(fxSchool));
+                int pct = manager.FxPct(v);
+                string txt = (kind == BattleManager.FX_SHIELD ? "-" : "+") + pct.ToString() + "%";
+                Float(slot, txt, SchoolTextColor(fxSchool), fxSchool);
+            }
+            CompactShown(_fxSh);
+            CompactShown(_fxBl);
+            CompactShown(_fxTr);
+        }
+
+        private Material FxMat(int school)
+        {
+            if (fxMats == null || fxMats.Length == 0) return null;
+            return fxMats[school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1];
+        }
+
+        // ------------------------------------------------------------------ pips at the seats
+
+        private void UpdatePips()
+        {
+            if (pipIcons == null) return;
+            int max = BattleManager.MAX_PIPS;
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+            {
+                bool live = manager.Occupied(s) && _shownHp[s] > 0;
+                int p = live ? _shownPower[s] : 0;
+                int n = live ? _shownPips[s] : 0;
+                for (int k = 0; k < max; k++)
+                {
+                    int idx = s * max + k;
+                    if (idx >= pipIcons.Length || pipIcons[idx] == null) continue;
+                    Renderer r = pipIcons[idx];
+                    bool on = k < p + n;
+                    if (r.gameObject.activeSelf != on) r.gameObject.SetActive(on);
+                    if (!on) continue;
+                    Material m = k < p ? powerPipMat : pipMat;
+                    if (m != null && r.sharedMaterial != m) r.sharedMaterial = m;
+                }
+            }
+        }
+
+        /// <summary>Pips bob and turn (in PSX-style steps); motes swirl round each combatant, more for more pips.</summary>
+        private void AnimatePips()
+        {
+            float tq = Mathf.Floor(Time.time * 15f) / 15f;
+            if (pipIcons != null && _pipBase != null)
+                for (int i = 0; i < pipIcons.Length && i < _pipBase.Length; i++)
+                {
+                    Renderer r = pipIcons[i];
+                    if (r == null || !r.gameObject.activeSelf) continue;
+                    Transform t = r.transform;
+                    t.localPosition = _pipBase[i] + Vector3.up * (Mathf.Sin(tq * 3f + i * 0.7f) * 0.05f);
+                    t.localRotation = Quaternion.Euler(0f, tq * 120f + i * 25f, 0f);
+                }
+            int ph = manager.phase;
+            if (Time.time < _nextSwirl || ph < BattleManager.PHASE_JOINING || ph > BattleManager.PHASE_PLAYBACK) return;
+            _nextSwirl = Time.time + swirlInterval;
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+            {
+                if (!manager.Occupied(s) || _shownHp[s] <= 0) continue;
+                if (pipSwirls != null && s < pipSwirls.Length && pipSwirls[s] != null && _shownPips[s] > 0) pipSwirls[s].Emit(_shownPips[s]);
+                if (powerSwirls != null && s < powerSwirls.Length && powerSwirls[s] != null && _shownPower[s] > 0) powerSwirls[s].Emit(_shownPower[s] * 2);
+            }
+        }
+
+        // ------------------------------------------------------------------ circle: start flash and idle animation
+
+        /// <summary>Wizard101's duel start: the circle appears in a white flash and settles into its normal look.</summary>
+        private void StartFlash()
+        {
+            _flashBattle = manager.battleId;
+            _flashStart = Time.time;
+            if (circleFlash != null) circleFlash.gameObject.SetActive(true);
+            if (flashPillar != null) flashPillar.gameObject.SetActive(true);
+            if (flashLight != null) flashLight.enabled = true;
+            if (startSparks != null) startSparks.Play();
+            if (circleAudio != null && circleSound != null && circleAudio.gameObject.activeInHierarchy) circleAudio.PlayOneShot(circleSound);
+            AnimateFlash();
+        }
+
+        private void AnimateFlash()
+        {
+            float since = Time.time - _flashStart;
+            float dur = Mathf.Max(0.1f, startFlashSeconds);
+            if (since > dur * 1.5f) return;
+            float t = since / dur;
+            if (t >= 1f)
+            {
+                if (circleFlash != null) circleFlash.gameObject.SetActive(false);
+                if (flashPillar != null) flashPillar.gameObject.SetActive(false);
+                if (flashLight != null) flashLight.enabled = false;
+                return;
+            }
+            // PSX: the settle happens in visible steps.
+            float tq = Mathf.Floor(t * 24f) / 24f;
+            float settle = tq < 0.12f ? 0f : (tq - 0.12f) / 0.88f;
+            settle = 1f - (1f - settle) * (1f - settle);
+            if (circleFlash != null)
+            {
+                float sc = tq < 0.12f ? Mathf.Lerp(1.3f, 1.2f, tq / 0.12f) : Mathf.Lerp(1.2f, 1f, settle);
+                circleFlash.localScale = new Vector3(sc, 1f, sc);
+                if (circleFlashMat != null) circleFlashMat.SetColor("_EmissionColor", Color.Lerp(Color.white * 3f, circleSigilGlow, settle));
+            }
+            if (flashPillar != null)
+            {
+                float h = tq < 0.5f ? 1f - tq / 0.5f : 0f;
+                float r = Mathf.Lerp(0.35f, 1f, Mathf.Min(1f, tq / 0.3f));
+                if (h <= 0f) { if (flashPillar.gameObject.activeSelf) flashPillar.gameObject.SetActive(false); }
+                else flashPillar.localScale = new Vector3(r, h, r);
+            }
+            if (flashLight != null) flashLight.intensity = 3.5f * (1f - tq);
+        }
+
+        /// <summary>The sigil and rune band turn opposite ways in PSX-style steps; the sigil's glow pulses.</summary>
+        private void AnimateCircle()
+        {
+            float since = Time.time - _flashStart;
+            float step = Mathf.Max(0.5f, circleStepDegrees);
+            if (circleSigil != null) circleSigil.localRotation = Quaternion.Euler(0f, Mathf.Floor(since * sigilDegreesPerSecond / step) * step, 0f);
+            if (circleRunes != null) circleRunes.localRotation = Quaternion.Euler(0f, Mathf.Floor(since * runeDegreesPerSecond / step) * step, 0f);
+            if (circleSigilMat != null)
+            {
+                float tq = Mathf.Floor(Time.time * 8f) / 8f;
+                circleSigilMat.SetColor("_EmissionColor", circleSigilGlow * (1.1f + 0.6f * Mathf.Sin(tq * 2.2f)));
+            }
+        }
+
+        // ------------------------------------------------------------------ breaking effects
+
+        private Material[] _popMats;
+
+        private void SpawnPop(Vector3 at, Material m)
+        {
+            if (breakPops == null || breakPops.Length == 0 || _popStart == null || _popStart.Length == 0) return;
+            if (_popMats == null || _popMats.Length != breakPops.Length) _popMats = new Material[breakPops.Length];
+            int i = _popNext;
+            _popNext = (_popNext + 1) % breakPops.Length;
+            if (breakPops[i] == null) return;
+            _popMats[i] = m;
+            _popStart[i] = Time.time;
+            breakPops[i].position = at;
+            breakPops[i].localScale = Vector3.one * 0.35f;
+            breakPops[i].gameObject.SetActive(true);
+        }
+
+        /// <summary>A breaking effect blinks white / school colour, swells and shatters away.</summary>
+        private void AnimatePops()
+        {
+            if (breakPops == null || _popStart == null) return;
+            for (int i = 0; i < breakPops.Length && i < _popStart.Length; i++)
+            {
+                Transform p = breakPops[i];
+                if (p == null || !p.gameObject.activeSelf) continue;
+                float age = Time.time - _popStart[i];
+                float t = age / 0.5f;
+                if (t >= 1f) { p.gameObject.SetActive(false); continue; }
+                Renderer r = breakPopRenderers != null && i < breakPopRenderers.Length ? breakPopRenderers[i] : null;
+                if (r != null)
+                {
+                    Material m = ((int)(age / 0.06f)) % 2 == 0 && pipMat != null ? pipMat : (_popMats != null ? _popMats[i] : null);
+                    if (m != null && r.sharedMaterial != m) r.sharedMaterial = m;
+                }
+                float sc = t < 0.35f ? Mathf.Lerp(1f, 2.6f, t / 0.35f) : Mathf.Lerp(2.6f, 0f, (t - 0.35f) / 0.65f);
+                p.localScale = Vector3.one * (0.35f * sc);
+                p.rotation = Quaternion.Euler(Mathf.Floor(age * 30f) * 47f, Mathf.Floor(age * 30f) * 31f, 0f);
+            }
+        }
+
+        // ------------------------------------------------------------------ floating combat text
+
+        public Color[] schoolTextColors =
+        {
+            new Color(1f, 0.45f, 0.2f), new Color(0.55f, 0.85f, 1f), new Color(0.8f, 0.55f, 1f), new Color(0.45f, 1f, 0.45f),
+            new Color(0.75f, 0.75f, 0.8f), new Color(1f, 0.85f, 0.3f), new Color(1f, 0.7f, 0.45f),
+        };
+
+        private Color SchoolTextColor(int school)
+        {
+            return schoolTextColors != null && school >= 0 && school < schoolTextColors.Length ? schoolTextColors[school] : new Color(0.95f, 0.95f, 0.95f);
+        }
+
+        /// <summary>The floating text for one act entry (damage numbers, heals, fizzles, buffs...).</summary>
+        private void FloatAct(int i)
+        {
+            int k = manager.actKind[i];
+            int t = manager.actTarget[i];
+            int a = manager.actActor[i];
+            int v = manager.actValue[i];
+            int f = manager.actFlags[i];
+            int card = manager.actCard[i];
+            int sc = card > 0 ? cardDatabase.GetSchool(card) : -1;
+            if (k == BattleManager.KIND_DAMAGE)
+            {
+                bool crit = (f & BattleManager.FLAG_CRIT) != 0;
+                Float(t, (crit ? "CRITICAL!\n" : "") + "-" + v.ToString(), crit ? new Color(1f, 0.9f, 0.2f) : SchoolTextColor(sc), sc);
+            }
+            else if (k == BattleManager.KIND_HEAL) { if (v > 0) Float(t, "+" + v.ToString(), new Color(0.45f, 1f, 0.45f), sc); }
+            else if (k == BattleManager.KIND_POTION) { if (v > 0) Float(a, "+" + v.ToString(), new Color(0.45f, 1f, 0.45f), -2); }
+            else if (k == BattleManager.KIND_FIZZLE) Float(a, "Fizzled!", new Color(0.8f, 0.8f, 0.85f), -2);
+            else if (k == BattleManager.KIND_DOT) Float(a, "-" + v.ToString(), new Color(1f, 0.5f, 0.15f), 0);
+            else if (k == BattleManager.KIND_STUNNED) Float(a, "Stunned!", new Color(1f, 0.95f, 0.4f), -2);
+            else if (k == BattleManager.KIND_BUFF)
+            {
+                string b = BuffFloat(card, v);
+                if (b.Length > 0) Float(t, b, SchoolTextColor(sc), sc);
+            }
+        }
+
+        private string BuffFloat(int card, int v)
+        {
+            int e = cardDatabase.GetEffect(card);
+            if (e == CardDatabase.EFFECT_WARD) return "Shield " + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_EMPOWER) return "Blade +" + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_TRIBLADE) return "3 Blades +" + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_TRAP) return "Trap +" + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_DOT) return "Burning!";
+            if (e == CardDatabase.EFFECT_DISPEL) return "Dispelled!";
+            if (e == CardDatabase.EFFECT_TAUNT) return "Taunt!";
+            if (e == CardDatabase.EFFECT_FOCUS) return "Focus +" + v.ToString() + "%";
+            return "";
+        }
+
+        /// <summary>
+        /// Floats text (with a school icon: 0-6 a school, -1 General, -2 none) up from a combatant's head. Several in one
+        /// step stack upward and start a moment apart.
+        /// </summary>
+        private void Float(int slot, string text, Color color, int icon)
+        {
+            if (floaters == null || floaters.Length == 0 || _floatStart == null || slot < 0 || slot >= BattleManager.SLOTS || seats == null) return;
+            int i = _floatNext;
+            _floatNext = (_floatNext + 1) % floaters.Length;
+            if (floaters[i] == null) return;
+            int st = _stack[slot]++;
+            _floatBase[i] = seats[slot].position + Vector3.up * (1.95f * SeatScale(slot) + st * 0.42f);
+            _floatStart[i] = Time.time + st * 0.12f;
+            if (floaterTexts != null && i < floaterTexts.Length && floaterTexts[i] != null)
+            {
+                floaterTexts[i].text = text;
+                floaterTexts[i].color = color;
+            }
+            if (floaterIcons != null && i < floaterIcons.Length && floaterIcons[i] != null)
+            {
+                RawImage img = floaterIcons[i];
+                bool show = icon != -2 && schoolIcons != null && schoolIcons.Length > 0;
+                if (show)
+                {
+                    int n = schoolIcons.Length;
+                    img.texture = schoolIcons[icon >= 0 && icon < n - 1 ? icon : n - 1];
+                    img.color = Color.white;
+                }
+                img.gameObject.SetActive(show);
+            }
+            floaters[i].position = _floatBase[i];
+            floaters[i].localScale = Vector3.zero;
+            floaters[i].gameObject.SetActive(true);
+        }
+
+        private void AnimateFloaters()
+        {
+            if (floaters == null || _floatStart == null) return;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            bool haveHead = Utilities.IsValid(me);
+            Vector3 head = haveHead ? me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position : Vector3.zero;
+            for (int i = 0; i < floaters.Length && i < _floatStart.Length; i++)
+            {
+                Transform f = floaters[i];
+                if (f == null || !f.gameObject.activeSelf) continue;
+                float t = (Time.time - _floatStart[i]) / Mathf.Max(0.2f, floaterSeconds);
+                if (t < 0f) { f.localScale = Vector3.zero; continue; }
+                if (t >= 1f) { f.gameObject.SetActive(false); continue; }
+                float pop = t < 0.07f ? Mathf.Lerp(0.2f, 1.35f, t / 0.07f) : (t < 0.15f ? Mathf.Lerp(1.35f, 1f, (t - 0.07f) / 0.08f) : 1f);
+                f.localScale = Vector3.one * pop;
+                f.position = _floatBase[i] + Vector3.up * (Mathf.Floor(t * 30f) / 30f * 0.8f);
+                Vector3 look = f.position - head;
+                if (haveHead && look.sqrMagnitude > 0.001f) f.rotation = Quaternion.LookRotation(look);
+                float alpha = t > 0.7f ? 1f - (t - 0.7f) / 0.3f : 1f;
+                if (floaterTexts != null && i < floaterTexts.Length && floaterTexts[i] != null)
+                {
+                    Color c = floaterTexts[i].color;
+                    c.a = alpha;
+                    floaterTexts[i].color = c;
+                }
+                if (floaterIcons != null && i < floaterIcons.Length && floaterIcons[i] != null) floaterIcons[i].color = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        // ------------------------------------------------------------------ combat sounds
+
+        /// <summary>Hit, heal and defeat sounds where they happen (each client plays its own playback).</summary>
+        private void ActSound(int i, int hpBefore)
+        {
+            if (hitAudio == null || !hitAudio.gameObject.activeInHierarchy || seats == null) return;
+            int k = manager.actKind[i];
+            int t = manager.actTarget[i];
+            int v = manager.actValue[i];
+            if (t < 0 || t >= BattleManager.SLOTS) return;
+            AudioClip clip = null;
+            if ((k == BattleManager.KIND_DAMAGE || k == BattleManager.KIND_DOT) && v > 0 && t < BattleManager.SIDE && wizardHitSounds != null && wizardHitSounds.Length > 0)
+                clip = wizardHitSounds[Random.Range(0, wizardHitSounds.Length)];
+            if ((k == BattleManager.KIND_HEAL || k == BattleManager.KIND_POTION) && v > 0) clip = healSound;
+            if (t < BattleManager.SIDE && hpBefore > 0 && manager.actHpAfter[i] <= 0 && defeatSound != null) clip = defeatSound;
+            if (clip == null) return;
+            hitAudio.transform.position = seats[t].position + Vector3.up * 1.2f;
+            hitAudio.PlayOneShot(clip);
         }
 
         private void SetBanner(string text)

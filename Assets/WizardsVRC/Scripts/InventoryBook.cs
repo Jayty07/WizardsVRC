@@ -43,6 +43,8 @@ namespace WizardsVRC
 
         [Header("Settings page")]
         public PlayerHUD hud;
+        [Tooltip("Interface sounds (book opening, potions).")]
+        public UiAudio uiAudio;
         public QuestGuide questGuide;
         public CharacterSelectUI selectUI;
         [Tooltip("Teleports to the castle and hides every zone (used by Go Home and Change Character).")]
@@ -271,6 +273,7 @@ namespace WizardsVRC
             }
             _open = true;
             bookRoot.SetActive(true);
+            if (uiAudio != null) uiAudio.PlayBookOpen();
             ClearSelection();
             SetStatus("");
             ApplyView();
@@ -367,6 +370,7 @@ namespace WizardsVRC
                 return;
             }
             if (!c.RemoveItemAt(invIndex, 1)) return;
+            if (uiAudio != null) uiAudio.PlayHeal();
             if (heal > 0) playerState.Heal(heal);
             if (mana > 0) playerState.RestoreMana(mana);
             playerState.MarkDirty();

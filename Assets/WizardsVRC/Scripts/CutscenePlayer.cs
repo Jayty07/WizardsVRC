@@ -14,6 +14,8 @@ namespace WizardsVRC
     public class CutscenePlayer : UdonSharpBehaviour
     {
         public Camera filmCamera;
+        [Tooltip("Plays the dialogue pop-up sound when a cutscene starts.")]
+        public UiAudio uiAudio;
         public GameObject screenRoot;
         public Text speakerLabel;
         public Text subtitleLabel;
@@ -61,6 +63,7 @@ namespace WizardsVRC
             if (skipButton != null) skipButton.SetActive(cutscene.skippable);
             if (screenRoot != null) screenRoot.SetActive(true);
             if (filmCamera != null) filmCamera.enabled = true;
+            if (uiAudio != null) uiAudio.PlayPopup();
             ShowLine();
         }
 

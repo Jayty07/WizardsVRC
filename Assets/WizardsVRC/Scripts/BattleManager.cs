@@ -29,6 +29,11 @@ namespace WizardsVRC
         public const int SLOTS = 8;
         public const int BOSS_SLOT = 4;
         public const int MAX_ACTIONS = 40;
+        /// <summary>Shields / blades / traps used up in one round (see fxLogAct).</summary>
+        public const int MAX_FX_LOG = 48;
+        public const int FX_SHIELD = 0;
+        public const int FX_BLADE = 1;
+        public const int FX_TRAP = 2;
         public const int MAX_PIPS = 7;
         public const int FX_MAX = 6;
 
@@ -157,6 +162,15 @@ namespace WizardsVRC
         [UdonSynced] public int[] actValue = new int[MAX_ACTIONS];
         [UdonSynced] public int[] actHpAfter = new int[MAX_ACTIONS];
         [UdonSynced] public int[] actFlags = new int[MAX_ACTIONS];
+        /// <summary>
+        /// Shields, blades and traps used up (or broken) this round, so clients can break them as the hit lands: the act
+        /// entry they belong to, whose they were, which kind (FX_SHIELD / FX_BLADE / FX_TRAP) and the packed value.
+        /// </summary>
+        [UdonSynced] public int fxLogCount;
+        [UdonSynced] public int[] fxLogAct = new int[MAX_FX_LOG];
+        [UdonSynced] public int[] fxLogSlot = new int[MAX_FX_LOG];
+        [UdonSynced] public int[] fxLogKind = new int[MAX_FX_LOG];
+        [UdonSynced] public int[] fxLogValue = new int[MAX_FX_LOG];
 
         // owner-only scratch
         private int _nextFlags;
@@ -165,6 +179,11 @@ namespace WizardsVRC
         private int[] _pickTarget = new int[SLOTS];
         private int[] _targets = new int[SIDE];
         private int[] _usedSrc = new int[FX_MAX];
+        // Effects used since the last act entry; attached to the next one (the hit they belong to).
+        private int _pendFx;
+        private int[] _pendSlot = new int[MAX_FX_LOG];
+        private int[] _pendKind = new int[MAX_FX_LOG];
+        private int[] _pendValue = new int[MAX_FX_LOG];
 
         // ------------------------------------------------------------------ helpers (all clients)
 
@@ -705,6 +724,8 @@ namespace WizardsVRC
             battleId++;
             round = 0;
             actCount = 0;
+            fxLogCount = 0;
+            _pendFx = 0;
             firstSide = Random.Range(0, 2);
             phase = PHASE_ROAMING;
             phaseEndMs = Now() + roamSeconds * 1000;
@@ -767,6 +788,8 @@ namespace WizardsVRC
             for (int s = 0; s < SLOTS; s++) if (taunt[s] > 0) taunt[s]--;
 
             actCount = 0;
+            fxLogCount = 0;
+            _pendFx = 0;
             int group = 0;
             for (int s = 0; s < SLOTS; s++)
             {
@@ -897,8 +920,8 @@ namespace WizardsVRC
             pierce = Mathf.Clamp(pierce + piercePct[s], 0, 100);
             int amount = power * (100 + dmgPct[s]) / 100;
             amount = amount * bladeMul / 100;
-            amount = amount * UseFx(traps, t, spellSchool, true) / 100;
-            int shieldMul = UseFx(shields, t, spellSchool, false);
+            amount = amount * UseFx(traps, FX_TRAP, t, spellSchool, true) / 100;
+            int shieldMul = UseFx(shields, FX_SHIELD, t, spellSchool, false);
             shieldMul = 100 - (100 - shieldMul) * (100 - pierce) / 100;
             amount = amount * shieldMul / 100;
             amount = amount * (100 - resistPct[t] * (100 - pierce) / 100) / 100;
@@ -928,6 +951,24 @@ namespace WizardsVRC
             if (t >= 0 && blockPct[t] > 0 && Random.Range(0, 100) < blockPct[t]) { _nextFlags |= FLAG_BLOCKED; return amount; }
             _nextFlags |= FLAG_CRIT;
             return amount * critMultiplier / 100;
+        }
+
+        /// <summary>Remembers a used-up effect for the next act entry (the hit it belongs to).</summary>
+        private void PendFx(int s, int kind, int v)
+        {
+            if (_pendFx >= MAX_FX_LOG) return;
+            _pendSlot[_pendFx] = s;
+            _pendKind[_pendFx] = kind;
+            _pendValue[_pendFx] = v;
+            _pendFx++;
+        }
+
+        /// <summary>Clears every entry (shatter / dispel), logging each so clients can show it breaking.</summary>
+        private void BreakFx(int[] arr, int kind, int s)
+        {
+            for (int k = 0; k < FX_MAX; k++)
+                if (arr[s * FX_MAX + k] != 0) PendFx(s, kind, arr[s * FX_MAX + k]);
+            ClearFx(arr, s);
         }
 
         private void ClearFx(int[] arr, int s)
@@ -1016,12 +1057,13 @@ namespace WizardsVRC
                 int spellSchool = cardDatabase.GetSchool(cardId);
                 int pierce = effect == CardDatabase.EFFECT_DAMAGE || effect == CardDatabase.EFFECT_STUN ? Mathf.Clamp(auxVal, 0, 100) : 0;
                 // Blades are used once per cast (even when it hits every enemy); traps and shields once per target hit.
-                int bladeMul = power > 0 ? UseFx(blades, s, spellSchool, true) : 100;
+                int bladeMul = power > 0 ? UseFx(blades, FX_BLADE, s, spellSchool, true) : 100;
                 int total = 0;
                 for (int k = 0; k < n; k++)
                 {
                     int t = _targets[k];
-                    if (effect == CardDatabase.EFFECT_SHATTER) ClearFx(shields, t);
+                    if (effect == CardDatabase.EFFECT_SHATTER && power > 0) BreakFx(shields, FX_SHIELD, t);
+                    else if (effect == CardDatabase.EFFECT_SHATTER) ClearFx(shields, t);
                     if (power > 0)
                     {
                         int amount = Hit(s, t, cardDatabase.RollPower(cardId), spellSchool, bladeMul, pierce);
@@ -1054,8 +1096,8 @@ namespace WizardsVRC
                     int t = _targets[k];
                     if (effect == CardDatabase.EFFECT_DISPEL)
                     {
-                        ClearFx(shields, t);
-                        ClearFx(blades, t);
+                        BreakFx(shields, FX_SHIELD, t);
+                        BreakFx(blades, FX_BLADE, t);
                         AddAct(group, s, t, cardId, KIND_BUFF, 0);
                         continue;
                     }
@@ -1136,7 +1178,7 @@ namespace WizardsVRC
         /// shield don't stack, two different shields do). Returns the combined damage multiplier in percent:
         /// boosts (blades, traps) multiply by (100 + pct), shields by (100 - pct).
         /// </summary>
-        private int UseFx(int[] arr, int s, int spellSchool, bool boost)
+        private int UseFx(int[] arr, int kind, int s, int spellSchool, bool boost)
         {
             int b = s * FX_MAX;
             int mul = 100;
@@ -1153,6 +1195,7 @@ namespace WizardsVRC
                 if (dup) continue;
                 _usedSrc[used++] = src;
                 mul = boost ? mul * (100 + FxPct(v)) / 100 : mul * Mathf.Max(0, 100 - FxPct(v)) / 100;
+                PendFx(s, kind, v);
                 arr[b + k] = 0;
             }
             int w = 0;
@@ -1181,7 +1224,7 @@ namespace WizardsVRC
 
         private void AddAct(int group, int actor, int target, int cardId, int kind, int value)
         {
-            if (actCount >= MAX_ACTIONS) { _nextFlags = 0; return; }
+            if (actCount >= MAX_ACTIONS) { _nextFlags = 0; _pendFx = 0; return; }
             actGroup[actCount] = group;
             actActor[actCount] = actor;
             actTarget[actCount] = target;
@@ -1191,6 +1234,15 @@ namespace WizardsVRC
             actHpAfter[actCount] = target >= 0 ? hp[target] : 0;
             actFlags[actCount] = _nextFlags;
             _nextFlags = 0;
+            for (int i = 0; i < _pendFx && fxLogCount < MAX_FX_LOG; i++)
+            {
+                fxLogAct[fxLogCount] = actCount;
+                fxLogSlot[fxLogCount] = _pendSlot[i];
+                fxLogKind[fxLogCount] = _pendKind[i];
+                fxLogValue[fxLogCount] = _pendValue[i];
+                fxLogCount++;
+            }
+            _pendFx = 0;
             actCount++;
         }
     }
