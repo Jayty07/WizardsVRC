@@ -167,6 +167,9 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Decks are items** (Wizard101 style): the Apprentice Deck (20 spells, 4 copies each) to start, plus the Scholar's,
   Ironbound and Starfall decks (bigger, more copies, small stat bonuses) from loot and bosses. Equip one in the backpack
   or on the book's Deck tab; each deck keeps its own spells and battles draw from the equipped one.
+- **Spell cards** use design 1 "Classic" (`Textures/Cards/CardFrame<School>.png`, made by `Tools/make_card_frames.py`):
+  a vivid school-coloured frame, parchment face, name banner, pip gem, accuracy seal and the school badge. The art
+  window shows the icon for shields, blades and traps; other spells keep a plain school glow until they have animations.
 - **Battle hand:** seven cards fanned like Wizard101's; hovering a card makes it grow and rise, with its pip cost,
   school, accuracy and full effect. Pips show as dots (white, power, empty).
 - **Two clear sides:** wizards always sit on the south half (blue seat sockets), monsters on the north half (red), with

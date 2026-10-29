@@ -181,6 +181,10 @@ namespace WizardsVRC
         public Text[] cardPips;
         public Text[] cardAccuracies;
         public Text[] cardSchools;
+        [Tooltip("Card frame per school (index School, 7 = General): design 1 \"Classic\".")]
+        public Sprite[] cardFrames;
+        [Tooltip("Art window per card: shields / blades / traps show their icon; other spells stay blank until they have art.")]
+        public RawImage[] cardArts;
         [Tooltip("Hovered cards grow by this much and rise toward you (Wizard101 style).")]
         public float hoverScale = 1.45f;
         public float hoverRaise = 135f;
@@ -1583,11 +1587,32 @@ namespace WizardsVRC
                 if (!has) continue;
                 int card = _hand[i];
                 bool usable = manager.CanAfford(_slot, card) && HasManaFor(card);
-                Color col = cardDatabase.GetColor(card);
-                if (!usable && !_discardMode) col = Color.Lerp(col, _cardDim, 0.7f);
-                if (i == _selHand) col = Color.Lerp(col, Color.white, 0.55f);
+                int sc = cardDatabase.GetSchool(card);
+                Sprite frame = cardFrames != null && cardFrames.Length > 0 ? cardFrames[sc >= 0 && sc < 7 && sc < cardFrames.Length ? sc : cardFrames.Length - 1] : null;
+                Color col;
+                if (frame != null)
+                {
+                    // The frame art carries the school colour; tint only for state.
+                    if (cardImages[i].sprite != frame) cardImages[i].sprite = frame;
+                    col = Color.white;
+                    if (!usable && !_discardMode) col = new Color(0.45f, 0.45f, 0.48f);
+                    if (i == _selHand) col = new Color(1f, 1f, 0.72f);
+                }
+                else
+                {
+                    col = cardDatabase.GetColor(card);
+                    if (!usable && !_discardMode) col = Color.Lerp(col, _cardDim, 0.7f);
+                    if (i == _selHand) col = Color.Lerp(col, Color.white, 0.55f);
+                }
                 if (_discardMode) col = Color.Lerp(col, new Color(0.9f, 0.5f, 0.2f), 0.35f);
                 cardImages[i].color = col;
+                if (cardArts != null && i < cardArts.Length && cardArts[i] != null)
+                {
+                    Texture art = CardArt(card);
+                    cardArts[i].texture = art;
+                    cardArts[i].color = usable || _discardMode ? Color.white : new Color(0.5f, 0.5f, 0.52f);
+                    if (cardArts[i].gameObject.activeSelf != (art != null)) cardArts[i].gameObject.SetActive(art != null);
+                }
                 if (cardFaces != null && i < cardFaces.Length && cardFaces[i] != null)
                     cardFaces[i].color = usable || _discardMode ? _faceOn : _faceOff;
                 cardNames[i].text = cardDatabase.GetName(card);
@@ -2058,6 +2083,18 @@ namespace WizardsVRC
             if (clip == null) return;
             hitAudio.transform.position = seats[t].position + Vector3.up * 1.2f;
             hitAudio.PlayOneShot(clip);
+        }
+
+        /// <summary>Card art: shields, blades and traps show their icon (they just flash and appear); other spells have none yet.</summary>
+        private Texture CardArt(int card)
+        {
+            int e = cardDatabase.GetEffect(card);
+            if (e == CardDatabase.EFFECT_WARD) return FxTexture(BattleManager.FX_SHIELD, cardDatabase.ShieldSchool(card));
+            if (e == CardDatabase.EFFECT_TAUNT) return FxTexture(BattleManager.FX_SHIELD, CardDatabase.ANY_SCHOOL);
+            if (e == CardDatabase.EFFECT_EMPOWER) return FxTexture(BattleManager.FX_BLADE, cardDatabase.BladeSchool(card));
+            if (e == CardDatabase.EFFECT_TRIBLADE) return FxTexture(BattleManager.FX_BLADE, CardDatabase.ANY_SCHOOL);
+            if (e == CardDatabase.EFFECT_TRAP) return FxTexture(BattleManager.FX_TRAP, cardDatabase.TrapSchool(card));
+            return null;
         }
 
         private void SetBanner(string text)

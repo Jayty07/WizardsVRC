@@ -928,6 +928,26 @@ namespace WizardsVRC.EditorTools
         }
 
         private const string TexturesDir = "Assets/WizardsVRC/Textures";
+        private const string CardsDir = TexturesDir + "/Cards";
+
+        /// <summary>Imports a pixel-art PNG as a point-filtered UI sprite.</summary>
+        private static Sprite SpriteTexture(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) { Debug.LogWarning("[WizardsVRC] Missing " + path); return null; }
+            if (importer.textureType != TextureImporterType.Sprite || importer.filterMode != FilterMode.Point || importer.mipmapEnabled)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.filterMode = FilterMode.Point;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
         private const float DuelCircleRadius = 9.3f;
         // Matches the seat sockets painted at 200/256 of the disc radius in DuelCircle.png.
         private const float DuelSeatRadius = DuelCircleRadius * 200f / 256f;
@@ -1421,32 +1441,53 @@ namespace WizardsVRC.EditorTools
             client.cardPips = new Text[hand];
             client.cardAccuracies = new Text[hand];
             client.cardSchools = new Text[hand];
+            client.cardArts = new RawImage[hand];
+            // Design 1 "Classic" frames per school (Textures/Cards/CardFrame<School>.png, made by Tools/make_card_frames.py):
+            // the frame, parchment, name banner, art window, pip gem and accuracy seal; the text goes on top.
+            client.cardFrames = new Sprite[8];
+            for (int k = 0; k < 8; k++)
+                client.cardFrames[k] = SpriteTexture(CardsDir + "/CardFrame" + (k < SchoolLabels.Length ? SchoolLabels[k] : "General") + ".png");
+            Color ink = new Color(0.24f, 0.16f, 0.09f);
+            Color nameGold = new Color(1f, 0.94f, 0.63f);
             Vector2 cardSize = new Vector2(196, 280);
             for (int i = 0; i < hand; i++)
             {
                 float k = i - (hand - 1) / 2f;
                 Vector2 pos = new Vector2(k * 178f, -170f - k * k * 7f);
-                GameObject b = Button(root, "Card" + i, pos, cardSize, "", Color.gray, target, "Card" + i);
+                GameObject b = Button(root, "Card" + i, pos, cardSize, "", Color.white, target, "Card" + i);
                 RectTransform brt = (RectTransform)b.transform;
                 brt.localRotation = Quaternion.Euler(0, 0, -k * 4.5f);
                 Object.DestroyImmediate(b.GetComponentInChildren<Text>().gameObject);
-                RectTransform face = Panel(brt, "Face", Vector2.zero, cardSize - new Vector2(18, 18), new Color(0.93f, 0.87f, 0.72f));
-                face.GetComponent<Image>().raycastTarget = false;
-                client.cardFaces[i] = face.GetComponent<Image>();
-                RectTransform badge = Panel(brt, "PipBadge", new Vector2(-cardSize.x / 2f + 26, cardSize.y / 2f - 26), new Vector2(46, 46), new Color(0.15f, 0.12f, 0.2f));
-                badge.GetComponent<Image>().raycastTarget = false;
-                badge.localRotation = Quaternion.Euler(0, 0, 45f);
-                client.cardPips[i] = CardText(brt, "Pips", new Vector2(-cardSize.x / 2f + 26, cardSize.y / 2f - 26), new Vector2(46, 46), 26, TextAnchor.MiddleCenter, gold);
-                client.cardNames[i] = CardText(brt, "Name", new Vector2(14, cardSize.y / 2f - 34), new Vector2(150, 52), 20, TextAnchor.MiddleCenter, new Color(0.18f, 0.1f, 0.05f));
+                var frameImg = b.GetComponent<Image>();
+                frameImg.sprite = client.cardFrames[7];
+                frameImg.type = Image.Type.Simple;
+                // Positions follow the 80 x 112 frame art (x 2.45, y 2.5 on this 196 x 280 card).
+                client.cardNames[i] = CardText(brt, "Name", new Vector2(0, 110), new Vector2(118, 26), 15, TextAnchor.MiddleCenter, nameGold);
                 client.cardNames[i].fontStyle = FontStyle.Bold;
-                Panel(brt, "Art", new Vector2(0, 40), new Vector2(150, 70), new Color(0f, 0f, 0f, 0.12f)).GetComponent<Image>().raycastTarget = false;
-                Text info = CardText(brt, "Info", new Vector2(0, -50), new Vector2(166, 118), 15, TextAnchor.UpperCenter, new Color(0.2f, 0.13f, 0.07f));
+                client.cardNames[i].resizeTextForBestFit = true;
+                client.cardNames[i].resizeTextMinSize = 9;
+                client.cardNames[i].resizeTextMaxSize = 15;
+                client.cardNames[i].gameObject.AddComponent<Outline>().effectColor = new Color(0.12f, 0.09f, 0.14f);
+                client.cardPips[i] = CardText(brt, "Pips", new Vector2(-75, 114), new Vector2(34, 34), 22, TextAnchor.MiddleCenter, Color.white);
+                client.cardPips[i].fontStyle = FontStyle.Bold;
+                client.cardPips[i].gameObject.AddComponent<Outline>().effectColor = new Color(0.12f, 0.09f, 0.14f);
+                // Art window: shields / blades / traps show their icon; other spells stay blank until they have art.
+                var artGo = new GameObject("Art", typeof(RectTransform));
+                artGo.transform.SetParent(brt, false);
+                var art = artGo.AddComponent<RawImage>();
+                art.raycastTarget = false;
+                ((RectTransform)artGo.transform).anchoredPosition = new Vector2(0, 39);
+                ((RectTransform)artGo.transform).sizeDelta = new Vector2(84, 84);
+                artGo.SetActive(false);
+                client.cardArts[i] = art;
+                client.cardAccuracies[i] = CardText(brt, "Accuracy", new Vector2(-60, -21), new Vector2(54, 26), 13, TextAnchor.MiddleCenter, ink);
+                client.cardAccuracies[i].fontStyle = FontStyle.Bold;
+                Text info = CardText(brt, "Info", new Vector2(0, -66), new Vector2(150, 64), 13, TextAnchor.UpperCenter, ink);
                 info.resizeTextForBestFit = true;
                 info.resizeTextMinSize = 9;
-                info.resizeTextMaxSize = 15;
+                info.resizeTextMaxSize = 13;
                 client.cardInfos[i] = info;
-                client.cardSchools[i] = CardText(brt, "School", new Vector2(-40, -cardSize.y / 2f + 18), new Vector2(100, 26), 15, TextAnchor.MiddleLeft, new Color(0.3f, 0.2f, 0.12f));
-                client.cardAccuracies[i] = CardText(brt, "Accuracy", new Vector2(55, -cardSize.y / 2f + 18), new Vector2(70, 26), 16, TextAnchor.MiddleRight, new Color(0.3f, 0.2f, 0.12f));
+                client.cardSchools[i] = CardText(brt, "School", new Vector2(0, -106), new Vector2(140, 20), 12, TextAnchor.MiddleCenter, new Color(0.62f, 0.52f, 0.36f));
                 AddHoverEvents(b, target, "HoverCard" + i, "UnhoverCard" + i);
                 client.cardImages[i] = b.GetComponent<Image>();
                 b.SetActive(false);
