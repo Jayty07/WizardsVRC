@@ -103,6 +103,29 @@ def stone_wall(size=32, seed=7):
     return img
 
 
+def planks(size=32, seed=13):
+    """Floorboards: four long planks, one staggered butt joint each, a little grain."""
+    rnd = random.Random(seed)
+    img = Image.new('RGBA', (size, size))
+    px = img.load()
+    rows = 4
+    rh = size // rows
+    shade = {}
+    for y in range(size):
+        r = y // rh
+        joint = (r * 11 + 5) % size
+        for x in range(size):
+            key = (r, 0)
+            if key not in shade: shade[key] = rnd.uniform(0.78, 0.96)
+            if y % rh == rh - 1 or (x - joint) % size == 0:
+                v = 0.52
+            else:
+                grain = 0.05 * math.sin((x + r * 7) * 0.9 + math.sin(y * 1.3) * 1.5)
+                v = shade[key] + grain + (0.06 if y % rh == 0 else 0)
+            px[x, y] = gray(quant(v, 10, x, y, 0.3))
+    return img
+
+
 def water(size=64):
     img = Image.new('RGBA', (size, size))
     px = img.load()
@@ -147,13 +170,14 @@ out = {
     'Terrain/Cobble.png': cobble(),
     'Terrain/Grass.png': grass(),
     'Terrain/StoneWall.png': stone_wall(),
+    'Terrain/WoodPlanks.png': planks(),
     'Water/WaterRipple.png': water(),
     'Water/WaterfallStreaks.png': waterfall(),
 }
 for name, img in out.items():
     img.save('%s/%s' % (OUT, name))
 if len(sys.argv) > 2:
-    sheet = Image.new('RGBA', (5 * 136, 136), (40, 40, 48, 255))
+    sheet = Image.new('RGBA', (len(out) * 136, 136), (40, 40, 48, 255))
     for i, (name, img) in enumerate(out.items()):
         t = Image.new('RGBA', (128, 128))
         for yy in range(0, 128, img.height):

@@ -159,6 +159,7 @@ or on the side you pick with **Door Side**; fixtures take one cell.
 | Gazebo | any | a walk-in gazebo |
 | Shop | any | a timber-framed shop or house filling its block: door, striped awning, shop windows, a hanging sign and its **Label** over the door (scenery) |
 | Waterfall | any | paint it on the high side of a drop with water (`~`) below: a stone spring, a channel, the falling water (PSX waterfall shader), foam and spray |
+| Tavern | any | a **round, walk-in tavern** filling the circle inside the block you paint (about 8 x 8 cells; a fountain, NPCs and points may stand inside the block). Doors north, west and south; inside a curved bar to the east with stools, taps, bottle shelves, kegs and a **bell that brings every mug back**, round tables with stools and candles, a **stage** (curtains, coloured lights, instruments and a `TavernMusic` AudioSource: drop in a looping clip; each player can mute it with the gem by the stage), a **hearth** with log seats, a **mirror** each player switches on for themselves, hanging lanterns, and a conical roof open over the middle. Every seat is a VRCStation (click to sit); the mugs are pickups synced for everyone. Put a barkeep NPC behind the bar (east side) with *Facing* 270. |
 | Street Gate | hub | portal arch to **Target Zone**; with **Required Quest** it stays locked (showing **Locked Hint**) until that quest is done |
 | Arena Pad | hub | the boss arena teleporter (also lockable with Required Quest) |
 | Bank Chest, Backpack Pedestal, Notice Board | hub | the practice chest, the book pedestal, and the Change Character / Backpack board |
@@ -179,8 +180,9 @@ The default hub is laid out like Wizard City's Ravenwood and Commons, on several
               landings (+2) half way down the three flights of stairs
  Fire         ~~~ pond (-2) ~~~      GAZEBO MOUND (+1)  Life
  hats shop                                     wands shop
- Ice                 SUNKEN PLAZA (-2): Starfall fountain,      Death
- potion shop         C chest, P backpack, A Bramwell, N board   Training Grounds (H, ring 1)
+ Ice                 SUNKEN PLAZA (-2): the round tavern, the   Death
+ potion shop         Crystal Tap, round the Starfall fountain   Training Grounds (H, ring 1)
+                     (Mabel the barkeep); C, P, A, N outside
    Bazaar (stalls, Pell)   lower tier (-1): S arrival           ARENA DAIS (+2): Z boss arena pad
  LIBRARY RISE (+2)   SUNKEN HEDGE GARDEN (-1)   RAISED GARDEN (+2)
    bakery  pets                                   inn   cards

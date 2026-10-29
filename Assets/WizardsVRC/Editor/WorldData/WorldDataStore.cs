@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 9;
+        public const int CurrentVersion = 10;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -170,6 +170,29 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 7) UpgradeTo7();
             if (from < 8) UpgradeTo8();
             if (from < 9) UpgradeTo9();
+            if (from < 10) UpgradeTo10();
+        }
+
+        /// <summary>v10: the sunken plaza becomes a round tavern (the Crystal Tap) round a smaller Starfall fountain, with a barkeep.</summary>
+        private static void UpgradeTo10()
+        {
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || !z.isHub) continue;
+                var current = ScriptableObject.CreateInstance<ZoneDefinition>();
+                WorldDefaults.FillStarfallCastle(current);
+                if (Normalize(z.map) == Normalize(current.map)) continue; // already done by an earlier step
+                if (Normalize(z.map) != Normalize(WorldDefaults.HubMapV9))
+                {
+                    Debug.Log("[WizardsVRC] Your hub (" + z.displayName + ") has been edited, so the round tavern wasn't added. Paint a Tavern " +
+                              "landmark over a block of about 8 x 8 cells to add one.");
+                    continue;
+                }
+                z.map = current.map;
+                WorldDefaults.AddHubV8Landmarks(z);
+                EditorUtility.SetDirty(z);
+                Debug.Log("[WizardsVRC] Upgraded world data: " + z.displayName + " has a round tavern, the Crystal Tap, in its central plaza.");
+            }
         }
 
         /// <summary>

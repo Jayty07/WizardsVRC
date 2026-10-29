@@ -45,6 +45,12 @@ namespace WizardsVRC.EditorTools.WorldData
         Shop,
         /// <summary>A waterfall pouring off this cell (paint it on the high side, next to water '~' below).</summary>
         Waterfall,
+        /// <summary>
+        /// A round, walk-in tavern for hanging out, filling the circle inside its block (paint the whole block; NPCs and
+        /// a fountain may sit inside it): curved bar, round tables, stage, hearth, mirror, seats you can sit in and mugs
+        /// you can pick up. Doors on the north, west and south sides; the bar is to the east.
+        /// </summary>
+        Tavern,
     }
 
     /// <summary>Which side a building's door is on (Auto = the open side facing the map centre).</summary>

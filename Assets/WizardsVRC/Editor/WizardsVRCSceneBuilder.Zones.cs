@@ -212,7 +212,7 @@ namespace WizardsVRC.EditorTools
             StreetLamps(layout, g, z, wood, glow, stairCells);
             if (z.landmarks != null && z.landmarks.Count > 0)
                 BuildLandmarks(root, g, z, null, null, wb.data, bld, roof, PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)),
-                    PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f), door, window, wood);
+                    PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f), door, window, wood, wb.behaviours);
 
             // ---- entrance: spawn, exit door, and the way in from the castle (a hub gate, or a door placed by position)
             Vector2Int start = starts[0];
@@ -476,7 +476,12 @@ namespace WizardsVRC.EditorTools
             if (qn.markerNew != null) qn.markerNew.SetActive(false);
             if (qn.markerTalk != null) qn.markerTalk.SetActive(false);
             UdonBehaviour backing = UdonSharpEditorUtility.GetBackingUdonBehaviour(qn);
-            if (backing != null) backing.interactText = "Talk";
+            if (backing != null)
+            {
+                backing.interactText = "Talk";
+                // A little further than the default 2 m, so you can talk across a counter or a shop stall.
+                backing.proximity = 3.5f;
+            }
 
             Vector3 side = Vector3.Cross(Vector3.up, front);
             Vector3 face = pos + Vector3.up * 2f;

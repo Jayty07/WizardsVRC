@@ -340,14 +340,14 @@ namespace WizardsVRC.EditorTools.WorldData
             "#,,,,,,,,,.,mmm,,,,^,,,,..,,,,^,,,,jjj,.,,,,,,,,,#\n" +
             "#,IIIII,,,.,,^,,,,,,,,,,..,,,,,,,,,,^,,.,,,DDDDD,#\n" +
             "#,IIIII..,.,,,,,,,..............,,,,,,,....DDDDD,#\n" +
-            "#,IIIII..,.,,,,,^,..............,^,,,,,....DDDDD,#\n" +
-            "#,IIIII,,,.,,,,,,,..C........P..,,,,,,,.,,,DDDDD,#\n" +
-            "#,nnn,,,,,.,,,,,,,.....QQQQ.....,,,,,,,.,,,,,,,,,#\n" +
-            "#,nnn,,,,,.,,,,,,,.....QQQQ.....,,,,,,,.,,,,,,,,,#\n" +
-            "#,...,.................QQQQ.....,...............,#\n" +
-            "#,,,,,,,,,....E.k......QQQQ.....,.....aaaaaaa...,#\n" +
-            "#,,U,,U,,,...........A......N...,..H..a.....a...,#\n" +
-            "#,,..............y..............,z....a..1..a...,#\n" +
+            "#,IIIII..,.,,,,,^,...LLLLLLLL...,^,,,,,....DDDDD,#\n" +
+            "#,IIIII,,,.,,,,,,,..CLLLLLLLLP..,,,,,,,.,,,DDDDD,#\n" +
+            "#,nnn,,,,,.,,,,,,,...LLLLLLLL...,,,,,,,.,,,,,,,,,#\n" +
+            "#,nnn,,,,,.,,,,,,,...LLLQQL@L...,,,,,,,.,,,,,,,,,#\n" +
+            "#,...,...............LLLQQLLL...,...............,#\n" +
+            "#,,,,,,,,,....E.k....LLLLLLLL...,.....aaaaaaa...,#\n" +
+            "#,,U,,U,,,...........ALLLLLLN...,..H..a.....a...,#\n" +
+            "#,,..............y...LLLLLLLL...,z....a..1..a...,#\n" +
             "#,,.....................S.......,.....a.....a...,#\n" +
             "#,,U,,U,,,......................,.....aaaaaaa...,#\n" +
             "#,,,,,,,,,..U..U..,,,,,,..,,,,,,,...............,#\n" +
@@ -499,9 +499,21 @@ namespace WizardsVRC.EditorTools.WorldData
             AddHubV8Landmarks(z);
         }
 
-        /// <summary>The terrace, water and shops added to the hub in world data v8 (each added only if its symbol is free).</summary>
+        /// <summary>The terrace, water, shops (v8) and the round tavern with its barkeep (v10), each added only if its symbol is free.</summary>
         public static void AddHubV8Landmarks(ZoneDefinition z)
         {
+            if (z.npcs == null) z.npcs = new List<ZoneNpc>();
+            if (z.FindNpc('@') == null && z.FindLandmark('@') == null && z.FindPoint('@') == null)
+                z.npcs.Add(new ZoneNpc
+                {
+                    symbol = "@", key = "Mabel", displayName = "Mabel Brightcask", robeColor = new Color(0.62f, 0.32f, 0.2f), hatColor = new Color(0.35f, 0.18f, 0.12f),
+                    facing = 270f,
+                    defaultDialogue = new[]
+                    {
+                        "Welcome to the Crystal Tap! Grab a mug, pull up a stool, and stay as long as you like.",
+                        "Ring the bell on the bar when the mugs go walkabout. They always come home.",
+                    },
+                });
             var add = new List<ZoneLandmark>
             {
                 new ZoneLandmark { symbol = "T", kind = LandmarkKind.Tower, label = "Observatory" },
@@ -514,6 +526,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 ShopAt("q", "Familiars & Pets", DoorSide.South),
                 ShopAt("p", "The Fallen Star Inn", DoorSide.South),
                 ShopAt("r", "Cards & Curios", DoorSide.South),
+                new ZoneLandmark { symbol = "L", kind = LandmarkKind.Tavern, label = "The Crystal Tap" },
             };
             if (z.landmarks == null) z.landmarks = new List<ZoneLandmark>();
             foreach (var l in add)
@@ -524,6 +537,55 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             return new ZoneLandmark { symbol = symbol, kind = LandmarkKind.Shop, label = label, doorSide = door };
         }
+
+        /// <summary>The hub map as world data v9 made it (before the round tavern).</summary>
+        public const string HubMapV9 =
+            "##################################################\n" +
+            "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#\n" +
+            "#,^TT,,,,,WWWWW^^^^^,KKKKKKKK,,BBBBB,MMMMM,,,^,,,#\n" +
+            "#,,TT,,,,,WWWWW^,,^^,KKKKKKKK,,BBBBB,MMMMM,,,,,,,#\n" +
+            "#,,^,,,,,,WWWWW^,,^^,KKKKKKKK,,BBBBB,MMMMM,^,,,^,#\n" +
+            "#,,..,,,,,WWWWW^,,^^,KKKKKKKK,,BBBBB,MMMMM,,,,,,,#\n" +
+            "#,,..,,,,,,...,,,,,,,KKKKKKKK,,,...,,,...,,,,,,,,#\n" +
+            "#,,......................................,,,,,,,,#\n" +
+            "#,,,,,,,,.......XX.......................,,,,,,,,#\n" +
+            "#,FFFFF,,.,,,~~~~~~~~,,,..,,,,,,,,,,,,,,.,,VVVVV,#\n" +
+            "#,FFFFF...,,,~~~~~~~~,,,..........Y,^,,,...VVVVV,#\n" +
+            "#,FFFFF...,,,~~~~~~~~^,,..,,,,,,,,,,,,,,...VVVVV,#\n" +
+            "#,FFFFF,,.,w,,,,,,,,,,,,..,,,,,,,^,,,,,,.,,VVVVV,#\n" +
+            "#,,,,,,,,.,,,,^,,,,,,,,,..,,,,,,,,,,,,,,.,,,,,,,,#\n" +
+            "#,..............................................,#\n" +
+            "#,..............................................,#\n" +
+            "#,,,,,,,,,.,mmm,,,,,,,,,..,,,,,,,,,jjj,.,,,,,,,,,#\n" +
+            "#,,,,,,,,,.,mmm,,,,^,,,,..,,,,^,,,,jjj,.,,,,,,,,,#\n" +
+            "#,IIIII,,,.,,^,,,,,,,,,,..,,,,,,,,,,^,,.,,,DDDDD,#\n" +
+            "#,IIIII..,.,,,,,,,..............,,,,,,,....DDDDD,#\n" +
+            "#,IIIII..,.,,,,,^,..............,^,,,,,....DDDDD,#\n" +
+            "#,IIIII,,,.,,,,,,,..C........P..,,,,,,,.,,,DDDDD,#\n" +
+            "#,nnn,,,,,.,,,,,,,.....QQQQ.....,,,,,,,.,,,,,,,,,#\n" +
+            "#,nnn,,,,,.,,,,,,,.....QQQQ.....,,,,,,,.,,,,,,,,,#\n" +
+            "#,...,.................QQQQ.....,...............,#\n" +
+            "#,,,,,,,,,....E.k......QQQQ.....,.....aaaaaaa...,#\n" +
+            "#,,U,,U,,,...........A......N...,..H..a.....a...,#\n" +
+            "#,,..............y..............,z....a..1..a...,#\n" +
+            "#,,.....................S.......,.....a.....a...,#\n" +
+            "#,,U,,U,,,......................,.....aaaaaaa...,#\n" +
+            "#,,,,,,,,,..U..U..,,,,,,..,,,,,,,...............,#\n" +
+            "#,..............................................,#\n" +
+            "#,..............................................,#\n" +
+            "#,,,,,,,.....,,,,,,,,,,,..,,,,,,,,,,,,,,,,,,..,,,#\n" +
+            "#,OOOOOO.....,,,,,,,====..====,,,,,,,,,,^,......,#\n" +
+            "#,OOOOOO...t.,,,,,,,====..====,,,,,^,,,,,,......,#\n" +
+            "#,OOOOOO.J...,,,,,,^,,,,.....,,,,,,,,,,,,,...Z..,#\n" +
+            "#,OOOOOO.....,,,,,,,,,,,..,,,,,,,,,,,^,,,,......,#\n" +
+            "#,OOOOOO.....,,,,,,,,^,,..,,,,^,,,ppppp,,,......,#\n" +
+            "#,,,,,,,.....,ooo^qqq,,,..,,,,,,^,ppppp,rrr,,,,,,#\n" +
+            "#,,,,,,,,,,,,,ooo,qqq,,,..,,,,,,,,ppppp,rrr,,,,,,#\n" +
+            "#,..............................................,#\n" +
+            "#,..............................................,#\n" +
+            "#,,,,,,,,,,,.R.,,,,,,,,,..,,,,,,,,,.G.,,,,,,,,,,,#\n" +
+            "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#\n" +
+            "##################################################\n";
 
         /// <summary>The hub map and height map as world data v8 made them (a hub still holding exactly these gets the v9 layout).</summary>
         public const string HubMapV8 =

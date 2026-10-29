@@ -225,12 +225,15 @@ namespace WizardsVRC.EditorTools.WorldData
                         if (cells.Count != fp.width * fp.height) r.Warn(ln + " doesn't fill a rectangle; it's built over its whole bounding box.");
                         if (g.DoorDirection(l) == Vector2Int.zero) r.Error(ln + " has no open cell next to it (at its own height) for its door.");
                     }
-                    else if (!l.Solid && cells.Count > 1) r.Warn(ln + " is placed " + cells.Count + " times; only the first is used.");
+                    else if (!l.Solid && cells.Count > 1 && l.kind != LandmarkKind.Tavern) r.Warn(ln + " is placed " + cells.Count + " times; only the first is used.");
+                    if (l.kind == LandmarkKind.Tavern && Mathf.Min(fp.width, fp.height) * g.cell < 30f)
+                        r.Warn(ln + " block is only " + Mathf.Min(fp.width, fp.height) * g.cell + " m across; a tavern needs about 30 m or more."); 
                     if (!z.isHub && (l.kind == LandmarkKind.Keep || l.kind == LandmarkKind.StreetGate || l.kind == LandmarkKind.ArenaPad ||
                                      l.kind == LandmarkKind.BankChest || l.kind == LandmarkKind.BackpackPedestal || l.kind == LandmarkKind.NoticeBoard))
                         r.Warn(ln + ": this landmark only works in the hub (Is Hub), so it is left out here.");
                     if (l.kind == LandmarkKind.StreetGate && string.IsNullOrEmpty(l.targetZone)) r.Error(ln + ": set Target Zone (the zone key it leads to).");
-                    if ((l.IsBuilding || l.kind == LandmarkKind.Fountain || l.kind == LandmarkKind.Tower || l.kind == LandmarkKind.Waterfall) && cells.Count > 1)
+                    if ((l.IsBuilding || l.kind == LandmarkKind.Fountain || l.kind == LandmarkKind.Tower || l.kind == LandmarkKind.Waterfall ||
+                         l.kind == LandmarkKind.Tavern) && cells.Count > 1)
                     {
                         bool flat = true;
                         for (int y = fp.yMin; y < fp.yMax; y++) for (int x = fp.xMin; x < fp.xMax; x++) if (g.Level(x, y) != g.Level(fp.xMin, fp.yMin)) flat = false;

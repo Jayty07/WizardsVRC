@@ -180,7 +180,7 @@ namespace WizardsVRC.EditorTools
             HubLamps(layout, g, z, wood, window, stairCells);
 
             // ---- landmarks
-            BuildLandmarks(root, g, z, hub, interior, data, stone, roof, gold, banner, door, window, wood);
+            BuildLandmarks(root, g, z, hub, interior, data, stone, roof, gold, banner, door, window, wood, hub.behaviours);
 
             // ---- arrival point
             Vector2Int start = g.Find('S')[0];
@@ -231,7 +231,7 @@ namespace WizardsVRC.EditorTools
         /// pedestal, notice board) are skipped when hub is null (a street zone).
         /// </summary>
         private static void BuildLandmarks(Transform root, ZoneGrid g, ZoneDefinition z, HubLayout hub, Interior interior, WorldDataStore.Data data,
-            Material stone, Material roof, Material gold, Material banner, Material door, Material window, Material wood)
+            Material stone, Material roof, Material gold, Material banner, Material door, Material window, Material wood, List<UdonSharpBehaviour> behaviours)
         {
             float cs = g.cell;
             int stall = 0, shop = 0;
@@ -274,6 +274,7 @@ namespace WizardsVRC.EditorTools
                         case LandmarkKind.Gazebo: Gazebo(root, p, wood, roof, gold); break;
                         case LandmarkKind.Shop: Shop(root, g, l, shop++, gold, door, window, wood); break;
                         case LandmarkKind.Waterfall: WaterfallLandmark(root, g, l, PMat("WaterfallRock", new Color(0.5f, 0.47f, 0.45f), 3f)); break;
+                        case LandmarkKind.Tavern: TavernLandmark(root, g, z, l, behaviours, stone, roof, gold, window, wood); break;
                         case LandmarkKind.StreetGate: if (hub != null) HubGateLandmark(root, g, l, cell, hub, data, stone); break;
                         case LandmarkKind.ArenaPad:
                             if (hub == null) break;
