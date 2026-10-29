@@ -463,6 +463,9 @@ namespace WizardsVRC.EditorTools
             Vector3 front;
             if (npc.facing < 0f) front = ZoneGrid.ToLocalDir(g.OpenDirection(cells[0]));
             else front = Quaternion.Euler(0, npc.facing, 0) * Vector3.forward;
+            // An NPC painted inside a tavern's block keeps the bar: behind the counter, facing the room.
+            Vector3 barSpot, barFront;
+            if (TavernBarkeepSpot(g, z, cells[0], out barSpot, out barFront)) { pos = barSpot; front = barFront; }
             // The wizard model faces its local -Z, so turn it until -Z points along 'front'.
             float yaw = Mathf.Atan2(-front.x, -front.z) * Mathf.Rad2Deg;
             int id = QuestManager.NPC_STREET_FIRST + wb.npcCutscenes.Count;

@@ -220,12 +220,20 @@ namespace WizardsVRC.EditorTools.WorldData
                     var cells = g.Find(l.Symbol);
                     if (cells.Count == 0) { r.Warn(ln + " isn't on the map."); continue; }
                     var fp = g.Footprint(l.Symbol);
+                    bool facesCentre = l.doorSide == global::WizardsVRC.EditorTools.WorldData.DoorSide.Centre;
                     if (l.IsBuilding)
                     {
-                        if (cells.Count != fp.width * fp.height) r.Warn(ln + " doesn't fill a rectangle; it's built over its whole bounding box.");
+                        if (cells.Count != fp.width * fp.height && !facesCentre) r.Warn(ln + " doesn't fill a rectangle; it's built over its whole bounding box.");
                         if (g.DoorDirection(l) == Vector2Int.zero) r.Error(ln + " has no open cell next to it (at its own height) for its door.");
                     }
-                    else if (!l.Solid && cells.Count > 1 && l.kind != LandmarkKind.Tavern) r.Warn(ln + " is placed " + cells.Count + " times; only the first is used.");
+                    else if (!l.Solid && cells.Count > 1 && l.kind != LandmarkKind.Tavern && l.kind != LandmarkKind.DuelCircle &&
+                             l.kind != LandmarkKind.HealthOrb && l.kind != LandmarkKind.ManaOrb)
+                        r.Warn(ln + " is placed " + cells.Count + " times; only the first is used.");
+                    if (l.kind == LandmarkKind.BankChest) r.Warn(ln + ": the practice chest is no longer built; remove it from the landmark list.");
+                    if (l.kind == LandmarkKind.DuelCircle && Mathf.Min(fp.width, fp.height) * g.cell < 2f * (ZoneGrid.RingClearance + 1f))
+                        r.Warn(ln + " block is only " + Mathf.Min(fp.width, fp.height) * g.cell + " m across; a duelling circle needs about " +
+                               2f * (ZoneGrid.RingClearance + 1f) + " m.");
+                    if (l.kind == LandmarkKind.DuelCircle && !z.isHub) r.Warn(ln + ": duelling circles only work in the hub (Is Hub), so it is left out here.");
                     if (l.kind == LandmarkKind.Tavern && Mathf.Min(fp.width, fp.height) * g.cell < 30f)
                         r.Warn(ln + " block is only " + Mathf.Min(fp.width, fp.height) * g.cell + " m across; a tavern needs about 30 m or more."); 
                     if (!z.isHub && (l.kind == LandmarkKind.Keep || l.kind == LandmarkKind.StreetGate || l.kind == LandmarkKind.ArenaPad ||
@@ -233,10 +241,10 @@ namespace WizardsVRC.EditorTools.WorldData
                         r.Warn(ln + ": this landmark only works in the hub (Is Hub), so it is left out here.");
                     if (l.kind == LandmarkKind.StreetGate && string.IsNullOrEmpty(l.targetZone)) r.Error(ln + ": set Target Zone (the zone key it leads to).");
                     if ((l.IsBuilding || l.kind == LandmarkKind.Fountain || l.kind == LandmarkKind.Tower || l.kind == LandmarkKind.Waterfall ||
-                         l.kind == LandmarkKind.Tavern) && cells.Count > 1)
+                         l.kind == LandmarkKind.Tavern || l.kind == LandmarkKind.DuelCircle) && cells.Count > 1)
                     {
                         bool flat = true;
-                        for (int y = fp.yMin; y < fp.yMax; y++) for (int x = fp.xMin; x < fp.xMax; x++) if (g.Level(x, y) != g.Level(fp.xMin, fp.yMin)) flat = false;
+                        foreach (var c in cells) if (g.Level(c) != g.Level(cells[0])) flat = false;
                         if (!flat) r.Warn(ln + " stands on cells of different heights; give its whole block one height.");
                     }
                     if (l.kind == LandmarkKind.Waterfall)

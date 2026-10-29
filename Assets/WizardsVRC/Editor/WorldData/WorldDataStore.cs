@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 10;
+        public const int CurrentVersion = 11;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -171,6 +171,33 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 8) UpgradeTo8();
             if (from < 9) UpgradeTo9();
             if (from < 10) UpgradeTo10();
+            if (from < 11) UpgradeTo11();
+        }
+
+        /// <summary>
+        /// v11: the round hub (rings round the tavern, halls facing the centre, round curtain wall), the duelling circle,
+        /// health and mana orbs, and no testing chest. Only if the hub still has exactly the v10 layout; otherwise just
+        /// the chest goes.
+        /// </summary>
+        private static void UpgradeTo11()
+        {
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || !z.isHub) continue;
+                var current = ScriptableObject.CreateInstance<ZoneDefinition>();
+                WorldDefaults.FillStarfallCastle(current);
+                if (Normalize(z.map) == Normalize(current.map)) continue; // already done by an earlier step
+                if (Normalize(z.map) != Normalize(WorldDefaults.HubMapV10))
+                {
+                    if (z.landmarks != null && z.landmarks.RemoveAll(l => l != null && l.kind == LandmarkKind.BankChest) > 0) EditorUtility.SetDirty(z);
+                    Debug.Log("[WizardsVRC] Your hub (" + z.displayName + ") has been edited, so the round hub wasn't applied (the practice chest " +
+                              "was removed). New landmarks you can paint yourself: Duel Circle (PvP), Health Orb and Mana Orb; Door Side Centre turns " +
+                              "a building to face the middle, and Round Castle gives a round island and wall.");
+                    continue;
+                }
+                ApplyDefaultHubLayout(z);
+                Debug.Log("[WizardsVRC] Upgraded world data: " + z.displayName + " is now round, with a duelling circle and health / mana orbs.");
+            }
         }
 
         /// <summary>v10: the sunken plaza becomes a round tavern (the Crystal Tap) round a smaller Starfall fountain, with a barkeep.</summary>
@@ -188,10 +215,8 @@ namespace WizardsVRC.EditorTools.WorldData
                               "landmark over a block of about 8 x 8 cells to add one.");
                     continue;
                 }
-                z.map = current.map;
-                WorldDefaults.AddHubV8Landmarks(z);
-                EditorUtility.SetDirty(z);
-                Debug.Log("[WizardsVRC] Upgraded world data: " + z.displayName + " has a round tavern, the Crystal Tap, in its central plaza.");
+                ApplyDefaultHubLayout(z);
+                Debug.Log("[WizardsVRC] Upgraded world data: " + z.displayName + " has a round tavern, the Crystal Tap, in the round hub.");
             }
         }
 
@@ -228,7 +253,11 @@ namespace WizardsVRC.EditorTools.WorldData
             z.heightStep = fresh.heightStep;
             z.cornerRadius = fresh.cornerRadius;
             z.railings = fresh.railings;
-            WorldDefaults.AddHubV8Landmarks(z);
+            z.cellSize = fresh.cellSize;
+            z.castleStyle = fresh.castleStyle;
+            z.roundCastle = fresh.roundCastle;
+            z.lampDensity = fresh.lampDensity;
+            WorldDefaults.SyncHubLandmarks(z);
             EditorUtility.SetDirty(z);
         }
 

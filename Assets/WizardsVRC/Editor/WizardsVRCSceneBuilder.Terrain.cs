@@ -58,7 +58,7 @@ namespace WizardsVRC.EditorTools
 
             for (int y = 0; y < g.height; y++)
                 for (int x = 0; x < g.width; x++)
-                    BuildCell(tc, x, y, piles, colliders, mode);
+                    if (!g.IsVoid(x, y)) BuildCell(tc, x, y, piles, colliders, mode);
 
             // ---- stairs where paved cells change height: steps, sloped stone stringers and handrails
             foreach (var run in stairs)
@@ -171,7 +171,8 @@ namespace WizardsVRC.EditorTools
                             kinds[x, y, k] = Kind(x, y, k);
             }
 
-            public bool In(int x, int y) { return x >= 0 && y >= 0 && x < g.width && y < g.height; }
+            /// <summary>On the map (round castles: and inside the island's circle).</summary>
+            public bool In(int x, int y) { return x >= 0 && y >= 0 && x < g.width && y < g.height && !g.IsVoid(x, y); }
             /// <summary>Level, with cells off the map at the base (so the zone's outer edge gets a wall down to it).</summary>
             public int Lv(int x, int y) { return In(x, y) ? g.Level(x, y) : g.minLevel; }
             public bool Lawn(int x, int y) { return In(x, y) && IsLawn(g.At(x, y)); }

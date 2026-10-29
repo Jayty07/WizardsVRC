@@ -34,7 +34,7 @@ namespace WizardsVRC.EditorTools.WorldData
         StreetGate,
         /// <summary>The Training Yard boss arena teleporter pad.</summary>
         ArenaPad,
-        /// <summary>The practice loot chest.</summary>
+        /// <summary>No longer built (it was a testing chest); kept so older world data still loads.</summary>
         BankChest,
         /// <summary>A pedestal that opens the book.</summary>
         BackpackPedestal,
@@ -51,10 +51,25 @@ namespace WizardsVRC.EditorTools.WorldData
         /// you can pick up. Doors on the north, west and south sides; the bar is to the east.
         /// </summary>
         Tavern,
+        /// <summary>
+        /// A floating red orb (one per cell): walking through it restores some health. Only you see it vanish; it comes
+        /// back after a while. Paint it on paths.
+        /// </summary>
+        HealthOrb,
+        /// <summary>A floating blue orb (one per cell): walking through it restores some mana.</summary>
+        ManaOrb,
+        /// <summary>
+        /// The duelling circle for PvP (paint a round block about 7 cells across, all at one height): step in and a 15
+        /// second countdown starts; everyone inside when it ends duels, split into two teams. Nothing is won or lost.
+        /// </summary>
+        DuelCircle,
     }
 
-    /// <summary>Which side a building's door is on (Auto = the open side facing the map centre).</summary>
-    public enum DoorSide { Auto, North, East, South, West }
+    /// <summary>
+    /// Which side a building's door is on (Auto = the open side facing the map centre). Centre: the building turns to
+    /// face the map's centre (for buildings round a circle), filling as much of its block as it can.
+    /// </summary>
+    public enum DoorSide { Auto, North, East, South, West, Centre }
 
     /// <summary>
     /// Railings the builder adds. Drops: iron railings (solid) along paths at the edge of a drop, round ponds, and
@@ -76,7 +91,8 @@ namespace WizardsVRC.EditorTools.WorldData
             "1-9  battle ring spot for encounter 1-9 (needs a 3x3 open plaza)\n" +
             "a-i  patrol route of encounter 1-9 (a = 1, b = 2...): a 1-cell-wide line or loop of letters\n" +
             "Other letters/symbols: NPCs, points and landmarks from the lists below. NPCs and points stand on road;\n" +
-            "buildings (school hall, keep, library...) fill the block of cells you paint and open their door to the side facing the map's centre.";
+            "buildings (school hall, keep, library...) fill the block of cells you paint and open their door to the side facing the map's centre\n" +
+            "(Door Side Centre: they turn to face the centre).";
 
         [Tooltip("Unique key, used in names and by quests.")]
         public string zoneKey = "NewZone";
@@ -89,6 +105,9 @@ namespace WizardsVRC.EditorTools.WorldData
         public bool isHub;
         [Tooltip("Castle look: the map edge becomes castle walls with towers, on an island in the sea, with leafy trees.")]
         public bool castleStyle;
+        [Tooltip("Castle look only: a round island with a round curtain wall just inside the map edge (paint '#' outside the " +
+                 "circle). Cells past the circle's edge are left out.")]
+        public bool roundCastle;
 
         [Header("Placement")]
         [Tooltip("Height the zone is built at, far from the castle (0), keep interior (200) and arena (400). " +
@@ -289,7 +308,8 @@ namespace WizardsVRC.EditorTools.WorldData
         public int requiredQuest = -1;
         [Tooltip("Street Gate / Arena Pad: shown while locked, e.g. \"Finish the Training Grounds first\".")]
         public string lockedHint = "";
-        [Tooltip("School halls, the keep, the library and shops: which side the door is on (Auto = the open side facing the map's centre).")]
+        [Tooltip("School halls, the keep, the library and shops: which side the door is on (Auto = the open side facing the map's centre; " +
+                 "Centre = the building turns to face the map's centre).")]
         public DoorSide doorSide = DoorSide.Auto;
 
         public char Symbol { get { return string.IsNullOrEmpty(symbol) ? '\0' : symbol[0]; } }

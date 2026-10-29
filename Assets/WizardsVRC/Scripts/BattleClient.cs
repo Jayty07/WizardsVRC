@@ -239,6 +239,14 @@ namespace WizardsVRC
 
         public bool IsInBattle() { return _inBattle; }
 
+        /// <summary>This encounter is a wizard-against-wizard duel (no monsters, rewards or defeat penalties).</summary>
+        private bool Pvp() { return manager != null && manager.pvpMode; }
+
+        /// <summary>Our half of the circle (0 = the wizards' / Blue team's, 1 = the monsters' / Red team's).</summary>
+        private int MySide() { return _slot >= 0 && manager != null ? manager.SideOf(_slot) : 0; }
+
+        private string TeamName(int side) { return side == 0 ? "Blue team" : "Red team"; }
+
         /// <summary>True when the local player has a character and isn't already fighting (used by wandering monsters).</summary>
         public bool CanFight() { return !_inBattle && playerState != null && playerState.HasCharacter() && !playerState.inCombat; }
 
@@ -349,9 +357,14 @@ namespace WizardsVRC
             if (fleeConfirmLabel != null)
             {
                 int others = 0;
-                for (int i = 0; i < BattleManager.SIDE; i++) if (i != _slot && manager.Alive(i) && !manager.IsSummon(i)) others++;
-                fleeConfirmLabel.text = "You keep your health, but you lose all of your mana.\n" +
-                    (others > 0 ? "Your party will fight on without you." : "You are fighting alone, so the duel ends.");
+                int first = MySide() * BattleManager.SIDE;
+                for (int i = first; i < first + BattleManager.SIDE; i++) if (i != _slot && manager.Alive(i) && !manager.IsSummon(i)) others++;
+                if (Pvp())
+                    fleeConfirmLabel.text = "Leave the duel? Duels cost nothing.\n" +
+                        (others > 0 ? "Your team will fight on without you." : "You are your team's last wizard, so the other team wins.");
+                else
+                    fleeConfirmLabel.text = "You keep your health, but you lose all of your mana.\n" +
+                        (others > 0 ? "Your party will fight on without you." : "You are fighting alone, so the duel ends.");
             }
             fleeConfirmRoot.SetActive(true);
         }
@@ -382,7 +395,7 @@ namespace WizardsVRC
         /// <summary>Leave the fight now. Like Wizard101 you keep your health but lose all of your mana.</summary>
         private void FleeNow()
         {
-            if (playerState != null && playerState.HasCharacter())
+            if (!Pvp() && playerState != null && playerState.HasCharacter())
             {
                 playerState.SetHealth(BattleToCharacterHealth(manager.hp[_slot]));
                 playerState.SetMana(0);
@@ -461,9 +474,23 @@ namespace WizardsVRC
 
         public void LocalQueue(bool enter)
         {
-            if (enter && (playerState == null || !playerState.HasCharacter())) return;
+            if (enter && (playerState == null || !playerState.HasCharacter() || playerState.inCombat || _inBattle)) return;
             if (enter && !QueueUnlocked()) return;
             if (manager != null) manager.RequestQueue(enter);
+        }
+
+        /// <summary>
+        /// Called now and then while the local player stands in a duel zone: joins the countdown if they aren't in it
+        /// (they walked in while a duel was on, or right after one ended).
+        /// </summary>
+        public void LocalStillInside()
+        {
+            if (manager == null || _inBattle) return;
+            int ph = manager.phase;
+            if (ph != BattleManager.PHASE_IDLE && ph != BattleManager.PHASE_QUEUE) return;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me) || manager.IsQueued(me.playerId) || Time.time < _rejoinBlockUntil) return;
+            LocalQueue(true);
         }
 
         private void Start()
@@ -602,7 +629,12 @@ namespace WizardsVRC
                         _note = "You are stunned and lose this turn.";
                     }
                 }
-                SetBanner("Round " + manager.round.ToString() + (manager.firstSide == 0 ? "  -  Wizards act first" : "  -  Monsters act first"));
+                if (Pvp())
+                {
+                    SetBanner("Round " + manager.round.ToString() + "  -  " + TeamName(manager.firstSide) + " acts first");
+                    if (_inBattle && _slot >= 0 && !manager.Alive(_slot)) _note = "You're knocked out. Watch the rest of the duel!";
+                }
+                else SetBanner("Round " + manager.round.ToString() + (manager.firstSide == 0 ? "  -  Wizards act first" : "  -  Monsters act first"));
             }
 
             if (phase == BattleManager.PHASE_PLAYBACK && _phaseSeen != BattleManager.PHASE_PLAYBACK)
@@ -619,6 +651,23 @@ namespace WizardsVRC
             if ((phase == BattleManager.PHASE_VICTORY || phase == BattleManager.PHASE_DEFEAT) && _phaseSeen != phase)
             {
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
+                if (Pvp())
+                {
+                    // Duels are friendly: whoever wins, health, mana and gear are just as they were before.
+                    int w = manager.winnerSide;
+                    string result = w < 0 ? "The duel is over." : TeamName(w) + " wins!";
+                    if (_inBattle) result = w < 0 ? "The duel is over." : (w == MySide() ? "Victory! " : "Defeat... ") + TeamName(w) + " wins.";
+                    if (_inBattle) result += "\nDuels cost nothing: your health and mana are as they were.";
+                    _vitalsDone = true;
+                    SetBanner(result);
+                    _note = result;
+                    if (_inBattle) SendCustomEventDelayedSeconds(nameof(_LeaveBattle), Mathf.Max(2, manager.endSeconds - 1));
+                    _phaseSeen = phase;
+                    RefreshLabels();
+                    RefreshHand();
+                    UpdateHandVisible();
+                    return;
+                }
                 bool won = phase == BattleManager.PHASE_VICTORY;
                 // A wizard who fell in the final round goes home defeated even if the party won.
                 bool iWon = won && _slot >= 0 && manager.hp[_slot] > 0;
@@ -643,7 +692,7 @@ namespace WizardsVRC
             if (_inBattle && !_leaving && mySlot < 0 && phase != BattleManager.PHASE_IDLE)
             {
                 // Our seat was vacated: with 0 health that means we were defeated mid-fight (Wizard101 sends you home).
-                if (_slot >= 0 && manager.hp[_slot] <= 0)
+                if (!Pvp() && _slot >= 0 && manager.hp[_slot] <= 0)
                 {
                     ApplyDefeat();
                     _note = "You were defeated!";
@@ -697,7 +746,8 @@ namespace WizardsVRC
             _seated = false;
             _leaving = false;
             _defeated = false;
-            _vitalsDone = false;
+            // Duels never touch the character's health or mana, so there is nothing to write back afterwards.
+            _vitalsDone = Pvp();
             _slot = slot;
             playerState.inCombat = true;
             if (manager.phase == BattleManager.PHASE_PLANNING || manager.phase == BattleManager.PHASE_PLAYBACK)
@@ -742,7 +792,8 @@ namespace WizardsVRC
             int sc = (int)c.school;
             // Health carries over between fights (the school health trait is already part of MaxHealth).
             int maxHealth = playerState.MaxHealth();
-            int curHealth = Mathf.Max(1, playerState.GetHealth());
+            // Duels start everyone at full health.
+            int curHealth = Pvp() ? maxHealth : Mathf.Max(1, playerState.GetHealth());
             playerState.combatHealth = -1;
             int statsA = manager.PackStats(
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_DAMAGE) + Trait(schoolDamage, sc, 0),
@@ -803,7 +854,7 @@ namespace WizardsVRC
 
         private void SpendCastMana()
         {
-            if (_slot < 0 || playerState == null || !playerState.HasCharacter()) return;
+            if (Pvp() || _slot < 0 || playerState == null || !playerState.HasCharacter()) return;
             int spent = 0;
             for (int i = 0; i < manager.actCount; i++)
             {
@@ -972,14 +1023,15 @@ namespace WizardsVRC
                 return;
             }
             _selHand = i;
-            _note = cardDatabase.GetName(card) + ": pick a " + (cardDatabase.TargetsAllies(card) ? "wizard." : "monster.");
+            if (Pvp()) _note = cardDatabase.GetName(card) + ": pick " + (cardDatabase.TargetsAllies(card) ? "a teammate." : "an opponent.");
+            else _note = cardDatabase.GetName(card) + ": pick a " + (cardDatabase.TargetsAllies(card) ? "wizard." : "monster.");
             RefreshHand();
         }
 
         /// <summary>Spells cost 1 mana per pip (0-pip spells are free).</summary>
         private bool HasManaFor(int card)
         {
-            return playerState == null || !playerState.HasCharacter() || cardDatabase.GetPipCost(card) <= playerState.GetMana();
+            return Pvp() || playerState == null || !playerState.HasCharacter() || cardDatabase.GetPipCost(card) <= playerState.GetMana();
         }
 
         private void ClickTarget(int target)
@@ -1407,7 +1459,7 @@ namespace WizardsVRC
                 int s = BattleManager.SIDE + m;
                 // Each monster seat's body is built from the encounter's roster (seat m = roster[m]), so it always
                 // shows the monster actually sitting there.
-                bool show = phase >= BattleManager.PHASE_ROAMING && !manager.IsSummon(s) && KeepBody(s);
+                bool show = !Pvp() && phase >= BattleManager.PHASE_ROAMING && !manager.IsSummon(s) && KeepBody(s);
                 if (monsterBodies[m].activeSelf != show) monsterBodies[m].SetActive(show);
             }
         }
@@ -1755,7 +1807,15 @@ namespace WizardsVRC
             if (padLabel != null)
             {
                 int phase = manager.phase;
-                if (!QueueUnlocked()) padLabel.text = queueLockedText;
+                if (Pvp())
+                {
+                    if (phase == BattleManager.PHASE_IDLE) padLabel.text = "Duelling Circle\nStep into the circle to start a duel (2-8 wizards)";
+                    else if (manager.WaitingForOpponent()) padLabel.text = "Duelling Circle\nWaiting for an opponent to step in...";
+                    else if (phase == BattleManager.PHASE_QUEUE)
+                        padLabel.text = "Duel starts in " + manager.SecondsLeft().ToString() + "s\nWizards in the circle: " + manager.QueueCount().ToString() + " / 8";
+                    else padLabel.text = "Duel in progress";
+                }
+                else if (!QueueUnlocked()) padLabel.text = queueLockedText;
                 else if (phase == BattleManager.PHASE_IDLE) padLabel.text = "Boss Arena Teleporter\nStep on the pad (up to 4 wizards)";
                 else if (phase == BattleManager.PHASE_QUEUE)
                     padLabel.text = "Teleporting in " + manager.SecondsLeft().ToString() + "s\nWizards: " + manager.QueueCount().ToString() + " / 4";
@@ -1793,12 +1853,12 @@ namespace WizardsVRC
             for (int s = 0; s < BattleManager.SLOTS; s++)
             {
                 if (overheadLabels == null || s >= overheadLabels.Length || overheadLabels[s] == null) continue;
-                overheadLabels[s].text = manager.Occupied(s) && manager.phase >= (s < BattleManager.SIDE ? BattleManager.PHASE_JOINING : BattleManager.PHASE_ROAMING) ? SlotLine(s, false) : "";
+                overheadLabels[s].text = manager.Occupied(s) && manager.phase >= (manager.IsPlayerSeat(s) ? BattleManager.PHASE_JOINING : BattleManager.PHASE_ROAMING) ? SlotLine(s, false) : "";
             }
             if (partyLabel != null)
             {
-                string w = "WIZARDS";
-                string m = "MONSTERS";
+                string w = Pvp() ? "BLUE TEAM" : "WIZARDS";
+                string m = Pvp() ? "RED TEAM" : "MONSTERS";
                 for (int i = 0; i < BattleManager.SIDE; i++)
                 {
                     if (manager.Occupied(i)) w += "\n" + SlotLine(i, true);
@@ -1820,7 +1880,7 @@ namespace WizardsVRC
             if (manager.dotLeft[s] > 0) line += "  Burning " + manager.dotLeft[s].ToString();
             if (manager.stunned[s] != 0) line += "  Stunned";
             if (manager.taunt[s] > 0) line += "  Taunting";
-            if (s < BattleManager.SIDE && manager.phase == BattleManager.PHASE_PLANNING && manager.Alive(s)) line += manager.locked[s] != 0 ? "  (ready)" : "  (choosing)";
+            if (manager.IsPlayerSeat(s) && !manager.IsSummon(s) && manager.phase == BattleManager.PHASE_PLANNING && manager.Alive(s)) line += manager.locked[s] != 0 ? "  (ready)" : "  (choosing)";
             if (_shownHp[s] <= 0) line += "  (defeated)";
             return line;
         }
@@ -1875,7 +1935,7 @@ namespace WizardsVRC
             for (int t = 0; t < BattleManager.SLOTS; t++)
             {
                 if (targetButtons == null || t >= targetButtons.Length || targetButtons[t] == null) continue;
-                bool show = picking && manager.Alive(t) && (manager.SideOf(t) == 0) == allies;
+                bool show = picking && manager.Alive(t) && (manager.SideOf(t) == MySide()) == allies;
                 targetButtons[t].SetActive(show);
                 if (show) targetLabels[t].text = manager.SlotName(t) + "\n" + _shownHp[t].ToString() + " / " + manager.maxHp[t].ToString();
             }
@@ -2324,10 +2384,11 @@ namespace WizardsVRC
             int v = manager.actValue[i];
             if (t < 0 || t >= BattleManager.SLOTS) return;
             AudioClip clip = null;
-            if ((k == BattleManager.KIND_DAMAGE || k == BattleManager.KIND_DOT) && v > 0 && t < BattleManager.SIDE && wizardHitSounds != null && wizardHitSounds.Length > 0)
+            bool wizard = manager.IsPlayerSeat(t);
+            if ((k == BattleManager.KIND_DAMAGE || k == BattleManager.KIND_DOT) && v > 0 && wizard && wizardHitSounds != null && wizardHitSounds.Length > 0)
                 clip = wizardHitSounds[Random.Range(0, wizardHitSounds.Length)];
             if ((k == BattleManager.KIND_HEAL || k == BattleManager.KIND_POTION) && v > 0) clip = healSound;
-            if (t < BattleManager.SIDE && hpBefore > 0 && manager.actHpAfter[i] <= 0 && defeatSound != null) clip = defeatSound;
+            if (wizard && hpBefore > 0 && manager.actHpAfter[i] <= 0 && defeatSound != null) clip = defeatSound;
             if (clip == null) return;
             hitAudio.transform.position = seats[t].position + Vector3.up * 1.2f;
             hitAudio.PlayOneShot(clip);

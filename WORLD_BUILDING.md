@@ -29,7 +29,9 @@ then on.
 
 A folder made by an older version is **upgraded once** on the next rebuild: the hub, Sunpetal Gardens, the tutorial
 questline and the new monsters are added, and Lantern Row moves later in the story (Lv 4-6). Only values that still hold
-the old defaults are changed, so your edits are kept. `WorldDataVersion.txt` records that the upgrade ran; commit it too.
+the old defaults are changed, so your edits are kept (a hub still on the previous default layout becomes the round
+hub; an edited one keeps its map and just loses the old testing chest). `WorldDataVersion.txt` records that the upgrade
+ran; commit it too.
 
 ## The workflow
 
@@ -147,7 +149,9 @@ Several cells with the same symbol make several of them (3 lamps = 3 `L`s); a st
 
 Buildings and fixtures, mostly for the hub. Add one to the zone's **Landmarks** list with a map symbol, then paint it.
 Buildings fill the block of cells you paint and put their door on the side facing the map's centre (at their own height),
-or on the side you pick with **Door Side**; fixtures take one cell.
+or on the side you pick with **Door Side**; fixtures take one cell. **Door Side Centre** turns the building to face the
+map's centre (for buildings round a circle): it is as big as fits in its block at that angle, so paint the cells it
+stands on (a rotated square) and the paths up to its door.
 
 | Kind | Where | What it builds |
 | --- | --- | --- |
@@ -159,36 +163,41 @@ or on the side you pick with **Door Side**; fixtures take one cell.
 | Gazebo | any | a walk-in gazebo |
 | Shop | any | a timber-framed shop or house filling its block: door, striped awning, shop windows, a hanging sign and its **Label** over the door (scenery) |
 | Waterfall | any | paint it on the high side of a drop with water (`~`) below: a stone spring, a channel, the falling water (PSX waterfall shader), foam and spray |
-| Tavern | any | a **round, walk-in tavern** filling the circle inside the block you paint (about 8 x 8 cells; a fountain, NPCs and points may stand inside the block). Doors north, west and south; inside a curved bar to the east with stools, taps, bottle shelves, kegs and a **bell that brings every mug back**, round tables with stools and candles, a **stage** (curtains, coloured lights, instruments and a `TavernMusic` AudioSource: drop in a looping clip; each player can mute it with the gem by the stage), a **hearth** with log seats, a **mirror** each player switches on for themselves, hanging lanterns, and a conical roof open over the middle. Every seat is a VRCStation (click to sit); the mugs are pickups synced for everyone. Put a barkeep NPC behind the bar (east side) with *Facing* 270. |
+| Tavern | any | a **round, walk-in tavern** filling the circle inside the block you paint (about 8 x 8 cells; a fountain, NPCs and points may stand inside the block). Doors north, west and south; inside a curved bar to the east with stools, taps, bottle shelves, kegs and a **bell that brings every mug back**, round tables with stools and candles, a **stage** (curtains, coloured lights, instruments and a `TavernMusic` AudioSource: drop in a looping clip; each player can mute it with the gem by the stage), a **hearth** with log seats, a **mirror** each player switches on for themselves, hanging lanterns, and a conical roof open over the middle. Every seat is a VRCStation (click to sit); the mugs are pickups synced for everyone. Paint an NPC anywhere in the tavern's block and they stand behind the bar as its barkeep. |
 | Street Gate | hub | portal arch to **Target Zone**; with **Required Quest** it stays locked (showing **Locked Hint**) until that quest is done |
 | Arena Pad | hub | the boss arena teleporter (also lockable with Required Quest) |
-| Bank Chest, Backpack Pedestal, Notice Board | hub | the practice chest, the book pedestal, and the Change Character / Backpack board |
+| Backpack Pedestal, Notice Board | hub | the book pedestal, and the Change Character / Backpack board (Bank Chest, the old testing chest, is no longer built) |
+| Duel Circle | hub | the **duelling circle** for PvP: paint a round block about 6-7 cells across, all at one height. A mosaic floor, Blue and Red team banners, braziers and a sign with the countdown. Stepping in starts a 15 s countdown; everyone inside when it ends duels in two teams (see the README) |
+| Health Orb, Mana Orb | any | a floating red / blue orb on every cell you paint (put them on paths): walking through one restores 25% of your health / mana (at least 10) if you need it; it vanishes for you only and comes back after 30 s |
 
 ### The castle hub
 
 Tick **Is Hub** on one zone and it becomes Starfall Castle: it's built at the castle's place (Height is ignored), `S` is
 where players arrive, and its **Street Gates** are the way into the other zones (so those zones need no door position).
-**Castle Style** turns the map's edge into castle walls with towers on an island in the sea. When the hub has a School
+**Castle Style** turns the map's edge into castle walls with towers on an island in the sea; with **Round Castle** the
+island and the curtain wall are round (the wall runs a cell and a half inside the map edge: paint `#` from about there
+outwards; the map's corners past the circle are left out). When the hub has a School
 Hall for all seven schools, every hall is a walk-in classroom with its professor inside and the keep interior is just the
 Headmaster's office; otherwise the old indoor Hall of Schools is used. Without a hub zone the old hand-made castle is built.
 
-The default hub is laid out like Wizard City's Ravenwood and Commons, on several levels:
+The default hub (72 x 72 cells of 4 m) is laid out in rings round the middle, like Wizard101's Ravenwood:
 
 ```
- OBSERVATORY HILL (+6)  Storm  Headmaster's Tower  Balance  Myth  WOODED HILL (+6)
-              ===== avenue ==== X waterfall =======       NORTH TERRACE (+4 = 6 m, railed edge)
-              landings (+2) half way down the three flights of stairs
- Fire         ~~~ pond (-2) ~~~      GAZEBO MOUND (+1)  Life
- hats shop                                     wands shop
- Ice                 SUNKEN PLAZA (-2): the round tavern, the   Death
- potion shop         Crystal Tap, round the Starfall fountain   Training Grounds (H, ring 1)
-                     (Mabel the barkeep); C, P, A, N outside
-   Bazaar (stalls, Pell)   lower tier (-1): S arrival           ARENA DAIS (+2): Z boss arena pad
- LIBRARY RISE (+2)   SUNKEN HEDGE GARDEN (-1)   RAISED GARDEN (+2)
-   bakery  pets                                   inn   cards
-        R Lantern Row gate                   G Sunpetal Gardens gate     (south wall)
+                           OBSERVATORY HILL (+4)   HEADMASTER'S TOWER on the north terrace (+3, landing +2)
+                                                   X waterfall into the pond (0), cards and pets shops
+     Bazaar: stalls, Pell,           Library  |  Storm
+     hats / wands / potions    Death          |          Ice
+                         ======== inner ring road, gardens (+1) ========
+     west avenue (School Green)   SUNKEN ROUND PLAZA (0): the Crystal Tap   east avenue: Training Grounds
+                                  round the Starfall fountain, Mabel the     (H, ring 1, patrol a), Z arena pad
+                                  barkeep; S arrival, P, N and A outside
+     inn, bakery,              Fire           |          Life
+     GAZEBO GARDEN (+2)              Myth     |     Balance        DUELLING CIRCLE (+2, &)
+                         ===== outer ring road (+1), red + / blue * orbs on both ring roads =====
+                         R Lantern Row gate        G Sunpetal Gardens gate        (south, by the round wall)
 ```
-Corner Radius 2.5 m, Railings *Drops And Paths*.
+Ground level is 1 (1.5 m); every hall, the library and every shop faces the centre (Door Side Centre). Corner Radius
+1.8 m, Railings *Drops And Paths*, Round Castle on.
 
 The story order the defaults set up (nothing with real monsters until the castle tour is done):
 

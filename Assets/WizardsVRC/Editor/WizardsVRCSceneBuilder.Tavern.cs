@@ -28,11 +28,36 @@ namespace WizardsVRC.EditorTools
         private static Quaternion TFacing(float deg) { return Quaternion.LookRotation(TDir(deg)); }
         private static float AngleGap(float a, float b) { return Mathf.Abs(Mathf.DeltaAngle(a, b)); }
 
+        /// <summary>
+        /// If 'cell' lies in a tavern's block, the barkeep's spot (behind the bar's middle, on the tavern's floor) and the
+        /// way they face (into the room). The bar is on the east side, 13.5 m out (see TavernLandmark).
+        /// </summary>
+        private static bool TavernBarkeepSpot(ZoneGrid g, ZoneDefinition z, Vector2Int cell, out Vector3 pos, out Vector3 front)
+        {
+            pos = front = Vector3.zero;
+            if (z.landmarks == null) return false;
+            foreach (var l in z.landmarks)
+            {
+                if (l == null || l.kind != LandmarkKind.Tavern) continue;
+                var fp = g.Footprint(l.Symbol);
+                if (fp.width == 0 || !fp.Contains(cell)) continue;
+                Vector3 c = RectCenter(g, fp);
+                var cells = g.Find(l.Symbol);
+                if (cells.Count > 0) c.y = g.Elevation(cells[0].x, cells[0].y);
+                pos = TPolar(c, 15.2f, 0f, 0f);
+                front = -TDir(0f);
+                return true;
+            }
+            return false;
+        }
+
         private static void TavernLandmark(Transform root, ZoneGrid g, ZoneDefinition z, ZoneLandmark l, List<UdonSharpBehaviour> behaviours,
             Material stone, Material roofMat, Material gold, Material window, Material wood)
         {
             var fp = g.Footprint(l.Symbol);
             Vector3 c = RectCenter(g, fp);
+            var tCells = g.Find(l.Symbol);
+            if (tCells.Count > 0) c.y = g.Elevation(tCells[0].x, tCells[0].y);
             float R = Mathf.Max(8f, Mathf.Min(fp.width, fp.height) * g.cell * 0.5f - 4f);
             string name = string.IsNullOrEmpty(l.label) ? "The Crystal Tap" : l.label;
             Transform t = Child(root, "Tavern_" + l.symbol, Vector3.zero);

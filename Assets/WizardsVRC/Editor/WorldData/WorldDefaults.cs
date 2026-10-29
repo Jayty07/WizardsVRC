@@ -303,12 +303,14 @@ namespace WizardsVRC.EditorTools.WorldData
         // ------------------------------------------------------------------ Starfall Castle (the hub)
 
         /// <summary>
-        /// The hub, laid out like Wizard City's Ravenwood and Commons: the Starfall fountain and arrival point in a sunken
-        /// plaza in the middle, the Headmaster's tower on the north terrace with Storm, Balance and Myth beside it and a
-        /// waterfall spilling into the pond below, Fire and Ice halls to the west, Life and Death to the east (every hall
-        /// a walk-in classroom), the Bazaar and the raised Library to the west, the Training Grounds and the arena dais to
-        /// the east, shops along the avenues (hats, wands, potions, a bakery, pets, cards and the inn), and the street
-        /// gates in the south wall.
+        /// The hub, laid out in rings like Wizard101's Ravenwood: a round island inside a round curtain wall. In the middle,
+        /// the Crystal Tap (a round walk-in tavern round the Starfall fountain) in a sunken round plaza with the arrival
+        /// point; a ring of gardens and the inner ring road; the seven school halls and the library on a circle, each
+        /// turned to face the centre (walk-in classrooms), with the four great avenues between them; the outer ring road;
+        /// and beyond it the Headmaster's tower on its high terrace (north) with a waterfall into a pond, the observatory
+        /// hill, the training grounds and arena pad (east), the duelling circle for PvP (south-east), the street gates
+        /// (south), the inn, bakery and gazebo garden (south-west) and the bazaar (west). Red and blue orbs on the ring
+        /// roads top up health and mana.
         /// </summary>
         public static void FillStarfallCastle(ZoneDefinition z)
         {
@@ -317,9 +319,307 @@ namespace WizardsVRC.EditorTools.WorldData
             z.levelRange = "Hub";
             z.isHub = true;
             z.castleStyle = true;
+            z.roundCastle = true;
             z.height = 0f;
-            z.cellSize = 6f;
-            z.map =
+            z.cellSize = 4f;
+            z.map = HubMapV11;
+            // Ground level is 1 (1.5 m); the central plaza and the pond are sunk to 0, the duelling circle and the gazebo
+            // garden raised to 2, the Headmaster's terrace to 3 (with a landing at 2) and the observatory hill to 4.
+            z.heightStep = 1.5f;
+            z.cornerRadius = 1.8f;
+            z.railings = RailingMode.DropsAndPaths;
+            z.heightMap = HubHeightsV11;
+            z.groundColor = new Color(0.36f, 0.72f, 0.26f);
+            z.roadColor = new Color(0.82f, 0.72f, 0.56f);
+            z.grassColor = new Color(0.42f, 0.78f, 0.3f);
+            z.buildingColor = new Color(0.66f, 0.62f, 0.7f);
+            z.roofColor = new Color(0.45f, 0.25f, 0.82f);
+            z.lowWallColor = new Color(0.2f, 0.5f, 0.24f);
+            z.treeColor = new Color(0.2f, 0.6f, 0.25f);
+            z.accentColor = new Color(1f, 0.8f, 0.4f);
+            z.buildingHeight = new Vector2(8f, 12f);
+            z.lampDensity = 0.35f;
+
+            z.npcs = new List<ZoneNpc>
+            {
+                new ZoneNpc
+                {
+                    symbol = "A", key = "Bramwell", displayName = "Gatekeeper Bramwell", robeColor = new Color(0.25f, 0.32f, 0.6f), hatColor = new Color(0.15f, 0.2f, 0.4f),
+                    beard = true, facing = -1f,
+                    defaultDialogue = new[] { "The gates open as you prove yourself. Ask me if you're ever lost; I know every stone of this castle." },
+                },
+                new ZoneNpc
+                {
+                    symbol = "E", key = "Pell", displayName = "Quartermaster Pell", robeColor = new Color(0.6f, 0.4f, 0.2f), hatColor = new Color(0.4f, 0.25f, 0.12f),
+                    facing = -1f,
+                    defaultDialogue = new[] { "Hats, robes, boots, wands, decks, potions. If a wizard carries it, I've sold one." },
+                },
+                new ZoneNpc
+                {
+                    symbol = "J", key = "Wren", displayName = "Librarian Wren", robeColor = new Color(0.35f, 0.25f, 0.5f), hatColor = new Color(0.22f, 0.15f, 0.32f),
+                    facing = -1f,
+                    defaultDialogue = new[] { "Every spell ever cast is written down somewhere in this library. Most of them twice." },
+                },
+                new ZoneNpc
+                {
+                    symbol = "H", key = "Holloway", displayName = "Duel Master Holloway", robeColor = new Color(0.55f, 0.15f, 0.15f), hatColor = new Color(0.3f, 0.08f, 0.08f),
+                    beard = true, facing = -1f,
+                    defaultDialogue = new[] { "Practice ring's open whenever you like. The arena pad over there is for when you're good and ready." },
+                },
+                new ZoneNpc
+                {
+                    symbol = "@", key = "Mabel", displayName = "Mabel Brightcask", robeColor = new Color(0.62f, 0.32f, 0.2f), hatColor = new Color(0.35f, 0.18f, 0.12f),
+                    facing = 270f,
+                    defaultDialogue = new[]
+                    {
+                        "Welcome to the Crystal Tap! Grab a mug, pull up a stool, and stay as long as you like.",
+                        "Ring the bell on the bar when the mugs go walkabout. They always come home.",
+                    },
+                },
+            };
+
+            z.points = new List<ZonePoint>
+            {
+                new ZonePoint { symbol = "w", key = "SchoolGreen", kind = ZonePointKind.Explore, look = ZonePointLook.None, label = "", triggerSizeCells = 4f },
+                new ZonePoint { symbol = "y", key = "Bazaar", kind = ZonePointKind.Explore, look = ZonePointLook.None, label = "", triggerSizeCells = 5f },
+                new ZonePoint { symbol = "z", key = "TrainingGrounds", kind = ZonePointKind.Explore, look = ZonePointLook.None, label = "", triggerSizeCells = 3f },
+                new ZonePoint { symbol = "k", key = "SupplyCrate", kind = ZonePointKind.Interact, look = ZonePointLook.Crate, label = "Supply crate" },
+                new ZonePoint { symbol = "t", key = "SpellTome", kind = ZonePointKind.Interact, look = ZonePointLook.GlowingItem, label = "Spell tome" },
+            };
+
+            z.encounters = new List<ZoneEncounter>
+            {
+                new ZoneEncounter { ringSymbol = "1", key = "TrainingDummies", roster = new List<int> { 12, 12 }, wanderers = 2, patrolSpeed = 0.5f, respawnSeconds = 10, evenFight = true },
+            };
+
+            z.landmarks = HubLandmarks();
+        }
+
+        /// <summary>The hub's landmarks (world data v11): halls, library and shops turn to face the centre.</summary>
+        public static List<ZoneLandmark> HubLandmarks()
+        {
+            var list = new List<ZoneLandmark>
+            {
+                Hall("F", School.Fire), Hall("I", School.Ice), Hall("W", School.Storm), Hall("V", School.Life),
+                Hall("D", School.Death), Hall("M", School.Myth), Hall("B", School.Balance),
+                new ZoneLandmark { symbol = "K", kind = LandmarkKind.Keep, label = "Headmaster's Tower (click door)" },
+                new ZoneLandmark { symbol = "Q", kind = LandmarkKind.Fountain, label = "The Starfall Crystal" },
+                new ZoneLandmark { symbol = "O", kind = LandmarkKind.Library, label = "Library", doorSide = DoorSide.Centre },
+                new ZoneLandmark { symbol = "U", kind = LandmarkKind.ShopStall, label = "" },
+                new ZoneLandmark
+                {
+                    symbol = "G", kind = LandmarkKind.StreetGate, targetZone = "SunpetalGardens", requiredQuest = 11,
+                    lockedHint = "Locked: finish Duel Master Holloway's lesson first",
+                },
+                new ZoneLandmark
+                {
+                    symbol = "R", kind = LandmarkKind.StreetGate, targetZone = "LanternRow", requiredQuest = 15,
+                    lockedHint = "Locked: help Gardener Moss in Sunpetal Gardens first",
+                },
+                new ZoneLandmark { symbol = "Z", kind = LandmarkKind.ArenaPad, requiredQuest = 15, lockedHint = "help Gardener Moss first" },
+                new ZoneLandmark { symbol = "P", kind = LandmarkKind.BackpackPedestal },
+                new ZoneLandmark { symbol = "N", kind = LandmarkKind.NoticeBoard },
+                new ZoneLandmark { symbol = "T", kind = LandmarkKind.Tower, label = "Observatory" },
+                new ZoneLandmark { symbol = "X", kind = LandmarkKind.Waterfall },
+                new ZoneLandmark { symbol = "Y", kind = LandmarkKind.Gazebo },
+                ShopAt("m", "Hats & Robes"),
+                ShopAt("j", "Wands & Staves"),
+                ShopAt("n", "Potions & Remedies"),
+                ShopAt("o", "The Golden Crumb Bakery"),
+                ShopAt("q", "Familiars & Pets"),
+                ShopAt("p", "The Fallen Star Inn"),
+                ShopAt("r", "Cards & Curios"),
+                new ZoneLandmark { symbol = "L", kind = LandmarkKind.Tavern, label = "The Crystal Tap" },
+                new ZoneLandmark { symbol = "&", kind = LandmarkKind.DuelCircle, label = "Duelling Circle" },
+                new ZoneLandmark { symbol = "+", kind = LandmarkKind.HealthOrb },
+                new ZoneLandmark { symbol = "*", kind = LandmarkKind.ManaOrb },
+            };
+            foreach (var l in list) if (l.kind == LandmarkKind.SchoolHall) l.doorSide = DoorSide.Centre;
+            return list;
+        }
+
+        /// <summary>
+        /// Brings an upgraded hub's lists in line with the current layout: adds landmarks, NPCs and points it is missing
+        /// (by symbol), turns the halls, library and shops to face the centre as the round layout needs, and drops the old
+        /// testing chest. Labels and other settings you changed are kept.
+        /// </summary>
+        public static void SyncHubLandmarks(ZoneDefinition z)
+        {
+            var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+            FillStarfallCastle(fresh);
+            if (z.landmarks == null) z.landmarks = new List<ZoneLandmark>();
+            if (z.npcs == null) z.npcs = new List<ZoneNpc>();
+            if (z.points == null) z.points = new List<ZonePoint>();
+            z.landmarks.RemoveAll(l => l != null && l.kind == LandmarkKind.BankChest);
+            foreach (var l in fresh.landmarks)
+            {
+                var have = z.FindLandmark(l.Symbol);
+                if (have != null) { if (have.kind == l.kind) have.doorSide = l.doorSide; continue; }
+                if (z.FindNpc(l.Symbol) == null && z.FindPoint(l.Symbol) == null) z.landmarks.Add(l);
+            }
+            foreach (var n in fresh.npcs)
+                if (z.FindNpc(n.Symbol) == null && z.FindLandmark(n.Symbol) == null && z.FindPoint(n.Symbol) == null) z.npcs.Add(n);
+            foreach (var p in fresh.points)
+                if (z.FindPoint(p.Symbol) == null && z.FindLandmark(p.Symbol) == null && z.FindNpc(p.Symbol) == null) z.points.Add(p);
+        }
+
+        private static ZoneLandmark ShopAt(string symbol, string label)
+        {
+            return new ZoneLandmark { symbol = symbol, kind = LandmarkKind.Shop, label = label, doorSide = DoorSide.Centre };
+        }
+
+        /// <summary>The round hub (world data v11), 72 x 72 cells of 4 m.</summary>
+        public const string HubMapV11 =
+            "########################################################################\n" +
+            "########################################################################\n" +
+            "########################################################################\n" +
+            "##############################,,,,,,,,,,,,##############################\n" +
+            "##########################,,,,KKKKKKKKKKKK,,,,##########################\n" +
+            "#######################,,,,,,,KKKKKKKKKKKK,,,,,,,#######################\n" +
+            "#####################,,,,,,^,,KKKKKKKKKKKK,,,^,,,,,#####################\n" +
+            "###################,,,,,,,,,,,KKKKKKKKKKKK,,,,,,^,,,,###################\n" +
+            "##################,,,,,,,,...,KKKKKKKKKKKK,,,,,,,,,^,,##################\n" +
+            "################,,,,,,,,...................,,^,,,,,,,,,,################\n" +
+            "###############,,,,,,,....,,,,,,,,....,,,,,,,,,,^,X~~~,,,###############\n" +
+            "##############,,,,,,....,,,,,,,..........,,,,,,,,,X~~~~,,,##############\n" +
+            "#############,,,,,,...,,,,,..................,,,,,~~~~~~,,,#############\n" +
+            "############,,,,,...,,,,,......,,,....,,,......,,,~~~~~~~,,,############\n" +
+            "###########,,,,,...,,,,.....,,,,,,....,,,,,,.....,,~~~~~~~,,,###########\n" +
+            "##########,,,TTT..,,,,....,,,,,,,,....,,,,,,,,....,,~~~~~~~,,,##########\n" +
+            "#########,,,,TTT,,,,....,,,,,,,O,,....,,W,,,,,,,....,~~~~~,,,,,#########\n" +
+            "#########,,,,TTT,,,...,,,^,,,OOO,,....,,WWW,,,,,,,...,~~~rr,,,,#########\n" +
+            "########,,,,,,,,,,...,,,,,,OOOOOO,....,WWWWWW,,,,,,...,,rrrr,,,,########\n" +
+            "#######,,,,,^,,,,..*,,,,,OOOOOOOO,....,WWWWWWWW,^,,,*..,rrrrr,,,,#######\n" +
+            "#######,,,,,,,,,...,,^,,,OOOOOOOO,....,WWWWWWWW,,,,,,....rrrr,,,,#######\n" +
+            "######,,,^,,,,,,..,,,,,,,,OOOOOOOO....WWWWWWWW,,,^,,,,...,rr,,,^,,######\n" +
+            "######,,,,,..,,..,,,,,^,,,OOOOOOOO....WWWWWWWW,,,,,,,,,..,,,,,,,,,######\n" +
+            "#####,,,nn,......,,,,,,,,,OOOOOO,,....,,WWWWWW,,,,^,,,,...,,,,,,,,,#####\n" +
+            "#####,,nnnn.U...,,,,,,,^,,,OOO.J,......,..WWW,,,,,,,,,,,..,,qqqq,,,#####\n" +
+            "#####,,nnnn.....,,,DD,,,,,,O,t............,,W,,,,,,II,,,...,,qqq,,,#####\n" +
+            "####,,,nnnn....,,,,DDDDD,,,,,...,,....,,...,,,,,IIIII,,,,....qqq,,,,####\n" +
+            "####,,,,nn.U...,,,DDDDDDDD,,..,,,,....,,,,..,,IIIIIIII,,,...,qqqq,,,####\n" +
+            "####,,,,,.....,,,,DDDDDDD,,.+,,,........,,,+.,,IIIIIII,,,,..,,,,,,^,####\n" +
+            "####,,^,,k....,,,DDDDDDDD,..,,,..........,,,..,IIIIIIII,,,..,,,,,,,,####\n" +
+            "###,,,,,,.....,,,DDDDDDD...,,,....LLLL....,,,...IIIIIII,,H...........###\n" +
+            "###,,,,,..U..,,,DDDDDDDD...,,...LLLLLLLL...,,...IIIIIIII,............###\n" +
+            "###,,jjjj....,,,,,DDDDD,,.,,...LLLLLLLLLL...,,.,,IIIII,,,..aaaaaaaaa.###\n" +
+            "###,,jjjj....,,,,,,,,DD,..,,...LLLLLLLLLL...,,..,II,,,,,,..a.......a.###\n" +
+            "###,,jjjj.....................LLLLLLLLLLLL.................a.......a.###\n" +
+            "###,,jjjj.....................LLLLLQQLL@LL.................a.......a.###\n" +
+            "###,,,,,.yE.......w...........LLLLLQQLLLLL...............z.a...1...a.###\n" +
+            "###,,,,,......................LLLLLLLLLLLL.................a.......a.###\n" +
+            "###,,,^,..U..,,,,,,,,FF,..,,...LLLLLLLLLL...,,..,VV,,,,,,..a.......a.###\n" +
+            "###,,,,,.....,^,,,FFFFF,,.,,...LLLLLLLLLL...,,.,,VVVVV,,,..a.......a.###\n" +
+            "###,,,mmm....,,,FFFFFFFF...,,...LLLLLLLL...,,...VVVVVVVV,..aaaaaaaaa.###\n" +
+            "###,,mmmm.....,,,FFFFFFF...,,,....LLLL..A.,,,...VVVVVVV,,............###\n" +
+            "####,,mmm.U...,,,FFFFFFFF,..,,,..N..S.P..,,,..,VVVVVVVV,,Z..........####\n" +
+            "####,,mmmm....,,,,FFFFFFF,,.+,,,........,,,+.,,VVVVVVV,,,,..,,,,,,,,####\n" +
+            "####,,mmmooo...,,,FFFFFFFF,,..,,,,....,,,,..,,VVVVVVVV,^,...,,,,,,,,####\n" +
+            "####,,,,oooo...,,,,FFFFF,,,,,...,,....,,...,,,,,VVVVV,,,,..,,,,^,,,,####\n" +
+            "#####,,,,ooo....,,,FF,,,,,,M,,............,,B,,,,,,VV,,,...,,,,,,,,#####\n" +
+            "#####,^,,oooo,..,,,,,,,,,,,MMM..,......,..BBB,,,,,,,,,,,.*,,^,,,,,,#####\n" +
+            "#####,,,,ooo,,...,,,,,,,^,MMMMMM,,....,,BBBBBB,,,,,,,,,...,,,,,^,,,#####\n" +
+            "######,,,,,,,,,..,,^,,,,,,MMMMMMMM....BBBBBBBB,,,,,,^,,..,,,,,,,,,######\n" +
+            "######,,,,,,,,,,..,,,,,,,,MMMMMMMM....BBBBBBBB,,,,,,,,..,,,,^,,,,,######\n" +
+            "#######,,^,,,,,,...,,,,,,MMMMMMMM,....,BBBBBBBB,,,,,,...,,,,,,,^,#######\n" +
+            "#######,,,,,^,,,,..*,,,,,MMMMMMMM,....,BBBBBBBB,^,,,*..,,^,,,,,,,#######\n" +
+            "########,,,,,,,,,....,,,,,,MMMMMM,....,BBBBBB,,,,,,...,,,,,,^,,,########\n" +
+            "#########,,,,,,,......,,,,,,,MMM,,....,,BBB,,,,,,,.......,,,,,,#########\n" +
+            "#########,,,^,,...,,....,,,,,,,M,,....,,B,,,^,,,....&&&&..,,,,,#########\n" +
+            "##########,,,,,..,,,,,....,,,,,,,,....,,,,,,,,.....&&&&&&.,,,,##########\n" +
+            "###########,,,Y,,,^,,,,.....,,,,,,....,,,,,,.....,.&&&&&&.,,,###########\n" +
+            "############,,,,,,,,,^,,,......,,,....,,,...+..,,,.&&&&&&.,,############\n" +
+            "#############,,^,,,,,,,ppp...................,,,,,.&&&&&&.,#############\n" +
+            "##############,,,,^,,,,ppppp,..............,,,,,,,..&&&&..##############\n" +
+            "###############,,,,,,^,ppppp,..............,,,,,^,,......###############\n" +
+            "################,,,,,,,ppppp................,,,,,,,,,,,,################\n" +
+            "##################,,,,,,,ppp................,^,,,,,,,,##################\n" +
+            "###################,,,,,,,,,................,,,,^,,,,###################\n" +
+            "#####################,,,^,,,................,,,,,,,#####################\n" +
+            "#######################,,,,....R........G....,,,,#######################\n" +
+            "##########################,..................,##########################\n" +
+            "##############################,,........,,##############################\n" +
+            "########################################################################\n" +
+            "########################################################################\n" +
+            "########################################################################\n";
+
+        /// <summary>Height map of the round hub (world data v11).</summary>
+        public const string HubHeightsV11 =
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111333333333333111111111111111111111111111111\n" +
+            "111111111111111111111111113333333333333333333311111111111111111111111111\n" +
+            "111111111111111111111113333333333333333333333333311111111111111111111111\n" +
+            "111111111111111111111333333333333333333333333333333111111111111111111111\n" +
+            "111111111111111111133333333333333333333333333333333331111111111111111111\n" +
+            "111111111111111111333333333333333333333333333333333333111111111111111111\n" +
+            "111111111111111144333333333333333333333333333333333333111111111111111111\n" +
+            "111111111111111444433333333333222222222222333333333000111111111111111111\n" +
+            "111111111111114444433333333222211111111112222333333000011111111111111111\n" +
+            "111111111111144444443333222111111111111111111222330000001111111111111111\n" +
+            "111111111111444444444322211111111111111111111112220000000111111111111111\n" +
+            "111111111114444444441221111111111111111111111111122000000011111111111111\n" +
+            "111111111144444444111111111111111111111111111111111100000001111111111111\n" +
+            "111111111444444441111111111111111111111111111111111110000011111111111111\n" +
+            "111111111444444411111111111111111111111111111111111111000111111111111111\n" +
+            "111111114444444111111111111111111111111111111111111111111111111111111111\n" +
+            "111111144444444111111111111111111111111111111111111111111111111111111111\n" +
+            "111111144444441111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111444411111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111110000000011111111111111111111111111111111\n" +
+            "111111111111111111111111111111100000000001111111111111111111111111111111\n" +
+            "111111111111111111111111111111000000000000111111111111111111111111111111\n" +
+            "111111111111111111111111111110000000000000011111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111110000000000000011111111111111111111111111111\n" +
+            "111111111111111111111111111111000000000000111111111111111111111111111111\n" +
+            "111111111111111111111111111111100000000001111111111111111111111111111111\n" +
+            "111111111111111111111111111111110000000011111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111112221111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111222221111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111122222111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111122222211111111111111111111111111111111111111111111111111111111111\n" +
+            "111111112222221111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111222221111111111111111111111111111111111111112222111111111111111\n" +
+            "111111111222222111111111111111111111111111111111111122222211111111111111\n" +
+            "111111111122222211111111111111111111111111111111112222222211111111111111\n" +
+            "111111111112222221111111111111111111111111111111112222222211111111111111\n" +
+            "111111111111222222211111111111111111111111111111112222222211111111111111\n" +
+            "111111111111122222221111111111111111111111111111112222222211111111111111\n" +
+            "111111111111112222222111111111111111111111111111112222222211111111111111\n" +
+            "111111111111111222222221111111111111111111111111111222222111111111111111\n" +
+            "111111111111111122222221111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111222221111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111122211111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111211111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n";
+
+        /// <summary>The hub map as world data v10 made it (the Crystal Tap in the square hub), before the round hub.</summary>
+        public const string HubMapV10 =
             "##################################################\n" +
             "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#\n" +
             "#,^TT,,,,,WWWWW^^^^^,KKKKKKKK,,BBBBB,MMMMM,,,^,,,#\n" +
@@ -366,177 +666,6 @@ namespace WizardsVRC.EditorTools.WorldData
             "#,,,,,,,,,,,.R.,,,,,,,,,..,,,,,,,,,.G.,,,,,,,,,,,#\n" +
             "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#\n" +
             "##################################################\n";
-            // North terrace 6 m up (4 steps) with the halls and the keep, reached by two flights with a landing; hills
-            // either side (observatory hill, wooded hill) a further 3 m up; the waterfall drops into the pond (-2); the
-            // fountain plaza is sunk two steps with a lower tier for the arrival point; a gazebo mound, a sunken hedge
-            // garden, and the library, arena dais and south-east garden raised two steps. 1 step = 1.5 m.
-            z.heightStep = 1.5f;
-            z.cornerRadius = 2.5f;
-            z.railings = RailingMode.DropsAndPaths;
-            z.heightMap =
-            "00000000000000000000000000000000000000000000000000\n" +
-            "06666666644444444444444444444444444444444446666660\n" +
-            "06666666644444444444444444444444444444444446666660\n" +
-            "06666666644444444444444444444444444444444446666660\n" +
-            "06666666644444444444444444444444444444444446666660\n" +
-            "06666666644444444444444444444444444444444446666660\n" +
-            "04455444444444444444444444444444444444444446666660\n" +
-            "04444444444444444444444444444444444444444444444440\n" +
-            "04444444444444444444444444444444444444444444444440\n" +
-            "0000000002000bbbbbbbb00022000011111111002000000000\n" +
-            "0000000000000bbbbbbbb00000000011111111000000000000\n" +
-            "0000000000000bbbbbbbb00000000011111111000000000000\n" +
-            "00000000000000000000000000000011111111000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "000000000000000000bbbbbbbbbbbbbb000000000000000000\n" +
-            "000000000000000000bbbbbbbbbbbbbb000000000000000000\n" +
-            "000000000000000000bbbbbbbbbbbbbb000000000000000000\n" +
-            "000000000000000000bbbbbbbbbbbbbb000000000000000000\n" +
-            "000000000000000000bbbbbbbbbbbbbb000000000000000000\n" +
-            "000000000000000000bbbbbbbbbbbbbb000000000000000000\n" +
-            "000000000000000000bbbbbbbbbbbbbb000000000000000000\n" +
-            "000000000000000000bbbbbbbbbbbbbb000000000000000000\n" +
-            "000000000000000000bbbbbbbbbbbbbb000000000000000000\n" +
-            "000000000000000000aaaaaaaaaaaaaa000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "02222222222220000000000000222222222222200222222220\n" +
-            "02222222222220aaaaaaaaa000222222222222200222222220\n" +
-            "02222222222220aaaaaaaaa000222222222222200222222220\n" +
-            "02222222222220aaaaaaaaa000222222222222200222222220\n" +
-            "02222222222220aaaaaaaaa000222222222222200222222220\n" +
-            "02222222222220aaaaaaaaa000000000000000000222222220\n" +
-            "02222222222220000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n" +
-            "00000000000000000000000000000000000000000000000000\n";
-            z.groundColor = new Color(0.36f, 0.72f, 0.26f);
-            z.roadColor = new Color(0.82f, 0.72f, 0.56f);
-            z.grassColor = new Color(0.42f, 0.78f, 0.3f);
-            z.buildingColor = new Color(0.66f, 0.62f, 0.7f);
-            z.roofColor = new Color(0.45f, 0.25f, 0.82f);
-            z.lowWallColor = new Color(0.2f, 0.5f, 0.24f);
-            z.treeColor = new Color(0.2f, 0.6f, 0.25f);
-            z.accentColor = new Color(1f, 0.8f, 0.4f);
-            z.buildingHeight = new Vector2(8f, 12f);
-            z.lampDensity = 0.35f;
-
-            z.npcs = new List<ZoneNpc>
-            {
-                new ZoneNpc
-                {
-                    symbol = "A", key = "Bramwell", displayName = "Gatekeeper Bramwell", robeColor = new Color(0.25f, 0.32f, 0.6f), hatColor = new Color(0.15f, 0.2f, 0.4f),
-                    beard = true, facing = -1f,
-                    defaultDialogue = new[] { "The gates open as you prove yourself. Ask me if you're ever lost; I know every stone of this castle." },
-                },
-                new ZoneNpc
-                {
-                    symbol = "E", key = "Pell", displayName = "Quartermaster Pell", robeColor = new Color(0.6f, 0.4f, 0.2f), hatColor = new Color(0.4f, 0.25f, 0.12f),
-                    facing = -1f,
-                    defaultDialogue = new[] { "Hats, robes, boots, wands, decks, potions. If a wizard carries it, I've sold one." },
-                },
-                new ZoneNpc
-                {
-                    symbol = "J", key = "Wren", displayName = "Librarian Wren", robeColor = new Color(0.35f, 0.25f, 0.5f), hatColor = new Color(0.22f, 0.15f, 0.32f),
-                    facing = -1f,
-                    defaultDialogue = new[] { "Every spell ever cast is written down somewhere in this library. Most of them twice." },
-                },
-                new ZoneNpc
-                {
-                    symbol = "H", key = "Holloway", displayName = "Duel Master Holloway", robeColor = new Color(0.55f, 0.15f, 0.15f), hatColor = new Color(0.3f, 0.08f, 0.08f),
-                    beard = true, facing = -1f,
-                    defaultDialogue = new[] { "Practice ring's open whenever you like. The arena pad over there is for when you're good and ready." },
-                },
-            };
-
-            z.points = new List<ZonePoint>
-            {
-                new ZonePoint { symbol = "w", key = "SchoolGreen", kind = ZonePointKind.Explore, look = ZonePointLook.None, label = "", triggerSizeCells = 3f },
-                new ZonePoint { symbol = "y", key = "Bazaar", kind = ZonePointKind.Explore, look = ZonePointLook.None, label = "", triggerSizeCells = 3f },
-                new ZonePoint { symbol = "z", key = "TrainingGrounds", kind = ZonePointKind.Explore, look = ZonePointLook.None, label = "", triggerSizeCells = 2f },
-                new ZonePoint { symbol = "k", key = "SupplyCrate", kind = ZonePointKind.Interact, look = ZonePointLook.Crate, label = "Supply crate" },
-                new ZonePoint { symbol = "t", key = "SpellTome", kind = ZonePointKind.Interact, look = ZonePointLook.GlowingItem, label = "Spell tome" },
-            };
-
-            z.encounters = new List<ZoneEncounter>
-            {
-                new ZoneEncounter { ringSymbol = "1", key = "TrainingDummies", roster = new List<int> { 12, 12 }, wanderers = 2, patrolSpeed = 0.5f, respawnSeconds = 10, evenFight = true },
-            };
-
-            z.landmarks = new List<ZoneLandmark>
-            {
-                Hall("F", School.Fire), Hall("I", School.Ice), Hall("W", School.Storm), Hall("V", School.Life),
-                Hall("D", School.Death), Hall("M", School.Myth), Hall("B", School.Balance),
-                new ZoneLandmark { symbol = "K", kind = LandmarkKind.Keep, label = "Headmaster's Tower (click door)" },
-                new ZoneLandmark { symbol = "Q", kind = LandmarkKind.Fountain, label = "The Starfall Crystal" },
-                new ZoneLandmark { symbol = "O", kind = LandmarkKind.Library, label = "Library" },
-                new ZoneLandmark { symbol = "U", kind = LandmarkKind.ShopStall, label = "" },
-                new ZoneLandmark
-                {
-                    symbol = "G", kind = LandmarkKind.StreetGate, targetZone = "SunpetalGardens", requiredQuest = 11,
-                    lockedHint = "Locked: finish Duel Master Holloway's lesson first",
-                },
-                new ZoneLandmark
-                {
-                    symbol = "R", kind = LandmarkKind.StreetGate, targetZone = "LanternRow", requiredQuest = 15,
-                    lockedHint = "Locked: help Gardener Moss in Sunpetal Gardens first",
-                },
-                new ZoneLandmark { symbol = "Z", kind = LandmarkKind.ArenaPad, requiredQuest = 15, lockedHint = "help Gardener Moss first" },
-                new ZoneLandmark { symbol = "C", kind = LandmarkKind.BankChest },
-                new ZoneLandmark { symbol = "P", kind = LandmarkKind.BackpackPedestal },
-                new ZoneLandmark { symbol = "N", kind = LandmarkKind.NoticeBoard },
-            };
-            AddHubV8Landmarks(z);
-        }
-
-        /// <summary>The terrace, water, shops (v8) and the round tavern with its barkeep (v10), each added only if its symbol is free.</summary>
-        public static void AddHubV8Landmarks(ZoneDefinition z)
-        {
-            if (z.npcs == null) z.npcs = new List<ZoneNpc>();
-            if (z.FindNpc('@') == null && z.FindLandmark('@') == null && z.FindPoint('@') == null)
-                z.npcs.Add(new ZoneNpc
-                {
-                    symbol = "@", key = "Mabel", displayName = "Mabel Brightcask", robeColor = new Color(0.62f, 0.32f, 0.2f), hatColor = new Color(0.35f, 0.18f, 0.12f),
-                    facing = 270f,
-                    defaultDialogue = new[]
-                    {
-                        "Welcome to the Crystal Tap! Grab a mug, pull up a stool, and stay as long as you like.",
-                        "Ring the bell on the bar when the mugs go walkabout. They always come home.",
-                    },
-                });
-            var add = new List<ZoneLandmark>
-            {
-                new ZoneLandmark { symbol = "T", kind = LandmarkKind.Tower, label = "Observatory" },
-                new ZoneLandmark { symbol = "X", kind = LandmarkKind.Waterfall },
-                new ZoneLandmark { symbol = "Y", kind = LandmarkKind.Gazebo },
-                ShopAt("m", "Hats & Robes", DoorSide.North),
-                ShopAt("j", "Wands & Staves", DoorSide.North),
-                ShopAt("n", "Potions & Remedies", DoorSide.South),
-                ShopAt("o", "The Golden Crumb Bakery", DoorSide.South),
-                ShopAt("q", "Familiars & Pets", DoorSide.South),
-                ShopAt("p", "The Fallen Star Inn", DoorSide.South),
-                ShopAt("r", "Cards & Curios", DoorSide.South),
-                new ZoneLandmark { symbol = "L", kind = LandmarkKind.Tavern, label = "The Crystal Tap" },
-            };
-            if (z.landmarks == null) z.landmarks = new List<ZoneLandmark>();
-            foreach (var l in add)
-                if (z.FindLandmark(l.Symbol) == null && z.FindNpc(l.Symbol) == null && z.FindPoint(l.Symbol) == null) z.landmarks.Add(l);
-        }
-
-        private static ZoneLandmark ShopAt(string symbol, string label, DoorSide door)
-        {
-            return new ZoneLandmark { symbol = symbol, kind = LandmarkKind.Shop, label = label, doorSide = door };
-        }
 
         /// <summary>The hub map as world data v9 made it (before the round tavern).</summary>
         public const string HubMapV9 =
@@ -843,11 +972,11 @@ namespace WizardsVRC.EditorTools.WorldData
                     description = "Gatekeeper Bramwell keeps watch over Starfall Castle. He wants to show you around the grounds before you go anywhere dangerous.",
                     steps = new List<QuestStepEntry>
                     {
-                        Talk("Bramwell", "Meet Gatekeeper Bramwell by the Starfall fountain", "Gatekeeper Bramwell",
+                        Talk("Bramwell", "Meet Gatekeeper Bramwell outside the Crystal Tap", "Gatekeeper Bramwell",
                             "So you're the Headmaster's new star! Welcome, welcome.",
                             "Before anyone lets you near a monster, you ought to know your way round the castle.",
-                            "Have a look at the School Green to the west, the Bazaar, and the Training Grounds to the east. Then come back and tell me what you saw."),
-                        Point(QuestStepKind.Explore, "SchoolGreen", 1, "Visit the School Green, west of the fountain", "School Green"),
+                            "Have a look at the School Green down the west avenue, the Bazaar past it, and the Training Grounds to the east. Then come back and tell me what you saw."),
+                        Point(QuestStepKind.Explore, "SchoolGreen", 1, "Visit the School Green, down the west avenue", "School Green"),
                         Point(QuestStepKind.Explore, "Bazaar", 1, "Visit the Bazaar", "Bazaar"),
                         Point(QuestStepKind.Explore, "TrainingGrounds", 1, "Visit the Training Grounds", "Training Grounds"),
                         Talk("Bramwell", "Report back to Gatekeeper Bramwell", "Gatekeeper Bramwell",
@@ -863,13 +992,13 @@ namespace WizardsVRC.EditorTools.WorldData
                     {
                         Talk("Pell", "Talk to Quartermaster Pell in the Bazaar", "Quartermaster Pell",
                             "Another new wizard! Let's get you kitted out.",
-                            "Your backpack holds everything you carry: hats, robes, boots, wands, athames, amulets, rings and decks. Press B, or click the book on the pedestal by the fountain.",
+                            "Your backpack holds everything you carry: hats, robes, boots, wands, athames, amulets, rings and decks. Press B, or click the book on the pedestal by the tavern door.",
                             "Open the supply crate beside my stall. There's a healing potion in there with your name on it."),
                         Point(QuestStepKind.Interact, "SupplyCrate", 1, "Open the supply crate beside Pell's stall", "Supply crate"),
                         Talk("Pell", "Tell Quartermaster Pell what you found", "Quartermaster Pell",
                             "That's the one. Drink a potion from your backpack to heal, or use one as your turn in a duel.",
                             "Gear you equip makes you tougher and your spells stronger. Better gear drops from monsters and chests.",
-                            "Now, Librarian Wren is expecting you at the Library, south-west of here."),
+                            "Now, Librarian Wren is expecting you at the Library, north-east of here among the school halls."),
                     },
                 },
                 new QuestEntry
@@ -1009,7 +1138,7 @@ namespace WizardsVRC.EditorTools.WorldData
                     description = "Every corner of Starfall Isle has been set right, and the Starfall Crystal is answering. Gatekeeper Bramwell and the Headmaster want to see you.",
                     steps = new List<QuestStepEntry>
                     {
-                        Talk("Bramwell", "Talk to Gatekeeper Bramwell by the Starfall fountain", "Gatekeeper Bramwell",
+                        Talk("Bramwell", "Talk to Gatekeeper Bramwell outside the Crystal Tap", "Gatekeeper Bramwell",
                             "Can you feel it? The crystal hasn't burned this bright in months.",
                             "The gardens, the streets, the castle itself... you've had a hand in all of it. The Headmaster is waiting for you."),
                         Talk("Headmaster", "Report to Headmaster Greymantle in his office", "Headmaster Greymantle",

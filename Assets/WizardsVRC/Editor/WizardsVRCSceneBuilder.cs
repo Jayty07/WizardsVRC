@@ -224,7 +224,6 @@ namespace WizardsVRC.EditorTools
             BuildInventoryBook(book, hud, deckPages, questPages);
             BuildHud(hud);
             Transform hubRoot = hubSpawn.parent;
-            var chest = BuildLootChest(hubRoot, hubPlan.chestPos, playerState, itemDb);
             var pedestal = BuildBackpackPedestal(hubRoot, hubPlan.pedestalPos, book);
             var queuePad = BuildQueuePad(hubRoot, hubPlan.padPos, battleClient);
             battleClient.queueRequiredQuest = hubPlan.padRequiredQuest;
@@ -272,6 +271,7 @@ namespace WizardsVRC.EditorTools
             // Interface sounds: every button gets a click / hover sound; cards, the book and cutscenes call it directly.
             var uiAudio = BuildUiAudio(systems.transform);
             foreach (var ec in encounters) ec.uiAudio = uiAudio;
+            foreach (var orb in hubPlan.orbBehaviours) orb.uiAudio = uiAudio;
             book.uiAudio = uiAudio;
             ((CutscenePlayer)cutscenes[0]).uiAudio = uiAudio;
             Debug.Log("[WizardsVRC] Interface sounds on " + WireUiSounds(scene, uiAudio) + " buttons.");
@@ -281,7 +281,7 @@ namespace WizardsVRC.EditorTools
             toSync.AddRange(quests);
             toSync.AddRange(learning);
             toSync.AddRange(streets);
-            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, chest, pedestal, cardDb, deckPages, queuePad, questPages, questGuide }) toSync.Add(b);
+            foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, pedestal, cardDb, deckPages, queuePad, questPages, questGuide }) toSync.Add(b);
             foreach (var ec in encounters) { toSync.Add(ec.manager); toSync.Add(ec); foreach (var w in ec.GetComponentsInChildren<Wanderer>(true)) toSync.Add(w); }
             foreach (var b in toSync)
             {
@@ -364,10 +364,12 @@ namespace WizardsVRC.EditorTools
         private static bool EnsureProgramAssets()
         {
             Directory.CreateDirectory(ProgramsDir);
-            // MonsterDatabase was merged into CardDatabase; drop its old program asset so UdonSharp doesn't look for the script.
+            // MonsterDatabase was merged into CardDatabase, and the hub's testing chest (LootChest) is gone; drop their old
+            // program assets so UdonSharp doesn't look for the scripts.
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
+            AssetDatabase.DeleteAsset(ProgramsDir + "/LootChest.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "LootChest", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -843,32 +845,6 @@ namespace WizardsVRC.EditorTools
             var xpOutline = hud.xpLabel.gameObject.AddComponent<Outline>();
             xpOutline.effectColor = Color.black;
             canvasGo.SetActive(false);
-        }
-
-        private static LootChest BuildLootChest(Transform hubRoot, Vector3 at, PlayerState playerState, ItemDatabase itemDb)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "PracticeChest";
-            go.transform.SetParent(hubRoot, false);
-            go.transform.localPosition = at + new Vector3(0, 0.35f, 0);
-            go.transform.localScale = new Vector3(1.2f, 0.7f, 0.8f);
-            go.GetComponent<Renderer>().sharedMaterial = Mat("Chest", new Color(0.5f, 0.32f, 0.15f));
-
-            // uGUI Text, not TextMesh: TextMesh.text is not exposed to Udon. No raycaster, so it never blocks clicks.
-            var labelGo = new GameObject("ChestLabel", typeof(RectTransform));
-            labelGo.transform.SetParent(hubRoot, false);
-            labelGo.AddComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-            var labelRt = (RectTransform)labelGo.transform;
-            labelRt.sizeDelta = new Vector2(600, 200);
-            labelRt.localPosition = at + new Vector3(0, 1.5f, 0);
-            labelRt.localScale = Vector3.one * 0.004f;
-            var tm = Label(labelGo.transform, "Text", Vector2.zero, new Vector2(600, 200), "Practice Chest", 56, TextAnchor.MiddleCenter);
-
-            var chest = UdonSharpUndo.AddComponent<LootChest>(go);
-            chest.playerState = playerState;
-            chest.itemDatabase = itemDb;
-            chest.messageLabel = tm;
-            return chest;
         }
 
         private static EventRelay BuildBackpackPedestal(Transform hubRoot, Vector3 at, InventoryBook book)

@@ -26,6 +26,13 @@ namespace WizardsVRC.EditorTools
             public Transform front;
         }
 
+        /// <summary>A health or mana orb to build once the player state exists.</summary>
+        private class HubOrb
+        {
+            public Vector3 pos;
+            public bool mana;
+        }
+
         /// <summary>Where the hub's fixed pieces go. The defaults are the old hand-placed castle's spots.</summary>
         private class HubLayout
         {
@@ -39,7 +46,6 @@ namespace WizardsVRC.EditorTools
             public float spawnYaw;
             public Vector3 canvasPos = new Vector3(-4f, 1.6f, 4f);
             public Quaternion canvasRot = Quaternion.Euler(0, 180f, 0);
-            public Vector3 chestPos = new Vector3(-5f, 0f, 10f);
             public Vector3 pedestalPos = new Vector3(2.5f, 0f, 3f);
             public Vector3 padPos = new Vector3(30f, 0.06f, 4f);
             public int padRequiredQuest = -1;
@@ -53,6 +59,13 @@ namespace WizardsVRC.EditorTools
             /// <summary>World bounds of the hub for the AreaCuller (the classic castle's by default).</summary>
             public Bounds cullBounds = new Bounds(new Vector3(0, 45f, -5f), new Vector3(240f, 210f, 260f));
             public readonly List<UdonSharpBehaviour> behaviours = new List<UdonSharpBehaviour>();
+            public readonly List<HubOrb> orbs = new List<HubOrb>();
+            /// <summary>Duelling circles (PvP rings): their centre and the way back out (where duellists go afterwards).</summary>
+            public readonly List<Transform> duelSpots = new List<Transform>();
+            public readonly List<Transform> duelReturns = new List<Transform>();
+            public readonly List<Text> duelLabels = new List<Text>();
+            /// <summary>Orb behaviours, given the interface sounds once those exist.</summary>
+            public readonly List<RestoreOrb> orbBehaviours = new List<RestoreOrb>();
         }
 
         /// <summary>Finds the hub zone (if any) and decides whether the schools move outdoors.</summary>
@@ -116,6 +129,7 @@ namespace WizardsVRC.EditorTools
             // ---- ground: an island in the sea (castle style) or a plain slab, at the lowest level of the height map;
             // higher ground is built on top of it by BuildTerrain.
             float baseY = g.minLevel * g.step;
+            bool round = z.castleStyle && z.roundCastle;
             if (z.castleStyle)
             {
                 float m = cs * 2f, hw = W / 2f + m, hh = H / 2f + m, c = m * 1.5f;
@@ -125,6 +139,18 @@ namespace WizardsVRC.EditorTools
                     new Vector2(hw - c, hh), new Vector2(-hw + c, hh), new Vector2(-hw, hh - c), new Vector2(-hw, -hh + c),
                 };
                 string dims = Mathf.RoundToInt(W) + "x" + Mathf.RoundToInt(H) + (g.minLevel != 0 ? "_b" + Mathf.RoundToInt(-baseY * 10f) : "");
+                if (round)
+                {
+                    // A round island just bigger than the map's circle (the corners of the map are left out).
+                    float ri = Mathf.Min(W, H) / 2f + m;
+                    poly = new Vector2[48];
+                    for (int i = 0; i < poly.Length; i++)
+                    {
+                        float a = (i + 0.5f) / poly.Length * Mathf.PI * 2f;
+                        poly[i] = new Vector2(Mathf.Cos(a) * ri, Mathf.Sin(a) * ri);
+                    }
+                    dims = "Round" + Mathf.RoundToInt(ri) + (g.minLevel != 0 ? "_b" + Mathf.RoundToInt(-baseY * 10f) : "");
+                }
                 Shape(root, "IslandCliff", PrismMesh("PSX_HubIsland_" + dims, poly, -7f, baseY - 0.2f), Vector3.zero, Vector3.one, cliff, true, Quaternion.identity);
                 Shape(root, "IslandTop", PrismMesh("PSX_HubIslandTop_" + dims, poly, baseY - 0.2f, baseY), Vector3.zero, Vector3.one, ground, true, Quaternion.identity);
                 // The sea: a big subdivided PSX water plane (it heaves slowly; the island's cliffs stand in it).
@@ -134,7 +160,7 @@ namespace WizardsVRC.EditorTools
                 for (int i = 0; i < poly.Length; i++)
                 {
                     Vector2 a = poly[i], b = poly[(i + 1) % poly.Length];
-                    for (float t = 0.1f; t < 1f; t += 0.2f)
+                    for (float t = 0.1f; t < 1f; t += round ? 0.45f : 0.2f)
                     {
                         Vector2 p = Vector2.Lerp(a, b, t) * 1.03f;
                         Shape(root, "ShoreRock", BlobMesh(), new Vector3(p.x, -6f, p.y), new Vector3(R(5, 9), R(3, 6), R(5, 9)), cliff, false, Quaternion.Euler(0, R(0, 360), 0));
@@ -155,13 +181,17 @@ namespace WizardsVRC.EditorTools
             var stairCells = new HashSet<Vector2Int>();
             BuildTerrain(layout, g, MakeTerrainMats(z, k), baseY, stairCells);
             int houseIndex = 0;
-            foreach (var r in Rects(g, ch => ch == '#', 3, 3))
+            if (round) RoundCurtainWall(layout, g, baseY, stone, roof, gold, banner);
+            else
             {
-                bool edge = r.xMin == 0 || r.yMin == 0 || r.xMax == g.width || r.yMax == g.height;
-                if (z.castleStyle && edge) Rampart(layout, g, r, stone, roof);
-                else House(layout, g, z, r, houseIndex++, stone, roof, window);
+                foreach (var r in Rects(g, ch => ch == '#', 3, 3))
+                {
+                    bool edge = r.xMin == 0 || r.yMin == 0 || r.xMax == g.width || r.yMax == g.height;
+                    if (z.castleStyle && edge) Rampart(layout, g, r, stone, roof);
+                    else House(layout, g, z, r, houseIndex++, stone, roof, window);
+                }
+                if (z.castleStyle) WallTowers(layout, g, stone, roof, gold, banner);
             }
-            if (z.castleStyle) WallTowers(layout, g, stone, roof, gold, banner);
             foreach (var r in Rects(g, ch => ch == '=', 6, 6))
             {
                 Vector3 c = RectCenter(g, r);
@@ -191,19 +221,17 @@ namespace WizardsVRC.EditorTools
             hub.spawnPos = sp + new Vector3(0, 0.15f, 0);
             hub.spawnYaw = Mathf.Atan2(look.x, look.z) * Mathf.Rad2Deg;
             Quaternion face = Quaternion.Euler(0, hub.spawnYaw, 0);
-            bool hasBoard = false, hasChest = false, hasPedestal = false, hasPad = false;
+            bool hasBoard = false, hasPedestal = false, hasPad = false;
             if (z.landmarks != null)
                 foreach (var l in z.landmarks)
                 {
                     if (l == null || g.Find(l.Symbol).Count == 0) continue;
                     hasBoard |= l.kind == LandmarkKind.NoticeBoard;
-                    hasChest |= l.kind == LandmarkKind.BankChest;
                     hasPedestal |= l.kind == LandmarkKind.BackpackPedestal;
                     hasPad |= l.kind == LandmarkKind.ArenaPad;
                 }
             // Anything the map doesn't place goes next to the arrival point.
             if (!hasBoard) { hub.canvasPos = sp + face * new Vector3(-4f, 1.6f, 3f); hub.canvasRot = face; }
-            if (!hasChest) hub.chestPos = sp + face * new Vector3(-3f, 0, 1.5f);
             if (!hasPedestal) hub.pedestalPos = sp + face * new Vector3(3f, 0, 1.5f);
             if (!hasPad) hub.padPos = sp + face * new Vector3(8f, 0.06f, 0);
             bool hasKeep = false;
@@ -282,7 +310,11 @@ namespace WizardsVRC.EditorTools
                             hub.padRequiredQuest = l.requiredQuest;
                             hub.padLockedHint = l.lockedHint ?? "";
                             break;
-                        case LandmarkKind.BankChest: if (hub != null) hub.chestPos = p; break;
+                        case LandmarkKind.HealthOrb:
+                        case LandmarkKind.ManaOrb:
+                            if (hub != null) foreach (var oc in cells) hub.orbs.Add(new HubOrb { pos = g.Local(oc), mana = l.kind == LandmarkKind.ManaOrb });
+                            break;
+                        case LandmarkKind.DuelCircle: if (hub != null) DuelCircleLandmark(root, g, l, hub, stone, gold, wood); break;
                         case LandmarkKind.BackpackPedestal: if (hub != null) hub.pedestalPos = p; break;
                         case LandmarkKind.NoticeBoard:
                         {
@@ -364,10 +396,12 @@ namespace WizardsVRC.EditorTools
             var rings = new List<Vector2Int>();
             foreach (char d in "123456789") rings.AddRange(g.Find(d));
             int count = 0;
-            for (int y = 0; y < g.height && count < 120; y++)
-                for (int x = 0; x < g.width && count < 120; x++)
+            // The chance is per cell, so scale it by cell area: smaller cells mean more of them (6 m cells = as set).
+            float chance = z.lampDensity * 0.35f * Mathf.Clamp(g.cell * g.cell / 36f, 0.2f, 2f);
+            for (int y = 0; y < g.height && count < 160; y++)
+                for (int x = 0; x < g.width && count < 160; x++)
                 {
-                    if (g.At(x, y) != '.' || g.Hash(x, y, 7) > z.lampDensity * 0.35f || stairCells.Contains(new Vector2Int(x, y))) continue;
+                    if (g.At(x, y) != '.' || g.Hash(x, y, 7) > chance || stairCells.Contains(new Vector2Int(x, y))) continue;
                     bool nearRing = false;
                     foreach (var r in rings) if (Mathf.Abs(r.x - x) <= 2 && Mathf.Abs(r.y - y) <= 2) nearRing = true;
                     if (nearRing) continue;
@@ -391,25 +425,51 @@ namespace WizardsVRC.EditorTools
         }
 
         private const float HallWallThick = 0.6f;
+        /// <summary>Width : depth of buildings that turn to face the centre (Door Side Centre).</summary>
+        private const float HallAspect = 1.12f, ShopAspect = 1.36f, KeepAspect = 1.5f;
 
         /// <summary>
-        /// A building filling its map block, with its door on its door side (Door Side, or the open side facing the map
-        /// centre). Returns the door's centre on the front face (at ground level) and the outward direction. Hollow: real
-        /// walls, ceiling and floor with an open doorway you can walk through (the inside is the block minus the walls).
+        /// Where a building stands in its block: centre (at the height of its cells), the way out of its door, and its
+        /// size across and deep. Door Side Centre turns it to face the map's centre and makes it as big as fits in its
+        /// block at that angle, 'aspect' times as wide as it is deep; otherwise it fills the block, door on its door side.
         /// </summary>
-        private static Vector3 HubBuilding(Transform parent, ZoneGrid g, ZoneLandmark l, float height, float roofH, Material wall, Material roofMat,
-            Material gold, Material doorMat, out Vector3 front, out float across, bool hollow = false, bool turrets = true, float doorH = 5.2f,
-            Material floorMat = null)
+        private static void BuildingFrame(ZoneGrid g, ZoneLandmark l, float aspect, out Vector3 c, out Vector3 front, out float across, out float depth)
         {
             float cs = g.cell;
             var fp = g.Footprint(l.Symbol);
+            c = RectCenter(g, fp);
+            var cells = g.Find(l.Symbol);
+            if (cells.Count > 0) c.y = g.Elevation(cells[0].x, cells[0].y);
+            float sx = fp.width * cs - 1f, sz = fp.height * cs - 1f;
+            var toCentre = new Vector3(-c.x, 0f, -c.z);
+            if (l.doorSide == global::WizardsVRC.EditorTools.WorldData.DoorSide.Centre && toCentre.sqrMagnitude > 1f)
+            {
+                front = toCentre.normalized;
+                float fx = Mathf.Abs(front.x), fz = Mathf.Abs(front.z), rho = Mathf.Max(0.3f, aspect);
+                float k = Mathf.Min(sx / (fz * rho + fx), sz / (fx * rho + fz));
+                across = rho * k;
+                depth = k;
+                return;
+            }
             Vector2Int d = g.DoorDirection(l);
             if (d == Vector2Int.zero) d = new Vector2Int(0, 1);
             front = ZoneGrid.ToLocalDir(d);
-            Vector3 c = RectCenter(g, fp);
-            float sx = fp.width * cs - 1f, sz = fp.height * cs - 1f;
-            float depth = d.x != 0 ? sx : sz;
+            depth = d.x != 0 ? sx : sz;
             across = d.x != 0 ? sz : sx;
+        }
+
+        /// <summary>
+        /// A building in its map block (see <see cref="BuildingFrame"/>), with its door on its front. Returns the door's
+        /// centre on the front face (at ground level) and the outward direction. Hollow: real walls, ceiling and floor
+        /// with an open doorway you can walk through (the inside is the building minus the walls).
+        /// </summary>
+        private static Vector3 HubBuilding(Transform parent, ZoneGrid g, ZoneLandmark l, float height, float roofH, Material wall, Material roofMat,
+            Material gold, Material doorMat, out Vector3 front, out float across, bool hollow = false, bool turrets = true, float doorH = 5.2f,
+            Material floorMat = null, float aspect = HallAspect)
+        {
+            Vector3 c;
+            float depth;
+            BuildingFrame(g, l, aspect, out c, out front, out across, out depth);
             Quaternion rot = Quaternion.LookRotation(front);
             float doorW = doorH * 0.7f;
             if (hollow)
@@ -437,9 +497,9 @@ namespace WizardsVRC.EditorTools
                     Block(hinge, "DoorLeaf", new Vector3(-sgn * gapW / 4f, doorH / 2f, -0.08f), new Vector3(gapW / 2f - 0.05f, doorH, 0.15f), doorMat);
                 }
             }
-            else Block(parent, "Building_" + l.symbol, c + new Vector3(0, height / 2f, 0), new Vector3(sx, height, sz), wall);
-            Block(parent, "Eaves_" + l.symbol, c + new Vector3(0, height + 0.2f, 0), new Vector3(sx + 1.2f, 0.4f, sz + 1.2f), roofMat);
-            Shape(parent, "Roof_" + l.symbol, PyramidMesh(), c + new Vector3(0, height + 0.4f + roofH / 2f, 0), new Vector3(sx + 1f, roofH, sz + 1f), roofMat, false, Quaternion.identity);
+            else Block(parent, "Building_" + l.symbol, c + new Vector3(0, height / 2f, 0), new Vector3(across, height, depth), wall, rot);
+            Block(parent, "Eaves_" + l.symbol, c + new Vector3(0, height + 0.2f, 0), new Vector3(across + 1.2f, 0.4f, depth + 1.2f), roofMat, rot);
+            Shape(parent, "Roof_" + l.symbol, PyramidMesh(), c + new Vector3(0, height + 0.4f + roofH / 2f, 0), new Vector3(across + 1f, roofH, depth + 1f), roofMat, false, rot);
             Vector3 face = c + front * (depth / 2f);
             if (!hollow) Block(parent, "Door_" + l.symbol, face + front * 0.08f + new Vector3(0, doorH / 2f, 0), new Vector3(doorW, doorH, 0.2f), doorMat, rot);
             Block(parent, "DoorArch_" + l.symbol, face + front * 0.12f + new Vector3(0, doorH + 0.3f, 0), new Vector3(doorW + 0.8f, 0.6f, 0.3f), gold, rot);
@@ -492,9 +552,9 @@ namespace WizardsVRC.EditorTools
             if (!walkIn) return;
 
             // ---- the classroom inside: local +Z is the back wall, the door is behind you as you face the professor
-            var fp = g.Footprint(l.Symbol);
-            Vector3 c = RectCenter(g, fp);
-            float depth = (Mathf.Abs(front.x) > 0.5f ? fp.width : fp.height) * g.cell - 1f;
+            Vector3 c, f2;
+            float a2, depth;
+            BuildingFrame(g, l, HallAspect, out c, out f2, out a2, out depth);
             float inW = across - 2f * HallWallThick, inD = depth - 2f * HallWallThick;
             var room = Child(root, "Classroom_" + sn, c);
             room.localRotation = Quaternion.LookRotation(-front);
@@ -534,18 +594,18 @@ namespace WizardsVRC.EditorTools
             float h = 5.6f + hash * 1.8f;
             Vector3 front;
             float across;
-            Vector3 face = HubBuilding(root, g, l, h, 4.5f, wall, roofMat, gold, door, out front, out across, false, false, 3f);
+            Vector3 face = HubBuilding(root, g, l, h, 4.5f, wall, roofMat, gold, door, out front, out across, false, false, 3f, null, ShopAspect);
             Vector3 side = Vector3.Cross(Vector3.up, front);
             Quaternion rot = Quaternion.LookRotation(front);
-            float depth = (Mathf.Abs(front.x) > 0.5f ? fp.width : fp.height) * g.cell - 1f;
-            Vector3 c = RectCenter(g, fp);
+            Vector3 c, f2;
+            float a2, depth;
+            BuildingFrame(g, l, ShopAspect, out c, out f2, out a2, out depth);
 
             // Timber frame on every corner and a beam round the building at first-floor height.
             foreach (float sx in new[] { -1f, 1f })
                 foreach (float sz in new[] { -1f, 1f })
                     Block(root, "Beam", c + side * (sx * (across / 2f + 0.05f)) + front * (sz * (depth / 2f + 0.05f)) + new Vector3(0, h / 2f, 0), new Vector3(0.4f, h, 0.4f), beam, rot);
-            Block(root, "BeamBand", c + new Vector3(0, 3.4f, 0), new Vector3(Mathf.Abs(front.x) > 0.5f ? depth + 0.3f : across + 0.3f, 0.3f,
-                Mathf.Abs(front.x) > 0.5f ? across + 0.3f : depth + 0.3f), beam);
+            Block(root, "BeamBand", c + new Vector3(0, 3.4f, 0), new Vector3(across + 0.3f, 0.3f, depth + 0.3f), beam, rot);
             foreach (float t in new[] { -1.4f, 1.4f })
                 Block(root, "DoorPost", face + front * 0.12f + side * t + new Vector3(0, 1.6f, 0), new Vector3(0.3f, 3.2f, 0.2f), beam, rot);
             FrontWindows(root, face, front, across, 1.9f, window);
@@ -627,11 +687,13 @@ namespace WizardsVRC.EditorTools
             const float h = 16f;
             Vector3 front;
             float across;
-            Vector3 face = HubBuilding(root, g, l, h, 8f, stone, roof, gold, door, out front, out across);
-            var fp = g.Footprint(l.Symbol);
-            Vector3 c = RectCenter(g, fp);
-            float sx = fp.width * g.cell - 1f, sz = fp.height * g.cell - 1f;
-            foreach (var corner in new[] { new Vector3(-sx / 2f, 0, -sz / 2f), new Vector3(sx / 2f, 0, -sz / 2f), new Vector3(-sx / 2f, 0, sz / 2f), new Vector3(sx / 2f, 0, sz / 2f) })
+            Vector3 face = HubBuilding(root, g, l, h, 8f, stone, roof, gold, door, out front, out across, false, true, 5.2f, null, KeepAspect);
+            Vector3 c, f2;
+            float a2, depth;
+            BuildingFrame(g, l, KeepAspect, out c, out f2, out a2, out depth);
+            Vector3 kSide = Vector3.Cross(Vector3.up, front);
+            foreach (var corner in new[] { kSide * (-across / 2f) - front * (depth / 2f), kSide * (across / 2f) - front * (depth / 2f),
+                                           kSide * (-across / 2f) + front * (depth / 2f), kSide * (across / 2f) + front * (depth / 2f) })
             {
                 Tower(root, c + corner, 3.2f, h + 8f, 7f, roof, stone, gold);
                 Pennant(root, c + corner + new Vector3(0, h + 15.5f, 0), gold, banner);
@@ -658,10 +720,10 @@ namespace WizardsVRC.EditorTools
             Vector3 front;
             float across;
             Vector3 face = HubBuilding(root, g, l, 11f, 6f, stone, roof, gold, door, out front, out across);
-            var fp = g.Footprint(l.Symbol);
-            Vector3 c = RectCenter(g, fp);
+            Vector3 c, f2;
+            float a2, depth;
+            BuildingFrame(g, l, HallAspect, out c, out f2, out a2, out depth);
             Vector3 side = Vector3.Cross(Vector3.up, front);
-            float depth = (Mathf.Abs(front.x) > 0.5f ? fp.width : fp.height) * g.cell - 1f;
             Vector3 towerAt = c - front * (depth / 2f - 3f) + side * (across / 2f - 3f);
             Tower(root, towerAt, 3.6f, 18f, 7f, roof, stone, gold);
             Crystal(root, towerAt + new Vector3(0, 26.5f, 0), 0.8f, new Color(0.8f, 0.5f, 1f));
@@ -757,7 +819,7 @@ namespace WizardsVRC.EditorTools
 
         // ================================================================== contents (after the quest system exists)
 
-        /// <summary>The hub's NPCs, quest points and practice ring, plus the gates' quest locks.</summary>
+        /// <summary>The hub's NPCs, quest points, practice ring, duelling circles and orbs, plus the gates' quest locks.</summary>
         private static void BuildHubContents(HubLayout hub, Transform systems, QuestManager qm, CardDatabase cardDb, ItemDatabase itemDb,
             PlayerState playerState, List<BattleClient> encounters, WorldBuild wb)
         {
@@ -780,6 +842,8 @@ namespace WizardsVRC.EditorTools
             foreach (var e in z.encounters)
                 if (e != null && ZoneGrid.IsRingDigit(e.Symbol))
                     BuildZoneEncounter(hub.root, g, z, e, start, hub.spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb);
+            BuildDuelCircles(hub, systems, cardDb, itemDb, playerState, qm, encounters, wb);
+            BuildHubOrbs(hub, playerState, wb);
         }
 
         // ================================================================== meshes

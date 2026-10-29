@@ -10,7 +10,8 @@ namespace WizardsVRC
     /// Networked referee for the boss arena: queue pad countdown, battle setup and turn resolution.
     /// The object owner (instance master by default) is authoritative: clients send requests with
     /// [NetworkCallable] events, the owner updates the synced state, and every client's <see cref="BattleClient"/>
-    /// renders it. Slots 0-3 are wizards, 4-7 monsters (4 = boss).
+    /// renders it. Slots 0-3 are wizards, 4-7 monsters (4 = boss). In PvP mode both halves hold wizards: everyone in the
+    /// duel zone when the countdown ends is split into two teams (slots 0-3 and 4-7) and nobody gains or loses anything.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class BattleManager : UdonSharpBehaviour
@@ -95,6 +96,13 @@ namespace WizardsVRC
         [Tooltip("Monster id of each patrol monster (index = Wanderer.wandererIndex).")]
         public int[] wandererMonsters = new int[0];
 
+        [Header("PvP")]
+        [Tooltip("Wizard against wizard: the queue countdown starts when the first wizard enters the zone, everyone in it when " +
+                 "it ends fights (at least 2, split into two teams), there are no monsters, rewards or defeat penalties.")]
+        public bool pvpMode;
+        /// <summary>PvP: the side that won the last duel (0 or 1, -1 = nobody, e.g. everyone left).</summary>
+        [UdonSynced] public int winnerSide = -1;
+
         /// <summary>Even fights: bit w set = patrol monster w is in this fight or faded away (hidden until it respawns).</summary>
         [UdonSynced] public int wandererGone;
 
@@ -125,7 +133,7 @@ namespace WizardsVRC
         [UdonSynced] public int battleId;
         [UdonSynced] public int round;
         [UdonSynced] public int firstSide;
-        [UdonSynced] public int[] queueIds = new int[SIDE];
+        [UdonSynced] public int[] queueIds = new int[SLOTS];
 
         /// <summary>Wizard slots: player id. Monster slots: monster id (CardDatabase monster table). Summoned minions (either side): -cardId. 0 = empty.</summary>
         [UdonSynced] public int[] slotIds = new int[SLOTS];
@@ -183,7 +191,7 @@ namespace WizardsVRC
 
         // owner-only scratch
         private int _nextFlags;
-        private bool[] _joined = new bool[SIDE];
+        private bool[] _joined = new bool[SLOTS];
         private int[] _pickCard = new int[SLOTS];
         private int[] _pickTarget = new int[SLOTS];
         private int[] _targets = new int[SIDE];
@@ -239,28 +247,41 @@ namespace WizardsVRC
         public int SummonCard(int s) { return IsSummon(s) ? -slotIds[s] : 0; }
         public int SideOf(int s) { return s < SIDE ? 0 : 1; }
 
+        /// <summary>Seats players can sit in: the wizards' half, or every seat in PvP.</summary>
+        public int PlayerSeats() { return pvpMode ? SLOTS : SIDE; }
+
+        /// <summary>A seat that holds (or could hold) a player rather than a monster.</summary>
+        public bool IsPlayerSeat(int s) { return s >= 0 && s < PlayerSeats(); }
+
+        /// <summary>Most wizards the queue takes: a party of 4, or two teams of 4 in PvP.</summary>
+        public int QueueCapacity() { return pvpMode ? SLOTS : SIDE; }
+
         public int FindWizardSlot(int playerId)
         {
             if (playerId <= 0) return -1;
-            for (int s = 0; s < SIDE; s++) if (slotIds[s] == playerId) return s;
+            int n = PlayerSeats();
+            for (int s = 0; s < n; s++) if (slotIds[s] == playerId) return s;
             return -1;
         }
 
         public bool IsQueued(int playerId)
         {
-            for (int i = 0; i < SIDE; i++) if (queueIds[i] == playerId && playerId > 0) return true;
+            for (int i = 0; i < queueIds.Length; i++) if (queueIds[i] == playerId && playerId > 0) return true;
             return false;
         }
 
         public int QueueCount()
         {
             int n = 0;
-            for (int i = 0; i < SIDE; i++) if (queueIds[i] != 0) n++;
+            for (int i = 0; i < queueIds.Length; i++) if (queueIds[i] != 0) n++;
             return n;
         }
 
-        /// <summary>Monster id in a monster seat (0 for empty seats and summons).</summary>
-        public int MonsterAt(int s) { return s >= SIDE && s < SLOTS && slotIds[s] > 0 ? slotIds[s] : 0; }
+        /// <summary>PvP: in the zone but the countdown is on hold until a second wizard steps in.</summary>
+        public bool WaitingForOpponent() { return pvpMode && phase == PHASE_QUEUE && phaseEndMs == 0; }
+
+        /// <summary>Monster id in a monster seat (0 for empty seats and summons; always 0 in PvP).</summary>
+        public int MonsterAt(int s) { return !pvpMode && s >= SIDE && s < SLOTS && slotIds[s] > 0 ? slotIds[s] : 0; }
 
         /// <summary>True while the lane's wandering monsters should be hidden: a fight is on, or one just ended.</summary>
         public bool WanderersHidden()
@@ -379,7 +400,7 @@ namespace WizardsVRC
         }
 
         /// <summary>Monsters and summoned minions have school resist/weakness; wizards rely on gear.</summary>
-        public bool IsCreature(int s) { return Occupied(s) && (s >= SIDE || IsSummon(s)); }
+        public bool IsCreature(int s) { return Occupied(s) && ((s >= SIDE && !pvpMode) || IsSummon(s)); }
 
         /// <summary>
         /// "Rank 2 Life Plant" for a monster, "Fire Minion" for a summoned minion, or "" (Wizard101-style: the school still
@@ -402,7 +423,7 @@ namespace WizardsVRC
         {
             if (!Occupied(s)) return "";
             if (slotIds[s] < 0) return cardDatabase.GetName(-slotIds[s]);
-            if (s >= SIDE) return cardDatabase != null ? cardDatabase.MonsterName(slotIds[s]) : "Monster";
+            if (s >= SIDE && !pvpMode) return cardDatabase != null ? cardDatabase.MonsterName(slotIds[s]) : "Monster";
             VRCPlayerApi p = VRCPlayerApi.GetPlayerById(slotIds[s]);
             return Utilities.IsValid(p) ? p.displayName : "Wizard";
         }
@@ -450,7 +471,7 @@ namespace WizardsVRC
             int s = FindWizardSlot(playerId);
             if (s < 0) return;
             VacateSeat(s);
-            if (phase >= PHASE_JOINING && phase <= PHASE_PLAYBACK && !PlayersAlive()) EndFight(PHASE_DEFEAT);
+            CheckFightOver();
             Publish();
         }
 
@@ -462,6 +483,20 @@ namespace WizardsVRC
             pips[s] = 0; powerPips[s] = 0;
             focus[s] = 0; dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0;
             ClearFx(shields, s); ClearFx(blades, s); ClearFx(traps, s);
+        }
+
+        /// <summary>After a wizard leaves mid-fight: ends it when a side has nobody left (PvP) or the party is gone.</summary>
+        private void CheckFightOver()
+        {
+            if (phase < PHASE_JOINING || phase > PHASE_PLAYBACK) return;
+            if (pvpMode)
+            {
+                bool a = SidePlayersAlive(0), b = SidePlayersAlive(1);
+                if (a && b) return;
+                winnerSide = a ? 0 : b ? 1 : -1;
+                EndFight(PHASE_VICTORY);
+            }
+            else if (!PlayersAlive()) EndFight(PHASE_DEFEAT);
         }
 
         private void EndFight(int endPhase)
@@ -480,7 +515,7 @@ namespace WizardsVRC
             dmgPct[s] = 0; resistPct[s] = 0; accPct[s] = 0; focus[s] = 0; locked[s] = 0;
             dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0;
             ClearFx(shields, s); ClearFx(blades, s); ClearFx(traps, s);
-            if (s < SIDE) _joined[s] = id < 0;
+            _joined[s] = id < 0;
         }
 
         public void RequestPick(int cardId, int target)
@@ -496,11 +531,13 @@ namespace WizardsVRC
             if (!Networking.IsOwner(gameObject)) return;
             if (phase != PHASE_IDLE && phase != PHASE_QUEUE) return;
             if (IsQueued(playerId)) return;
-            for (int i = 0; i < SIDE; i++)
+            int cap = Mathf.Min(QueueCapacity(), queueIds.Length);
+            for (int i = 0; i < cap; i++)
             {
                 if (queueIds[i] != 0) continue;
                 queueIds[i] = playerId;
-                if (phase == PHASE_IDLE)
+                // The countdown starts with the first wizard in (PvP: it restarts once an opponent arrives).
+                if (phase == PHASE_IDLE || WaitingForOpponent())
                 {
                     phase = PHASE_QUEUE;
                     phaseEndMs = Now() + queueSeconds * 1000;
@@ -552,7 +589,7 @@ namespace WizardsVRC
             if (phase == PHASE_IDLE)
             {
                 if (evenFight ? WandererHidden(wanderer) : WanderersHidden()) return;
-                for (int i = 0; i < SIDE; i++) queueIds[i] = 0;
+                for (int i = 0; i < queueIds.Length; i++) queueIds[i] = 0;
                 queueIds[0] = playerId;
                 ringSpot = NearestRingSpot(playerId);
                 // Even fights start with just the monster that was touched.
@@ -684,7 +721,7 @@ namespace WizardsVRC
         public void NetQueueLeave(int playerId)
         {
             if (!Networking.IsOwner(gameObject) || phase != PHASE_QUEUE) return;
-            for (int i = 0; i < SIDE; i++) if (queueIds[i] == playerId) queueIds[i] = 0;
+            for (int i = 0; i < queueIds.Length; i++) if (queueIds[i] == playerId) queueIds[i] = 0;
             if (QueueCount() == 0) phase = PHASE_IDLE;
             Publish();
         }
@@ -732,7 +769,7 @@ namespace WizardsVRC
             bool timeUp = phaseEndMs - Now() <= 0;
             if (phase == PHASE_QUEUE)
             {
-                if (timeUp) StartBattle();
+                if (timeUp && !WaitingForOpponent()) StartBattle();
             }
             else if (phase == PHASE_JOINING)
             {
@@ -760,13 +797,13 @@ namespace WizardsVRC
             if (!Networking.IsOwner(gameObject) || !Utilities.IsValid(player)) return;
             int id = player.playerId;
             bool changed = false;
-            for (int i = 0; i < SIDE; i++)
-            {
+            for (int i = 0; i < queueIds.Length; i++)
                 if (queueIds[i] == id) { queueIds[i] = 0; changed = true; }
+            int seats = PlayerSeats();
+            for (int i = 0; i < seats; i++)
                 if (slotIds[i] == id) { VacateSeat(i); hp[i] = 0; changed = true; }
-            }
             if (phase == PHASE_QUEUE && QueueCount() == 0) phase = PHASE_IDLE;
-            if (changed && phase >= PHASE_JOINING && phase <= PHASE_PLAYBACK && !PlayersAlive()) EndFight(PHASE_DEFEAT);
+            if (changed) CheckFightOver();
             if (changed) Publish();
         }
 
@@ -783,14 +820,27 @@ namespace WizardsVRC
 
         private bool AllJoined()
         {
-            for (int s = 0; s < SIDE; s++) if (Occupied(s) && !_joined[s]) return false;
+            int n = PlayerSeats();
+            for (int s = 0; s < n; s++) if (Occupied(s) && !_joined[s]) return false;
             return true;
         }
 
         private bool AllLocked()
         {
-            for (int s = 0; s < SIDE; s++) if (Alive(s) && !IsSummon(s) && locked[s] == 0) return false;
+            int n = PlayerSeats();
+            for (int s = 0; s < n; s++) if (Alive(s) && !IsSummon(s) && locked[s] == 0) return false;
             return true;
+        }
+
+        /// <summary>A wizard (not just a summoned minion) is still standing on this side.</summary>
+        private bool SidePlayersAlive(int side)
+        {
+            for (int i = 0; i < SIDE; i++)
+            {
+                int s = side * SIDE + i;
+                if (Alive(s) && !IsSummon(s)) return true;
+            }
+            return false;
         }
 
         private bool SideAlive(int side)
@@ -807,17 +857,17 @@ namespace WizardsVRC
 
         private void StartBattle()
         {
+            if (pvpMode) { StartDuel(); return; }
             int n = 0;
             for (int s = 0; s < SLOTS; s++)
             {
                 ResetSeat(s, 0);
                 hp[s] = 0; maxHp[s] = 0;
             }
-            for (int i = 0; i < SIDE; i++)
+            for (int i = 0; i < queueIds.Length; i++)
             {
                 if (queueIds[i] == 0) continue;
-                ResetSeat(n, queueIds[i]);
-                n++;
+                if (n < SIDE) { ResetSeat(n, queueIds[i]); n++; }
                 queueIds[i] = 0;
             }
             if (n == 0) { phase = PHASE_IDLE; Publish(); return; }
@@ -858,6 +908,56 @@ namespace WizardsVRC
             Publish();
         }
 
+        /// <summary>
+        /// PvP: everyone queued in the zone is dealt into two teams, alternating (first in = Blue team's first seat,
+        /// second = Red team's first seat...), and the duel starts at once. With only one wizard the countdown waits.
+        /// </summary>
+        private void StartDuel()
+        {
+            int queued = 0;
+            for (int i = 0; i < queueIds.Length; i++)
+            {
+                if (queueIds[i] == 0) continue;
+                // Drop anyone who left the instance during the countdown.
+                VRCPlayerApi p = VRCPlayerApi.GetPlayerById(queueIds[i]);
+                if (!Utilities.IsValid(p)) { queueIds[i] = 0; continue; }
+                queued++;
+            }
+            if (queued == 0) { phase = PHASE_IDLE; Publish(); return; }
+            if (queued < 2)
+            {
+                // Hold the countdown until an opponent steps in (NetQueueEnter restarts it).
+                phaseEndMs = 0;
+                Publish();
+                return;
+            }
+            for (int s = 0; s < SLOTS; s++)
+            {
+                ResetSeat(s, 0);
+                hp[s] = 0; maxHp[s] = 0;
+                _joinRound[s] = -1;
+            }
+            int n = 0;
+            for (int i = 0; i < queueIds.Length; i++)
+            {
+                if (queueIds[i] == 0) continue;
+                int seat = (n % 2) * SIDE + n / 2;
+                if (seat < SLOTS) ResetSeat(seat, queueIds[i]);
+                n++;
+                queueIds[i] = 0;
+            }
+            winnerSide = -1;
+            battleId++;
+            round = 0;
+            actCount = 0;
+            fxLogCount = 0;
+            _pendFx = 0;
+            firstSide = Random.Range(0, 2);
+            phase = PHASE_JOINING;
+            phaseEndMs = Now() + joinSeconds * 1000;
+            Publish();
+        }
+
         private void SetMonster(int s, int kind, int monsterSchool, int monsterLevel, int health)
         {
             slotIds[s] = kind;
@@ -892,6 +992,17 @@ namespace WizardsVRC
 
         private void AfterPlayback()
         {
+            if (pvpMode)
+            {
+                // Knocked-out wizards stay in their seats to watch; the duel ends when a team has nobody standing.
+                bool a = SidePlayersAlive(0), b = SidePlayersAlive(1);
+                if (a && b) { BeginRound(); return; }
+                winnerSide = a ? 0 : b ? 1 : -1;
+                phase = PHASE_VICTORY;
+                phaseEndMs = Now() + endSeconds * 1000;
+                Publish();
+                return;
+            }
             if (!SideAlive(1)) phase = PHASE_VICTORY;
             else if (!PlayersAlive()) phase = PHASE_DEFEAT;
             else
@@ -910,7 +1021,7 @@ namespace WizardsVRC
 
         private void Resolve()
         {
-            for (int s = SIDE; s < SLOTS; s++)
+            for (int s = SIDE; s < SLOTS && !pvpMode; s++)
             {
                 if (!Alive(s) || IsSummon(s)) continue;
                 // A monster that joined this round sits it out (it acts from the next one).

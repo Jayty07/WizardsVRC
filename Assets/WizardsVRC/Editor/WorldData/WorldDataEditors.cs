@@ -169,7 +169,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 {
                     char c = g.At(x, y);
                     var r = new Rect(area.x + x * px, area.y + y * px, px - 1, px - 1);
-                    Color col = CellColor(z, g, c);
+                    Color col = g.IsVoid(x, y) ? new Color(0.1f, 0.18f, 0.35f) : CellColor(z, g, c);
                     if (_showHeights && g.HasHeights)
                     {
                         int lv = g.Level(x, y);
@@ -233,6 +233,9 @@ namespace WizardsVRC.EditorTools.WorldData
                 if (l.kind == LandmarkKind.SchoolHall) return Color.Lerp(SchoolColor(l.school), Color.white, 0.2f);
                 if (l.kind == LandmarkKind.Keep) return new Color(0.55f, 0.45f, 0.85f);
                 if (l.kind == LandmarkKind.StreetGate) return new Color(0.3f, 0.95f, 0.85f);
+                if (l.kind == LandmarkKind.HealthOrb) return new Color(1f, 0.25f, 0.25f);
+                if (l.kind == LandmarkKind.ManaOrb) return new Color(0.3f, 0.45f, 1f);
+                if (l.kind == LandmarkKind.DuelCircle) return new Color(0.95f, 0.5f, 0.55f);
                 if (l.Solid) return new Color(0.75f, 0.65f, 0.5f);
                 return new Color(1f, 0.95f, 0.6f);
             }

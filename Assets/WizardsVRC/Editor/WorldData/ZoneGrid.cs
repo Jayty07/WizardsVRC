@@ -102,6 +102,21 @@ namespace WizardsVRC.EditorTools.WorldData
             return Level(a) == Level(b) || HasStairs(a, b);
         }
 
+        /// <summary>
+        /// Round castle hubs: cells whose centre lies outside the island's circle (the map's corners). They are treated
+        /// as off the map: no ground is built there.
+        /// </summary>
+        public bool IsVoid(int x, int y)
+        {
+            if (!zone.roundCastle || !zone.castleStyle) return false;
+            float dx = (x + 0.5f - width * 0.5f), dy = (y + 0.5f - height * 0.5f);
+            float r = Mathf.Min(width, height) * 0.5f;
+            return dx * dx + dy * dy > r * r;
+        }
+
+        /// <summary>Round castle hubs: radius (m) of the curtain wall's centre line, a cell and a half inside the map edge.</summary>
+        public float RoundWallRadius() { return Mathf.Min(width, height) * cell * 0.5f - cell * 1.5f; }
+
         /// <summary>The side a building's door is on: its Door Side setting, or the open side facing the map centre.</summary>
         public Vector2Int DoorDirection(ZoneLandmark l)
         {

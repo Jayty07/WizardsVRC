@@ -51,9 +51,9 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/DeckPages.cs` | Book's Deck tab: flip through the deck items you own, edit and equip them (left), spellbook with Add/Remove (right) |
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
-| `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Hub teleporter pad trigger that joins/leaves the battle queue |
+| `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
+| `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb: walk through it to restore health / mana (local; respawns after 30 s) |
 | `Assets/WizardsVRC/Scripts/PlayerHUD.cs` | Head-following HUD: name, level, health, mana, gold, and a segmented XP bar (fills in steps; on level-up it fills, flashes and starts again) |
-| `Assets/WizardsVRC/Scripts/LootChest.cs` | Test chest in the hub: random item + gold per click |
 | `Assets/WizardsVRC/Scripts/EventRelay.cs` | Interact → `SendCustomEvent` on a target (backpack pedestal) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.cs` | Generates the scene and wires all references/buttons |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Zones.cs` | Builds zones, monster tables and authored quests from the world data |
@@ -61,6 +61,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/WorldData/` | **Your authored world data** (created on first rebuild). Commit it. See [WORLD_BUILDING.md](WORLD_BUILDING.md) |
 | `Assets/WizardsVRC/Scripts/QuestNpc.cs` | Zone NPC: click to talk, floating ! / ? quest markers |
 | `Assets/WizardsVRC/Shaders/PSXWater.shader`, `PSXWaterfall.shader` | Spyro-style PSX water (vertex waves with a brightness shimmer, two scrolling pixel ripple layers, sparkles, affine warp, 15-bit dithered colour) and waterfall (racing streaks, foamy lip and foot, sway). Materials `Materials/PSX_Water`, `PSX_WaterSea`, `PSX_WaterFoam`, `PSX_Waterfall` are made once and then yours to tune; put them on any subdivided plane / sheet |
+| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Round.cs` | The round hub's curtain wall and towers, the **duelling circle** (PvP encounter + countdown zone) and the health / mana orbs |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Tavern.cs` | The round **Tavern** landmark (the hub's Crystal Tap): curved bar, tables, stage with a music source, hearth, mirror toggle, sit-able seats (`Seat`: VRCStation), synced mug pickups and the bell that resets them (`MugReset`), per-player toggles (`LocalToggle`) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Terrain.cs` | Zone ground from the map + **height map**, as merged per-chunk meshes: every cell a column to its height with stone walls down to lower neighbours, cobbles / lawns / pond beds, optional **rounded corners** (outer corners cut, inner corners filled, path-lawn corners curved), kerbs, copings, iron **railings** (drops, ponds, stair handrails, optional path edges), stairs with stringers, water, waterfalls |
 | `Assets/WizardsVRC/Shaders/PSXBillboard.shader` | Pixel labels that face each player's camera (GPU only, VR-safe: faces the point between the eyes), stay upright, vertex-snap and dither out with distance |
@@ -74,16 +75,17 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
   (There is no `VRC_SceneLightmapSettings` component in the current SDK; lighting uses normal Unity Lighting settings.)
 - `SelectRoom` (y = -500) — closed room, light, spawn point, world-space canvas (`VRCUiShape`) with 4 slot panels,
   school picker, delete confirmation.
-- `Hub` (origin) — **Starfall Castle**, built from the hub zone map and height map (`WorldData/Zone_StarfallCastle.asset`):
-  castle walls and towers on an island in a PSX sea, a walk-in hall with a classroom and professor for each of the seven
-  schools, the Headmaster's tower (door to the office) on a north terrace with a waterfall pouring into a pond below, the
-  Starfall fountain inside the Crystal Tap (a round walk-in tavern to hang out in) in a sunken plaza with the arrival
-  point and grand stairs, the Bazaar and shops (hats, wands, potions,
-  bakery, pets, cards, the inn), the raised Library, the Training Grounds (practice ring) and the boss arena pad on a
-  dais, an observatory and a gazebo, cobbled paths with kerbs, and quest-locked gates to Sunpetal Gardens and Lantern Row
-  in the south wall.
-  It also has the notice board ("Change Character" / Backpack), the **Practice Chest** and the **Backpack pedestal**.
-  Without a hub zone the older hand-made castle is built.
+- `Hub` (origin) — **Starfall Castle**, built from the hub zone map and height map (`WorldData/Zone_StarfallCastle.asset`),
+  laid out in rings like Ravenwood on a round island inside a round curtain wall with towers, in a PSX sea. In the middle
+  the Starfall fountain stands inside the Crystal Tap (a round walk-in tavern to hang out in) in a sunken round plaza
+  with the arrival point; round it a ring of gardens and the inner ring road, then the seven school halls and the
+  Library on a circle, each turned to face the centre (a walk-in classroom and professor in every hall), with four
+  avenues between them; then the outer ring road and the outer quarter: the Headmaster's tower (door to the office) on
+  a north terrace with a waterfall pouring into a pond, the observatory hill, the Training Grounds (practice ring) and
+  the boss arena pad, the **duelling circle** (PvP), the quest-locked gates to Sunpetal Gardens and Lantern Row, the inn,
+  bakery and gazebo garden, and the Bazaar and shops (hats, wands, potions, pets, cards). **Red and blue orbs** on the
+  ring roads restore health and mana when you walk through them. It also has the notice board ("Change Character" /
+  Backpack) and the **Backpack pedestal** by the tavern door. Without a hub zone the older hand-made castle is built.
 - `KeepInterior` (y = 200) — the Headmaster's office (new characters start here). With outdoor schools that's all;
   otherwise also the Hall of Schools with a classroom per school.
 - `Systems` — `SaveManager`, `PlayerState`, `TeleportHelper`, `ActiveCharacter` / `ScratchCharacter` (`CharacterData`),
@@ -131,6 +133,15 @@ decks) and Duel Master Holloway (a practice duel against training dummies that n
 ring) are **even fights**: one monster per wizard, starting with the one you touched; a second wizard brings in the next
 patrol monster to reach the circle, and other patrol monsters that wander into the circle fade away. Finishing the gardens opens the
 **Lantern Row** gate (now Lv 4-6) and the boss arena pad. The locks are the gates' *Required Quest* in the hub map.
+
+## Duels (PvP)
+
+Step into the **duelling circle** (south-east of the hub) and a 15 second countdown starts; anyone else who steps in
+before it ends joins. When it reaches zero everyone inside sits down in the circle, dealt alternately into the **Blue
+team** (the near half) and the **Red team** (the far half), up to 4 a side. Alone in the circle, the countdown waits
+for an opponent. Duels use the normal combat (cards, pips, shields, blades, minions), everyone starts at full health,
+spells cost no mana, and nothing is won or lost: afterwards your health and mana are just as they were. Knocked-out
+wizards stay in their seat to watch; the duel ends when a team has nobody standing (or leaves). Fleeing is free.
 
 ## Performance
 
