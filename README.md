@@ -191,6 +191,8 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Floating combat text** over every combatant: damage numbers in the spell's school colour with its icon (CRITICAL! on
   crits), heals, Fizzled!, burns, Stunned!, and new shields / blades / traps. Several in one step stack up.
 - **Combat UI:** the card panel hides while the round plays out, and its backing is see-through.
+- **Defeat:** a monster (or minion) defeated this round stays in its seat until the hit that defeats it plays, holds
+  for a moment (`BattleClient.defeatDelay`), then squashes into the floor in PSX steps (`defeatFadeSeconds`).
 - **Sounds:** hit, heal and defeat sounds in the duel, the circle sound at the start, card hover / click / spell select,
   and click / hover sounds on every button (OK, Cancel, Delete, Next / Prev, tabs...). The book opening, potions and
   dialogue pop-ups have their own (`Audio/UI`).

@@ -144,7 +144,16 @@ namespace WizardsVRC
         public int[] schoolResist = { 0, 20, 0, 0, 5, 0, 5 };
         public int[] schoolAccuracy = { 0, 0, -10, 10, 0, 0, 5 };
 
+        [Header("Defeat")]
+        [Tooltip("After the killing hit lands, how long the defeated monster stays before it starts to vanish.")]
+        public float defeatDelay = 0.45f;
+        [Tooltip("How long a defeated monster takes to squash down into the floor.")]
+        public float defeatFadeSeconds = 0.6f;
+
         private int[] _minionShown = new int[BattleManager.SLOTS];
+        // Time the shown health of each seat hit 0 during playback (0 = not dying); its body vanishes after that.
+        private float[] _dieStart = new float[BattleManager.SLOTS];
+        private Vector3[] _bodyBase;
         private int _walkSlot = -1;
         private float _walkStart;
 
@@ -495,15 +504,7 @@ namespace WizardsVRC
             if (!_playing && phase != BattleManager.PHASE_PLAYBACK) SyncShownState();
             if (active && manager.battleId != _flashBattle) StartFlash();
             if (active) { UpdateSeatRings(); UpdateFx(); UpdatePips(); }
-            UpdateMinions(phase);
-            for (int m = 0; m < BattleManager.SIDE; m++)
-                if (monsterBodies != null && m < monsterBodies.Length && monsterBodies[m] != null)
-                {
-                    // Each monster seat's body is built from the encounter's roster (seat m = roster[m]), so it always
-                    // shows the monster actually sitting there.
-                    bool show = phase >= BattleManager.PHASE_ROAMING && manager.Alive(BattleManager.SIDE + m) && !manager.IsSummon(BattleManager.SIDE + m);
-                    monsterBodies[m].SetActive(show);
-                }
+            RefreshBodies(phase);
 
             VRCPlayerApi local = Networking.LocalPlayer;
             int mySlot = Utilities.IsValid(local) ? manager.FindWizardSlot(local.playerId) : -1;
@@ -514,6 +515,8 @@ namespace WizardsVRC
                 _roundSeen = 0;
                 _clockActor = -1;
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
+                ClearDefeats();
+                RefreshBodies(phase);
                 if (mySlot >= 0) ArriveAtArena(mySlot);
                 SetBanner("");
             }
@@ -1016,6 +1019,7 @@ namespace WizardsVRC
             UpdatePips();
             EndCast();
             _HideSpellAnimation();
+            RefreshBodies(manager.phase);
             RefreshLabels();
         }
 
@@ -1039,6 +1043,8 @@ namespace WizardsVRC
                 AddShownFx(i);
                 int before = t >= 0 && t < BattleManager.SLOTS ? _shownHp[t] : 0;
                 if (t >= 0 && t < BattleManager.SLOTS) _shownHp[t] = manager.actHpAfter[i];
+                // The hit that defeats a monster has landed: only now does it start to vanish.
+                if (before > 0 && t >= 0 && t < BattleManager.SLOTS && _shownHp[t] <= 0) StartDefeat(t);
                 ActSound(i, before);
             }
             SetBanner(text);
@@ -1322,6 +1328,103 @@ namespace WizardsVRC
             return kind * 8 + (school >= 0 && school < 7 ? school : 7);
         }
 
+        // ------------------------------------------------------------------ bodies and defeat
+
+        /// <summary>
+        /// Shows or hides each monster's body. The synced health is already the end-of-round result while the round
+        /// plays back, so a monster defeated this round stays until the hit that defeats it is shown (and then
+        /// squashes away, see <see cref="AnimateDefeats"/>).
+        /// </summary>
+        private void RefreshBodies(int phase)
+        {
+            UpdateMinions(phase);
+            if (monsterBodies == null) return;
+            for (int m = 0; m < BattleManager.SIDE && m < monsterBodies.Length; m++)
+            {
+                if (monsterBodies[m] == null) continue;
+                int s = BattleManager.SIDE + m;
+                // Each monster seat's body is built from the encounter's roster (seat m = roster[m]), so it always
+                // shows the monster actually sitting there.
+                bool show = phase >= BattleManager.PHASE_ROAMING && !manager.IsSummon(s) && KeepBody(s);
+                if (monsterBodies[m].activeSelf != show) monsterBodies[m].SetActive(show);
+            }
+        }
+
+        private bool KeepBody(int s)
+        {
+            if (!manager.Occupied(s)) return false;
+            if (manager.hp[s] > 0 || _dieStart[s] > 0f) return true;
+            bool playback = _playing || manager.phase == BattleManager.PHASE_PLAYBACK;
+            return playback && _shownHp[s] > 0;
+        }
+
+        private Transform BodyOf(int s)
+        {
+            if (s < 0 || s >= BattleManager.SLOTS) return null;
+            if (manager.IsSummon(s)) return minionBodies != null && s < minionBodies.Length ? minionBodies[s] : null;
+            int m = s - BattleManager.SIDE;
+            if (m < 0 || monsterBodies == null || m >= monsterBodies.Length || monsterBodies[m] == null) return null;
+            return monsterBodies[m].transform;
+        }
+
+        private Vector3 BodyBaseScale(int s)
+        {
+            if (manager.IsSummon(s)) return Vector3.one;
+            if (_bodyBase == null && monsterBodies != null)
+            {
+                // Captured before any defeat changed them (the builder sizes each seat's body to its monster).
+                _bodyBase = new Vector3[monsterBodies.Length];
+                for (int i = 0; i < monsterBodies.Length; i++)
+                    _bodyBase[i] = monsterBodies[i] != null ? monsterBodies[i].transform.localScale : Vector3.one;
+            }
+            int m = s - BattleManager.SIDE;
+            return _bodyBase != null && m >= 0 && m < _bodyBase.Length ? _bodyBase[m] : Vector3.one;
+        }
+
+        private void StartDefeat(int s)
+        {
+            Transform body = BodyOf(s);
+            if (body == null || !body.gameObject.activeSelf) return;
+            BodyBaseScale(s);
+            _dieStart[s] = Time.time;
+        }
+
+        /// <summary>A defeated monster holds for a moment after the hit, then squashes flat into the floor in PSX steps.</summary>
+        private void AnimateDefeats()
+        {
+            if (manager == null) return;
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+            {
+                if (_dieStart[s] <= 0f) continue;
+                Transform body = BodyOf(s);
+                if (body == null) { _dieStart[s] = 0f; continue; }
+                float t = Time.time - _dieStart[s] - defeatDelay;
+                if (t < 0f) continue;
+                Vector3 b = BodyBaseScale(s);
+                float k = Mathf.Floor(Mathf.Clamp01(t / Mathf.Max(0.05f, defeatFadeSeconds)) * 8f) / 8f;
+                if (k >= 1f)
+                {
+                    _dieStart[s] = 0f;
+                    body.gameObject.SetActive(false);
+                    body.localScale = b;
+                    continue;
+                }
+                body.localScale = new Vector3(b.x * (1f + 0.35f * k), b.y * (1f - k), b.z * (1f + 0.35f * k));
+            }
+        }
+
+        /// <summary>New fight: stop any defeat in progress and put the bodies back to their normal size.</summary>
+        private void ClearDefeats()
+        {
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+            {
+                if (_dieStart[s] <= 0f) continue;
+                _dieStart[s] = 0f;
+                Transform body = BodyOf(s);
+                if (body != null) body.localScale = BodyBaseScale(s);
+            }
+        }
+
         // ------------------------------------------------------------------ summoned minions
 
         private void UpdateMinions(int phase)
@@ -1332,7 +1435,7 @@ namespace WizardsVRC
             {
                 Transform body = minionBodies[s];
                 if (body == null) continue;
-                bool want = active && manager.IsSummon(s) && manager.Alive(s);
+                bool want = active && manager.IsSummon(s) && KeepBody(s);
                 if (!want)
                 {
                     _minionShown[s] = 0;
@@ -1474,6 +1577,7 @@ namespace WizardsVRC
         {
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); AnimateCircle(); AnimatePips(); }
             AnimateFlash();
+            AnimateDefeats();
             AnimatePops();
             AnimateFloaters();
             if (_inBattle && manager != null) { UpdateHudHealth(); AnimateCards(); }
