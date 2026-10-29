@@ -70,6 +70,8 @@ namespace WizardsVRC.EditorTools
             db.monsterNames = new string[n];
             db.monsterSchools = new int[n];
             db.monsterLevels = new int[n];
+            db.monsterRanks = new int[n];
+            db.monsterTypes = new string[n];
             db.monsterHps = new int[n];
             db.monsterSpells = new int[n * ms];
             db.monsterXps = new int[n];
@@ -89,6 +91,8 @@ namespace WizardsVRC.EditorTools
                 db.monsterNames[i] = m.name;
                 db.monsterSchools[i] = (int)m.school;
                 db.monsterLevels[i] = Mathf.Max(1, m.level);
+                db.monsterRanks[i] = Mathf.Max(1, m.rank);
+                db.monsterTypes[i] = m.creatureType != null ? m.creatureType.Trim() : "";
                 db.monsterHps[i] = Mathf.Max(1, m.health);
                 for (int k = 0; k < ms; k++) db.monsterSpells[i * ms + k] = k < m.spells.Count ? m.spells[k] : 0;
                 db.monsterXps[i] = m.xp;

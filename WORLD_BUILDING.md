@@ -4,7 +4,7 @@ Everything that makes up the explorable world is **data you edit in the Unity In
 
 | What | Asset | Holds |
 | --- | --- | --- |
-| Monsters | `Monsters.asset` (Monster Catalog) | id, name, school, level, health, **spell list**, XP, gold, drops, body size/colour |
+| Monsters | `Monsters.asset` (Monster Catalog) | id, name, school, level, **rank** and **creature type** (shown in the duel as "Rank 2 Life Plant"), health, **spell list**, XP, gold, drops, body size/colour |
 | Zones | `Zone_*.asset` (Zone) | the layout as a text map, **battle ring spots**, **patrol routes**, NPCs, quest points, **landmarks** (school halls, gates, shops...), colours. One zone is the **castle hub**. |
 | Quests | `Questline_*.asset` (Questline) | quests with steps, rewards, prerequisites, givers and dialogue; each questline is a **storyline** |
 | Worlds | `World_*.asset` (World) | a world's **goal**, the quest that sets it out, its **10+ storylines** and its **finale** |

@@ -404,6 +404,8 @@ namespace WizardsVRC
         [HideInInspector] public string[] monsterNames = { "Gloomfang the Warden", "Bone Thrall", "Marsh Sprite", "Courtyard Rat", "Gloom Wisp", "Lantern Snatcher", "Ashwick the Snuffer" };
         [HideInInspector] public int[] monsterSchools = { 4, 5, 3, 2, 4, 4, 4 };
         [HideInInspector] public int[] monsterLevels = { 5, 3, 2, 1, 1, 2, 4 };
+        [HideInInspector] public int[] monsterRanks = { 3, 2, 1, 1, 2, 2, 3 };
+        [HideInInspector] public string[] monsterTypes = { "Undead", "Undead", "Spirit", "Beast", "Spirit", "Goblin", "Spirit" };
         [HideInInspector] public int[] monsterHps = { 900, 320, 240, 180, 180, 260, 900 };
         /// <summary>MONSTER_SPELLS entries per monster, 0 = none. Monsters use heals on hurt allies and blades/shields on
         /// themselves as well as attacks (see BattleManager.PickForMonster).</summary>
@@ -447,6 +449,8 @@ namespace WizardsVRC
         public string MonsterName(int id) { int i = MonsterIndexOf(id); return i < 0 ? "Monster" : monsterNames[i]; }
         public int MonsterSchool(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterSchools[i]; }
         public int MonsterLevel(int id) { int i = MonsterIndexOf(id); return i < 0 ? 1 : monsterLevels[i]; }
+        public int MonsterRank(int id) { int i = MonsterIndexOf(id); return i < 0 || monsterRanks == null || i >= monsterRanks.Length ? 1 : monsterRanks[i]; }
+        public string MonsterType(int id) { int i = MonsterIndexOf(id); return i < 0 || monsterTypes == null || i >= monsterTypes.Length ? "" : monsterTypes[i]; }
         public int MonsterHp(int id) { int i = MonsterIndexOf(id); return i < 0 ? 100 : monsterHps[i]; }
         public int MonsterXp(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterXps[i]; }
         public int RollMonsterGold(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : Random.Range(monsterGoldMin[i], monsterGoldMax[i] + 1); }

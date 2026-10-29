@@ -29,6 +29,10 @@ namespace WizardsVRC.EditorTools.WorldData
         public string name = "New Monster";
         public School school = School.Death;
         [Range(1, 100)] public int level = 1;
+        [Tooltip("Power tier shown in the duel as \"Rank 2 Life Plant\" (Wizard101-style: roughly +1 per area; bosses a little higher).")]
+        [Range(1, 20)] public int rank = 1;
+        [Tooltip("Creature type shown after the school in the duel, e.g. Beast, Plant, Insect, Spirit, Undead, Goblin, Construct.")]
+        public string creatureType = "";
         [Tooltip("Health in battle.")]
         public int health = 200;
         [Tooltip("Bosses: shown with a bigger body in the boss seat and get extra health per extra wizard.")]

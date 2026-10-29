@@ -48,6 +48,23 @@ namespace WizardsVRC.EditorTools.WorldData
                 M(12, "Training Dummy", School.Balance, 1, 120, false, 0, new int[0], 15, 1, 3, 0, 0, 1f, new Color(0.7f, 0.55f, 0.35f),
                   "Starfall Castle practice ring. Never attacks (no spells), so new wizards can learn the duel ring safely."),
             };
+            foreach (var m in cat.monsters) ApplyDefaultRank(m);
+        }
+
+        // Rank and creature type of the default monsters, by id (index 0 unused).
+        private static readonly int[] DefaultRanks = { 0, 3, 2, 1, 1, 2, 2, 3, 1, 1, 1, 2, 1 };
+        private static readonly string[] DefaultTypes =
+        {
+            "", "Undead", "Undead", "Spirit", "Beast", "Spirit", "Goblin", "Spirit", "Beast", "Plant", "Insect", "Plant", "Construct",
+        };
+
+        /// <summary>Sets a default monster's rank and creature type (ids 1-12); others are left alone.</summary>
+        public static bool ApplyDefaultRank(MonsterEntry m)
+        {
+            if (m == null || m.id <= 0 || m.id >= DefaultRanks.Length) return false;
+            m.rank = DefaultRanks[m.id];
+            m.creatureType = DefaultTypes[m.id];
+            return true;
         }
 
         private static MonsterEntry M(int id, string name, School school, int level, int hp, bool boss, int hpExtra, int[] spells, int xp, int gMin, int gMax,

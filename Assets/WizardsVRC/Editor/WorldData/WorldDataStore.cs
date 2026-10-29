@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 5;
+        public const int CurrentVersion = 6;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -166,6 +166,31 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 3) UpgradeTo3();
             if (from < 4) UpgradeTo4();
             if (from < 5) UpgradeTo5();
+            if (from < 6) UpgradeTo6();
+        }
+
+        /// <summary>v6: monsters get a rank and creature type (shown in the duel as "Rank 2 Life Plant").</summary>
+        private static void UpgradeTo6()
+        {
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            if (cat == null) return;
+            var defaults = ScriptableObject.CreateInstance<MonsterCatalog>();
+            WorldDefaults.FillMonsters(defaults);
+            int n = 0;
+            foreach (var m in cat.monsters)
+            {
+                if (m == null || !string.IsNullOrEmpty(m.creatureType)) continue;
+                // Only the default monsters still carrying their default name get the default rank and type.
+                var d = defaults.Find(m.id);
+                if (d == null || d.name != m.name) continue;
+                if (WorldDefaults.ApplyDefaultRank(m)) n++;
+            }
+            if (n > 0)
+            {
+                EditorUtility.SetDirty(cat);
+                Debug.Log("[WizardsVRC] Upgraded world data: gave " + n + " monsters a rank and creature type. Set them for your own " +
+                          "monsters in Monsters.asset (Rank, Creature Type).");
+            }
         }
 
         /// <summary>v5: Old Briarwick (first area boss) loses his heal, Verdant Bloom, if his spells are still the defaults.</summary>

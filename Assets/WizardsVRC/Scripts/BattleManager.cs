@@ -381,15 +381,21 @@ namespace WizardsVRC
         /// <summary>Monsters and summoned minions have school resist/weakness; wizards rely on gear.</summary>
         public bool IsCreature(int s) { return Occupied(s) && (s >= SIDE || IsSummon(s)); }
 
-        /// <summary>"Weak to Ice, resists Fire" for a creature, or "".</summary>
+        /// <summary>
+        /// "Rank 2 Life Plant" for a monster, "Fire Minion" for a summoned minion, or "" (Wizard101-style: the school still
+        /// sets what the creature resists and is weak to, it just isn't spelled out).
+        /// </summary>
         public string MatchupText(int s)
         {
             if (!IsCreature(s) || cardDatabase == null) return "";
             int sc = school[s];
-            int opp = OppositeSchool(sc);
-            if (sc < 0) return "";
-            if (opp < 0) return "Resists " + cardDatabase.SchoolName(sc);
-            return "Weak to " + cardDatabase.SchoolName(opp) + ", resists " + cardDatabase.SchoolName(sc);
+            string schoolName = sc >= 0 ? cardDatabase.SchoolName(sc) : "";
+            if (slotIds[s] < 0) return (schoolName + " Minion").Trim();
+            string type = cardDatabase.MonsterType(slotIds[s]);
+            string text = "Rank " + cardDatabase.MonsterRank(slotIds[s]).ToString();
+            if (schoolName.Length > 0) text += " " + schoolName;
+            if (type.Length > 0) text += " " + type;
+            return text;
         }
 
         public string SlotName(int s)
