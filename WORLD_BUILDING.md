@@ -159,7 +159,7 @@ The story order the defaults set up (nothing with real monsters until the castle
 | 10 | The Spellbook | Librarian Wren: cards, pips, accuracy, the deck page (reward: mana draught) |
 | 11 | First Duel | Duel Master Holloway: the practice ring against training dummies that never attack. **Opens the Sunpetal Gardens gate.** |
 | 12 | Out Into the World | Bramwell sends you to Gardener Moss |
-| 13-15 | Weeds in the Garden, Pest Control, The Briar Heart | Sunpetal Gardens (Lv 1-3), boss Old Briarwick (attack + blade, no heal). **15 opens the Lantern Row gate and the boss arena.** |
+| 13-15 | Weeds in the Garden, Pest Control, The Briar Heart | Sunpetal Gardens (Lv 1-3), boss Old Briarwick (attack, blade, and Mend as his only heal). **15 opens the Lantern Row gate and the boss arena.** |
 | 2-7 | Lantern Row | now Lv 4-6, after the gardens |
 
 ### Placement

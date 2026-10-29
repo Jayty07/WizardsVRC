@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 6;
+        public const int CurrentVersion = 7;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -167,6 +167,21 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 4) UpgradeTo4();
             if (from < 5) UpgradeTo5();
             if (from < 6) UpgradeTo6();
+            if (from < 7) UpgradeTo7();
+        }
+
+        private const int MendId = 201;
+
+        /// <summary>v7: a project upgraded by the earlier v5 (Briarwick with no heal at all) gets Mend back in.</summary>
+        private static void UpgradeTo7()
+        {
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            var m = cat != null ? cat.Find(11) : null;
+            if (m == null || m.spells == null || m.spells.Count != 2 || m.spells[0] != 136 || m.spells[1] != 138) return;
+            m.spells.Insert(1, MendId);
+            if (m.notes != null) m.notes = m.notes.Replace("No heal: first boss for new wizards.", "Heals with Mend only: first boss for new wizards.");
+            EditorUtility.SetDirty(cat);
+            Debug.Log("[WizardsVRC] Upgraded world data: " + m.name + " heals with Mend.");
         }
 
         /// <summary>v6: monsters get a rank and creature type (shown in the duel as "Rank 2 Life Plant").</summary>
@@ -193,7 +208,7 @@ namespace WizardsVRC.EditorTools.WorldData
             }
         }
 
-        /// <summary>v5: Old Briarwick (first area boss) loses his heal, Verdant Bloom, if his spells are still the defaults.</summary>
+        /// <summary>v5: Old Briarwick (first area boss) swaps Verdant Bloom for Mend (a smaller heal), if his spells are still the defaults.</summary>
         private static void UpgradeTo5()
         {
             var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
@@ -201,10 +216,10 @@ namespace WizardsVRC.EditorTools.WorldData
             if (m == null || m.spells == null) return;
             if (m.spells.Count == 3 && m.spells[0] == 136 && m.spells[1] == 137 && m.spells[2] == 138)
             {
-                m.spells.Remove(137);
-                if (m.notes != null && !m.notes.Contains("No heal")) m.notes += " No heal: first boss for new wizards.";
+                m.spells[1] = MendId;
+                if (m.notes != null && !m.notes.Contains("Mend")) m.notes += " Heals with Mend only: first boss for new wizards.";
                 EditorUtility.SetDirty(cat);
-                Debug.Log("[WizardsVRC] Upgraded world data: " + m.name + " no longer heals (removed Verdant Bloom).");
+                Debug.Log("[WizardsVRC] Upgraded world data: " + m.name + " heals with Mend instead of Verdant Bloom.");
             }
             else Debug.Log("[WizardsVRC] Monster 11 (" + m.name + ") has edited spells, so its heal was left as you set it.");
         }
