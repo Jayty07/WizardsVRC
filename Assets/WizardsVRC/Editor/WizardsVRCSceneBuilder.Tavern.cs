@@ -29,8 +29,11 @@ namespace WizardsVRC.EditorTools
         private static float AngleGap(float a, float b) { return Mathf.Abs(Mathf.DeltaAngle(a, b)); }
 
         /// <summary>
-        /// If 'cell' lies in a tavern's block, the barkeep's spot (behind the bar's middle, on the tavern's floor) and the
-        /// way they face (into the room). The bar is on the east side, 13.5 m out (see TavernLandmark).
+        /// If 'cell' lies inside a tavern's round hall, the spot behind the bar for that NPC (on the tavern's floor) and the
+        /// way they face (into the room). The bar is on the east side, 13.5 m out (see TavernLandmark). Only cells within
+        /// the hall's wall count: the corners of the tavern's square block are outside, so NPCs painted there stay put.
+        /// When several NPCs are painted inside, the first stands at the bar's middle and the rest spread along it
+        /// (12 degrees apart, alternating sides) so nobody stands inside anyone else.
         /// </summary>
         private static bool TavernBarkeepSpot(ZoneGrid g, ZoneDefinition z, Vector2Int cell, out Vector3 pos, out Vector3 front)
         {
@@ -40,15 +43,43 @@ namespace WizardsVRC.EditorTools
             {
                 if (l == null || l.kind != LandmarkKind.Tavern) continue;
                 var fp = g.Footprint(l.Symbol);
-                if (fp.width == 0 || !fp.Contains(cell)) continue;
+                if (fp.width == 0 || !fp.Contains(cell) || !InTavernHall(g, fp, cell)) continue;
                 Vector3 c = RectCenter(g, fp);
                 var cells = g.Find(l.Symbol);
                 if (cells.Count > 0) c.y = g.Elevation(cells[0].x, cells[0].y);
-                pos = TPolar(c, 15.2f, 0f, 0f);
-                front = -TDir(0f);
+                // This NPC's place in line among the zone's NPCs inside this hall.
+                int slot = 0;
+                if (z.npcs != null)
+                    foreach (var other in z.npcs)
+                    {
+                        if (other == null) continue;
+                        var oc = g.Find(other.Symbol);
+                        if (oc.Count == 0) continue;
+                        if (oc[0] == cell) break;
+                        if (fp.Contains(oc[0]) && InTavernHall(g, fp, oc[0])) slot++;
+                    }
+                float a = slot == 0 ? 0f : ((slot + 1) / 2) * 12f * (slot % 2 == 1 ? 1f : -1f);
+                a = Mathf.Clamp(a, -24f, 24f);
+                pos = TPolar(c, 15.2f, a, 0f);
+                front = -TDir(a);
                 return true;
             }
             return false;
+        }
+
+        /// <summary>The tavern hall's wall radius for its block (the same as TavernLandmark builds).</summary>
+        private static float TavernRadius(ZoneGrid g, RectInt fp)
+        {
+            return Mathf.Max(8f, Mathf.Min(fp.width, fp.height) * g.cell * 0.5f - 4f);
+        }
+
+        /// <summary>True when the cell's centre is inside the tavern's round wall (not just its square block).</summary>
+        private static bool InTavernHall(ZoneGrid g, RectInt fp, Vector2Int cell)
+        {
+            Vector3 c = RectCenter(g, fp), p = g.Local(cell);
+            float dx = p.x - c.x, dz = p.z - c.z;
+            float r = TavernRadius(g, fp);
+            return dx * dx + dz * dz < r * r;
         }
 
         private static void TavernLandmark(Transform root, ZoneGrid g, ZoneDefinition z, ZoneLandmark l, List<UdonSharpBehaviour> behaviours,
@@ -58,7 +89,7 @@ namespace WizardsVRC.EditorTools
             Vector3 c = RectCenter(g, fp);
             var tCells = g.Find(l.Symbol);
             if (tCells.Count > 0) c.y = g.Elevation(tCells[0].x, tCells[0].y);
-            float R = Mathf.Max(8f, Mathf.Min(fp.width, fp.height) * g.cell * 0.5f - 4f);
+            float R = TavernRadius(g, fp);
             string name = string.IsNullOrEmpty(l.label) ? "The Crystal Tap" : l.label;
             Transform t = Child(root, "Tavern_" + l.symbol, Vector3.zero);
 
