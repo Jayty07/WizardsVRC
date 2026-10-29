@@ -307,14 +307,20 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ progression / spell helpers
 
+        /// <summary>XP needed to go from the current level to the next (xp counts up from 0 within each level).</summary>
+        public int XpToNextLevel()
+        {
+            return level * 100;
+        }
+
         /// <summary>Adds XP and applies level-ups (+health, +1 training point each). Returns the number of levels gained.</summary>
         public int AddXp(int amount)
         {
             xp += amount;
             int gained = 0;
-            while (level < MAX_LEVEL && xp >= level * 100)
+            while (level < MAX_LEVEL && xp >= XpToNextLevel())
             {
-                xp -= level * 100;
+                xp -= XpToNextLevel();
                 level++;
                 maxHealth += HEALTH_PER_LEVEL;
                 maxMana += MANA_PER_LEVEL;

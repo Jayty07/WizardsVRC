@@ -811,8 +811,8 @@ namespace WizardsVRC.EditorTools
             rt.localScale = Vector3.one * 0.0005f;
             hud.hudRoot = canvasGo;
 
-            Panel(rt, "Background", new Vector2(0, 70), new Vector2(420, 200), new Color(0.08f, 0.07f, 0.12f, 0.7f));
-            hud.questLabel = Label(rt, "Quest", new Vector2(0, -105), new Vector2(400, 120), "", 22, TextAnchor.UpperLeft);
+            Panel(rt, "Background", new Vector2(0, 58), new Vector2(420, 224), new Color(0.08f, 0.07f, 0.12f, 0.7f));
+            hud.questLabel = Label(rt, "Quest", new Vector2(0, -122), new Vector2(400, 120), "", 22, TextAnchor.UpperLeft);
             hud.questLabel.color = new Color(1f, 0.95f, 0.7f);
             hud.nameLabel = Label(rt, "Name", new Vector2(0, 135), new Vector2(400, 45), "", 28, TextAnchor.MiddleLeft);
             hud.healthLabel = Label(rt, "Health", new Vector2(0, 90), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
@@ -821,6 +821,27 @@ namespace WizardsVRC.EditorTools
             hud.manaLabel.color = new Color(0.55f, 0.75f, 1f);
             hud.goldLabel = Label(rt, "Gold", new Vector2(0, 6), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
             hud.goldLabel.color = new Color(1f, 0.85f, 0.35f);
+
+            // XP bar: dark track, left-pivoted fill (PlayerHUD scales its X), segment ticks on top, text over it all.
+            const int xpSegments = 20;
+            const float barW = 396f, barH = 22f, inner = 2f;
+            RectTransform track = Panel(rt, "XpBar", new Vector2(0, -30), new Vector2(barW, barH), new Color(0.02f, 0.015f, 0.05f, 0.95f));
+            RectTransform fill = Panel(track, "XpFill", Vector2.zero, new Vector2(barW - inner * 2, barH - inner * 2), hud.xpColor);
+            fill.anchorMin = fill.anchorMax = new Vector2(0f, 0.5f);
+            fill.pivot = new Vector2(0f, 0.5f);
+            fill.anchoredPosition = new Vector2(inner, 0f);
+            fill.localScale = new Vector3(0f, 1f, 1f);
+            hud.xpFill = fill;
+            hud.xpFillImage = fill.GetComponent<Image>();
+            hud.xpSegments = xpSegments;
+            for (int k = 1; k < xpSegments; k++)
+                Panel(track, "Tick" + k, new Vector2(-barW / 2f + inner + (barW - inner * 2) * k / xpSegments, 0f), new Vector2(2f, barH - inner * 2),
+                    new Color(0.02f, 0.015f, 0.05f, 0.95f));
+            // A lighter top row on the fill area for a little PSX bevel.
+            Panel(track, "Shine", new Vector2(0f, barH / 2f - inner - 2f), new Vector2(barW - inner * 2, 2f), new Color(1f, 1f, 1f, 0.18f));
+            hud.xpLabel = Label(track, "XpText", Vector2.zero, new Vector2(barW, barH), "", 16, TextAnchor.MiddleCenter);
+            var xpOutline = hud.xpLabel.gameObject.AddComponent<Outline>();
+            xpOutline.effectColor = Color.black;
             canvasGo.SetActive(false);
         }
 
