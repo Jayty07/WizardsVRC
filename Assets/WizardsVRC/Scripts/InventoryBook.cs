@@ -565,7 +565,10 @@ namespace WizardsVRC
             if (detailName != null)
                 detailName.text = itemDatabase.GetName(itemId) + "  (" + itemDatabase.GetCategoryName(itemDatabase.GetCategory(itemId)) + ")";
             if (detailBody != null)
-                detailBody.text = itemDatabase.GetDescription(itemId) + "\n" + itemDatabase.GetStatSummary(itemId);
+            {
+                string spells = itemDatabase.ItemCardText(itemId);
+                detailBody.text = itemDatabase.GetDescription(itemId) + "\n" + itemDatabase.GetStatSummary(itemId) + (spells.Length > 0 ? "\n" + spells : "");
+            }
 
             bool potion = !worn && itemDatabase.IsPotion(itemId);
             bool canAct = worn || potion || itemDatabase.IsEquippable(itemId);

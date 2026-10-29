@@ -223,7 +223,8 @@ namespace WizardsVRC
         private bool _defeated;
         private float _rejoinBlockUntil;
 
-        private int[] _pile = new int[CharacterData.DECK_SIZE];
+        /// <summary>The deck plus room for item cards from gear.</summary>
+        private int[] _pile = new int[CharacterData.DECK_SIZE + 32];
         private int _pileCount;
         private int[] _hand = new int[HAND_SIZE];
         private int _handCount;
@@ -830,6 +831,18 @@ namespace WizardsVRC
                 int id = c.deckCards[list * CharacterData.DECK_SIZE + i];
                 if (cardDatabase.IndexOf(id) >= 0) _pile[_pileCount++] = id;
             }
+            // Item cards (Wizard101): spells from equipped gear join the deck for the fight, whatever your school.
+            if (itemDatabase != null && itemDatabase.itemCardItems != null && itemDatabase.itemCardIds != null)
+                for (int s = 0; s < CharacterData.EQUIP_SLOTS; s++)
+                {
+                    int item = c.equipped[s];
+                    if (item == 0) continue;
+                    for (int k = 0; k < itemDatabase.itemCardItems.Length && k < itemDatabase.itemCardIds.Length && _pileCount < _pile.Length; k++)
+                    {
+                        int card = itemDatabase.itemCardIds[k];
+                        if (itemDatabase.itemCardItems[k] == item && cardDatabase.IndexOf(card) >= 0) _pile[_pileCount++] = card;
+                    }
+                }
             if (_pileCount == 0)
             {
                 int basic = cardDatabase.BasicSpell((int)c.school);

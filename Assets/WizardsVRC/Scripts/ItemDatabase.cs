@@ -69,7 +69,7 @@ namespace WizardsVRC
 
         [HideInInspector] public string[] descriptions =
         {
-            "A plain practice staff every apprentice is handed on day one.",
+            "A plain practice staff every apprentice is handed on day one. It holds one basic spell from every school.",
             "Sturdy, if unflattering, academy robes.",
             "A pointed felt hat. Mostly keeps the rain off.",
             "Comfortable boots for long walks between classes.",
@@ -117,6 +117,44 @@ namespace WizardsVRC
         }
 
         public bool Exists(int itemId) { return IndexOf(itemId) >= 0; }
+
+        [Header("Item cards (spells granted by gear)")]
+        [Tooltip("Wizard101 item cards: while the item in itemCardItems[i] is equipped, the spell itemCardIds[i] is added to " +
+                 "your battle deck once (on top of your deck, not using its space), and anyone can cast it whatever their school. " +
+                 "List an item several times to give several spells.")]
+        public int[] itemCardItems = { 1, 1, 1, 1, 1, 1, 1 };
+        [Tooltip("The Training Staff (item 1) gives one basic spell of every school: Fire, Ice, Storm, Life, Death, Myth, Balance.")]
+        public int[] itemCardIds = { 100, 112, 124, 136, 148, 160, 172 };
+        [Tooltip("For listing item cards by name.")]
+        public CardDatabase cardDatabase;
+
+        /// <summary>How many item cards all of the character's equipped gear adds to the battle deck.</summary>
+        public int EquippedItemCardCount(CharacterData c)
+        {
+            if (c == null || itemCardItems == null || itemCardIds == null) return 0;
+            int n = 0;
+            for (int s = 0; s < CharacterData.EQUIP_SLOTS; s++)
+            {
+                int item = c.equipped[s];
+                if (item == 0) continue;
+                for (int k = 0; k < itemCardItems.Length && k < itemCardIds.Length; k++) if (itemCardItems[k] == item) n++;
+            }
+            return n;
+        }
+
+        /// <summary>"Item spells: Ember Imp, Frost Mite..." for an item's details (empty when it gives none).</summary>
+        public string ItemCardText(int itemId)
+        {
+            if (itemCardItems == null || itemCardIds == null) return "";
+            string t = "";
+            for (int k = 0; k < itemCardItems.Length && k < itemCardIds.Length; k++)
+            {
+                if (itemCardItems[k] != itemId) continue;
+                string n = cardDatabase != null ? cardDatabase.GetName(itemCardIds[k]) : itemCardIds[k].ToString();
+                t += (t.Length == 0 ? "Item spells (added to your deck in battle): " : ", ") + n;
+            }
+            return t;
+        }
 
         public string GetName(int itemId)
         {

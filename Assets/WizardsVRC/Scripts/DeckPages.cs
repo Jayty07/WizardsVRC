@@ -288,7 +288,7 @@ namespace WizardsVRC
                 deckNameLabel.text = _deckItem > 0 ? itemDatabase.GetName(_deckItem) + (equipped ? "  (equipped)" : "") : "No deck";
             if (deckTitle != null)
                 deckTitle.text = _deckItem > 0
-                    ? count.ToString() + " / " + cap.ToString() + " spells, up to " + copies.ToString() + " copies each" + (_ownedCount > 1 ? "   (" + _ownedCount.ToString() + " decks owned)" : "")
+                    ? count.ToString() + " / " + cap.ToString() + " spells, up to " + copies.ToString() + " copies each" + ItemCardNote(c) + (_ownedCount > 1 ? "   (" + _ownedCount.ToString() + " decks owned)" : "")
                     : "Find a deck and equip it.";
             if (equipDeckButton != null) equipDeckButton.SetActive(_deckItem > 0 && !equipped);
 
@@ -340,6 +340,13 @@ namespace WizardsVRC
         private void SetStatus(string message)
         {
             if (statusLabel != null) statusLabel.text = message;
+        }
+
+        /// <summary>"  + 7 item spells from your gear" (Wizard101 item cards), or empty.</summary>
+        private string ItemCardNote(CharacterData c)
+        {
+            int n = itemDatabase != null ? itemDatabase.EquippedItemCardCount(c) : 0;
+            return n > 0 ? "  + " + n.ToString() + " item spell" + (n > 1 ? "s" : "") + " from your gear" : "";
         }
     }
 }
