@@ -200,8 +200,11 @@ def outline_alpha(img, c=OUT):
 
 
 # Vibrant card colours per school (frame); the badge icons keep their own softer palette.
-CARD = {'Fire': (255, 78, 18), 'Ice': (36, 166, 255), 'Storm': (170, 60, 255), 'Life': (30, 212, 70), 'Death': (122, 92, 170),
+CARD = {'Fire': (255, 78, 18), 'Ice': (36, 166, 255), 'Storm': (170, 60, 255), 'Life': (30, 212, 70), 'Death': (46, 42, 54),
         'Myth': (255, 194, 0), 'Balance': (240, 138, 40), 'General': (178, 186, 216)}
+# How much the bevel / art glow lighten toward white (dark schools keep it low so they stay dark).
+HIGHLIGHT = {'Death': 0.16}
+
 SCHOOLS = ['Fire', 'Ice', 'Storm', 'Life', 'Death', 'Myth', 'Balance', 'General']
 W, H = 80, 112
 
@@ -211,7 +214,8 @@ def frame_card(school, icons):
     img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     px = img.load()
     r = CARD[school]
-    L, D = mix(r, WHITE, 0.5), mix(r, (0, 0, 0), 0.42)
+    hl = HIGHLIGHT.get(school, 0.5)
+    L, D = mix(r, WHITE, hl), mix(r, (0, 0, 0), 0.42)
     banner = mix(r, (0, 0, 0), 0.25)
     inside = lambda x, y: in_round(x, y, 0, 0, W - 1, H - 1, 4)
     for y in range(H):
@@ -223,7 +227,7 @@ def frame_card(school, icons):
                 if (x < 5 or y < 5) and (x + y) < (W - 1 - x + H - 1 - y): c = L
                 elif W - 1 - x < 5 or H - 1 - y < 5: c = D
             # a bright inner rim line
-            if edge == 4: c = mix(r, WHITE, 0.25)
+            if edge == 4: c = mix(r, WHITE, hl * 0.5)
             px[x, y] = c + (255,)
     for y in range(H):
         for x in range(W):
@@ -232,15 +236,15 @@ def frame_card(school, icons):
     frame(px, 5, 5, W - 6, H - 6, PARCH_D)
     # name banner
     rect(px, 15, 7, W - 16, 17, banner); frame(px, 15, 7, W - 16, 17, OUT)
-    for x in range(16, W - 16): px[x, 8] = mix(r, WHITE, 0.35) + (255,)
+    for x in range(16, W - 16): px[x, 8] = mix(r, WHITE, hl * 0.7) + (255,)
     # art window: a school-coloured glow (no picture until spells have art)
     rect(px, 10, 20, W - 11, 60, OUT)
-    grad(px, 11, 21, W - 12, 59, mix(r, WHITE, 0.6), mix(r, (0, 0, 0), 0.15))
+    grad(px, 11, 21, W - 12, 59, mix(r, WHITE, hl * 1.2), mix(r, (0, 0, 0), 0.15))
     cx, cy = W / 2, 40
     for y in range(21, 60):
         for x in range(11, W - 11):
             d = math.hypot((x - cx) / 1.2, y - cy)
-            if d < 13 and BAYER[y % 4][x % 4] < (13 - d) * 1.4: px[x, y] = mix(px[x, y][:3], WHITE, 0.45) + (255,)
+            if d < 13 and BAYER[y % 4][x % 4] < (13 - d) * 1.4: px[x, y] = mix(px[x, y][:3], WHITE, hl * 0.9) + (255,)
     frame(px, 10, 20, W - 11, 60, GOLD_D)
     for x in range(11, W - 11): px[x, 21] = GOLD_L + (255,)
     # pip gem
