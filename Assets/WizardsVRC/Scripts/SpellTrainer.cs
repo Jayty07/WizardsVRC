@@ -24,13 +24,24 @@ namespace WizardsVRC
         public GameObject panelRoot;
         public Text titleLabel;
         public Text pointsLabel;
+        [Tooltip("Each spell is a small card (frame, name, pip cost, art) with its status under it.")]
         public GameObject[] rowRoots;
         public Image[] rowIcons;
         public Text[] rowNames;
         public Text[] rowInfo;
+        public Text[] rowPips;
+        public RawImage[] rowArts;
         public GameObject detailsPanel;
         public Text detailName;
         public Text detailBody;
+        [Header("The selected spell as a full card")]
+        public Image detailFrame;
+        public Text detailCardName;
+        public Text detailPips;
+        public RawImage detailArt;
+        public Text detailAccuracy;
+        public Text detailInfo;
+        public Text detailSchool;
         public GameObject learnButton;
         public Text learnLabel;
         public Text statusLabel;
@@ -164,10 +175,11 @@ namespace WizardsVRC
                 if (rowRoots != null && r < rowRoots.Length && rowRoots[r] != null) rowRoots[r].SetActive(has);
                 if (!has) continue;
                 int id = _ids[r];
-                Color col = cardDatabase.GetColor(id);
-                if (id == _selected) col = Color.Lerp(col, Color.white, 0.35f);
-                rowIcons[r].color = col;
-                rowNames[r].text = cardDatabase.GetName(id);
+                // Spells you can't learn yet are greyed out; the selected one is highlighted.
+                Image frame = rowIcons != null && r < rowIcons.Length ? rowIcons[r] : null;
+                cardDatabase.FillCard(id, frame, rowNames[r], rowPips != null && r < rowPips.Length ? rowPips[r] : null,
+                    rowArts != null && r < rowArts.Length ? rowArts[r] : null, null, null, null, !c.HasLearned(id) && !CanLearnNow(c, id));
+                if (frame != null && id == _selected) frame.color = new Color(1f, 1f, 0.72f);
                 rowInfo[r].text = RowStatus(c, id);
             }
 
@@ -176,10 +188,20 @@ namespace WizardsVRC
             if (!sel) return;
             detailName.text = cardDatabase.GetName(_selected);
             detailBody.text = cardDatabase.GetDetails(_selected);
+            cardDatabase.FillCard(_selected, detailFrame, detailCardName, detailPips, detailArt, detailAccuracy, detailInfo, detailSchool, false);
             bool canTry = !c.HasLearned(_selected) && !cardDatabase.IsQuestSpell(_selected);
             if (learnButton != null) learnButton.SetActive(canTry);
             if (learnLabel != null)
                 learnLabel.text = cardDatabase.LearnCost(c, _selected) == 0 ? "Learn (free)" : "Learn (1 point)";
+        }
+
+        /// <summary>Could be learned right now (level, previous spell and training points all OK).</summary>
+        private bool CanLearnNow(CharacterData c, int id)
+        {
+            if (cardDatabase.IsQuestSpell(id) || c.level < cardDatabase.GetLevelReq(id)) return false;
+            int pre = cardDatabase.GetPrereq(id);
+            if (pre > 0 && !c.HasLearned(pre)) return false;
+            return c.trainingPoints >= cardDatabase.LearnCost(c, id);
         }
 
         private string RowStatus(CharacterData c, int id)

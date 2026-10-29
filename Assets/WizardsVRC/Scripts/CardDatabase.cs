@@ -1,5 +1,6 @@
 using UdonSharp;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace WizardsVRC
 {
@@ -309,6 +310,68 @@ namespace WizardsVRC
         public string SchoolName(int school)
         {
             return school >= 0 && school < schoolNames.Length ? schoolNames[school] : "General";
+        }
+
+        // ------------------------------------------------------------------ card faces (book, professors, new spell popup)
+
+        [Header("Card art (filled by the builder)")]
+        [Tooltip("Card frame per school (index School, 7 = General): the same art as the cards in your hand.")]
+        public Sprite[] cardFrames;
+        [Tooltip("Shield / blade / trap icons for the art window: index kind * 8 + school (7 = General / any school).")]
+        public Texture[] effectIcons;
+
+        /// <summary>Frame art for the card's school (null when there is none).</summary>
+        public Sprite FrameFor(int cardId)
+        {
+            if (cardFrames == null || cardFrames.Length == 0) return null;
+            int sc = GetSchool(cardId);
+            int i = sc >= 0 && sc < 7 ? sc : 7;
+            return i < cardFrames.Length ? cardFrames[i] : cardFrames[cardFrames.Length - 1];
+        }
+
+        /// <summary>Art for the card's picture window: shields, blades and traps show their icon; others have none yet.</summary>
+        public Texture ArtFor(int cardId)
+        {
+            int e = GetEffect(cardId);
+            int kind = -1, sc = GENERAL;
+            if (e == EFFECT_WARD) { kind = 0; sc = ShieldSchool(cardId); }
+            else if (e == EFFECT_TAUNT) { kind = 0; sc = ANY_SCHOOL; }
+            else if (e == EFFECT_EMPOWER) { kind = 1; sc = BladeSchool(cardId); }
+            else if (e == EFFECT_TRIBLADE) { kind = 1; sc = ANY_SCHOOL; }
+            else if (e == EFFECT_TRAP) { kind = 2; sc = TrapSchool(cardId); }
+            if (kind < 0 || effectIcons == null) return null;
+            int i = kind * 8 + (sc >= 0 && sc < 7 ? sc : 7);
+            return i < effectIcons.Length ? effectIcons[i] : null;
+        }
+
+        /// <summary>
+        /// Draws a spell as a card, like the ones in your hand: school frame, name, pip cost, art, accuracy, effect and
+        /// school. Any part may be null (small cards leave some out). Dim greys it out (can't use / learn it yet).
+        /// </summary>
+        public void FillCard(int cardId, Image frame, Text cardName, Text pips, RawImage art, Text accuracy, Text info, Text school, bool dim)
+        {
+            if (frame != null)
+            {
+                Sprite f = FrameFor(cardId);
+                if (f != null)
+                {
+                    if (frame.sprite != f) frame.sprite = f;
+                    frame.color = dim ? new Color(0.5f, 0.5f, 0.53f) : Color.white;
+                }
+                else frame.color = dim ? Color.Lerp(GetColor(cardId), new Color(0.35f, 0.35f, 0.35f), 0.7f) : GetColor(cardId);
+            }
+            if (cardName != null) cardName.text = GetName(cardId);
+            if (pips != null) pips.text = GetPipCost(cardId).ToString();
+            if (art != null)
+            {
+                Texture t = ArtFor(cardId);
+                art.texture = t;
+                art.color = dim ? new Color(0.5f, 0.5f, 0.52f) : Color.white;
+                if (art.gameObject.activeSelf != (t != null)) art.gameObject.SetActive(t != null);
+            }
+            if (accuracy != null) accuracy.text = GetAccuracy(cardId).ToString() + "%";
+            if (info != null) info.text = GetEffectText(cardId);
+            if (school != null) school.text = SchoolName(GetSchool(cardId));
         }
 
         public Color GetColor(int cardId)

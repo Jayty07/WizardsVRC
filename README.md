@@ -125,7 +125,7 @@ Saves happen on create, on select/swap (the previous character is saved first), 
 ## The book
 
 **B** (desktop), the hub button or the backpack pedestal opens it. Bookmarks: **Pack** (equipment and items),
-**Deck** (decks and spells), **Quests**, and **Settings** (HUD and quest-arrow toggles, Save Now, Return to Starfall
+**Deck** (decks and spells, shown as the same spell cards as in battle), **Quests**, and **Settings** (HUD and quest-arrow toggles, Save Now, Return to Starfall
 Castle, and Change Character, which saves and takes you back to the select room).
 
 ## The start of the game

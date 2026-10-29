@@ -31,13 +31,15 @@ namespace WizardsVRC.EditorTools
             UdonBehaviour popupTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(popup);
             Panel(pr, "Background", Vector2.zero, new Vector2(900, 700), new Color(0.12f, 0.09f, 0.2f, 0.96f));
             Label(pr, "Header", new Vector2(0, 300), new Vector2(860, 70), "NEW SPELL!", 52, TextAnchor.MiddleCenter).color = new Color(1f, 0.85f, 0.35f);
-            RectTransform card = Panel(pr, "Card", new Vector2(-220, -10), new Vector2(340, 480), Color.gray);
-            popup.cardFrame = card.GetComponent<Image>();
-            Panel(card, "Art", new Vector2(0, 40), new Vector2(290, 230), new Color(1f, 1f, 1f, 0.25f));
-            popup.cardName = Label(card, "Name", new Vector2(0, 195), new Vector2(320, 60), "", 30, TextAnchor.MiddleCenter);
-            popup.cardPips = Label(card, "Pips", new Vector2(-130, 195), new Vector2(60, 60), "", 32, TextAnchor.MiddleCenter);
-            popup.cardSchool = Label(card, "School", new Vector2(0, -105), new Vector2(320, 40), "", 24, TextAnchor.MiddleCenter);
-            popup.cardEffect = Label(card, "Effect", new Vector2(0, -175), new Vector2(300, 100), "", 22, TextAnchor.UpperCenter);
+            // The new spell as a card, with the same art as in battle.
+            var card = CardFace(pr, "Card", new Vector2(-220, -10), 1.7f, false, null, null);
+            popup.cardFrame = card.frame;
+            popup.cardName = card.name;
+            popup.cardPips = card.pips;
+            popup.cardArt = card.art;
+            popup.cardAccuracy = card.accuracy;
+            popup.cardSchool = card.school;
+            popup.cardEffect = card.info;
             popup.congratsLabel = Label(pr, "Congrats", new Vector2(190, 40), new Vector2(440, 300), "", 30, TextAnchor.MiddleLeft);
             Button(pr, "OK", new Vector2(190, -220), new Vector2(240, 80), "OK", TrainerButton, popupTarget, nameof(NewSpellPopup.Hide));
             popupGo.SetActive(false);
@@ -62,30 +64,44 @@ namespace WizardsVRC.EditorTools
             trainer.titleLabel.color = new Color(1f, 0.85f, 0.4f);
             trainer.pointsLabel = Label(tr, "Points", new Vector2(0, 350), new Vector2(1300, 45), "", 28, TextAnchor.MiddleCenter);
 
+            // The school's spells as cards (the same art as in battle), four to a row, each with its status under it:
+            // greyed out until you can learn it, highlighted when picked.
             int rows = SpellTrainer.ROWS;
             trainer.rowRoots = new GameObject[rows];
             trainer.rowIcons = new Image[rows];
             trainer.rowNames = new Text[rows];
             trainer.rowInfo = new Text[rows];
+            trainer.rowPips = new Text[rows];
+            trainer.rowArts = new RawImage[rows];
             for (int r = 0; r < rows; r++)
             {
-                GameObject b = Button(tr, "Row" + r, new Vector2(-330, 295 - r * 66), new Vector2(660, 60), "", Color.gray, tTarget, "Row" + r);
-                Text nameText = b.GetComponentInChildren<Text>();
-                nameText.alignment = TextAnchor.MiddleLeft;
-                nameText.rectTransform.offsetMin = new Vector2(20, 0);
-                nameText.fontSize = 24;
-                Text info = Label(b.transform, "Info", new Vector2(110, 0), new Vector2(420, 58), "", 19, TextAnchor.MiddleRight);
-                trainer.rowRoots[r] = b;
-                trainer.rowIcons[r] = b.GetComponent<Image>();
-                trainer.rowNames[r] = nameText;
+                int col = r % 4, row = r / 4;
+                Vector2 at = new Vector2(-600 + col * 152, 210 - row * 225);
+                var card = CardFace(tr, "Row" + r, at, 0.64f, true, tTarget, "Row" + r);
+                // The status sits under the card, as part of it (so it hides with the card).
+                Text info = Label(card.root.transform, "Info", new Vector2(0, -172), new Vector2(230, 56), "", 26, TextAnchor.UpperCenter);
+                info.raycastTarget = false;
+                trainer.rowRoots[r] = card.root;
+                trainer.rowIcons[r] = card.frame;
+                trainer.rowNames[r] = card.name;
+                trainer.rowPips[r] = card.pips;
+                trainer.rowArts[r] = card.art;
                 trainer.rowInfo[r] = info;
             }
 
             RectTransform details = Panel(tr, "Details", new Vector2(345, 30), new Vector2(620, 560), new Color(0.2f, 0.16f, 0.3f));
             trainer.detailsPanel = details.gameObject;
-            trainer.detailName = Label(details, "SpellName", new Vector2(0, 220), new Vector2(580, 60), "", 34, TextAnchor.MiddleCenter);
-            trainer.detailBody = Label(details, "SpellBody", new Vector2(0, 40), new Vector2(560, 260), "", 26, TextAnchor.UpperLeft);
-            trainer.learnButton = Button(details, "Learn", new Vector2(0, -200), new Vector2(320, 85), "Learn", new Color(0.25f, 0.5f, 0.3f), tTarget, nameof(SpellTrainer.LearnSelected));
+            var big = CardFace(details, "SpellCard", new Vector2(-170, 60), 1.3f, false, null, null);
+            trainer.detailFrame = big.frame;
+            trainer.detailCardName = big.name;
+            trainer.detailPips = big.pips;
+            trainer.detailArt = big.art;
+            trainer.detailAccuracy = big.accuracy;
+            trainer.detailInfo = big.info;
+            trainer.detailSchool = big.school;
+            trainer.detailName = Label(details, "SpellName", new Vector2(150, 220), new Vector2(300, 60), "", 30, TextAnchor.MiddleLeft);
+            trainer.detailBody = Label(details, "SpellBody", new Vector2(150, 40), new Vector2(300, 300), "", 20, TextAnchor.UpperLeft);
+            trainer.learnButton = Button(details, "Learn", new Vector2(0, -225), new Vector2(320, 80), "Learn", new Color(0.25f, 0.5f, 0.3f), tTarget, nameof(SpellTrainer.LearnSelected));
             trainer.learnLabel = trainer.learnButton.GetComponentInChildren<Text>();
             details.gameObject.SetActive(false);
 

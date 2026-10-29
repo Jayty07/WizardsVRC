@@ -221,6 +221,7 @@ namespace WizardsVRC.EditorTools
 
             BuildSelectCanvasContents(selectCanvas, selectUI);
             BuildHubCanvasContents(hubCanvas, selectUI, book);
+            AssignCardArt(cardDb);
             BuildInventoryBook(book, hud, deckPages, questPages);
             BuildHud(hud);
             Transform hubRoot = hubSpawn.parent;
@@ -754,23 +755,28 @@ namespace WizardsVRC.EditorTools
             deck.deckTitle = InkLabel(left, "DeckTitle", new Vector2(0, 320), new Vector2(800, 45), "", 24, TextAnchor.MiddleCenter);
 
             int deckCells = DeckPages.DECK_CELLS;
+            // The deck's spells as small cards (the same art as in battle), each with how many copies it holds.
             deck.deckCellRoots = new GameObject[deckCells];
             deck.deckCellIcons = new Image[deckCells];
             deck.deckCellNames = new Text[deckCells];
             deck.deckCellCounts = new Text[deckCells];
+            deck.deckCellPips = new Text[deckCells];
+            deck.deckCellArts = new RawImage[deckCells];
             for (int i = 0; i < deckCells; i++)
             {
-                int col = i % 4, row = i / 4;
-                GameObject b = Button(left, "DeckCell" + i, new Vector2(-300 + col * 200, 230 - row * 125), new Vector2(185, 110), "", Color.gray, target, "DeckCell" + i);
-                Text nameText = b.GetComponentInChildren<Text>();
-                nameText.fontSize = 20;
-                Text countText = Label(b.transform, "Count", new Vector2(55, 35), new Vector2(70, 32), "", 22, TextAnchor.UpperRight);
-                deck.deckCellRoots[i] = b;
-                deck.deckCellIcons[i] = b.GetComponent<Image>();
-                deck.deckCellNames[i] = nameText;
+                int col = i % 5, row = i / 5;
+                var card = CardFace(left, "DeckCell" + i, new Vector2(-264 + col * 132, 222 - row * 160), 0.55f, true, target, "DeckCell" + i);
+                Text countText = CardText(card.root.transform, "Count", new Vector2(58, -112), new Vector2(80, 44), 34, TextAnchor.MiddleRight, Color.white);
+                countText.fontStyle = FontStyle.Bold;
+                countText.gameObject.AddComponent<Outline>().effectColor = new Color(0.12f, 0.09f, 0.14f);
+                deck.deckCellRoots[i] = card.root;
+                deck.deckCellIcons[i] = card.frame;
+                deck.deckCellNames[i] = card.name;
+                deck.deckCellPips[i] = card.pips;
+                deck.deckCellArts[i] = card.art;
                 deck.deckCellCounts[i] = countText;
             }
-            deck.statusLabel = InkLabel(left, "Status", new Vector2(0, -360), new Vector2(800, 50), "", 26, TextAnchor.MiddleCenter);
+            deck.statusLabel = InkLabel(left, "Status", new Vector2(0, -385), new Vector2(800, 50), "", 26, TextAnchor.MiddleCenter);
             Button(left, "Close", new Vector2(-250, -460), new Vector2(220, 65), "Close", new Color(0.45f, 0.25f, 0.15f), bookTarget, "CloseBook");
 
             // ---- right page: spellbook
@@ -787,18 +793,21 @@ namespace WizardsVRC.EditorTools
             }
 
             int bookCells = DeckPages.BOOK_CELLS;
+            // Every spell you know, as a card.
             deck.bookCellRoots = new GameObject[bookCells];
             deck.bookCellIcons = new Image[bookCells];
             deck.bookCellNames = new Text[bookCells];
+            deck.bookCellPips = new Text[bookCells];
+            deck.bookCellArts = new RawImage[bookCells];
             for (int i = 0; i < bookCells; i++)
             {
                 int col = i % 4, row = i / 4;
-                GameObject b = Button(right, "BookCell" + i, new Vector2(-300 + col * 200, 270 - row * 165), new Vector2(185, 150), "", Color.gray, target, "BookCell" + i);
-                Text nameText = b.GetComponentInChildren<Text>();
-                nameText.fontSize = 22;
-                deck.bookCellRoots[i] = b;
-                deck.bookCellIcons[i] = b.GetComponent<Image>();
-                deck.bookCellNames[i] = nameText;
+                var card = CardFace(right, "BookCell" + i, new Vector2(-270 + col * 180, 268 - row * 163), 0.56f, true, target, "BookCell" + i);
+                deck.bookCellRoots[i] = card.root;
+                deck.bookCellIcons[i] = card.frame;
+                deck.bookCellNames[i] = card.name;
+                deck.bookCellPips[i] = card.pips;
+                deck.bookCellArts[i] = card.art;
             }
             Button(right, "PrevPage", new Vector2(-300, -180), new Vector2(150, 60), "<", tabOff, target, "PrevPage");
             deck.pageLabel = InkLabel(right, "Page", new Vector2(0, -180), new Vector2(420, 50), "Page 1 / 1", 26, TextAnchor.MiddleCenter);
@@ -806,8 +815,17 @@ namespace WizardsVRC.EditorTools
 
             RectTransform details = Panel(right, "Details", new Vector2(0, -360), new Vector2(810, 270), new Color(0.82f, 0.74f, 0.58f));
             deck.detailsPanel = details.gameObject;
-            deck.detailName = InkLabel(details, "SpellName", new Vector2(-110, 100), new Vector2(570, 50), "", 30, TextAnchor.MiddleLeft);
-            deck.detailBody = InkLabel(details, "SpellBody", new Vector2(-110, -25), new Vector2(570, 190), "", 22, TextAnchor.UpperLeft);
+            // The selected spell as a full card, its details beside it.
+            var big = CardFace(details, "SpellCard", new Vector2(-305, 0), 0.88f, false, null, null);
+            deck.detailFrame = big.frame;
+            deck.detailCardName = big.name;
+            deck.detailPips = big.pips;
+            deck.detailArt = big.art;
+            deck.detailAccuracy = big.accuracy;
+            deck.detailInfo = big.info;
+            deck.detailSchool = big.school;
+            deck.detailName = InkLabel(details, "SpellName", new Vector2(0, 100), new Vector2(380, 50), "", 30, TextAnchor.MiddleLeft);
+            deck.detailBody = InkLabel(details, "SpellBody", new Vector2(0, -25), new Vector2(380, 190), "", 20, TextAnchor.UpperLeft);
             deck.addButton = Button(details, "Add", new Vector2(300, 40), new Vector2(180, 70), "Add", new Color(0.25f, 0.5f, 0.3f), target, "AddSelected");
             deck.removeButton = Button(details, "Remove", new Vector2(300, -55), new Vector2(180, 70), "Remove", new Color(0.55f, 0.25f, 0.2f), target, "RemoveSelected");
             details.gameObject.SetActive(false);

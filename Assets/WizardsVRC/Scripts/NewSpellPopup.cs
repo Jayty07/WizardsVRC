@@ -16,6 +16,8 @@ namespace WizardsVRC
         public Text cardSchool;
         public Text cardEffect;
         public Text cardPips;
+        public Text cardAccuracy;
+        public RawImage cardArt;
         public Text congratsLabel;
         public AudioSource chime;
 
@@ -32,11 +34,7 @@ namespace WizardsVRC
         public void Show(int cardId)
         {
             if (popupRoot == null || cardDatabase == null) return;
-            cardFrame.color = cardDatabase.GetColor(cardId);
-            cardName.text = cardDatabase.GetName(cardId);
-            cardSchool.text = cardDatabase.SchoolName(cardDatabase.GetSchool(cardId));
-            cardEffect.text = cardDatabase.GetEffectText(cardId);
-            cardPips.text = cardDatabase.GetPipCost(cardId).ToString();
+            cardDatabase.FillCard(cardId, cardFrame, cardName, cardPips, cardArt, cardAccuracy, cardEffect, cardSchool, false);
             congratsLabel.text = "Congratulations!\nYou learned " + cardDatabase.GetName(cardId) + "!\nAdd it to a deck from the Deck tab of your book (B).";
 
             VRCPlayerApi local = Networking.LocalPlayer;

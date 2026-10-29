@@ -28,21 +28,35 @@ namespace WizardsVRC
         public Text deckNameLabel;
         public GameObject equipDeckButton;
         public GameObject[] deckCellRoots;
+        [Tooltip("Each deck cell is a small spell card: its frame, name, pip cost and art.")]
         public Image[] deckCellIcons;
         public Text[] deckCellNames;
         public Text[] deckCellCounts;
+        public Text[] deckCellPips;
+        public RawImage[] deckCellArts;
         public Text statusLabel;
 
         [Header("Right page: spellbook")]
         public Image[] filterImages;
         public Text schoolFilterLabel;
         public GameObject[] bookCellRoots;
+        [Tooltip("Each spellbook cell is a small spell card: its frame, name, pip cost and art.")]
         public Image[] bookCellIcons;
         public Text[] bookCellNames;
+        public Text[] bookCellPips;
+        public RawImage[] bookCellArts;
         public Text pageLabel;
         public GameObject detailsPanel;
         public Text detailName;
         public Text detailBody;
+        [Header("The selected spell as a full card")]
+        public Image detailFrame;
+        public Text detailCardName;
+        public Text detailPips;
+        public RawImage detailArt;
+        public Text detailAccuracy;
+        public Text detailInfo;
+        public Text detailSchool;
         public GameObject addButton;
         public GameObject removeButton;
 
@@ -298,9 +312,11 @@ namespace WizardsVRC
                 if (deckCellRoots != null && cell < deckCellRoots.Length && deckCellRoots[cell] != null) deckCellRoots[cell].SetActive(has);
                 if (!has) continue;
                 int id = _deckUnique[cell];
-                if (deckCellIcons[cell] != null) deckCellIcons[cell].color = cardDatabase.GetColor(id);
-                if (deckCellNames[cell] != null) deckCellNames[cell].text = cardDatabase.GetName(id);
-                if (deckCellCounts[cell] != null) deckCellCounts[cell].text = "x" + c.CountInDeck(list, id).ToString();
+                Image frame = ImageAt(deckCellIcons, cell);
+                cardDatabase.FillCard(id, frame, TextAt(deckCellNames, cell), TextAt(deckCellPips, cell), ArtAt(deckCellArts, cell), null, null, null, false);
+                if (frame != null && id == _selected) frame.color = _picked;
+                Text countText = TextAt(deckCellCounts, cell);
+                if (countText != null) countText.text = "x" + c.CountInDeck(list, id).ToString();
             }
 
             if (schoolFilterLabel != null) schoolFilterLabel.text = cardDatabase.SchoolName((int)c.school);
@@ -316,8 +332,9 @@ namespace WizardsVRC
                 if (bookCellRoots != null && cell < bookCellRoots.Length && bookCellRoots[cell] != null) bookCellRoots[cell].SetActive(has);
                 if (!has) continue;
                 int id = _known[i];
-                if (bookCellIcons[cell] != null) bookCellIcons[cell].color = cardDatabase.GetColor(id);
-                if (bookCellNames[cell] != null) bookCellNames[cell].text = cardDatabase.GetName(id);
+                Image frame = ImageAt(bookCellIcons, cell);
+                cardDatabase.FillCard(id, frame, TextAt(bookCellNames, cell), TextAt(bookCellPips, cell), ArtAt(bookCellArts, cell), null, null, null, false);
+                if (frame != null && id == _selected) frame.color = _picked;
             }
             if (pageLabel != null) pageLabel.text = "Page " + (_page + 1).ToString() + " / " + PageCount().ToString();
 
@@ -326,11 +343,18 @@ namespace WizardsVRC
             if (!show) return;
             int inDeck = list >= 0 ? c.CountInDeck(list, _selected) : 0;
             if (detailName != null) detailName.text = cardDatabase.GetName(_selected);
+            cardDatabase.FillCard(_selected, detailFrame, detailCardName, detailPips, detailArt, detailAccuracy, detailInfo, detailSchool, false);
             if (detailBody != null)
                 detailBody.text = cardDatabase.GetDetails(_selected) + "\nIn this deck: " + inDeck.ToString() + " / " + copies.ToString();
             if (addButton != null) addButton.SetActive(cardDatabase.Knows(c, _selected));
             if (removeButton != null) removeButton.SetActive(inDeck > 0);
         }
+
+        private Color _picked = new Color(1f, 1f, 0.72f);
+
+        private Image ImageAt(Image[] a, int i) { return a != null && i >= 0 && i < a.Length ? a[i] : null; }
+        private Text TextAt(Text[] a, int i) { return a != null && i >= 0 && i < a.Length ? a[i] : null; }
+        private RawImage ArtAt(RawImage[] a, int i) { return a != null && i >= 0 && i < a.Length ? a[i] : null; }
 
         private bool HasCharacter()
         {
