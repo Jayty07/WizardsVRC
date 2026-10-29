@@ -459,14 +459,14 @@ namespace WizardsVRC.EditorTools
             float yaw = Mathf.Atan2(-front.x, -front.z) * Mathf.Rad2Deg;
             int id = QuestManager.NPC_STREET_FIRST + wb.npcCutscenes.Count;
 
-            Transform t = Wizard(root, "NPC_" + npc.key, pos, yaw, npc.robeColor, npc.hatColor, npc.beard, npc.displayName);
-            Transform hint = t.Find("TalkHint");
-            if (hint != null && hint.GetComponent<Text>() != null) hint.GetComponent<Text>().text = "(click to talk)";
+            Transform t = Wizard(root, "NPC_" + npc.key, pos, yaw, npc.robeColor, npc.hatColor, npc.beard, npc.displayName, "(click to talk)");
             var qn = UdonSharpUndo.AddComponent<QuestNpc>(t.gameObject);
             qn.questManager = qm;
             qn.npcId = id;
-            qn.marker = WorldText(t, "QuestMarker", new Vector3(0, 4.4f, 0), Quaternion.identity, new Vector2(300, 300), 0.008f, "", 220);
-            qn.marker.color = new Color(1f, 0.85f, 0.2f);
+            qn.markerNew = MarkerTag(t, "QuestMarkerNew", new Vector3(0, 4.5f, 0), "!");
+            qn.markerTalk = MarkerTag(t, "QuestMarkerTalk", new Vector3(0, 4.5f, 0), "?");
+            if (qn.markerNew != null) qn.markerNew.SetActive(false);
+            if (qn.markerTalk != null) qn.markerTalk.SetActive(false);
             UdonBehaviour backing = UdonSharpEditorUtility.GetBackingUdonBehaviour(qn);
             if (backing != null) backing.interactText = "Talk";
 

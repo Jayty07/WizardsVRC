@@ -14,6 +14,11 @@ namespace WizardsVRC
     {
         public QuestManager questManager;
         public int npcId;
+        [Tooltip("Shown when this NPC has a new quest for you (a billboard \"!\").")]
+        public GameObject markerNew;
+        [Tooltip("Shown when one of your quests wants you to talk to this NPC (a billboard \"?\").")]
+        public GameObject markerTalk;
+        [Tooltip("Optional text marker (older scenes): set to \"!\" or \"?\".")]
         public Text marker;
 
         private float _next;
@@ -25,11 +30,17 @@ namespace WizardsVRC
 
         private void Update()
         {
-            if (marker == null || questManager == null || Time.time < _next) return;
+            if (questManager == null || Time.time < _next) return;
             _next = Time.time + 1f;
             int m = questManager.NpcMarker(npcId);
-            string t = m == QuestManager.MARKER_NEW ? "!" : (m == QuestManager.MARKER_TALK ? "?" : "");
-            if (marker.text != t) marker.text = t;
+            bool isNew = m == QuestManager.MARKER_NEW, isTalk = m == QuestManager.MARKER_TALK;
+            if (markerNew != null && markerNew.activeSelf != isNew) markerNew.SetActive(isNew);
+            if (markerTalk != null && markerTalk.activeSelf != isTalk) markerTalk.SetActive(isTalk);
+            if (marker != null)
+            {
+                string t = isNew ? "!" : (isTalk ? "?" : "");
+                if (marker.text != t) marker.text = t;
+            }
         }
     }
 }

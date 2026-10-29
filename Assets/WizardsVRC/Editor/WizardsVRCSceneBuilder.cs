@@ -109,6 +109,7 @@ namespace WizardsVRC.EditorTools
             BackUpMyChanges();
 
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            ResetNameTags();
             // The VRChat SDK Control Panel re-validates on every scene change and throws on the brand-new empty scene
             // (it has no world descriptor yet), so close it while building and reopen it afterwards.
             System.Type sdkPanel = CloseSdkControlPanel();

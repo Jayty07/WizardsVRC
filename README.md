@@ -60,6 +60,8 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Editor/WorldData/` | World authoring: Monster Catalog, Zone and Questline asset types, inspectors (map painter, spell picker, checks) |
 | `Assets/WizardsVRC/WorldData/` | **Your authored world data** (created on first rebuild). Commit it. See [WORLD_BUILDING.md](WORLD_BUILDING.md) |
 | `Assets/WizardsVRC/Scripts/QuestNpc.cs` | Zone NPC: click to talk, floating ! / ? quest markers |
+| `Assets/WizardsVRC/Shaders/PSXBillboard.shader` | Pixel labels that face each player's camera (GPU only, VR-safe: faces the point between the eyes), stay upright, vertex-snap and dither out with distance |
+| `Assets/WizardsVRC/Fonts/PsxNameFont.txt` | The PSX pixel font for NPC name tags, hint lines and quest markers, as editable `#`/`.` glyph grids (7 rows, or 9 with descenders). The builder bakes each label into `Materials/NameTags/` on rebuild (`WizardsVRCSceneBuilder.NameTags.cs`) |
 | `Assets/WizardsVRC/Scripts/Wanderer.cs` | Patrolling monster: walks a route (loop or line) from the server clock, starts the fight on touch |
 
 ## Scene

@@ -364,7 +364,8 @@ namespace WizardsVRC.EditorTools
         // ------------------------------------------------------------ pieces
 
         /// <summary>Placeholder robed wizard facing local -Z (towards whoever stands in front of it).</summary>
-        private static Transform Wizard(Transform parent, string name, Vector3 pos, float yaw, Color robe, Color hat, bool beard, string title)
+        private static Transform Wizard(Transform parent, string name, Vector3 pos, float yaw, Color robe, Color hat, bool beard, string title,
+            string hint = "(click to talk or learn spells)")
         {
             var w = Child(parent, name, pos);
             w.localRotation = Quaternion.Euler(0, yaw, 0);
@@ -378,8 +379,9 @@ namespace WizardsVRC.EditorTools
             Shape(w, "HatCone", ConeMesh(), new Vector3(0, 2.75f, 0), new Vector3(0.5f, 0.9f, 0.5f), hatMat, false, Quaternion.Euler(-8, 0, 0));
             Shape(w, "Staff", CylMesh(), new Vector3(0.55f, 1.1f, -0.1f), new Vector3(0.08f, 1.1f, 0.08f), PMat("Wood", new Color(0.55f, 0.34f, 0.18f), 2f), false, Quaternion.identity);
             Shape(w, "StaffGem", GemMesh(), new Vector3(0.55f, 2.35f, -0.1f), new Vector3(0.25f, 0.35f, 0.25f), PMat("Gem_" + ColorUtility.ToHtmlStringRGB(robe), robe, 1f, robe * 0.7f), false, Quaternion.identity);
-            WorldText(w, "NameTag", new Vector3(0, 3.5f, 0), Quaternion.identity, new Vector2(900, 120), 0.004f, title, 60);
-            WorldText(w, "TalkHint", new Vector3(0, 3.2f, 0), Quaternion.identity, new Vector2(900, 90), 0.003f, "(click to talk or learn spells)", 50).color = new Color(1f, 0.9f, 0.5f);
+            // PSX pixel-font tags that turn to face each player (see WizardsVRCSceneBuilder.NameTags.cs).
+            NameTag(w, "NameTag", new Vector3(0, 3.55f, 0), title);
+            HintTag(w, "TalkHint", new Vector3(0, 3.2f, 0), hint);
             var box = w.gameObject.AddComponent<BoxCollider>();
             box.center = new Vector3(0, 1.3f, 0);
             box.size = new Vector3(1.2f, 2.6f, 1.2f);
