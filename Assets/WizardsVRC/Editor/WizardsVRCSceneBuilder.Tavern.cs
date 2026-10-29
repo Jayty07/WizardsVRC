@@ -280,9 +280,9 @@ namespace WizardsVRC.EditorTools
             Shape(t, "Log", CylMesh(), hb + new Vector3(0, 0.15f, 0), new Vector3(0.3f, 1f, 0.3f), darkWood, false, TFacing(hearthA) * Quaternion.Euler(0, 0, 90f));
             PointLight(t, hb - hearthOut * 1.5f + new Vector3(0, 1.4f, 0), new Color(1f, 0.55f, 0.2f), 14f, 2f);
             Shape(t, "HearthRug", CylMesh(), TPolar(c, R - 5.2f, hearthA, 0.12f), new Vector3(5.5f, 0.02f, 5.5f), cloth, false, Quaternion.identity);
-            foreach (float a in new[] { 207f, 216f, 225f, 234f, 243f })
+            foreach (float a in new[] { 210f, 217.5f, 225f, 232.5f, 240f })
             {
-                Vector3 sp = TPolar(c, R - 7.3f, a, 0f);
+                Vector3 sp = TPolar(c, R - 5.5f, a, 0f);
                 Vector3 toFire = hb - sp;
                 toFire.y = 0f;
                 MakeSeat(t, "LogSeat", sp, toFire.normalized, 0.5f, darkWood, gold, behaviours, true);
