@@ -155,6 +155,10 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Flee** (planning only): leave the duel immediately; you keep your health but your mana drops to 0.
 - **Joining a duel in progress:** in the wandering-monster lanes, walk into the circle while a seat is free and you
   join; you act from the next round.
+- **Item cards:** gear can carry spells (`ItemDatabase.itemCardItems` / `itemCardIds`). While it's equipped they join
+  your battle deck for each fight, on top of your deck (they don't use its space), and you can cast them whatever your
+  school. The starting Training Staff holds one basic spell of every school, so new wizards have more to throw early on.
+  The item's details in the backpack and the Deck page list them.
 - **Decks are items** (Wizard101 style): the Apprentice Deck (20 spells, 4 copies each) to start, plus the Scholar's,
   Ironbound and Starfall decks (bigger, more copies, small stat bonuses) from loot and bosses. Equip one in the backpack
   or on the book's Deck tab; each deck keeps its own spells and battles draw from the equipped one.
