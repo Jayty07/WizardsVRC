@@ -1346,8 +1346,7 @@ namespace WizardsVRC
                 gt.localScale = Vector3.one * (size * 1.1f);
                 VRCPlayerApi me = Networking.LocalPlayer;
                 Vector3 eye = Utilities.IsValid(me) ? me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position : gt.position - Vector3.forward;
-                Vector3 look = gt.position - eye;
-                if (look.sqrMagnitude > 0.001f) gt.rotation = Quaternion.LookRotation(look) * Quaternion.Euler(0f, 0f, Mathf.Sin(elapsed * Mathf.PI) * 8f);
+                gt.rotation = Upright(gt.position - eye, gt.rotation);
             }
         }
 
@@ -1425,8 +1424,7 @@ namespace WizardsVRC
             {
                 Renderer r = fxIcons[i];
                 if (r == null || !r.gameObject.activeSelf) continue;
-                Vector3 look = r.transform.position - head;
-                if (look.sqrMagnitude > 0.0001f) r.transform.rotation = Quaternion.LookRotation(look);
+                r.transform.rotation = Upright(r.transform.position - head, r.transform.rotation);
             }
         }
 
@@ -2218,14 +2216,13 @@ namespace WizardsVRC
                     Material m = flash && _popFlashMats != null ? _popFlashMats[i] : (_popMats != null ? _popMats[i] : null);
                     if (m != null && r.sharedMaterial != m) r.sharedMaterial = m;
                 }
-                // Holds and blinks, then swells and shrinks away, turning a little as it breaks.
+                // Holds and blinks, then swells and shrinks away.
                 float sc = t < 0.3f ? 1f : (t < 0.55f ? Mathf.Lerp(1f, 1.7f, (t - 0.3f) / 0.25f) : Mathf.Lerp(1.7f, 0f, (t - 0.55f) / 0.45f));
                 p.localScale = new Vector3(0.5f * sc, 0.5f * sc, 1f);
                 VRCPlayerApi me = Networking.LocalPlayer;
                 if (Utilities.IsValid(me))
                 {
-                    Vector3 look = p.position - me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
-                    if (look.sqrMagnitude > 0.0001f) p.rotation = Quaternion.LookRotation(look) * Quaternion.Euler(0f, 0f, t > 0.55f ? (t - 0.55f) * 120f : 0f);
+                    p.rotation = Upright(p.position - me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, p.rotation);
                 }
             }
         }
@@ -2363,10 +2360,18 @@ namespace WizardsVRC
 
         private void Billboard(Transform t, Vector3 head)
         {
-            if (t == null) return;
-            Vector3 look = t.position - head;
+            if (t != null) t.rotation = Upright(t.position - head, t.rotation);
+        }
+
+        /// <summary>
+        /// The facing for every word and icon that turns toward the viewer: turned only about the vertical axis, so it
+        /// stays standing straight up and never tilts left or right (or leans back), however the viewer stands or tilts
+        /// their head. Keeps the old facing when the viewer is directly above or below.
+        /// </summary>
+        private Quaternion Upright(Vector3 look, Quaternion keep)
+        {
             look.y = 0f;
-            if (look.sqrMagnitude > 0.0001f) t.rotation = Quaternion.LookRotation(look);
+            return look.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(look, Vector3.up) : keep;
         }
 
         private void AnimateFloaters()
@@ -2385,8 +2390,7 @@ namespace WizardsVRC
                 float pop = t < 0.07f ? Mathf.Lerp(0.2f, 1.35f, t / 0.07f) : (t < 0.15f ? Mathf.Lerp(1.35f, 1f, (t - 0.07f) / 0.08f) : 1f);
                 f.localScale = Vector3.one * pop;
                 f.position = _floatBase[i] + Vector3.up * (Mathf.Floor(t * 30f) / 30f * 0.8f);
-                Vector3 look = f.position - head;
-                if (haveHead && look.sqrMagnitude > 0.001f) f.rotation = Quaternion.LookRotation(look);
+                if (haveHead) f.rotation = Upright(f.position - head, f.rotation);
                 float alpha = t > 0.7f ? 1f - (t - 0.7f) / 0.3f : 1f;
                 if (floaterTexts != null && i < floaterTexts.Length && floaterTexts[i] != null)
                 {

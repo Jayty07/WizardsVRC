@@ -73,11 +73,12 @@ Shader "WizardsVRC/PSXBillboard"
                 float2 scale = float2(length(unity_ObjectToWorld._m00_m10_m20), length(unity_ObjectToWorld._m01_m11_m21));
                 float3 toLabel = pivot - ViewerPosition();
                 float dist = length(toLabel);
-                float3 fwd = toLabel / max(dist, 0.0001);
-                // Upright: the right vector stays level. Looking straight down, fall back to the camera's right.
+                // Upright: turned only about the vertical axis, so the tag stands straight up and never tilts left or
+                // right (or leans back), even when the viewer tilts their head. Straight above or below, it faces +Z.
+                float3 flat = float3(toLabel.x, 0, toLabel.z);
+                float3 fwd = dot(flat, flat) > 0.000001 ? normalize(flat) : float3(0, 0, 1);
                 float3 right = cross(float3(0, 1, 0), fwd);
-                right = dot(right, right) > 0.0001 ? normalize(right) : UNITY_MATRIX_V[0].xyz;
-                float3 up = cross(fwd, right);
+                float3 up = float3(0, 1, 0);
                 float3 world = pivot + right * (v.vertex.x * scale.x) + up * (v.vertex.y * scale.y);
 
                 float4 clip = UnityWorldToClipPos(world);
