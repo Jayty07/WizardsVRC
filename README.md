@@ -176,9 +176,14 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   school, accuracy and full effect. Pips show as dots (white, power, empty).
 - **Two clear sides:** wizards always sit on the south half (blue seat sockets), monsters on the north half (red), with
   a glowing line between. Each monster seat shows the model of the monster actually in that seat.
+- **Seat order:** each side fills from its own right-most seat (as seen by whoever sits there, facing the centre) and
+  then leftwards; the target buttons are laid out in the same left-to-right order you see in the circle.
+- **Health gauges:** an occupied seat's ring becomes a segmented PSX health gauge (24 segments, `PSXGauge` shader,
+  `Tools/make_seat_gauge.py`) in the occupant's school colour. Damage drops it at once and leaves the lost part lit for
+  a moment before it drains; heals fill back in; at 25% health or less it blinks red. Empty seats keep the plain ring.
 - **Duel presentation:** when a fight forms, the circle appears in a white flash (column of light, sparks, the circle
-  sound) and settles into its normal look. Its inner sigil and outer rune band then turn opposite ways in PSX-style
-  steps while the sigil's glow pulses; the seat band stays put so the sockets line up with the seats.
+  sound) and settles into its normal look. Its inner sigil and outer rune band then turn opposite ways at 15 frames a
+  second (`BattleClient.circleFps`, PSX-style) while the sigil's glow pulses; the seat band stays put so the sockets line up with the seats.
 - **Pips at the seats:** every combatant has their pips as gems in an arc in front of their seat (white = pip, gold = power
   pip), with white and gold motes swirling round them, more the more pips they hold. A caster's pips drop when their
   spell actually plays.

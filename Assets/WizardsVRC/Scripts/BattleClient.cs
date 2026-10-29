@@ -62,6 +62,22 @@ namespace WizardsVRC
         [Tooltip("Empty seats on the monsters' half (tinted so the two sides read clearly). Empty = seatEmptyMat.")]
         public Material seatEmptyMonsterMat;
 
+        [Header("Seat health gauge (WizardsVRC/PSXGauge on an occupied seat's ring)")]
+        [Tooltip("Copied per seat at runtime. Empty seats keep the plain ring.")]
+        public Material seatGaugeMat;
+        [Tooltip("Gauge fill colour by School (bright, so Death still reads on the dark floor).")]
+        public Color[] gaugeSchoolColors;
+        [Tooltip("At or under this share of health the gauge blinks to gaugeLowColor.")]
+        [Range(0f, 1f)] public float gaugeLowShare = 0.25f;
+        public Color gaugeLowColor = new Color(1f, 0.15f, 0.1f);
+        public Color gaugeFrameWizard = new Color(0.08f, 0.12f, 0.26f);
+        public Color gaugeFrameMonster = new Color(0.26f, 0.07f, 0.05f);
+        [Tooltip("How long health just lost stays lit before it drains away.")]
+        public float gaugeTrailHold = 0.4f;
+        [Tooltip("Share of the gauge per second that lost health drains, and that heals fill back in.")]
+        public float gaugeTrailSpeed = 0.6f;
+        public float gaugeHealSpeed = 0.8f;
+
         [Header("Shields / blades / traps orbiting each seat")]
         [Tooltip("Index slot * 3 + kind (0 shields, 1 blades, 2 traps).")]
         public Transform[] fxOrbits;
@@ -93,8 +109,8 @@ namespace WizardsVRC
         public AudioSource circleAudio;
         public AudioClip circleSound;
         public float startFlashSeconds = 1.1f;
-        [Tooltip("PSX look: the circle turns in steps of this many degrees, a few times a second.")]
-        public float circleStepDegrees = 4f;
+        [Tooltip("PSX look: the circle's idle turning updates at this many frames per second (not every rendered frame).")]
+        public float circleFps = 15f;
         public float sigilDegreesPerSecond = 9f;
         public float runeDegreesPerSecond = -6f;
 
@@ -501,7 +517,11 @@ namespace WizardsVRC
             bool active = phase >= BattleManager.PHASE_JOINING;
             if (ring != null) ring.SetActive(active);
             // Outside round playback the circle shows the synced shields, pips etc. as they are.
-            if (!_playing && phase != BattleManager.PHASE_PLAYBACK) SyncShownState();
+            if (!_playing && phase != BattleManager.PHASE_PLAYBACK)
+            {
+                SyncShownState();
+                for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
+            }
             if (active && manager.battleId != _flashBattle) StartFlash();
             if (active) { UpdateSeatRings(); UpdateFx(); UpdatePips(); }
             RefreshBodies(phase);
@@ -1539,9 +1559,91 @@ namespace WizardsVRC
                 if (r == null) continue;
                 int sc = manager.school[s];
                 Material empty = s >= BattleManager.SIDE && seatEmptyMonsterMat != null ? seatEmptyMonsterMat : seatEmptyMat;
-                Material m = manager.slotIds[s] != 0 && seatSchoolMats != null && sc >= 0 && sc < seatSchoolMats.Length
-                    ? seatSchoolMats[sc] : empty;
+                bool occupied = manager.slotIds[s] != 0;
+                if (occupied && seatGaugeMat != null)
+                {
+                    // Occupied: the ring becomes this seat's own health gauge (a per-seat copy of the material).
+                    if (_gaugeMats[s] == null)
+                    {
+                        r.sharedMaterial = seatGaugeMat;
+                        _gaugeMats[s] = r.material;
+                        _gaugeMats[s].SetColor("_FrameColor", s >= BattleManager.SIDE ? gaugeFrameMonster : gaugeFrameWizard);
+                    }
+                    if (r.sharedMaterial != _gaugeMats[s]) r.sharedMaterial = _gaugeMats[s];
+                    // A new occupant starts with the gauge at their health (no drain from whoever sat here before).
+                    if (_gaugeOwner[s] != manager.slotIds[s] || _gaugeBattle[s] != manager.battleId)
+                    {
+                        _gaugeOwner[s] = manager.slotIds[s];
+                        _gaugeBattle[s] = manager.battleId;
+                        _gFill[s] = HealthShare(s);
+                        _gTrail[s] = _gFill[s];
+                        _gSent[s] = -1f;
+                        _gColor[s] = -1;
+                    }
+                    continue;
+                }
+                _gaugeOwner[s] = 0;
+                Material m = occupied && seatSchoolMats != null && sc >= 0 && sc < seatSchoolMats.Length ? seatSchoolMats[sc] : empty;
                 if (m != null && r.sharedMaterial != m) r.sharedMaterial = m;
+            }
+        }
+
+        private Material[] _gaugeMats = new Material[BattleManager.SLOTS];
+        private int[] _gaugeOwner = new int[BattleManager.SLOTS];
+        private int[] _gaugeBattle = new int[BattleManager.SLOTS];
+        private float[] _gFill = new float[BattleManager.SLOTS];
+        private float[] _gTrail = new float[BattleManager.SLOTS];
+        private float[] _gHold = new float[BattleManager.SLOTS];
+        private float[] _gSent = new float[BattleManager.SLOTS];
+        private int[] _gColor = new int[BattleManager.SLOTS];
+
+        private float HealthShare(int s)
+        {
+            int max = manager.maxHp[s];
+            return max > 0 ? Mathf.Clamp01((float)_shownHp[s] / max) : 0f;
+        }
+
+        /// <summary>
+        /// Seat gauges follow the shown health: damage drops the fill at once and leaves the lost part lit for a moment
+        /// before it drains; heals fill back in. Low health blinks red, in PSX steps.
+        /// </summary>
+        private void AnimateGauges()
+        {
+            if (seatRings == null) return;
+            float dt = Time.deltaTime;
+            bool blinkOn = Mathf.FloorToInt(Time.time * 4f) % 2 == 0;
+            for (int s = 0; s < BattleManager.SLOTS && s < seatRings.Length; s++)
+            {
+                Material g = _gaugeMats[s];
+                if (g == null || _gaugeOwner[s] == 0) continue;
+                float target = HealthShare(s);
+                if (target < _gFill[s])
+                {
+                    _gFill[s] = target;
+                    _gHold[s] = Time.time + gaugeTrailHold;
+                }
+                else if (target > _gFill[s]) _gFill[s] = Mathf.Min(target, _gFill[s] + gaugeHealSpeed * dt);
+                if (_gTrail[s] < _gFill[s]) _gTrail[s] = _gFill[s];
+                else if (Time.time >= _gHold[s]) _gTrail[s] = Mathf.Max(_gFill[s], _gTrail[s] - gaugeTrailSpeed * dt);
+
+                // Only touch the material when something visible changed.
+                float key = _gFill[s] * 1000f + _gTrail[s];
+                if (key != _gSent[s])
+                {
+                    _gSent[s] = key;
+                    g.SetFloat("_Fill", _gFill[s]);
+                    g.SetFloat("_Trail", _gTrail[s]);
+                }
+                int sc = manager.school[s];
+                bool low = target > 0f && target <= gaugeLowShare;
+                int colorKey = low && blinkOn ? -2 : sc;
+                if (colorKey != _gColor[s])
+                {
+                    _gColor[s] = colorKey;
+                    Color c = colorKey == -2 ? gaugeLowColor
+                        : (gaugeSchoolColors != null && sc >= 0 && sc < gaugeSchoolColors.Length ? gaugeSchoolColors[sc] : Color.white);
+                    g.SetColor("_FillColor", c);
+                }
             }
         }
 
@@ -1575,7 +1677,7 @@ namespace WizardsVRC
 
         private void Update()
         {
-            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); AnimateCircle(); AnimatePips(); }
+            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); AnimateCircle(); AnimatePips(); AnimateGauges(); }
             AnimateFlash();
             AnimateDefeats();
             AnimatePops();
@@ -1961,13 +2063,13 @@ namespace WizardsVRC
         /// <summary>The sigil and rune band turn opposite ways in PSX-style steps; the sigil's glow pulses.</summary>
         private void AnimateCircle()
         {
-            float since = Time.time - _flashStart;
-            float step = Mathf.Max(0.5f, circleStepDegrees);
-            if (circleSigil != null) circleSigil.localRotation = Quaternion.Euler(0f, Mathf.Floor(since * sigilDegreesPerSecond / step) * step, 0f);
-            if (circleRunes != null) circleRunes.localRotation = Quaternion.Euler(0f, Mathf.Floor(since * runeDegreesPerSecond / step) * step, 0f);
+            float fps = Mathf.Max(1f, circleFps);
+            float since = Mathf.Floor((Time.time - _flashStart) * fps) / fps;
+            if (circleSigil != null) circleSigil.localRotation = Quaternion.Euler(0f, since * sigilDegreesPerSecond, 0f);
+            if (circleRunes != null) circleRunes.localRotation = Quaternion.Euler(0f, since * runeDegreesPerSecond, 0f);
             if (circleSigilMat != null)
             {
-                float tq = Mathf.Floor(Time.time * 8f) / 8f;
+                float tq = Mathf.Floor(Time.time * fps) / fps;
                 circleSigilMat.SetColor("_EmissionColor", circleSigilGlow * (1.1f + 0.6f * Mathf.Sin(tq * 2.2f)));
             }
         }

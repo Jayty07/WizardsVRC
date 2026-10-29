@@ -957,7 +957,13 @@ namespace WizardsVRC.EditorTools
         private static readonly float[] FxHeights = { 1.1f, 2.2f, 0.45f };
         private static readonly float[] FxIconSizes = { 0.5f, 0.42f, 0.42f };
         private const string FxIconDir = TexturesDir + "/FxIcons";
-        private static readonly float[] MonsterSeatAngles = { 337.5f, 22.5f, 292.5f, 67.5f };
+        // Seats fill in index order (BattleManager takes the first free one), so index 0 is each side's right-most seat
+        // as seen by whoever sits on that side (facing the centre), then leftwards. Wizards sit on the south half
+        // facing north (their right = +X); monsters on the north half facing south (their right = -X).
+        private static readonly float[] WizardSeatAngles = { 112.5f, 157.5f, 202.5f, 247.5f };
+        private static readonly float[] MonsterSeatAngles = { 292.5f, 337.5f, 22.5f, 67.5f };
+        // Segments in DuelSeatGauge.png (Tools/make_seat_gauge.py SEGMENTS).
+        private const int SeatGaugeSegments = 24;
 
         private static Texture2D PixelTexture(string path)
         {
@@ -1132,6 +1138,12 @@ namespace WizardsVRC.EditorTools
             client.seatEmptyMat = CutoutMat("DuelSeatEmptyWizard", seatTex, new Color(0.45f, 0.55f, 0.8f), new Color(0.05f, 0.08f, 0.16f));
             client.seatEmptyMonsterMat = CutoutMat("DuelSeatEmptyMonster", seatTex, new Color(0.8f, 0.45f, 0.4f), new Color(0.16f, 0.05f, 0.04f));
             seatEmpty = client.seatEmptyMat;
+            client.seatGaugeMat = SeatGaugeMat();
+            client.gaugeSchoolColors = new[]
+            {
+                new Color(1f, 0.36f, 0.1f), new Color(0.22f, 0.7f, 1f), new Color(0.72f, 0.36f, 1f), new Color(0.2f, 0.9f, 0.3f),
+                new Color(0.72f, 0.68f, 0.8f), new Color(1f, 0.8f, 0.08f), new Color(0.96f, 0.6f, 0.2f),
+            };
             // Shields (chest height), blades (over the head) and traps (at the feet) orbit each seat while they're active.
             client.fxMats = new Material[SchoolLabels.Length + 1];
             for (int k = 0; k <= SchoolLabels.Length; k++)
@@ -1169,9 +1181,9 @@ namespace WizardsVRC.EditorTools
             {
                 bool monster = s >= side;
                 int i = s % side;
-                // 8 seats evenly round the circle: wizards on the south half (left to right), monsters facing them
-                // on the north half, boss in the middle-left seat.
-                float ang = monster ? MonsterSeatAngles[i] : 247.5f - 45f * i;
+                // 8 seats evenly round the circle: wizards on the south half, monsters facing them on the north half.
+                // Each side fills from its own right-most seat (see WizardSeatAngles).
+                float ang = monster ? MonsterSeatAngles[i] : WizardSeatAngles[i];
                 Vector3 dir = Quaternion.Euler(0, ang, 0) * Vector3.forward;
                 Vector3 pos = dir * DuelSeatRadius + new Vector3(0, 0.05f, 0);
                 Transform seat = Child(root, (monster ? "MonsterSpot" : "WizardSeat") + i, pos);
@@ -1425,7 +1437,10 @@ namespace WizardsVRC.EditorTools
                 bool enemy = t >= BattleManager.SIDE;
                 int i = t % BattleManager.SIDE;
                 Color c = enemy ? new Color(0.55f, 0.2f, 0.18f) : new Color(0.2f, 0.35f, 0.6f);
-                GameObject b = Button(root, "Target" + t, new Vector2(-420 + i * 290, enemy ? 240 : 140), new Vector2(270, 82), "", c, target, "Target" + t);
+                // Same left-to-right order the wizard sees in the circle: monster seat 0 is on the far left, wizard
+                // seat 0 on the near right.
+                float bx = enemy ? -420 + i * 290 : 450 - i * 290;
+                GameObject b = Button(root, "Target" + t, new Vector2(bx, enemy ? 240 : 140), new Vector2(270, 82), "", c, target, "Target" + t);
                 Text label = b.GetComponentInChildren<Text>();
                 label.fontSize = 20;
                 client.targetLabels[t] = label;
@@ -1806,6 +1821,33 @@ namespace WizardsVRC.EditorTools
             go.transform.localPosition = localPos;
             go.transform.localScale = scale;
             go.GetComponent<Renderer>().sharedMaterial = mat;
+        }
+
+        /// <summary>The seat health gauge (WizardsVRC/PSXGauge); BattleClient copies it per seat and sets fill and colours.</summary>
+        private static Material SeatGaugeMat()
+        {
+            var shader = Shader.Find("WizardsVRC/PSXGauge");
+            if (shader == null)
+            {
+                Debug.LogError("[WizardsVRC] Shader WizardsVRC/PSXGauge is missing; seats keep the plain ring.");
+                return null;
+            }
+            Directory.CreateDirectory(MaterialsDir);
+            string path = MaterialsDir + "/DuelSeatGauge.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.shader = shader;
+            mat.mainTexture = PixelTexture(TexturesDir + "/DuelSeatGauge.png");
+            mat.SetFloat("_Segments", SeatGaugeSegments);
+            mat.SetFloat("_Fill", 1f);
+            mat.SetFloat("_Trail", 1f);
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest;
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         private static Material Mat(string name, Color color)
