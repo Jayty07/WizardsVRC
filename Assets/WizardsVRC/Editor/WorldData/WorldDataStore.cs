@@ -20,6 +20,7 @@ namespace WizardsVRC.EditorTools.WorldData
             public MonsterCatalog monsters;
             public List<Questline> questlines = new List<Questline>();
             public List<ZoneDefinition> zones = new List<ZoneDefinition>();
+            public List<WorldArc> worlds = new List<WorldArc>();
         }
 
         /// <summary>Loads everything (creating the default assets if the folder has none) .</summary>
@@ -33,6 +34,8 @@ namespace WizardsVRC.EditorTools.WorldData
             data.zones = FindAll<ZoneDefinition>();
             data.zones.Sort((a, b) => string.CompareOrdinal(a.zoneKey, b.zoneKey));
             data.questlines.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+            data.worlds = FindAll<WorldArc>();
+            data.worlds.Sort((a, b) => a.order != b.order ? a.order.CompareTo(b.order) : string.CompareOrdinal(a.name, b.name));
             return data;
         }
 
@@ -60,8 +63,16 @@ namespace WizardsVRC.EditorTools.WorldData
         [MenuItem("WizardsVRC/World Data/New Questline")]
         public static void NewQuestline() { CreateNew<Questline>("Questline_New", q => { }); }
 
+        [MenuItem("WizardsVRC/World Data/New World")]
+        public static void NewWorld()
+        {
+            int order = 1;
+            foreach (var w in FindAll<WorldArc>()) order = Mathf.Max(order, w.order + 1);
+            CreateNew<WorldArc>("World_New", w => { w.order = order; w.displayName = "World " + order; });
+        }
+
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -97,6 +108,12 @@ namespace WizardsVRC.EditorTools.WorldData
                 CreateQuestline("Questline_Tutorial", WorldDefaults.FillTutorialQuests);
                 CreateQuestline("Questline_SunpetalGardens", WorldDefaults.FillGardenQuests);
                 CreateQuestline("Questline_LanternRow", WorldDefaults.FillLanternRowQuests);
+                CreateQuestline("Questline_World1Finale", WorldDefaults.FillWorld1Finale);
+                created = true;
+            }
+            if (FindAll<WorldArc>().Count == 0 && !hadData)
+            {
+                CreateWorld1();
                 created = true;
             }
             int version = ReadVersion();
@@ -147,6 +164,56 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             if (from < 2) UpgradeTo2();
             if (from < 3) UpgradeTo3();
+            if (from < 4) UpgradeTo4();
+        }
+
+        /// <summary>World 1 (Starfall Isle) with its goal, storylines and finale.</summary>
+        private static void CreateWorld1()
+        {
+            var storylines = new List<Questline>();
+            foreach (string file in new[] { "Questline_Tutorial", "Questline_SunpetalGardens", "Questline_LanternRow" })
+            {
+                var ql = AssetDatabase.LoadAssetAtPath<Questline>(Folder + "/" + file + ".asset");
+                if (ql != null) storylines.Add(ql);
+            }
+            var w = ScriptableObject.CreateInstance<WorldArc>();
+            WorldDefaults.FillWorld1(w, storylines);
+            AssetDatabase.CreateAsset(w, AssetDatabase.GenerateUniqueAssetPath(Folder + "/World_StarfallIsle.asset"));
+        }
+
+        /// <summary>v4: worlds. Adds World 1 (its goal, storylines and finale quest 16) unless you already made a world.</summary>
+        private static void UpgradeTo4()
+        {
+            var questlines = FindAll<Questline>();
+            var used = new HashSet<int>();
+            foreach (var ql in questlines) foreach (var q in ql.quests) if (q != null) used.Add(q.saveId);
+            // Name the default storylines and mark where each ends (side quests come after Lantern Row's quest 5).
+            foreach (var ql in questlines)
+            {
+                bool has2 = false, has8 = false, has13 = false;
+                foreach (var q in ql.quests) if (q != null) { has2 |= q.saveId == 2; has8 |= q.saveId == 8; has13 |= q.saveId == 13; }
+                if (string.IsNullOrEmpty(ql.storylineName) && ql.storylineEnd < 0)
+                {
+                    if (has2) { ql.storylineName = "The First Lantern"; ql.storylineEnd = 5; }
+                    else if (has8) { ql.storylineName = "A Castle Tour"; ql.storylineEnd = 12; }
+                    else if (has13) { ql.storylineName = "The Briar Heart"; ql.storylineEnd = 15; }
+                    EditorUtility.SetDirty(ql);
+                }
+            }
+            if (!used.Contains(16)) CreateQuestline("Questline_World1Finale", WorldDefaults.FillWorld1Finale);
+            if (FindAll<WorldArc>().Count == 0)
+            {
+                // In story order: the castle tour (quest 8), Sunpetal Gardens (13), Lantern Row (2).
+                var storylines = new List<Questline>();
+                foreach (int id in new[] { 8, 13, 2 })
+                    foreach (var ql in questlines)
+                        foreach (var q in ql.quests)
+                            if (q != null && q.saveId == id && !storylines.Contains(ql)) storylines.Add(ql);
+                var w = ScriptableObject.CreateInstance<WorldArc>();
+                WorldDefaults.FillWorld1(w, storylines);
+                AssetDatabase.CreateAsset(w, AssetDatabase.GenerateUniqueAssetPath(Folder + "/World_StarfallIsle.asset"));
+                Debug.Log("[WizardsVRC] Upgraded world data: added World 1 (Starfall Isle) with " + storylines.Count + " storylines and its finale (quest 16).");
+            }
         }
 
         /// <summary>v3: the first areas (castle practice ring, Sunpetal Gardens) use even fights.</summary>

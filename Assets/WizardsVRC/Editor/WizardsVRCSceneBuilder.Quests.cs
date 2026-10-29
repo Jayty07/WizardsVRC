@@ -53,6 +53,9 @@ namespace WizardsVRC.EditorTools
             pages.detailRewards = InkLabel(details, "Rewards", new Vector2(0, -100), new Vector2(760, 50), "", 26, TextAnchor.MiddleLeft);
             pages.trackButton = Button(details, "Track", new Vector2(0, -220), new Vector2(320, 80), "Track", new Color(0.3f, 0.5f, 0.3f), target, nameof(QuestPages.ToggleTrack));
             pages.trackLabel = pages.trackButton.GetComponentInChildren<Text>();
+            // The current world's goal and storyline progress (Wizard101's "main quest" line).
+            pages.worldLabel = InkLabel(right, "WorldGoal", new Vector2(0, -320), new Vector2(780, 130), "", 23, TextAnchor.MiddleCenter);
+            pages.worldLabel.fontStyle = FontStyle.Italic;
             GameObject guide = Button(right, "GuideToggle", new Vector2(0, -420), new Vector2(380, 70), "Guide arrow: On", brown, target, nameof(QuestPages.ToggleGuide));
             pages.guideLabel = guide.GetComponentInChildren<Text>();
             view.gameObject.SetActive(false);

@@ -351,6 +351,39 @@ namespace WizardsVRC.EditorTools.WorldData
 
     // ====================================================================== questlines
 
+    [CustomEditor(typeof(WorldArc))]
+    public class WorldArcEditor : Editor
+    {
+        public override void OnInspectorGUI()
+        {
+            var w = (WorldArc)target;
+            serializedObject.Update();
+            DrawPropertiesExcluding(serializedObject, "m_Script");
+            serializedObject.ApplyModifiedProperties();
+
+            EditorGUILayout.Space();
+            int count = 0;
+            var lines = new List<string>();
+            foreach (var sl in w.storylines)
+            {
+                if (sl == null || !sl.includeInBuild) continue;
+                count++;
+                lines.Add(count + ". " + sl.StorylineName() + "  (ends at quest " + sl.StorylineEnd() + ")");
+            }
+            EditorGUILayout.HelpBox(count + " / " + WorldArc.MinStorylines + " storylines lead up to the goal." +
+                                    (count < WorldArc.MinStorylines ? " Add more before players move on to the next world." : "") +
+                                    "\n" + string.Join("\n", lines) +
+                                    (w.finaleQuest >= 0 ? "\nFinale: quest " + w.finaleQuest + " (needs every storyline above)." : ""),
+                count >= WorldArc.MinStorylines ? MessageType.Info : MessageType.Warning);
+
+            var report = new WorldValidator.Report();
+            WorldValidator.ValidateWorlds(WorldEditorUI.Data(), report);
+            EditorGUILayout.LabelField("Checks (all worlds)", EditorStyles.boldLabel);
+            WorldEditorUI.Report(report);
+            WorldEditorUI.Buttons();
+        }
+    }
+
     [CustomEditor(typeof(Questline))]
     public class QuestlineEditor : Editor
     {

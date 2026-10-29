@@ -105,6 +105,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 }
             }
             ValidateQuests(data, r);
+            ValidateWorlds(data, r);
             return r;
         }
 
@@ -239,6 +240,124 @@ namespace WizardsVRC.EditorTools.WorldData
                 if (g.Find(l).Count > 0 && !ringSymbols.Contains((char)('1' + (l - 'a')))) r.Warn(zn + ": patrol '" + l + "' has no encounter " + (char)('1' + (l - 'a')) + ".");
         }
 
+        // ------------------------------------------------------------------ worlds
+
+        /// <summary>
+        /// Worlds: a goal set out in the area (goal quest), 10+ storylines that all come after it and lead to the finale
+        /// (which needs every storyline), and the next world only opening after the previous finale.
+        /// </summary>
+        public static void ValidateWorlds(WorldDataStore.Data data, Report r)
+        {
+            if (data.worlds == null || data.worlds.Count == 0) return;
+            var deps = new Dictionary<int, List<int>>();
+            var exists = new HashSet<int> { QuestManager.QUEST_PROPHECY, QuestManager.QUEST_TRIAL };
+            deps[QuestManager.QUEST_TRIAL] = new List<int> { QuestManager.QUEST_PROPHECY };
+            foreach (var ql in data.questlines)
+            {
+                if (ql == null || !ql.includeInBuild) continue;
+                foreach (var q in ql.quests)
+                {
+                    if (q == null) continue;
+                    exists.Add(q.saveId);
+                    var d = new List<int>();
+                    if (q.prerequisite >= 0) d.Add(q.prerequisite);
+                    if (q.alsoRequires != null) d.AddRange(q.alsoRequires);
+                    deps[q.saveId] = d;
+                }
+            }
+            var worlds = new List<WorldArc>();
+            foreach (var w in data.worlds) if (w != null && w.includeInBuild) worlds.Add(w);
+            // The builder makes each finale need every storyline; mirror that here.
+            foreach (var w in worlds)
+            {
+                if (w.finaleQuest < 0 || !deps.ContainsKey(w.finaleQuest)) continue;
+                foreach (var sl in w.storylines) if (sl != null && sl.includeInBuild && sl.StorylineEnd() >= 0) deps[w.finaleQuest].Add(sl.StorylineEnd());
+            }
+
+            var orders = new HashSet<int>();
+            var owner = new Dictionary<Questline, string>();
+            WorldArc prev = null;
+            foreach (var w in worlds)
+            {
+                string wn = "World '" + w.displayName + "'";
+                if (!orders.Add(w.order)) r.Error(wn + ": another world also has order " + w.order + ".");
+                if (string.IsNullOrEmpty(w.goal)) r.Warn(wn + ": write its goal (what every storyline builds toward).");
+                if (w.goalQuest < 0) r.Warn(wn + ": set Goal Quest, the quest where the goal is set out in the area.");
+                else if (!exists.Contains(w.goalQuest)) r.Error(wn + ": goal quest " + w.goalQuest + " doesn't exist.");
+                if (w.finaleQuest < 0) r.Warn(wn + ": set Finale Quest, the quest that completes the goal (it will need every storyline).");
+                else if (!exists.Contains(w.finaleQuest)) r.Error(wn + ": finale quest " + w.finaleQuest + " doesn't exist.");
+
+                int count = 0;
+                foreach (var sl in w.storylines)
+                {
+                    if (sl == null || !sl.includeInBuild) continue;
+                    count++;
+                    string sn = wn + " storyline '" + sl.StorylineName() + "'";
+                    string other;
+                    if (owner.TryGetValue(sl, out other)) r.Error(sn + " is also in " + other + ".");
+                    else owner[sl] = wn;
+                    int end = sl.StorylineEnd();
+                    bool inside = false;
+                    foreach (var q in sl.quests) if (q != null && q.saveId == end) inside = true;
+                    if (end < 0) { r.Error(sn + " has no quests."); continue; }
+                    if (!inside) r.Error(sn + ": its Storyline End " + end + " isn't one of its quests.");
+                    if (end == w.finaleQuest) r.Error(sn + ": the finale can't be a storyline's end (it comes after all of them).");
+                    if (w.goalQuest >= 0 && !DependsOn(end, w.goalQuest, deps))
+                        r.Warn(sn + " doesn't come after the goal quest " + w.goalQuest + "; every storyline should follow from the goal set out in the area.");
+                    if (prev != null && prev.finaleQuest >= 0 && !DependsOn(end, prev.finaleQuest, deps))
+                        r.Error(sn + " can be played before '" + prev.displayName + "' is finished; its first quest should require that world's finale (" + prev.finaleQuest + ").");
+                }
+                if (count < WorldArc.MinStorylines)
+                    r.Warn(wn + " has " + count + " storyline(s); a world should have at least " + WorldArc.MinStorylines + " leading up to its goal before players move on.");
+
+                foreach (string key in w.zones)
+                {
+                    bool found = false;
+                    foreach (var z in data.zones) if (z != null && z.zoneKey == key) found = true;
+                    if (!found) r.Warn(wn + ": zone '" + key + "' doesn't exist.");
+                    if (prev == null || prev.finaleQuest < 0) continue;
+                    // The next world's gates should stay shut until the previous world's finale.
+                    foreach (var z in data.zones)
+                        if (z != null && z.landmarks != null)
+                            foreach (var l in z.landmarks)
+                                if (l != null && l.kind == LandmarkKind.StreetGate && l.targetZone == key && (l.requiredQuest < 0 || !DependsOn(l.requiredQuest, prev.finaleQuest, deps)))
+                                    r.Warn(wn + ": the gate to '" + key + "' opens before '" + prev.displayName + "' is finished; set its Required Quest to " + prev.finaleQuest + " (or later).");
+                }
+                prev = w;
+            }
+            foreach (var ql in data.questlines)
+                if (ql != null && ql.includeInBuild && !owner.ContainsKey(ql) && !IsFinaleLine(ql, worlds))
+                    r.Warn("Questline '" + ql.StorylineName() + "' isn't a storyline of any world (add it to a World's Storylines).");
+        }
+
+        private static bool IsFinaleLine(Questline ql, List<WorldArc> worlds)
+        {
+            foreach (var w in worlds) foreach (var q in ql.quests) if (q != null && q.saveId == w.finaleQuest) return true;
+            return false;
+        }
+
+        /// <summary>True when quest q needs target first (directly or through its requirements).</summary>
+        private static bool DependsOn(int q, int target, Dictionary<int, List<int>> deps)
+        {
+            if (q == target) return true;
+            var seen = new HashSet<int>();
+            var stack = new Stack<int>();
+            stack.Push(q);
+            while (stack.Count > 0)
+            {
+                int c = stack.Pop();
+                if (!seen.Add(c)) continue;
+                List<int> d;
+                if (!deps.TryGetValue(c, out d)) continue;
+                foreach (int p in d)
+                {
+                    if (p == target) return true;
+                    stack.Push(p);
+                }
+            }
+            return false;
+        }
+
         private static void CheckSymbol(ZoneDefinition z, char c, string who, HashSet<char> used, Report r)
         {
             string zn = "Zone '" + z.zoneKey + "'";
@@ -279,6 +398,12 @@ namespace WizardsVRC.EditorTools.WorldData
                 string qn = "Quest " + q.saveId + " '" + q.title + "'";
                 if (q.prerequisite >= 0 && !known.Contains(q.prerequisite)) r.Error(qn + ": prerequisite " + q.prerequisite + " doesn't exist.");
                 if (q.prerequisite == q.saveId) r.Error(qn + ": a quest can't require itself.");
+                if (q.alsoRequires != null)
+                    foreach (int req in q.alsoRequires)
+                    {
+                        if (req == q.saveId) r.Error(qn + ": a quest can't require itself.");
+                        else if (!known.Contains(req)) r.Error(qn + ": required quest " + req + " doesn't exist.");
+                    }
                 if (!q.startsAutomatically && !NpcExists(q.giverNpc, npcKeys)) r.Error(qn + ": giver NPC '" + q.giverNpc + "' doesn't exist.");
                 if (q.steps.Count == 0) r.Error(qn + ": needs at least one step.");
                 if (q.steps.Count > QuestManager.MAX_STEPS) r.Error(qn + ": at most " + QuestManager.MAX_STEPS + " steps.");

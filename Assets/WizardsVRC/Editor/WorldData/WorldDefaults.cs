@@ -189,6 +189,8 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             // Quest 2's dialogue reuses Tilda's recorded intro lines (Audio/Voice/lr_tilda_00-03.wav).
             ql.includeInBuild = true;
+            ql.storylineName = "The First Lantern";
+            ql.storylineEnd = 5;
             ql.quests = new List<QuestEntry>
             {
                 new QuestEntry
@@ -522,6 +524,8 @@ namespace WizardsVRC.EditorTools.WorldData
         public static void FillTutorialQuests(Questline ql)
         {
             ql.includeInBuild = true;
+            ql.storylineName = "A Castle Tour";
+            ql.storylineEnd = 12;
             ql.quests = new List<QuestEntry>
             {
                 new QuestEntry
@@ -615,6 +619,8 @@ namespace WizardsVRC.EditorTools.WorldData
         public static void FillGardenQuests(Questline ql)
         {
             ql.includeInBuild = true;
+            ql.storylineName = "The Briar Heart";
+            ql.storylineEnd = 15;
             ql.quests = new List<QuestEntry>
             {
                 new QuestEntry
@@ -654,6 +660,53 @@ namespace WizardsVRC.EditorTools.WorldData
                             "Old Briarwick? He's slept in that patch since before the castle was built. Something woke him.",
                             "You've done the castle proud. I'll send word to the Headmaster, and Bramwell will open the Lantern Row gate for you.",
                             "Mind yourself out there. Whatever woke Briarwick isn't finished yet."),
+                    },
+                },
+            };
+        }
+
+        // ------------------------------------------------------------------ World 1: Starfall Isle
+
+        public const string World1Goal =
+            "The Starfall Crystal is fading. Find out what is draining its light across Starfall Isle, and rekindle it.";
+
+        /// <summary>
+        /// World 1. The Headmaster sets the goal out in The Prophecy; every storyline (the castle tour, Sunpetal Gardens,
+        /// Lantern Row, and the streets still to come) leads to the finale, which needs all of them.
+        /// </summary>
+        public static void FillWorld1(WorldArc w, List<Questline> storylines)
+        {
+            w.includeInBuild = true;
+            w.order = 1;
+            w.displayName = "Starfall Isle";
+            w.levelRange = "Lv 1-13";
+            w.goal = World1Goal;
+            w.goalQuest = QuestManager.QUEST_PROPHECY;
+            w.finaleQuest = 16;
+            w.storylines = new List<Questline>(storylines);
+            w.zones = new List<string> { "StarfallCastle", "SunpetalGardens", "LanternRow" };
+        }
+
+        /// <summary>The World 1 finale (save id 16). The builder adds every storyline's end to its requirements.</summary>
+        public static void FillWorld1Finale(Questline ql)
+        {
+            ql.includeInBuild = true;
+            ql.storylineName = "Finale: Rekindle the Crystal";
+            ql.quests = new List<QuestEntry>
+            {
+                new QuestEntry
+                {
+                    saveId = 16, title = "Rekindle the Starfall Crystal", prerequisite = QuestManager.QUEST_PROPHECY, minLevel = 1, xp = 500, gold = 200,
+                    description = "Every corner of Starfall Isle has been set right, and the Starfall Crystal is answering. Gatekeeper Bramwell and the Headmaster want to see you.",
+                    steps = new List<QuestStepEntry>
+                    {
+                        Talk("Bramwell", "Talk to Gatekeeper Bramwell by the Starfall fountain", "Gatekeeper Bramwell",
+                            "Can you feel it? The crystal hasn't burned this bright in months.",
+                            "The gardens, the streets, the castle itself... you've had a hand in all of it. The Headmaster is waiting for you."),
+                        Talk("Headmaster", "Report to Headmaster Greymantle in his office", "Headmaster Greymantle",
+                            "The prophecy chose well. Every light that was stolen from this isle has been returned, and the Starfall Crystal burns again.",
+                            "But do not think Morvane is beaten. The Hollow King has other islands, and other servants.",
+                            "When the portal arches wake, a new world will need you. Until then, rest. You have earned it."),
                     },
                 },
             };

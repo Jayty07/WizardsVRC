@@ -29,13 +29,28 @@ namespace WizardsVRC.EditorTools.WorldData
     {
         [Tooltip("Untick to leave this questline out of the build (handy while you're still writing it).")]
         public bool includeInBuild = true;
+        [Tooltip("Name shown for this storyline (blank = the asset's name).")]
+        public string storylineName = "";
+        [Tooltip("Save id of the quest that finishes this storyline (its part of the world's goal). -1 = the last quest in the list. " +
+                 "Quests after it, or that don't lead to it, are side quests.")]
+        public int storylineEnd = -1;
         public List<QuestEntry> quests = new List<QuestEntry>();
+
+        public string StorylineName() { return string.IsNullOrEmpty(storylineName) ? name : storylineName; }
+
+        /// <summary>The storyline's last quest (save id), or -1 when the questline is empty.</summary>
+        public int StorylineEnd()
+        {
+            if (storylineEnd >= 0) return storylineEnd;
+            for (int i = quests.Count - 1; i >= 0; i--) if (quests[i] != null) return quests[i].saveId;
+            return -1;
+        }
     }
 
     [Serializable]
     public class QuestEntry
     {
-        [Tooltip("Where the player's progress is saved (2-127, unique across all questlines). 0 = The Prophecy and " +
+        [Tooltip("Where the player's progress is saved (2-511, unique across all questlines). 0 = The Prophecy and " +
                  "1 = Trial of the School are built in. Never reuse or change a save id once players have played it.")]
         public int saveId = 2;
         public string title = "New Quest";
@@ -53,6 +68,8 @@ namespace WizardsVRC.EditorTools.WorldData
         public string offerVoicePrefix = "";
         [Tooltip("Save id of the quest that must be finished first (-1 = none, 0 = The Prophecy).")]
         public int prerequisite = -1;
+        [Tooltip("More quests that must all be finished first (save ids). A world's finale gets every storyline added automatically.")]
+        public List<int> alsoRequires = new List<int>();
         [Range(1, 100)] public int minLevel = 1;
 
         [Header("Rewards")]

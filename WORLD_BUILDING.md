@@ -6,7 +6,8 @@ Everything that makes up the explorable world is **data you edit in the Unity In
 | --- | --- | --- |
 | Monsters | `Monsters.asset` (Monster Catalog) | id, name, school, level, health, **spell list**, XP, gold, drops, body size/colour |
 | Zones | `Zone_*.asset` (Zone) | the layout as a text map, **battle ring spots**, **patrol routes**, NPCs, quest points, **landmarks** (school halls, gates, shops...), colours. One zone is the **castle hub**. |
-| Quests | `Questline_*.asset` (Questline) | quests with steps, rewards, prerequisites, givers and dialogue |
+| Quests | `Questline_*.asset` (Questline) | quests with steps, rewards, prerequisites, givers and dialogue; each questline is a **storyline** |
+| Worlds | `World_*.asset` (World) | a world's **goal**, the quest that sets it out, its **10+ storylines** and its **finale** |
 
 All of them live in **`Assets/WizardsVRC/WorldData/`**. They are plain text files, so git versions them like code.
 Rebuilding the scene never touches them.
@@ -198,16 +199,45 @@ Open `Monsters.asset`. Each monster has:
   pivot, facing +Z; Body Scale scales it; colliders are removed). Without one you get a coloured placeholder. Each ring
   seat always holds the same roster entry, so the model in a seat is always the monster really sitting there.
 
+## Worlds
+
+A world works like one of Wizard101's: its **goal** is set out in the area (for World 1, the Headmaster in The Prophecy:
+the Starfall Crystal is fading), **at least ten storylines** build toward it, and a **finale** wraps it up. Players move
+on to the next world only after the finale.
+
+| Field | Meaning |
+| --- | --- |
+| Order | 1 = first world, 2 = next... |
+| Goal | one or two sentences; the quest log shows it with "Storylines finished 3 / 10" |
+| Goal Quest | save id of the quest where the goal is set out in the area. Every storyline should come after it |
+| Finale Quest | save id of the world's last quest. **It automatically needs the end of every storyline**, so it can't start until they're all done |
+| Storylines | the questlines leading up to the goal (10 or more). Each one counts as finished at its **Storyline End** quest (set on the questline; -1 = its last quest). Side quests can live in the same questline after or beside the end |
+| Zones | the world's areas, for the checks |
+
+The checks (in the World inspector and Validate World Data) warn when a world has fewer than 10 storylines, when a
+storyline doesn't follow from the goal quest, and stop you when the next world's storylines or gates could be played
+before the previous world's finale.
+
+Making World 2: **WizardsVRC > World Data > New World**, set Order 2, its goal and goal quest; make the goal quest require
+World 1's finale (16); give the hub gates to its zones Required Quest 16 (or its goal quest); add its questlines.
+
+Save ids go up to **511** (save format v8), so there's room for 10+ storylines of several quests in every world.
+
+The default World 1 (Starfall Isle) has three storylines so far (A Castle Tour, The Briar Heart, The First Lantern) and
+its finale, quest 16 *Rekindle the Starfall Crystal*. As Tidewatch Docks, Kiln Street, Thornhollow Grove and the rest are
+built, add their questlines to `World_StarfallIsle` and the finale waits for them too.
+
 ## Questlines
 
 A Questline is a list of quests. Make one per street plus side quests, or put everything in one; all are loaded.
 
 | Field | Meaning |
 | --- | --- |
-| **Save Id** | 2-127, unique across all questlines. Player progress is stored under this number, so **never change or reuse it** once people have played the quest. 0 and 1 are the built-in tutorial and trial. |
+| **Save Id** | 2-511, unique across all questlines. Player progress is stored under this number, so **never change or reuse it** once people have played the quest. 0 and 1 are the built-in tutorial and trial. |
 | Starts Automatically | on = starts once the prerequisite and level are met; off = talk to the **Giver Npc** |
 | Offer Dialogue | what the giver says when offering it |
 | Prerequisite | save id of the quest that must be finished first (-1 none, 0 = The Prophecy) |
+| Also Requires | more quests that must all be finished first |
 | Min Level, XP, Gold, Reward Item, Reward Spell | rewards (`-1` spell = the player's own school quest spell) |
 | Steps | up to 8, in order |
 

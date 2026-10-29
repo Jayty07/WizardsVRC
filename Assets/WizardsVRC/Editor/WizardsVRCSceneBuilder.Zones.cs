@@ -762,6 +762,81 @@ namespace WizardsVRC.EditorTools
             }
             qm.stepCutscenes = stepCs;
             qm.questOfferCutscenes = offerCs;
+            ApplyWorlds(qm, wb, quests);
+        }
+
+        /// <summary>
+        /// Extra requirements (QuestEntry.alsoRequires) and the worlds: each world's finale needs the end of every one of
+        /// its storylines, and the quest log shows the current world's goal and how many storylines are finished.
+        /// </summary>
+        private static void ApplyWorlds(QuestManager qm, WorldBuild wb, List<QuestEntry> quests)
+        {
+            int n = qm.questTitles.Length;
+            var reqs = new List<int>[n];
+            System.Action<int, int> require = (q, r) =>
+            {
+                if (q < 0 || q >= n || r < 0 || r == q) return;
+                if (reqs[q] == null) reqs[q] = new List<int>();
+                if (!reqs[q].Contains(r)) reqs[q].Add(r);
+            };
+            foreach (var q in quests)
+                if (q.alsoRequires != null) foreach (int r in q.alsoRequires) require(q.saveId, r);
+
+            var names = new List<string>();
+            var goals = new List<string>();
+            var levels = new List<string>();
+            var goalQuests = new List<int>();
+            var finales = new List<int>();
+            var slStart = new List<int>();
+            var slCount = new List<int>();
+            var ends = new List<int>();
+            var endNames = new List<string>();
+            foreach (var w in wb.data.worlds)
+            {
+                if (w == null || !w.includeInBuild) continue;
+                names.Add(w.displayName);
+                goals.Add(w.goal ?? "");
+                levels.Add(w.levelRange ?? "");
+                goalQuests.Add(w.goalQuest);
+                finales.Add(w.finaleQuest);
+                slStart.Add(ends.Count);
+                int count = 0;
+                foreach (var sl in w.storylines)
+                {
+                    if (sl == null || !sl.includeInBuild) continue;
+                    int end = sl.StorylineEnd();
+                    if (end < 0 || end == w.finaleQuest) continue;
+                    ends.Add(end);
+                    endNames.Add(sl.StorylineName());
+                    count++;
+                    require(w.finaleQuest, end);
+                }
+                slCount.Add(count);
+                if (count < WorldArc.MinStorylines)
+                    Debug.Log("[WizardsVRC World] " + w.displayName + " has " + count + " storylines (worlds are meant to have at least " + WorldArc.MinStorylines + " before players move on).");
+            }
+            qm.worldNames = names.ToArray();
+            qm.worldGoals = goals.ToArray();
+            qm.worldLevelRanges = levels.ToArray();
+            qm.worldGoalQuests = goalQuests.ToArray();
+            qm.worldFinales = finales.ToArray();
+            qm.worldStorylineStart = slStart.ToArray();
+            qm.worldStorylineCount = slCount.ToArray();
+            qm.storylineEnds = ends.ToArray();
+            qm.storylineNames = endNames.ToArray();
+
+            var start = new int[n];
+            var cnt = new int[n];
+            var flat = new List<int>();
+            for (int q = 0; q < n; q++)
+            {
+                start[q] = flat.Count;
+                if (reqs[q] != null) flat.AddRange(reqs[q]);
+                cnt[q] = flat.Count - start[q];
+            }
+            qm.questRequireStart = start;
+            qm.questRequireCount = cnt;
+            qm.requireIds = flat.ToArray();
         }
 
         private static bool HasLines(string[] lines)

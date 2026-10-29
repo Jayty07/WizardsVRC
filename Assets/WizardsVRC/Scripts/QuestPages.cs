@@ -34,6 +34,8 @@ namespace WizardsVRC
         public GameObject trackButton;
         public Text trackLabel;
         public Text guideLabel;
+        [Tooltip("The current world, its goal and how many of its storylines are finished.")]
+        public Text worldLabel;
 
         private Color _rowOff = new Color(0.78f, 0.7f, 0.55f);
         private Color _rowOn = new Color(0.95f, 0.8f, 0.45f);
@@ -138,6 +140,7 @@ namespace WizardsVRC
             if (emptyLabel != null) emptyLabel.gameObject.SetActive(_count == 0);
             if (guideLabel != null)
                 guideLabel.text = "Guide arrow: " + (questGuide != null && questGuide.IsGuideEnabled() ? "On" : "Off");
+            if (worldLabel != null && questManager != null) worldLabel.text = questManager.WorldSummary();
 
             bool show = _selected >= 0 && _selected < questManager.QuestCount() && questManager.IsStarted(_selected);
             if (detailsRoot != null) detailsRoot.SetActive(show);

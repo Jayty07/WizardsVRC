@@ -31,12 +31,14 @@ namespace WizardsVRC
 ///   currentHealth u16, currentMana u16 (FULL = 65535 = topped up; clamped to the gear-adjusted max when used)
 /// v7: equipped has 8 slots (slot 7 = deck), there are 6 deck card lists (was 3), and the payload appends
 ///   deckOwners u16 * DECK_COUNT (the deck item each card list belongs to, 0 = free)
-    /// Worst case is about 0.9 KB raw / 1.2 KB base64 (budget: 2 KB).
+/// v8: 512 quest slots (room for 10+ storylines per world, several worlds): questUsed, trackedQuest and counterUsed
+///   are u16 (NO_TRACKED_QUEST = 65535). Older saves load as before.
+    /// Typical saves are 1-2 KB raw; the worst case (every quest slot used) is about 2.6 KB raw (budget: 4 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 7;
+        public const int FORMAT_VERSION = 8;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -51,7 +53,8 @@ namespace WizardsVRC
         /// <summary>Item id of the Apprentice Deck every wizard starts with (see ItemDatabase).</summary>
         public const int STARTER_DECK_ITEM = 60;
         public const int DECK_SIZE = 64;
-        public const int QUEST_SLOTS = 128;
+        /// <summary>Quest save ids 0-511 (0 and 1 are built in). A world needs room for 10+ storylines of several quests.</summary>
+        public const int QUEST_SLOTS = 512;
         public const int MAX_LEVEL = 100;
         public const int LEARNED_BYTES = 32;
         public const int LEARNED_BASE_ID = 100;
@@ -60,7 +63,9 @@ namespace WizardsVRC
         public const int STARTER_MANA = 20;
         /// <summary>currentHealth / currentMana value meaning "full" (always clamped to the real max).</summary>
         public const int FULL = 65535;
-        public const int NO_TRACKED_QUEST = 255;
+        public const int NO_TRACKED_QUEST = 65535;
+        /// <summary>"Nothing tracked" in saves before v8 (one byte).</summary>
+        private const int OLD_NO_TRACKED_QUEST = 255;
         /// <summary>Must match CardDatabase.TIERS / QUEST_TIER and the tier level requirements.</summary>
         public const int SPELL_TIERS = 12;
         public const int SPELL_QUEST_TIER = 9;
@@ -75,7 +80,7 @@ namespace WizardsVRC
         /// <summary>The equipped deck item: battles draw from its card list.</summary>
         public const int EQUIP_DECK = 7;
 
-        private const int MAX_BLOB_SIZE = 2048;
+        private const int MAX_BLOB_SIZE = 4096;
 
         [Header("Identity")]
         public string characterName = "";
@@ -497,7 +502,7 @@ namespace WizardsVRC
             int questUsed = 0;
             for (int i = 0; i < QUEST_SLOTS; i++)
                 if (questProgress[i] != 0) questUsed = i + 1;
-            WriteU8(questUsed);
+            WriteU16(questUsed);
             for (int i = 0; i < questUsed; i++) WriteU8(questProgress[i]);
 
             WriteU16(Mathf.Clamp(trainingPoints, 0, 65535));
@@ -507,10 +512,10 @@ namespace WizardsVRC
             WriteU8(learnedUsed);
             for (int i = 0; i < learnedUsed; i++) WriteU8(learnedSpells[i]);
 
-            WriteU8(trackedQuest >= 0 && trackedQuest < QUEST_SLOTS ? trackedQuest : NO_TRACKED_QUEST);
+            WriteU16(trackedQuest >= 0 && trackedQuest < QUEST_SLOTS ? trackedQuest : NO_TRACKED_QUEST);
             int counterUsed = 0;
             for (int i = 0; i < QUEST_SLOTS; i++) if (questCounters[i] != 0) counterUsed = i + 1;
-            WriteU8(counterUsed);
+            WriteU16(counterUsed);
             for (int i = 0; i < counterUsed; i++) WriteU8(questCounters[i]);
 
             WriteU16(Mathf.Clamp(currentHealth, 0, FULL));
@@ -645,8 +650,9 @@ namespace WizardsVRC
                     deckCards[d * DECK_SIZE + c] = c < count ? (ushort)ReadU16() : (ushort)0;
             }
 
-            if (!Need(1)) return false;
-            int questUsed = ReadU8();
+            bool wide = version >= 8;
+            if (!Need(wide ? 2 : 1)) return false;
+            int questUsed = wide ? ReadU16() : ReadU8();
             if (questUsed > QUEST_SLOTS || !Need(questUsed)) { lastError = "bad quests"; return false; }
             for (int i = 0; i < QUEST_SLOTS; i++)
                 questProgress[i] = i < questUsed ? (byte)ReadU8() : (byte)0;
@@ -667,16 +673,16 @@ namespace WizardsVRC
 
             if (version >= 3)
             {
-                if (!Need(1)) return false;
-                trackedQuest = ReadU8();
-                if (trackedQuest >= QUEST_SLOTS) trackedQuest = NO_TRACKED_QUEST;
+                if (!Need(wide ? 2 : 1)) return false;
+                trackedQuest = wide ? ReadU16() : ReadU8();
+                if ((!wide && trackedQuest == OLD_NO_TRACKED_QUEST) || trackedQuest >= QUEST_SLOTS) trackedQuest = NO_TRACKED_QUEST;
             }
             if (version < 4) MigrateSpellTree();
             for (int i = 0; i < QUEST_SLOTS; i++) questCounters[i] = 0;
             if (version >= 5)
             {
-                if (!Need(1)) return false;
-                int counterUsed = ReadU8();
+                if (!Need(wide ? 2 : 1)) return false;
+                int counterUsed = wide ? ReadU16() : ReadU8();
                 if (counterUsed > QUEST_SLOTS || !Need(counterUsed)) { lastError = "bad counters"; return false; }
                 for (int i = 0; i < counterUsed; i++) questCounters[i] = (byte)ReadU8();
             }

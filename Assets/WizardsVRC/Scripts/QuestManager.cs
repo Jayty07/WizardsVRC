@@ -78,6 +78,27 @@ namespace WizardsVRC
         public int[] questGivers;
         public int[] questStepCounts;
 
+        [Header("Extra requirements (all must be complete)")]
+        [Tooltip("Index into requireIds where quest q's extra requirements start (a world finale needs every storyline).")]
+        public int[] questRequireStart;
+        public int[] questRequireCount;
+        public int[] requireIds;
+
+        [Header("Worlds (each a goal set out in the area, 10+ storylines leading to it, and a finale)")]
+        public string[] worldNames;
+        public string[] worldGoals;
+        public string[] worldLevelRanges;
+        /// <summary>Quest that sets out the world's goal (-1 = none).</summary>
+        public int[] worldGoalQuests;
+        /// <summary>The world's finale (needs every storyline); finishing it opens the next world.</summary>
+        public int[] worldFinales;
+        [Tooltip("Index into storylineEnds where world w's storylines start.")]
+        public int[] worldStorylineStart;
+        public int[] worldStorylineCount;
+        /// <summary>Last quest of each storyline (flattened per world).</summary>
+        public int[] storylineEnds;
+        public string[] storylineNames;
+
         [Header("Steps (quest * MAX_STEPS + step)")]
         public int[] stepTypes;
         public int[] stepParams;
@@ -246,6 +267,55 @@ namespace WizardsVRC
 
         public int QuestCount() { return questTitles != null ? questTitles.Length : 0; }
 
+        // ------------------------------------------------------------------ worlds
+
+        public int WorldCount() { return worldNames != null ? worldNames.Length : 0; }
+
+        /// <summary>The world the player is in: the first whose finale isn't done (the last world once all are).</summary>
+        public int CurrentWorld()
+        {
+            int n = WorldCount();
+            if (n == 0 || !HasCharacter()) return -1;
+            for (int w = 0; w < n; w++)
+                if (worldFinales == null || w >= worldFinales.Length || worldFinales[w] < 0 || !IsComplete(worldFinales[w])) return w;
+            return n - 1;
+        }
+
+        public int StorylinesTotal(int w)
+        {
+            return worldStorylineCount != null && w >= 0 && w < worldStorylineCount.Length ? worldStorylineCount[w] : 0;
+        }
+
+        public int StorylinesDone(int w)
+        {
+            int total = StorylinesTotal(w);
+            if (total == 0 || worldStorylineStart == null || storylineEnds == null) return 0;
+            int a = worldStorylineStart[w], done = 0;
+            for (int k = 0; k < total && a + k < storylineEnds.Length; k++) if (IsComplete(storylineEnds[a + k])) done++;
+            return done;
+        }
+
+        /// <summary>
+        /// "Starfall Isle (Lv 1-13)\nGoal: ...\nStorylines finished 3 / 10" for the quest log, or "" without worlds.
+        /// Before the goal has been set out it only names the world.
+        /// </summary>
+        public string WorldSummary()
+        {
+            int w = CurrentWorld();
+            if (w < 0) return "";
+            string t = NameAt(worldNames, w);
+            string lv = NameAt(worldLevelRanges, w);
+            if (lv.Length > 0) t += "  (" + lv + ")";
+            int goalQuest = worldGoalQuests != null && w < worldGoalQuests.Length ? worldGoalQuests[w] : -1;
+            if (goalQuest >= 0 && !IsComplete(goalQuest)) return t;
+            t += "\nGoal: " + NameAt(worldGoals, w);
+            int finale = worldFinales != null && w < worldFinales.Length ? worldFinales[w] : -1;
+            if (finale >= 0 && IsComplete(finale)) return t + "\nComplete!";
+            t += "\nStorylines finished " + StorylinesDone(w).ToString() + " / " + StorylinesTotal(w).ToString();
+            if (finale >= 0 && Available(finale) && !IsStarted(finale)) t += "  -  the finale awaits!";
+            return t;
+        }
+
         public bool IsStarted(int questId) { return GetStage(questId) > 0; }
 
         public bool IsComplete(int questId)
@@ -261,6 +331,12 @@ namespace WizardsVRC
             if (!HasCharacter() || questId < 0 || questId >= QuestCount()) return false;
             int pre = questPrereqs[questId];
             if (pre >= 0 && !IsComplete(pre)) return false;
+            if (questRequireStart != null && questRequireCount != null && requireIds != null && questId < questRequireStart.Length && questId < questRequireCount.Length)
+            {
+                int a = questRequireStart[questId], n = questRequireCount[questId];
+                for (int k = 0; k < n && a + k < requireIds.Length; k++)
+                    if (requireIds[a + k] >= 0 && !IsComplete(requireIds[a + k])) return false;
+            }
             return playerState.current.level >= questMinLevels[questId];
         }
 

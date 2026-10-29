@@ -98,7 +98,8 @@ mana curve (20 + 2 per level).
 v7 stores 8 equipment slots (slot 7 = deck) and 6 deck card lists, and appends `deckOwners u16 x 6` (which deck item
 owns each list). Older saves get an equipped Apprentice Deck holding their old Deck 1.
 
-Worst case ≈ 0.9 KB raw / 1.2 KB base64. `meta` = `1|school,level,name|...|...` (empty entry = free slot).
+v8 has 512 quest slots (save ids up to 511) with u16 counts and tracked quest; older saves load as before.
+Typical saves are 1-2 KB raw (worst case about 2.6 KB raw). `meta` = `1|school,level,name|...|...` (empty entry = free slot).
 
 Saving rotates the previous valid blob into `char_N_bak`. Loading a blob that fails the checksum falls back to the
 backup and rewrites `char_N` from it. PlayerData has no delete API, so Delete writes empty strings.
@@ -129,6 +130,10 @@ locally, nothing past the fog is drawn, and small props are chunked so they stop
 Distance. See *Performance (culling)* in [WORLD_BUILDING.md](WORLD_BUILDING.md).
 
 ## Building zones, monsters and quests
+
+Worlds are built like Wizard101's: each has a goal set out in the area, 10+ storylines (questlines) that lead up to it,
+and a finale that needs every storyline before players move on to the next world. The quest log shows the current
+world's goal and how many storylines are finished.
 
 Streets, battle ring spots, patrol routes, NPCs, monsters (with their spell lists) and questlines are all edited as
 data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDING.md](WORLD_BUILDING.md)**.
