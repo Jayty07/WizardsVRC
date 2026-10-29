@@ -87,7 +87,7 @@ namespace WizardsVRC.EditorTools.WorldData
     {
         public const string Legend =
             "#  building (solid)        =  low wall (solid)       ^  tree (solid)          ~  water (solid)\n" +
-            ".  road                    ,  grass / courtyard      S  entrance (spawn + door back to the castle)\n" +
+            ".  road                    ,  grass / courtyard      S  entrance (spawn; the tunnel home opens behind it)\n" +
             "1-9  battle ring spot for encounter 1-9 (needs a 3x3 open plaza)\n" +
             "a-i  patrol route of encounter 1-9 (a = 1, b = 2...): a 1-cell-wide line or loop of letters\n" +
             "Other letters/symbols: NPCs, points and landmarks from the lists below. NPCs and points stand on road;\n" +
@@ -148,6 +148,17 @@ namespace WizardsVRC.EditorTools.WorldData
         public Vector2 buildingHeight = new Vector2(7f, 14f);
         [Tooltip("Decorative street lamps along the roads (0 = none, 1 = lots).")]
         [Range(0f, 1f)] public float lampDensity = 0.25f;
+
+        [Header("Sky")]
+        [Tooltip("Sky colour overhead in this zone.")]
+        public Color skyTopColor = new Color(0.28f, 0.33f, 0.9f);
+        [Tooltip("Sky colour at the horizon (distant islands on the skyline fade toward it).")]
+        public Color skyHorizonColor = new Color(1f, 0.68f, 0.52f);
+        [Tooltip("Fog colour while you're in this zone.")]
+        public Color fogColor = new Color(0.9f, 0.66f, 0.68f);
+        [Tooltip("How far from the castle this zone lies, in metres, along the line of its tunnel. Each area's skyline shows " +
+                 "the others where they lie (the castle, the other streets), so it decides how big and hazy it looks.")]
+        [Range(400f, 4000f)] public float horizonDistance = 1100f;
 
         [Header("Performance")]
         [Tooltip("Small props (lamps, windows, flowers, stalls, merlons...) stop drawing beyond about this many metres. " +

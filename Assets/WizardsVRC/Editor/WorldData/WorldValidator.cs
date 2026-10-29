@@ -167,6 +167,16 @@ namespace WizardsVRC.EditorTools.WorldData
             if (starts.Count == 0) r.Error(zn + ": the map needs an S (entrance).");
             ValidateHeights(z, g, zn, r);
             if (starts.Count > 1) r.Warn(zn + ": several S cells; the first one (top-left) is the entrance.");
+            if (!z.isHub && starts.Count > 0)
+            {
+                // The tunnel home runs about 17 m straight back from S (away from its open side): keep S by the map's edge.
+                Vector2Int back = -g.OpenDirection(starts[0]);
+                int toEdge = 0;
+                for (var c = starts[0] + back; c.x >= 0 && c.y >= 0 && c.x < g.width && c.y < g.height; c += back) toEdge++;
+                if (toEdge * z.cellSize > 12f)
+                    r.Warn(zn + ": S is " + toEdge + " cells from the map's edge behind it; the tunnel home opens straight back from S, so put S " +
+                           "by the edge (it would cut through the street otherwise).");
+            }
 
             // symbols
             var unknown = new HashSet<char>();

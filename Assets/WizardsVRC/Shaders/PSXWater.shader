@@ -23,6 +23,8 @@ Shader "WizardsVRC/PSXWater"
         _WaveLength ("Wave Length (m)", Float) = 7
         _WaveSpeed ("Wave Speed", Float) = 1.1
         _Shimmer ("Wave Shimmer (brightness roll)", Range(0, 1)) = 0.22
+        _CrestFoam ("Whitecaps on wave crests (0 = none)", Range(0, 1)) = 0
+        _FoamColor ("Whitecap Colour", Color) = (0.95, 0.98, 1, 1)
         _SnapRes ("Vertex Snap Resolution (0 = off)", Float) = 900
         _Affine ("Affine Warp (0-1)", Range(0, 1)) = 0.35
         _ColorDepth ("Colour Levels per Channel (32 = PS1)", Float) = 32
@@ -47,7 +49,8 @@ Shader "WizardsVRC/PSXWater"
             fixed4 _DeepColor, _ShallowColor, _LineColor, _SparkleColor;
             float _Sparkle, _Alpha, _TileSize;
             float4 _Scroll;
-            float _WaveHeight, _WaveLength, _WaveSpeed, _Shimmer;
+            float _WaveHeight, _WaveLength, _WaveSpeed, _Shimmer, _CrestFoam;
+            fixed4 _FoamColor;
             float _SnapRes, _Affine, _ColorDepth;
             static const float Bayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
 
@@ -63,7 +66,7 @@ Shader "WizardsVRC/PSXWater"
                 float4 uv : TEXCOORD0;          // xy layer 1, zw layer 2 (perspective-correct)
                 float4 affine1 : TEXCOORD1;     // layer 1 * w, w
                 float4 affine2 : TEXCOORD2;     // layer 2 * w
-                float shade : TEXCOORD3;
+                float2 shade : TEXCOORD3;      // x brightness, y wave height (-1..1)
                 float4 screen : TEXCOORD4;
                 UNITY_FOG_COORDS(5)
                 UNITY_VERTEX_OUTPUT_STEREO
@@ -83,7 +86,7 @@ Shader "WizardsVRC/PSXWater"
                 float wave = sin(dot(wp.xz, float2(0.8, 0.6)) / wl * 6.2831 + t) * 0.6
                            + sin(dot(wp.xz, float2(-0.35, 0.94)) / (wl * 0.63) * 6.2831 + t * 1.37) * 0.4;
                 wp.y += wave * _WaveHeight;
-                o.shade = 1 + wave * _Shimmer;
+                o.shade = float2(1 + wave * _Shimmer, wave);
 
                 float4 clip = UnityWorldToClipPos(wp);
                 float w = max(clip.w, 0.0001);
@@ -114,7 +117,10 @@ Shader "WizardsVRC/PSXWater"
 
                 float3 col = lerp(_DeepColor.rgb, _ShallowColor.rgb, saturate(0.35 + (a + b) * 0.35));
                 col = lerp(col, _LineColor.rgb, saturate(max(a, b) * 1.2 - 0.45));
-                col *= i.shade;
+                col *= i.shade.x;
+                // Whitecaps: broken foam (cut up by the ripple pattern) along the tops of the swells.
+                float crest = saturate((i.shade.y - (1.0 - _CrestFoam)) / max(_CrestFoam, 0.001));
+                col = lerp(col, _FoamColor.rgb, step(0.45, crest * (0.55 + max(a, b))) * step(0.001, _CrestFoam));
                 // Pixel sparkles where both layers' bright lines cross; they come and go as the layers slide.
                 float sparkle = step(1.0 - _Sparkle * 0.5, a * b + 0.0001);
                 col = lerp(col, _SparkleColor.rgb, sparkle);

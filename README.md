@@ -44,6 +44,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/SaveManager.cs` | PlayerData persistence: `char_0`–`char_3`, `char_N_bak`, `meta` |
 | `Assets/WizardsVRC/Scripts/PlayerState.cs` | Live character (source of truth) + autosave, current health/mana helpers, out-of-combat regeneration |
 | `Assets/WizardsVRC/Scripts/TeleportHelper.cs` | `TeleportTo(Transform)` via `VRCPlayerApi.TeleportTo` |
+| `Assets/WizardsVRC/Scripts/TunnelPassage.cs`, `TunnelGate.cs` | Walk-through tunnels between areas (no portals): the hand-over between two identical Z-shaped tunnels out of sight, and the castle end's quest-locked portcullis |
 | `Assets/WizardsVRC/Scripts/CharacterSelectUI.cs` | Slot panels, school picker, delete confirm, teleport to hub |
 | `Assets/WizardsVRC/Scripts/ItemDatabase.cs` | Placeholder item definitions (category, level/school req, stat bonuses incl. critical/block/pierce/power pip, potion restore amounts) + stat totals |
 | `Assets/WizardsVRC/Scripts/InventoryBook.cs` | Backpack book: live avatar portrait (MirrorReflection-layer camera → RenderTexture), equipment slots + stats (left page), tabbed paged item grid + Equip/Unequip (right page) |
@@ -60,10 +61,13 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Editor/WorldData/` | World authoring: Monster Catalog, Zone and Questline asset types, inspectors (map painter, spell picker, checks) |
 | `Assets/WizardsVRC/WorldData/` | **Your authored world data** (created on first rebuild). Commit it. See [WORLD_BUILDING.md](WORLD_BUILDING.md) |
 | `Assets/WizardsVRC/Scripts/QuestNpc.cs` | Zone NPC: click to talk, floating ! / ? quest markers |
-| `Assets/WizardsVRC/Shaders/PSXWater.shader`, `PSXWaterfall.shader` | Spyro-style PSX water (vertex waves with a brightness shimmer, two scrolling pixel ripple layers, sparkles, affine warp, 15-bit dithered colour) and waterfall (racing streaks, foamy lip and foot, sway). Materials `Materials/PSX_Water`, `PSX_WaterSea`, `PSX_WaterFoam`, `PSX_Waterfall` are made once and then yours to tune; put them on any subdivided plane / sheet |
+| `Assets/WizardsVRC/Shaders/PSXWater.shader`, `PSXWaterfall.shader` | Spyro-style PSX water (vertex waves with a brightness shimmer and optional whitecaps, two scrolling pixel ripple layers, sparkles, affine warp, 15-bit dithered colour) and waterfall (racing streaks, foamy lip and foot, sway). Materials `Materials/PSX_Water`, `PSX_SeaSwell` (the open sea), `PSX_WaterFoam`, `PSX_Waterfall` are made once and then yours to tune; put them on any subdivided plane / sheet |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Round.cs` | The round hub's curtain wall and towers, the **duelling circle** (PvP encounter + countdown zone) and the health / mana orbs |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Tavern.cs` | The round **Tavern** landmark (the hub's Crystal Tap): curved bar, tables, stage with a music source, hearth, mirror toggle, sit-able seats (`Seat`: VRCStation), synced mug pickups and the bell that resets them (`MugReset`), per-player toggles (`LocalToggle`) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Terrain.cs` | Zone ground from the map + **height map**, as merged per-chunk meshes: every cell a column to its height with stone walls down to lower neighbours, cobbles / lawns / pond beds, optional **rounded corners** (outer corners cut, inner corners filled, path-lawn corners curved), kerbs, copings, iron **railings** (drops, ponds, stair handrails, optional path edges), stairs with stringers, water, waterfalls |
+| `Assets/WizardsVRC/Shaders/PSXSkyline.shader` | Skybox: gradient sky plus a pixel-art skyline strip round the horizon (the other areas where they lie, far isles, sea, clouds), 15-bit dithered |
+| `Assets/WizardsVRC/Shaders/PSXSurf.shader` | Surf on a ring round an island: churning foam at the rocks and breaking wave lines rolling in |
+| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Travel.cs`, `.Sky.cs` | Tunnels, mountains, the sea's swell and surf; the world's layout and each area's skyline (painted at build time) |
 | `Assets/WizardsVRC/Shaders/PSXBillboard.shader` | Pixel labels that face each player's camera (GPU only, VR-safe: faces the point between the eyes), stay upright, vertex-snap and dither out with distance |
 | `Assets/WizardsVRC/Fonts/PsxNameFont.txt` | The PSX pixel font for NPC name tags, hint lines and quest markers, as editable `#`/`.` glyph grids (7 rows, or 9 with descenders). The builder bakes each label into `Materials/NameTags/` on rebuild (`WizardsVRCSceneBuilder.NameTags.cs`) |
 | `Assets/WizardsVRC/Scripts/Wanderer.cs` | Patrolling monster: walks a route (loop or line) from the server clock, starts the fight on touch |
@@ -82,7 +86,8 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
   Library on a circle, each turned to face the centre (a walk-in classroom and professor in every hall), with four
   avenues between them; then the outer ring road and the outer quarter: the Headmaster's tower (door to the office) on
   a north terrace with a waterfall pouring into a pond, the observatory hill, the Training Grounds (practice ring) and
-  the boss arena pad, the **duelling circle** (PvP), the quest-locked gates to Sunpetal Gardens and Lantern Row, the inn,
+  the boss arena pad, the **duelling circle** (PvP), the quest-locked tunnels to Sunpetal Gardens (end of the south avenue)
+  and Lantern Row (end of the west avenue) through gatehouses into snowy mountains, the inn,
   bakery and gazebo garden, and the Bazaar and shops (hats, wands, potions, pets, cards). **Red and blue orbs** on the
   ring roads restore health and mana when you walk through them. It also has the notice board ("Change Character" /
   Backpack) and the **Backpack pedestal** by the tavern door. Without a hub zone the older hand-made castle is built.
@@ -129,10 +134,19 @@ Like Wizard101, new wizards don't meet a real monster until they know the basics
 Headmaster's office you find your professor at their school hall, report back, then take the castle tour: Gatekeeper
 Bramwell (exploring the grounds), Quartermaster Pell (backpack, gear, potions), Librarian Wren (cards, pips, accuracy,
 decks) and Duel Master Holloway (a practice duel against training dummies that never attack). Only then does the
-**Sunpetal Gardens** gate open (Lv 1-3 weeds, newts and moths, boss Old Briarwick, who only heals with Mend so new wizards can beat him). Fights there (and on the practice
+**Sunpetal Gardens** tunnel open (Lv 1-3 weeds, newts and moths, boss Old Briarwick, who only heals with Mend so new wizards can beat him). Fights there (and on the practice
 ring) are **even fights**: one monster per wizard, starting with the one you touched; a second wizard brings in the next
 patrol monster to reach the circle, and other patrol monsters that wander into the circle fade away. Finishing the gardens opens the
-**Lantern Row** gate (now Lv 4-6) and the boss arena pad. The locks are the gates' *Required Quest* in the hub map.
+**Lantern Row** tunnel (now Lv 4-6) and the boss arena pad. The locks are the Street Gates' *Required Quest* in the hub map.
+
+## Getting about
+
+There are no portals between the castle and the streets: you walk through tunnels into the mountains round the castle and
+come out of a mountainside in the street (they hand you over out of sight between two bends). Each area's sky shows the
+others where they really lie, so from the castle you can see Sunpetal Gardens over the southern pass and Lantern Row over
+the western one, and from the streets the castle with the Starfall Crystal's beam. The sea round the castle rolls with
+swells and breaks in surf on the island. (The boss arena is still reached by its teleporter pad, and the keep's door
+leads to the Headmaster's office.)
 
 ## Duels (PvP)
 

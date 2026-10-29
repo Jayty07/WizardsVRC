@@ -164,7 +164,7 @@ stands on (a rotated square) and the paths up to its door.
 | Shop | any | a timber-framed shop or house filling its block: door, striped awning, shop windows, a hanging sign and its **Label** over the door (scenery) |
 | Waterfall | any | paint it on the high side of a drop with water (`~`) below: a stone spring, a channel, the falling water (PSX waterfall shader), foam and spray |
 | Tavern | any | a **round, walk-in tavern** filling the circle inside the block you paint (about 8 x 8 cells; a fountain, NPCs and points may stand inside the block). Doors north, west and south; inside a curved bar to the east with stools, taps, bottle shelves, kegs and a **bell that brings every mug back**, round tables with stools and candles, a **stage** (curtains, coloured lights, instruments and a `TavernMusic` AudioSource: drop in a looping clip; each player can mute it with the gem by the stage), a **hearth** with log seats, a **mirror** each player switches on for themselves, hanging lanterns, and a conical roof open over the middle. Every seat is a VRCStation (click to sit); the mugs are pickups synced for everyone. Paint an NPC anywhere in the tavern's block and they stand behind the bar as its barkeep. |
-| Street Gate | hub | portal arch to **Target Zone**; with **Required Quest** it stays locked (showing **Locked Hint**) until that quest is done |
+| Street Gate | hub | a **tunnel** to **Target Zone** (no portals): a stone mouth (on a round castle, a gatehouse in the curtain wall at the cell's bearing; otherwise at the back of the cell) leading into **mountains**, with a sign; with **Required Quest** its portcullis stays down (showing **Locked Hint**) until that quest is done. The street gets the matching tunnel behind its `S`. See *Travel and the sky* |
 | Arena Pad | hub | the boss arena teleporter (also lockable with Required Quest) |
 | Backpack Pedestal, Notice Board | hub | the book pedestal, and the Change Character / Backpack board (Bank Chest, the old testing chest, is no longer built) |
 | Duel Circle | hub | the **duelling circle** for PvP: paint a round block about 6-7 cells across, all at one height. A mosaic floor, Blue and Red team banners, braziers and a sign with the countdown. Stepping in starts a 15 s countdown; everyone inside when it ends duels in two teams (see the README) |
@@ -188,14 +188,16 @@ The default hub (72 x 72 cells of 4 m) is laid out in rings round the middle, li
      Bazaar: stalls, Pell,           Library  |  Storm
      hats / wands / potions    Death          |          Ice
                          ======== inner ring road, gardens (+1) ========
-     west avenue (School Green)   SUNKEN ROUND PLAZA (0): the Crystal Tap   east avenue: Training Grounds
+  R  west avenue (School Green)   SUNKEN ROUND PLAZA (0): the Crystal Tap   east avenue: Training Grounds
                                   round the Starfall fountain, Mabel the     (H, ring 1, patrol a), Z arena pad
                                   barkeep; S arrival, P, N and A outside
      inn, bakery,              Fire           |          Life
      GAZEBO GARDEN (+2)              Myth     |     Balance        DUELLING CIRCLE (+2, &)
                          ===== outer ring road (+1), red + / blue * orbs on both ring roads =====
-                         R Lantern Row gate        G Sunpetal Gardens gate        (south, by the round wall)
+                                       south avenue to G
 ```
+R and G are the tunnels to Lantern Row (end of the west avenue, past the Bazaar) and Sunpetal Gardens (end of the
+south avenue), each through a gatehouse in the curtain wall into a pair of snowy peaks.
 Ground level is 1 (1.5 m); every hall, the library and every shop faces the centre (Door Side Centre). Corner Radius
 1.8 m, Railings *Drops And Paths*, Round Castle on.
 
@@ -215,9 +217,31 @@ The story order the defaults set up (nothing with real monsters until the castle
 ### Placement
 
 Each street zone is built at its own **Height** (600, 700, 800...; at least 100 apart) so zones never overlap the castle
-or each other. When the hub has a Street Gate for a zone, that gate is its way in. Otherwise the **door in the castle** is
-placed with *Hub Door Position / Yaw* (Hub-local coordinates; select `Hub` in the built scene to find a spot), and *Hub
-Return Position* is where you appear when you come back.
+or each other. When the hub has a Street Gate for a zone, its tunnel is the way in. Otherwise (not recommended) a **door
+in the castle** is placed with *Hub Door Position / Yaw* (Hub-local coordinates; select `Hub` in the built scene to find
+a spot), and *Hub Return Position* is where you appear when you come back.
+
+### Travel and the sky
+
+Nothing is a portal any more. Every street is reached on foot through a **tunnel**: from the castle's gate (a gatehouse
+in the curtain wall) it bores into a pair of snowy **mountains** with a pass between them, turns twice, and comes out of
+an identical tunnel in another mountainside right behind the street's `S`. Out of sight between the two bends you are
+moved from one tunnel to the other (`TunnelPassage`, same spot, turned round), so you just walk on. The castle end has
+a portcullis that stays down until the gate's quest is done. The street's houses keep clear of its tunnel and the map's
+edge opens for it.
+
+The world is laid out from the tunnels: the castle sits in the middle of the sea, and each street lies out along the
+line of its tunnel from the castle's middle, **Horizon Distance** away (Zone > Sky), turned so its own tunnel points
+home. Every area gets a skybox (`Materials/Sky_<zone>.mat`, PSX shader `PSXSkyline`) with a pixel-art skyline painted
+on every rebuild (`Textures/Sky/Skyline_<zone>.png`) that shows the others **where they really are**: from the castle,
+Sunpetal Gardens' flower hills over the southern pass and Lantern Row's lamplit rooftops over the western one; from a
+street, the castle (round wall, towers, the halls' roofs, the keep, the tavern's cone and the Starfall Crystal's beam)
+behind its mountains. A mostly green map is drawn as a garden isle (giant flowers in its Accent Colour), a built-up one as
+a town (lit windows, a lantern tower). Far islands, the sea and clouds fill the rest. Each zone's **Sky Top / Horizon
+Colour** and **Fog Colour** are swapped in as you arrive (Lantern Row is at dusk, Sunpetal Gardens in morning light).
+
+Round the castle the sea rolls with long swells and whitecaps (`Materials/PSX_SeaSwell`) and surf breaks against the
+island (`PSXSurf` shader, `Materials/PSX_Surf`).
 
 ### Performance (culling)
 

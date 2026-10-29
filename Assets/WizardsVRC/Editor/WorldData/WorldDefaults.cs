@@ -148,6 +148,11 @@ namespace WizardsVRC.EditorTools.WorldData
             z.accentColor = new Color(1f, 0.65f, 0.3f);
             z.buildingHeight = new Vector2(7f, 13f);
             z.lampDensity = 0.3f;
+            // Dusk over the lamplit street.
+            z.skyTopColor = new Color(0.13f, 0.11f, 0.36f);
+            z.skyHorizonColor = new Color(0.9f, 0.48f, 0.42f);
+            z.fogColor = new Color(0.45f, 0.32f, 0.44f);
+            z.horizonDistance = 1150f;
             z.hubDoorPosition = new Vector3(0f, 2.5f, -81f);
             z.hubDoorYaw = 0f;
             z.hubReturnPosition = new Vector3(0f, 0.1f, -72f);
@@ -196,9 +201,26 @@ namespace WizardsVRC.EditorTools.WorldData
             };
         }
 
+        /// <summary>Quest texts as world data v11 had them (gates in the south wall) and what they say now (tunnels).</summary>
+        public static readonly string[,] TunnelTextsV12 =
+        {
+            { "Gatekeeper Bramwell says the lamps of Lantern Row are going dark one by one. Take the Lantern Row gate in the castle's south wall and find Watchwoman Tilda.",
+              "Gatekeeper Bramwell says the lamps of Lantern Row are going dark one by one. Take the Lantern Row tunnel at the end of the west avenue, past the Bazaar, and find Watchwoman Tilda." },
+            { "Talk to Watchwoman Tilda on Lantern Row (gate in the castle's south wall)",
+              "Talk to Watchwoman Tilda on Lantern Row (tunnel past the Bazaar, west avenue)" },
+            { "Gatekeeper Bramwell has opened the gate to Sunpetal Gardens. The weeds out there have come alive, and the old gardener needs a hand.",
+              "Gatekeeper Bramwell has raised the portcullis on the tunnel to Sunpetal Gardens. The weeds out there have come alive, and the old gardener needs a hand." },
+            { "Holloway says you held your own. I've opened the gate to Sunpetal Gardens, in the south wall.",
+              "Holloway says you held your own. I've raised the portcullis on the Sunpetal Gardens tunnel, at the end of the south avenue." },
+            { "Find Gardener Moss in Sunpetal Gardens (gate in the south wall)",
+              "Find Gardener Moss in Sunpetal Gardens (tunnel at the end of the south avenue)" },
+            { "You've done the castle proud. I'll send word to the Headmaster, and Bramwell will open the Lantern Row gate for you.",
+              "You've done the castle proud. I'll send word to the Headmaster, and Bramwell will open the Lantern Row tunnel for you." },
+        };
+
         public const string LanternRowIntro =
-            "Gatekeeper Bramwell says the lamps of Lantern Row are going dark one by one. Take the Lantern Row gate in the castle's south wall and find Watchwoman Tilda.";
-        public const string LanternRowIntroStep = "Talk to Watchwoman Tilda on Lantern Row (gate in the castle's south wall)";
+            "Gatekeeper Bramwell says the lamps of Lantern Row are going dark one by one. Take the Lantern Row tunnel at the end of the west avenue, past the Bazaar, and find Watchwoman Tilda.";
+        public const string LanternRowIntroStep = "Talk to Watchwoman Tilda on Lantern Row (tunnel past the Bazaar, west avenue)";
         // What older world data folders were created with, so the one-time upgrade only changes values nobody edited.
         public const string OldLanternRowIntro =
             "The Headmaster has heard that the lamps of Lantern Row are going dark one by one. Cross the south bridge and find Watchwoman Tilda at the street gate.";
@@ -322,13 +344,13 @@ namespace WizardsVRC.EditorTools.WorldData
             z.roundCastle = true;
             z.height = 0f;
             z.cellSize = 4f;
-            z.map = HubMapV11;
+            z.map = HubMapV12;
             // Ground level is 1 (1.5 m); the central plaza and the pond are sunk to 0, the duelling circle and the gazebo
             // garden raised to 2, the Headmaster's terrace to 3 (with a landing at 2) and the observatory hill to 4.
             z.heightStep = 1.5f;
             z.cornerRadius = 1.8f;
             z.railings = RailingMode.DropsAndPaths;
-            z.heightMap = HubHeightsV11;
+            z.heightMap = HubHeightsV12;
             z.groundColor = new Color(0.36f, 0.72f, 0.26f);
             z.roadColor = new Color(0.82f, 0.72f, 0.56f);
             z.grassColor = new Color(0.42f, 0.78f, 0.3f);
@@ -468,7 +490,160 @@ namespace WizardsVRC.EditorTools.WorldData
             return new ZoneLandmark { symbol = symbol, kind = LandmarkKind.Shop, label = label, doorSide = DoorSide.Centre };
         }
 
-        /// <summary>The round hub (world data v11), 72 x 72 cells of 4 m.</summary>
+        /// <summary>
+        /// The round hub (world data v12), 72 x 72 cells of 4 m: the south avenue ends at the Sunpetal Gardens tunnel (G)
+        /// and the west avenue runs past the Bazaar to the Lantern Row tunnel (R), both through the curtain wall.
+        /// </summary>
+        public const string HubMapV12 =
+            "########################################################################\n" +
+            "########################################################################\n" +
+            "########################################################################\n" +
+            "##############################,,,,,,,,,,,,##############################\n" +
+            "##########################,,,,KKKKKKKKKKKK,,,,##########################\n" +
+            "#######################,,,,,,,KKKKKKKKKKKK,,,,,,,#######################\n" +
+            "#####################,,,,,,^,,KKKKKKKKKKKK,,,^,,,,,#####################\n" +
+            "###################,,,,,,,,,,,KKKKKKKKKKKK,,,,,,^,,,,###################\n" +
+            "##################,,,,,,,,...,KKKKKKKKKKKK,,,,,,,,,^,,##################\n" +
+            "################,,,,,,,,...................,,^,,,,,,,,,,################\n" +
+            "###############,,,,,,,....,,,,,,,,....,,,,,,,,,,^,X~~~,,,###############\n" +
+            "##############,,,,,,....,,,,,,,..........,,,,,,,,,X~~~~,,,##############\n" +
+            "#############,,,,,,...,,,,,..................,,,,,~~~~~~,,,#############\n" +
+            "############,,,,,...,,,,,......,,,....,,,......,,,~~~~~~~,,,############\n" +
+            "###########,,,,,...,,,,.....,,,,,,....,,,,,,.....,,~~~~~~~,,,###########\n" +
+            "##########,,,TTT..,,,,....,,,,,,,,....,,,,,,,,....,,~~~~~~~,,,##########\n" +
+            "#########,,,,TTT,,,,....,,,,,,,O,,....,,W,,,,,,,....,~~~~~,,,,,#########\n" +
+            "#########,,,,TTT,,,...,,,^,,,OOO,,....,,WWW,,,,,,,...,~~~rr,,,,#########\n" +
+            "########,,,,,,,,,,...,,,,,,OOOOOO,....,WWWWWW,,,,,,...,,rrrr,,,,########\n" +
+            "#######,,,,,^,,,,..*,,,,,OOOOOOOO,....,WWWWWWWW,^,,,*..,rrrrr,,,,#######\n" +
+            "#######,,,,,,,,,...,,^,,,OOOOOOOO,....,WWWWWWWW,,,,,,....rrrr,,,,#######\n" +
+            "######,,,,,,,,,,..,,,,,,,,OOOOOOOO....WWWWWWWW,,,^,,,,...,rr,,,^,,######\n" +
+            "######,,,nn..,,..,,,,,^,,,OOOOOOOO....WWWWWWWW,,,,,,,,,..,,,,,,,,,######\n" +
+            "#####,,,,nnn.....,,,,,,,,,OOOOOO,,....,,WWWWWW,,,,^,,,,...,,,,,,,,,#####\n" +
+            "#####,,,nnnnU...,,,,,,,^,,,OOO.J,......,..WWW,,,,,,,,,,,..,,qqqq,,,#####\n" +
+            "#####,,,nnn.....,,,DD,,,,,,O,t............,,W,,,,,,II,,,...,,qqq,,,#####\n" +
+            "####,,,,,nn....,,,,DDDDD,,,,,...,,....,,...,,,,,IIIII,,,,....qqq,,,,####\n" +
+            "####,,,jj..U...,,,DDDDDDDD,,..,,,,....,,,,..,,IIIIIIII,,,...,qqqq,,,####\n" +
+            "####,,jjjj....,,,,DDDDDDD,,.+,,,........,,,+.,,IIIIIII,,,,..,,,,,,^,####\n" +
+            "####,,jjjj....,,,DDDDDDDD,..,,,..........,,,..,IIIIIIII,,,..,,,,,,,,####\n" +
+            "###,,,jjjj....,,,DDDDDDD...,,,....LLLL....,,,...IIIIIII,,H...........###\n" +
+            "###.,,,jj.U..,,,DDDDDDDD...,,...LLLLLLLL...,,...IIIIIIII,............###\n" +
+            "###...,,.....,,,,,DDDDD,,.,,...LLLLLLLLLL...,,.,,IIIII,,,..aaaaaaaaa.###\n" +
+            "###...,,..k..,,,,,,,,DD,..,,...LLLLLLLLLL...,,..,II,,,,,,..a.......a.###\n" +
+            "###...........................LLLLLLLLLLLL.................a.......a.###\n" +
+            "###...........................LLLLLQQLL@LL.................a.......a.###\n" +
+            "###R.....yE.......w...........LLLLLQQLLLLL...............z.a...1...a.###\n" +
+            "###...........................LLLLLLLLLLLL.................a.......a.###\n" +
+            "###..mmm..U..,,,,,,,,FF,..,,...LLLLLLLLLL...,,..,VV,,,,,,..a.......a.###\n" +
+            "###..mmmm....,^,,,FFFFF,,.,,...LLLLLLLLLL...,,.,,VVVVV,,,..a.......a.###\n" +
+            "###.,mmmm....,,,FFFFFFFF...,,...LLLLLLLL...,,...VVVVVVVV,..aaaaaaaaa.###\n" +
+            "###,,mmmm.....,,,FFFFFFF...,,,....LLLL..A.,,,...VVVVVVV,,............###\n" +
+            "####,,mmm.U...,,,FFFFFFFF,..,,,..N..S.P..,,,..,VVVVVVVV,,Z..........####\n" +
+            "####,,,,,.....,,,,FFFFFFF,,.+,,,........,,,+.,,VVVVVVV,,,,..,,,,,,,,####\n" +
+            "####,,^,,ooo...,,,FFFFFFFF,,..,,,,....,,,,..,,VVVVVVVV,^,...,,,,,,,,####\n" +
+            "####,,,,oooo...,,,,FFFFF,,,,,...,,....,,...,,,,,VVVVV,,,,..,,,,^,,,,####\n" +
+            "#####,,,,ooo....,,,FF,,,,,,M,,............,,B,,,,,,VV,,,...,,,,,,,,#####\n" +
+            "#####,^,,oooo,..,,,,,,,,,,,MMM..,......,..BBB,,,,,,,,,,,.*,,^,,,,,,#####\n" +
+            "#####,,,,ooo,,...,,,,,,,^,MMMMMM,,....,,BBBBBB,,,,,,,,,...,,,,,^,,,#####\n" +
+            "######,,,,,,,,,..,,^,,,,,,MMMMMMMM....BBBBBBBB,,,,,,^,,..,,,,,,,,,######\n" +
+            "######,,,,,,,,,,..,,,,,,,,MMMMMMMM....BBBBBBBB,,,,,,,,..,,,,^,,,,,######\n" +
+            "#######,,^,,,,,,...,,,,,,MMMMMMMM,....,BBBBBBBB,,,,,,...,,,,,,,^,#######\n" +
+            "#######,,,,,^,,,,..*,,,,,MMMMMMMM,....,BBBBBBBB,^,,,*..,,^,,,,,,,#######\n" +
+            "########,,,,,,,,,....,,,,,,MMMMMM,....,BBBBBB,,,,,,...,,,,,,^,,,########\n" +
+            "#########,,,,,,,......,,,,,,,MMM,,....,,BBB,,,,,,,.......,,,,,,#########\n" +
+            "#########,,,^,,...,,....,,,,,,,M,,....,,B,,,^,,,....&&&&..,,,,,#########\n" +
+            "##########,,,,,..,,,,,....,,,,,,,,....,,,,,,,,.....&&&&&&.,,,,##########\n" +
+            "###########,,,Y,,,^,,,,.....,,,,,,....,,,,,,.....,.&&&&&&.,,,###########\n" +
+            "############,,,,,,,,,^,,,......,,,....,,,...+..,,,.&&&&&&.,,############\n" +
+            "#############,,^,,,,,,,ppp...................,,,,,.&&&&&&.,#############\n" +
+            "##############,,,,^,,,,ppppp,..............,,,,,,,..&&&&..##############\n" +
+            "###############,,,,,,^,ppppp,..............,,,,,^,,......###############\n" +
+            "################,,,,,,,ppppp................,,,,,,,,,,,,################\n" +
+            "##################,,,,,,,ppp................,^,,,,,,,,##################\n" +
+            "###################,,,,,,,,,................,,,,^,,,,###################\n" +
+            "#####################,,,^,,,................,,,,,,,#####################\n" +
+            "#######################,,,,,,,............,,,,,,,#######################\n" +
+            "##########################,,,,,..........,,,,,##########################\n" +
+            "##############################,.....G....,##############################\n" +
+            "########################################################################\n" +
+            "########################################################################\n" +
+            "########################################################################\n";
+
+        /// <summary>Height map of the round hub (world data v12).</summary>
+        public const string HubHeightsV12 =
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111333333333333111111111111111111111111111111\n" +
+            "111111111111111111111111113333333333333333333311111111111111111111111111\n" +
+            "111111111111111111111113333333333333333333333333311111111111111111111111\n" +
+            "111111111111111111111333333333333333333333333333333111111111111111111111\n" +
+            "111111111111111111133333333333333333333333333333333331111111111111111111\n" +
+            "111111111111111111333333333333333333333333333333333333111111111111111111\n" +
+            "111111111111111144333333333333333333333333333333333333111111111111111111\n" +
+            "111111111111111444433333333333222222222222333333333000111111111111111111\n" +
+            "111111111111114444433333333222211111111112222333333000011111111111111111\n" +
+            "111111111111144444443333222111111111111111111222330000001111111111111111\n" +
+            "111111111111444444444322211111111111111111111112220000000111111111111111\n" +
+            "111111111114444444441221111111111111111111111111122000000011111111111111\n" +
+            "111111111144444444111111111111111111111111111111111100000001111111111111\n" +
+            "111111111444444441111111111111111111111111111111111110000011111111111111\n" +
+            "111111111444444411111111111111111111111111111111111111000111111111111111\n" +
+            "111111114444444111111111111111111111111111111111111111111111111111111111\n" +
+            "111111144444444111111111111111111111111111111111111111111111111111111111\n" +
+            "111111144444441111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111444411111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111110000000011111111111111111111111111111111\n" +
+            "111111111111111111111111111111100000000001111111111111111111111111111111\n" +
+            "111111111111111111111111111111000000000000111111111111111111111111111111\n" +
+            "111111111111111111111111111110000000000000011111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111100000000000000001111111111111111111111111111\n" +
+            "111111111111111111111111111110000000000000011111111111111111111111111111\n" +
+            "111111111111111111111111111111000000000000111111111111111111111111111111\n" +
+            "111111111111111111111111111111100000000001111111111111111111111111111111\n" +
+            "111111111111111111111111111111110000000011111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111112221111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111222221111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111122222111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111122222211111111111111111111111111111111111111111111111111111111111\n" +
+            "111111112222221111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111222221111111111111111111111111111111111111112222111111111111111\n" +
+            "111111111222222111111111111111111111111111111111111122222211111111111111\n" +
+            "111111111122222211111111111111111111111111111111112222222211111111111111\n" +
+            "111111111112222221111111111111111111111111111111112222222211111111111111\n" +
+            "111111111111222222211111111111111111111111111111112222222211111111111111\n" +
+            "111111111111122222221111111111111111111111111111112222222211111111111111\n" +
+            "111111111111112222222111111111111111111111111111112222222211111111111111\n" +
+            "111111111111111222222221111111111111111111111111111222222111111111111111\n" +
+            "111111111111111122222221111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111222221111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111122211111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111211111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n" +
+            "111111111111111111111111111111111111111111111111111111111111111111111111\n";
+
+        /// <summary>The round hub as world data v11 made it (both gates at the south), before the tunnels.</summary>
         public const string HubMapV11 =
             "########################################################################\n" +
             "########################################################################\n" +
@@ -925,6 +1100,11 @@ namespace WizardsVRC.EditorTools.WorldData
             z.accentColor = new Color(1f, 0.6f, 0.75f);
             z.buildingHeight = new Vector2(6f, 9f);
             z.lampDensity = 0.15f;
+            // A bright morning over the gardens.
+            z.skyTopColor = new Color(0.34f, 0.55f, 0.96f);
+            z.skyHorizonColor = new Color(0.98f, 0.86f, 0.7f);
+            z.fogColor = new Color(0.88f, 0.84f, 0.78f);
+            z.horizonDistance = 1000f;
             z.hubDoorPosition = new Vector3(20f, 2.5f, -81f);
             z.hubReturnPosition = new Vector3(20f, 0.1f, -72f);
             z.hubReturnYaw = 180f;
@@ -1037,14 +1217,14 @@ namespace WizardsVRC.EditorTools.WorldData
                 new QuestEntry
                 {
                     saveId = 12, title = "Out Into the World", prerequisite = 11, minLevel = 1, xp = 50, gold = 25,
-                    description = "Gatekeeper Bramwell has opened the gate to Sunpetal Gardens. The weeds out there have come alive, and the old gardener needs a hand.",
+                    description = "Gatekeeper Bramwell has raised the portcullis on the tunnel to Sunpetal Gardens. The weeds out there have come alive, and the old gardener needs a hand.",
                     steps = new List<QuestStepEntry>
                     {
                         Talk("Bramwell", "Talk to Gatekeeper Bramwell", "Gatekeeper Bramwell",
-                            "Holloway says you held your own. I've opened the gate to Sunpetal Gardens, in the south wall.",
+                            "Holloway says you held your own. I've raised the portcullis on the Sunpetal Gardens tunnel, at the end of the south avenue.",
                             "The weeds have got up and started walking, and Gardener Moss is at his wit's end. Go and help him.",
                             "Gardens first, mind. Lantern Row stays shut until you've proven yourself out there."),
-                        Talk("Moss", "Find Gardener Moss in Sunpetal Gardens (gate in the south wall)", "Gardener Moss",
+                        Talk("Moss", "Find Gardener Moss in Sunpetal Gardens (tunnel at the end of the south avenue)", "Gardener Moss",
                             "Oh, thank goodness. Help from the castle!",
                             "A week ago the thistles got up and walked off. Now there are newts in the ponds and moths eating my roses.",
                             "Something deeper in the garden is stirring them up, I'm sure of it."),
@@ -1096,7 +1276,7 @@ namespace WizardsVRC.EditorTools.WorldData
                         Fight(QuestStepKind.Boss, 11, 1, "Defeat Old Briarwick in the briar patch", "Old Briarwick"),
                         Talk("Moss", "Tell Gardener Moss the garden is safe", "Gardener Moss",
                             "Old Briarwick? He's slept in that patch since before the castle was built. Something woke him.",
-                            "You've done the castle proud. I'll send word to the Headmaster, and Bramwell will open the Lantern Row gate for you.",
+                            "You've done the castle proud. I'll send word to the Headmaster, and Bramwell will open the Lantern Row tunnel for you.",
                             "Mind yourself out there. Whatever woke Briarwick isn't finished yet."),
                     },
                 },

@@ -17,9 +17,11 @@ namespace WizardsVRC.EditorTools
 
         /// <summary>
         /// Round castles: a crenellated curtain wall on a circle just inside the map edge (see ZoneGrid.RoundWallRadius),
-        /// standing from the island's base, with round towers and pennants every 22.5 degrees.
+        /// standing from the island's base, with round towers and pennants every 22.5 degrees, and a gatehouse wherever a
+        /// tunnel goes out through it (gateBearings, degrees from north).
         /// </summary>
-        private static void RoundCurtainWall(Transform parent, ZoneGrid g, float baseY, Material stone, Material roof, Material gold, Material banner)
+        private static void RoundCurtainWall(Transform parent, ZoneGrid g, float baseY, Material stone, Material roof, Material gold, Material banner,
+            List<float> gateBearings)
         {
             Transform t = Child(parent, "CurtainWall", Vector3.zero);
             float R = g.RoundWallRadius(), thick = 4f;
@@ -29,9 +31,13 @@ namespace WizardsVRC.EditorTools
             float top = ground + 8f, h = top - baseY + 0.5f;
             const int segs = 72;
             float chord = 2f * R * Mathf.Sin(Mathf.PI / segs) + 0.4f;
+            const float gapHalf = 5.6f;
             for (int i = 0; i < segs; i++)
             {
                 float a = (i + 0.5f) / segs * 360f;
+                bool gap = false;
+                foreach (float gb in gateBearings) if (Mathf.Abs(Mathf.DeltaAngle(a, gb)) < gapHalf) gap = true;
+                if (gap) continue;
                 Vector3 dir = Quaternion.Euler(0, a, 0) * Vector3.forward;
                 Quaternion rot = Quaternion.LookRotation(dir);
                 Vector3 p = dir * R;
@@ -44,8 +50,36 @@ namespace WizardsVRC.EditorTools
                         Deco(t, PrimitiveType.Cube, "Merlon", new Vector3(m.x, top + 0.6f, m.z), new Vector3(chord * 0.28f, 1.2f, 0.7f), stone, rot, false);
                     }
             }
+            float segHalf = 180f / segs;
+            foreach (float gb in gateBearings)
+            {
+                // Gatehouse: the wall either side reaches to the nearest standing wall piece; an arch over the tunnel; two towers.
+                Transform gh = Child(t, "Gatehouse", Vector3.zero);
+                gh.localRotation = Quaternion.Euler(0, gb, 0);
+                float open = TunW / 2f + TunT;
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    float nearest = 180f;
+                    for (int i = 0; i < segs; i++)
+                    {
+                        float a = (i + 0.5f) / segs * 360f;
+                        float d = Mathf.DeltaAngle(gb, a) * side;
+                        if (d >= gapHalf && d < nearest) nearest = d;
+                    }
+                    float reach = R * Mathf.Sin((nearest - segHalf) * Mathf.Deg2Rad) + 0.4f;
+                    float x0 = side < 0 ? -reach : open, x1 = side < 0 ? -open : reach;
+                    TBox(gh, "GateWall", x0, x1, baseY - 0.5f, top, R - thick / 2f, R + thick / 2f, stone);
+                    Vector3 tp = new Vector3(side * (open + 4.4f), baseY, R - thick / 2f - 1.2f);
+                    Tower(gh, tp, 3.2f, top - baseY + 6f, 5f, roof, stone, gold);
+                    Pennant(gh, tp + new Vector3(0, top - baseY + 11.5f, 0), gold, banner);
+                }
+                TBox(gh, "GateArch", -open - 0.1f, open + 0.1f, ground + TunH + TunT, top, R - thick / 2f, R + thick / 2f, stone);
+                for (float x = -open + 0.4f; x < open; x += 1.2f)
+                    Deco(gh, PrimitiveType.Cube, "Merlon", new Vector3(x, top + 0.6f, R - thick / 2f + 0.35f), new Vector3(0.7f, 1.2f, 0.7f), stone, Quaternion.identity, false);
+            }
             for (int i = 0; i < 16; i++)
             {
+                if (gateBearings.Exists(gb => Mathf.Abs(Mathf.DeltaAngle(i * 22.5f, gb)) < gapHalf + 3f)) continue;
                 Vector3 dir = Quaternion.Euler(0, i * 22.5f, 0) * Vector3.forward;
                 Vector3 p = dir * R;
                 float th = top - baseY + 4f;

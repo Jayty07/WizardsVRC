@@ -16,13 +16,13 @@ namespace WizardsVRC.EditorTools
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
-        /// <summary>A gate in the hub that leads to a street zone; the street pass fills in its destination.</summary>
+        /// <summary>A tunnel in the hub that leads to a street zone; the street pass builds the other end and links them.</summary>
         private class HubGate
         {
             public ZoneLandmark landmark;
-            public GameObject clickable;
-            public QuestGate gate;
-            public TeleportHelper teleport;
+            public TunnelEnd tunnel;
+            public TunnelGate gate;
+            /// <summary>Just outside the tunnel's mouth, facing the castle (guide arrows).</summary>
             public Transform front;
         }
 
@@ -153,10 +153,21 @@ namespace WizardsVRC.EditorTools
                 }
                 Shape(root, "IslandCliff", PrismMesh("PSX_HubIsland_" + dims, poly, -7f, baseY - 0.2f), Vector3.zero, Vector3.one, cliff, true, Quaternion.identity);
                 Shape(root, "IslandTop", PrismMesh("PSX_HubIslandTop_" + dims, poly, baseY - 0.2f, baseY), Vector3.zero, Vector3.one, ground, true, Quaternion.identity);
-                // The sea: a big subdivided PSX water plane (it heaves slowly; the island's cliffs stand in it).
-                var sea = Shape(root, "Sea", GridMesh(40, 40, false), new Vector3(0, -6.2f, 0), new Vector3(W + 420f, 1f, H + 420f), PsxSeaMat(), false,
+                // The sea: a big subdivided PSX water plane rolling with long swells and whitecaps (the island's cliffs
+                // stand in it), and surf breaking round a round island's shore.
+                var sea = Shape(root, "Sea", GridMesh(96, 96, false), new Vector3(0, -6.2f, 0), new Vector3(W + 420f, 1f, H + 420f), PsxSwellMat(), false,
                     Quaternion.identity);
                 sea.isStatic = false;
+                if (round)
+                {
+                    float ri = Mathf.Min(W, H) / 2f + m;
+                    var surfMat = PsxSurfMat();
+                    if (surfMat != null)
+                    {
+                        var surf = Shape(root, "Surf", SurfRingMesh(ri - 1.5f, ri + 18f, 96), new Vector3(0, -5.6f, 0), Vector3.one, surfMat, false, Quaternion.identity);
+                        surf.isStatic = false;
+                    }
+                }
                 for (int i = 0; i < poly.Length; i++)
                 {
                     Vector2 a = poly[i], b = poly[(i + 1) % poly.Length];
@@ -181,7 +192,7 @@ namespace WizardsVRC.EditorTools
             var stairCells = new HashSet<Vector2Int>();
             BuildTerrain(layout, g, MakeTerrainMats(z, k), baseY, stairCells);
             int houseIndex = 0;
-            if (round) RoundCurtainWall(layout, g, baseY, stone, roof, gold, banner);
+            if (round) RoundCurtainWall(layout, g, baseY, stone, roof, gold, banner, TunnelBearings(g, z, data));
             else
             {
                 foreach (var r in Rects(g, ch => ch == '#', 3, 3))
@@ -303,7 +314,7 @@ namespace WizardsVRC.EditorTools
                         case LandmarkKind.Shop: Shop(root, g, l, shop++, gold, door, window, wood); break;
                         case LandmarkKind.Waterfall: WaterfallLandmark(root, g, l, PMat("WaterfallRock", new Color(0.5f, 0.47f, 0.45f), 3f)); break;
                         case LandmarkKind.Tavern: TavernLandmark(root, g, z, l, behaviours, stone, roof, gold, window, wood); break;
-                        case LandmarkKind.StreetGate: if (hub != null) HubGateLandmark(root, g, l, cell, hub, data, stone); break;
+                        case LandmarkKind.StreetGate: if (hub != null) HubTunnelLandmark(root, g, z, l, cell, hub, data, stone, gold); break;
                         case LandmarkKind.ArenaPad:
                             if (hub == null) break;
                             hub.padPos = p + new Vector3(0, 0.06f, 0);
@@ -774,47 +785,98 @@ namespace WizardsVRC.EditorTools
             if (!string.IsNullOrEmpty(label)) LandmarkSign(root, p + front * 1.4f + new Vector3(0, 1.1f, 0), front, label, new Color(1f, 0.85f, 0.4f));
         }
 
-        /// <summary>A portal arch: click it to go to the gate's street (or be told why it's still locked).</summary>
-        private static void HubGateLandmark(Transform root, ZoneGrid g, ZoneLandmark l, Vector2Int cell, HubLayout hub, WorldDataStore.Data data, Material stone)
+        /// <summary>The street a Street Gate leads to, if it's built (null otherwise).</summary>
+        private static ZoneDefinition GateTarget(ZoneLandmark l, WorldDataStore.Data data)
         {
             string key = l.targetZone ?? "";
-            if (key.Length == 0) return;
+            if (key.Length == 0) return null;
+            foreach (var t in data.zones) if (t != null && t.includeInBuild && !t.isHub && t.zoneKey == key) return t;
+            return null;
+        }
+
+        /// <summary>Bearings (degrees, 0 = north) of the hub's tunnels, so the round wall leaves a gateway for each.</summary>
+        private static List<float> TunnelBearings(ZoneGrid g, ZoneDefinition z, WorldDataStore.Data data)
+        {
+            var list = new List<float>();
+            var keys = new HashSet<string>();
+            if (z.landmarks == null) return list;
+            foreach (var l in z.landmarks)
+            {
+                if (l == null || l.kind != LandmarkKind.StreetGate || GateTarget(l, data) == null || !keys.Add(l.targetZone)) continue;
+                var cells = g.Find(l.Symbol);
+                if (cells.Count > 0) list.Add(BearingOf(g.Local(cells[0])));
+            }
+            return list;
+        }
+
+        /// <summary>Where a hub tunnel's mouth is and which way it runs: round castles bore through the curtain wall at the
+        /// gate's bearing; otherwise the tunnel starts at the back of the gate's cell (away from its open side).</summary>
+        private static void TunnelMouth(ZoneGrid g, ZoneDefinition z, Vector2Int cell, out Vector3 mouth, out Vector3 outward)
+        {
+            Vector3 p = g.Local(cell);
+            if (z.castleStyle && z.roundCastle)
+            {
+                outward = new Vector3(p.x, 0f, p.z).normalized;
+                mouth = outward * (g.RoundWallRadius() - 2f);
+                mouth.y = p.y;
+                return;
+            }
+            outward = -OpenFront(g, cell);
+            mouth = p + outward * (g.cell * 0.5f);
+        }
+
+        /// <summary>
+        /// A Street Gate becomes a tunnel into the mountains: a stone mouth with a portcullis that stays down until the
+        /// gate's quest is done, a sign with the street's name, the Z-shaped tunnel itself and the twin peaks over it.
+        /// The street pass builds the far end and links the two.
+        /// </summary>
+        private static void HubTunnelLandmark(Transform root, ZoneGrid g, ZoneDefinition z, ZoneLandmark l, Vector2Int cell, HubLayout hub,
+            WorldDataStore.Data data, Material stone, Material gold)
+        {
+            var target = GateTarget(l, data);
+            if (target == null) return;
+            string key = target.zoneKey;
             if (hub.gates.ContainsKey(key))
             {
                 Debug.LogWarning("[WizardsVRC World] Two hub gates lead to '" + key + "'; only the first is used.");
                 return;
             }
-            ZoneDefinition target = null;
-            foreach (var t in data.zones) if (t != null && t.includeInBuild && !t.isHub && t.zoneKey == key) target = t;
-            if (target == null) return;
+            Vector3 mouth, outward;
+            TunnelMouth(g, z, cell, out mouth, out outward);
+            var tm = TunnelMats(z);
+            var e = BuildTunnel(root, key, mouth, outward, tm[0], tm[1], tm[2], tm[3], hub.behaviours);
 
-            Vector3 front = OpenFront(g, cell);
-            Vector3 p = g.Local(cell);
-            Transform arch = Child(root, "Gate_" + key, p);
-            arch.localRotation = Quaternion.LookRotation(front);
-            Color c = target.accentColor;
-            PortalArch(arch, Vector3.zero, stone, PMat("Portal_" + key, c, 1f, c * 0.8f));
-
-            var click = Child(arch, "GateClick", new Vector3(0, 2.6f, 0)).gameObject;
-            click.AddComponent<BoxCollider>().size = new Vector3(4f, 5.2f, 0.8f);
-            var qg = UdonSharpUndo.AddComponent<QuestGate>(click);
-            var tp = UdonSharpUndo.AddComponent<TeleportHelper>(Child(arch, "GateTeleport", Vector3.zero).gameObject);
-            qg.teleporter = tp;
-            qg.requiredQuest = l.requiredQuest;
             string name = string.IsNullOrEmpty(l.label) ? target.displayName : l.label;
-            qg.openText = name + "  " + target.levelRange + "\n(click the gate)";
-            qg.lockedText = name + "\n" + (string.IsNullOrEmpty(l.lockedHint) ? "Locked" : l.lockedHint);
-            qg.label = WorldText(root, "GateLabel_" + key, p + new Vector3(0, 7.6f, 0), Quaternion.LookRotation(-front), new Vector2(1300, 260), 0.0045f,
-                l.requiredQuest >= 0 ? qg.lockedText : qg.openText, 58);
-            qg.label.color = new Color(1f, 0.85f, 0.4f);
-            UdonBehaviour backing = UdonSharpEditorUtility.GetBackingUdonBehaviour(qg);
-            if (backing != null) backing.interactText = "Enter " + name;
+            var label = TunnelFacade(e, tm[0], gold, name, new Color(1f, 0.85f, 0.4f));
+            var gate = UdonSharpUndo.AddComponent<TunnelGate>(e.root.gameObject);
+            gate.barrier = Portcullis(e, tm[4]);
+            gate.label = label;
+            gate.requiredQuest = l.requiredQuest;
+            gate.openText = name + "  " + target.levelRange + "\n(walk through the tunnel)";
+            gate.lockedText = name + "\n" + (string.IsNullOrEmpty(l.lockedHint) ? "Locked" : l.lockedHint);
+            label.text = l.requiredQuest >= 0 ? gate.lockedText : gate.openText;
+            e.passage.gate = gate;
+            hub.behaviours.Add(gate);
 
-            Transform ret = Child(root, key + "Return", p + front * (g.cell * 0.75f) + new Vector3(0, 0.1f, 0));
-            ret.localRotation = Quaternion.LookRotation(front);
-            hub.gates[key] = new HubGate { landmark = l, clickable = click, gate = qg, teleport = tp, front = ret };
-            hub.behaviours.Add(qg);
-            hub.behaviours.Add(tp);
+            bool round = z.castleStyle && z.roundCastle;
+            e.mountainCentre = Mountains(root, z.zoneKey + "_" + key, e, round ? 4.4f : 0f, mouth.y + 7.5f, 1f, tm[5], tm[6]);
+            hub.gates[key] = new HubGate { landmark = l, tunnel = e, gate = gate, front = e.front };
+        }
+
+        /// <summary>Tunnel and mountain materials: stone, floor, dark, lantern glow, iron, rock, snow.</summary>
+        private static Material[] TunnelMats(ZoneDefinition z)
+        {
+            Texture2D wallTex = TileTexture(TerrainTexDir + "/StoneWall.png");
+            return new[]
+            {
+                PsxTexMat("TunnelStone", Color.Lerp(z.buildingColor, new Color(0.45f, 0.42f, 0.44f), 0.6f), wallTex, 2.2f),
+                PsxTexMat("TunnelFloor", new Color(0.5f, 0.45f, 0.4f), TileTexture(TerrainTexDir + "/Cobble.png"), 2.4f),
+                PMat("TunnelDark", new Color(0.04f, 0.04f, 0.06f), 1f),
+                PMat("TunnelLantern", new Color(1f, 0.75f, 0.4f), 1f, new Color(1f, 0.6f, 0.2f)),
+                PMat("RailingIron", new Color(0.17f, 0.16f, 0.21f), 1f),
+                PsxTexMat("MountainRock", new Color(0.56f, 0.5f, 0.52f), wallTex, 6f),
+                PMat("MountainSnow", new Color(0.95f, 0.96f, 1f), 1f, new Color(0.12f, 0.12f, 0.16f)),
+            };
         }
 
         // ================================================================== contents (after the quest system exists)
@@ -823,11 +885,7 @@ namespace WizardsVRC.EditorTools
         private static void BuildHubContents(HubLayout hub, Transform systems, QuestManager qm, CardDatabase cardDb, ItemDatabase itemDb,
             PlayerState playerState, List<BattleClient> encounters, WorldBuild wb)
         {
-            foreach (var gate in hub.gates.Values)
-            {
-                gate.gate.questManager = qm;
-                gate.gate.playerState = playerState;
-            }
+            foreach (var gate in hub.gates.Values) gate.gate.questManager = qm;
             wb.behaviours.AddRange(hub.behaviours);
             if (hub.zone == null) return;
             var z = hub.zone;

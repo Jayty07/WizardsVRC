@@ -10,6 +10,8 @@ namespace WizardsVRC
     /// lives under these roots (battle managers, quest state and cutscenes are under Systems), so switching them off is safe.
     /// Teleports call <see cref="Prepare"/> first, so the destination's ground is there before the player lands.
     /// The keep interior (spawn) and the cutscene film sets are never culled.
+    /// It also swaps the sky: each area can have its own skybox (whose skyline shows the other areas where they really
+    /// lie) and fog colour; anywhere else gets the default sky.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class AreaCuller : UdonSharpBehaviour
@@ -23,8 +25,15 @@ namespace WizardsVRC
         [Tooltip("After a teleport, nothing is switched off for this long (the player's position takes a moment to update).")]
         public float teleportHold = 1.5f;
 
+        [Header("Sky per area (same order as Areas; empty = the default)")]
+        public Material[] skies;
+        public Color[] fogColors;
+        public Material defaultSky;
+        public Color defaultFog = new Color(0.9f, 0.66f, 0.68f);
+
         private float _next = 1f;
         private float _holdUntil;
+        private int _skyArea = -2;
 
         /// <summary>Switches on the area containing a position the player is about to be moved to.</summary>
         public void Prepare(Vector3 position)
@@ -33,6 +42,28 @@ namespace WizardsVRC
             if (areas == null) return;
             for (int i = 0; i < areas.Length; i++)
                 if (Contains(i, position)) SetArea(i, true);
+            ApplySky(AreaAt(position));
+        }
+
+        /// <summary>First area whose bounds hold the position (-1 = none).</summary>
+        private int AreaAt(Vector3 p)
+        {
+            if (areas == null || boundsMin == null || boundsMax == null) return -1;
+            for (int i = 0; i < areas.Length && i < boundsMin.Length && i < boundsMax.Length; i++)
+                if (Contains(i, p)) return i;
+            return -1;
+        }
+
+        private void ApplySky(int area)
+        {
+            if (area == _skyArea) return;
+            _skyArea = area;
+            Material sky = defaultSky;
+            Color fog = defaultFog;
+            if (area >= 0 && skies != null && area < skies.Length && skies[area] != null) sky = skies[area];
+            if (area >= 0 && fogColors != null && area < fogColors.Length && fogColors[area].a > 0f) fog = fogColors[area];
+            if (sky != null) RenderSettings.skybox = sky;
+            RenderSettings.fogColor = fog;
         }
 
         private bool Contains(int i, Vector3 p)
@@ -56,6 +87,7 @@ namespace WizardsVRC
             if (!Utilities.IsValid(local)) return;
             Vector3 p = local.GetPosition();
             bool hold = Time.time < _holdUntil;
+            if (!hold) ApplySky(AreaAt(p));
             for (int i = 0; i < areas.Length; i++)
             {
                 if (Contains(i, p)) SetArea(i, true);

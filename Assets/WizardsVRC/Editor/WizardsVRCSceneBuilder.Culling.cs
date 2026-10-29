@@ -107,6 +107,9 @@ namespace WizardsVRC.EditorTools
             foreach (var go in scene.GetRootGameObjects())
                 foreach (var tp in go.GetComponentsInChildren<TeleportHelper>(true))
                     tp.culler = culler;
+            foreach (var go in scene.GetRootGameObjects())
+                foreach (var tp in go.GetComponentsInChildren<TunnelPassage>(true))
+                    tp.culler = culler;
             foreach (var ec in encounters) ec.culler = culler;
             var names = new List<string>();
             foreach (var a in areas) names.Add(a.name);

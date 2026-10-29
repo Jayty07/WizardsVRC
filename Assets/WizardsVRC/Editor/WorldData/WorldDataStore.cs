@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 11;
+        public const int CurrentVersion = 12;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -172,6 +172,62 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 9) UpgradeTo9();
             if (from < 10) UpgradeTo10();
             if (from < 11) UpgradeTo11();
+            if (from < 12) UpgradeTo12();
+        }
+
+        /// <summary>
+        /// v12: tunnels instead of portal gates. The round hub's Sunpetal Gardens tunnel moves to the end of the south
+        /// avenue and the Lantern Row one to the end of the west avenue (only if the hub still has the v11 layout); the
+        /// quest texts that pointed at "the gate in the south wall" now point at the tunnels (only where unedited); Lantern
+        /// Row gets a dusk sky and Sunpetal Gardens a bright one (if their sky colours were never changed).
+        /// </summary>
+        private static void UpgradeTo12()
+        {
+            var plain = ScriptableObject.CreateInstance<ZoneDefinition>();
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null) continue;
+                if (z.isHub && Normalize(z.map) == Normalize(WorldDefaults.HubMapV11))
+                {
+                    z.map = WorldDefaults.HubMapV12;
+                    EditorUtility.SetDirty(z);
+                    Debug.Log("[WizardsVRC] Upgraded world data: " + z.displayName + " has tunnels to the streets at the ends of the south and west avenues.");
+                }
+                bool defaultSky = z.skyTopColor == plain.skyTopColor && z.skyHorizonColor == plain.skyHorizonColor && z.fogColor == plain.fogColor;
+                if (!defaultSky || z.isHub) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                if (z.zoneKey == "LanternRow") WorldDefaults.FillLanternRow(fresh);
+                else if (z.zoneKey == "SunpetalGardens") WorldDefaults.FillSunpetalGardens(fresh);
+                else continue;
+                z.skyTopColor = fresh.skyTopColor;
+                z.skyHorizonColor = fresh.skyHorizonColor;
+                z.fogColor = fresh.fogColor;
+                EditorUtility.SetDirty(z);
+            }
+            var texts = WorldDefaults.TunnelTextsV12;
+            foreach (var ql in FindAll<Questline>())
+            {
+                if (ql == null) continue;
+                bool dirty = false;
+                foreach (var q in ql.quests)
+                {
+                    if (q == null) continue;
+                    for (int i = 0; i < texts.GetLength(0); i++)
+                    {
+                        if (q.description == texts[i, 0]) { q.description = texts[i, 1]; dirty = true; }
+                        if (q.steps == null) continue;
+                        foreach (var st in q.steps)
+                        {
+                            if (st == null) continue;
+                            if (st.objective == texts[i, 0]) { st.objective = texts[i, 1]; dirty = true; }
+                            if (st.dialogue != null)
+                                for (int d = 0; d < st.dialogue.Length; d++)
+                                    if (st.dialogue[d] == texts[i, 0]) { st.dialogue[d] = texts[i, 1]; dirty = true; }
+                        }
+                    }
+                }
+                if (dirty) EditorUtility.SetDirty(ql);
+            }
         }
 
         /// <summary>

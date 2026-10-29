@@ -59,8 +59,9 @@ namespace WizardsVRC.EditorTools
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = new Color(0.9f, 0.66f, 0.68f);
-            RenderSettings.fogStartDistance = 45f;
-            RenderSettings.fogEndDistance = 170f;
+            // Far enough to see the mountains over the castle's tunnels; the skylines are hazed to match.
+            RenderSettings.fogStartDistance = 60f;
+            RenderSettings.fogEndDistance = 260f;
             RenderSettings.ambientSkyColor = new Color(0.62f, 0.6f, 0.9f);
             RenderSettings.ambientEquatorColor = new Color(0.65f, 0.52f, 0.55f);
             RenderSettings.ambientGroundColor = new Color(0.35f, 0.28f, 0.3f);

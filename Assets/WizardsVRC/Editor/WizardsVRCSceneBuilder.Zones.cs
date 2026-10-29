@@ -42,6 +42,8 @@ namespace WizardsVRC.EditorTools
             /// <summary>Zone roots and their bounds for the AreaCuller.</summary>
             public readonly List<GameObject> cullRoots = new List<GameObject>();
             public readonly List<Bounds> cullBounds = new List<Bounds>();
+            /// <summary>Street zones for the skylines (where each lies is worked out once the hub is known).</summary>
+            public readonly List<SkyArea> skyAreas = new List<SkyArea>();
         }
 
         // ================================================================== monsters
@@ -190,18 +192,47 @@ namespace WizardsVRC.EditorTools
             float W = g.width * cs, H = g.height * cs;
             float baseY = g.minLevel * g.step;
             Block(root, "Ground", new Vector3(0, baseY - 0.25f, 0), new Vector3(W, 0.5f, H), ground);
-            Transform bounds = Child(root, "Bounds", Vector3.zero);
-            foreach (var side in new[] { new Vector4(0, H / 2f, W, 1f), new Vector4(0, -H / 2f, W, 1f), new Vector4(W / 2f, 0, 1f, H), new Vector4(-W / 2f, 0, 1f, H) })
+
+            // The way home: a tunnel behind the entrance (S) into the mountains, if the castle has a gate (tunnel) for this
+            // street. Houses keep clear of it and the map's edge has a gap for it.
+            Vector2Int start = starts[0];
+            Vector2Int open = g.OpenDirection(start);
+            Vector3 openDir = ZoneGrid.ToLocalDir(open);
+            HubGate gate = null;
+            if (hub != null) hub.gates.TryGetValue(k, out gate);
+            Vector3 mouth = g.Local(start) - openDir * (cs * 0.5f);
+            var gaps = new List<Rect>();
+            Rect tunnelRect = new Rect();
+            if (gate != null)
             {
-                var wall = Child(bounds, "Edge", new Vector3(side.x, 15f, side.y)).gameObject.AddComponent<BoxCollider>();
-                wall.size = new Vector3(side.z, 30f, side.w);
+                Vector3 right = Vector3.Cross(Vector3.up, -openDir);
+                float hwT = TunW / 2f + TunT + 1f;
+                float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
+                foreach (float a in new[] { -hwT, TunL2 + hwT })
+                    foreach (float b in new[] { -1f, TunL1 + TunL3 + 1f })
+                    {
+                        Vector3 c = mouth + right * a - openDir * b;
+                        x0 = Mathf.Min(x0, c.x); x1 = Mathf.Max(x1, c.x); z0 = Mathf.Min(z0, c.z); z1 = Mathf.Max(z1, c.z);
+                    }
+                tunnelRect = Rect.MinMaxRect(x0, z0, x1, z1);
+                gaps.Add(tunnelRect);
             }
+            EdgeWalls(root, W, H, gaps);
 
             Transform layout = Child(root, "Layout", Vector3.zero);
             var stairCells = new HashSet<Vector2Int>();
             BuildTerrain(layout, g, MakeTerrainMats(z, k), baseY, stairCells);
             int houseIndex = 0;
-            foreach (var r in Rects(g, ch => ch == '#', 3, 3)) House(layout, g, z, r, houseIndex++, bld, roof, window);
+            var noHouse = new HashSet<Vector2Int>();
+            if (gate != null)
+                for (int y = 0; y < g.height; y++)
+                    for (int x = 0; x < g.width; x++)
+                    {
+                        Vector3 c = g.Local(x, y);
+                        if (tunnelRect.Overlaps(new Rect(c.x - cs / 2f, c.z - cs / 2f, cs, cs))) noHouse.Add(new Vector2Int(x, y));
+                    }
+            foreach (var r in RectsAt(g, (x, y) => g.At(x, y) == '#' && !noHouse.Contains(new Vector2Int(x, y)), 3, 3))
+                House(layout, g, z, r, houseIndex++, bld, roof, window);
             foreach (var r in Rects(g, ch => ch == '=', 6, 6))
             {
                 Vector3 c = RectCenter(g, r);
@@ -214,40 +245,40 @@ namespace WizardsVRC.EditorTools
                 BuildLandmarks(root, g, z, null, null, wb.data, bld, roof, PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)),
                     PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f), door, window, wood, wb.behaviours);
 
-            // ---- entrance: spawn, exit door, and the way in from the castle (a hub gate, or a door placed by position)
-            Vector2Int start = starts[0];
-            Vector2Int open = g.OpenDirection(start);
-            Vector3 openDir = ZoneGrid.ToLocalDir(open);
+            // ---- entrance: spawn, the tunnel home (or, without a castle gate, a door), and the way in from the castle
             Transform spawn = Child(root, "Spawn", g.Local(start) + new Vector3(0, 0.05f, 0));
             spawn.localRotation = Quaternion.LookRotation(openDir);
-            HubGate gate = null;
-            if (hub != null) hub.gates.TryGetValue(k, out gate);
-            Transform hubReturn;
-            if (gate != null) hubReturn = gate.front;
-            else
-            {
-                hubReturn = Child(hubRoot, k + "Return", z.hubReturnPosition);
-                hubReturn.localRotation = Quaternion.Euler(0, z.hubReturnYaw, 0);
-            }
-
-            var outDoor = ZoneDoor(root, "ExitDoor", g.Local(start) - openDir * (cs * 0.45f) + new Vector3(0, 2.5f, 0), Quaternion.LookRotation(openDir),
-                Quaternion.LookRotation(-openDir), door, "Starfall Castle\n(click door)");
-            var toHub = UdonSharpUndo.AddComponent<TeleportHelper>(outDoor);
-            toHub.defaultTarget = hubReturn;
-            toHub.hideZones = new[] { root.gameObject };
-            wb.behaviours.Add(toHub);
-
-            GameObject inDoor;
+            var sky = new SkyArea { key = k, zone = z, root = root.gameObject, radius = Mathf.Max(W, H) / 2f, garden = IsGardenZone(g) };
+            GameObject inDoor, outDoor;
             if (gate != null)
             {
-                // The gate's QuestGate checks the quest lock, then uses this teleporter.
-                inDoor = gate.clickable;
-                gate.teleport.defaultTarget = spawn;
-                gate.teleport.showZones = new[] { root.gameObject };
+                // Walk out of the castle's tunnel and you walk out of this one (TunnelPassage links the two middles).
+                var tm = TunnelMats(z);
+                var e = BuildTunnel(root, "Home", mouth, -openDir, tm[0], tm[1], tm[2], tm[3], wb.behaviours);
+                TunnelFacade(e, tm[0], PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)), "Starfall Castle", new Color(1f, 0.85f, 0.4f));
+                e.mountainCentre = Mountains(root, k + "_Home", e, 0f, 12f, 0.8f, tm[5], tm[6]);
+                e.passage.there = gate.tunnel.mid;
+                gate.tunnel.passage.there = e.mid;
                 gate.gate.openIfStarted = QuestsInZone(z, wb.data);
+                inDoor = gate.front.gameObject;
+                outDoor = e.front.gameObject;
+                sky.hubBearing = BearingOf(gate.tunnel.root.position);
+                sky.ownBearing = BearingOf(e.root.localPosition);
             }
             else
             {
+                Debug.LogWarning("[WizardsVRC World] Zone '" + k + "' has no Street Gate in the hub, so it gets a door instead of a tunnel. " +
+                                 "Add a Street Gate landmark (Target Zone " + k + ") to the hub map for a tunnel.");
+                Transform hubReturn = Child(hubRoot, k + "Return", z.hubReturnPosition);
+                hubReturn.localRotation = Quaternion.Euler(0, z.hubReturnYaw, 0);
+                outDoor = ZoneDoor(root, "ExitDoor", g.Local(start) - openDir * (cs * 0.45f) + new Vector3(0, 2.5f, 0), Quaternion.LookRotation(openDir),
+                    Quaternion.LookRotation(-openDir), door, "Starfall Castle\n(click door)");
+                var toHub = UdonSharpUndo.AddComponent<TeleportHelper>(outDoor);
+                toHub.defaultTarget = hubReturn;
+                toHub.hideZones = new[] { root.gameObject };
+                wb.behaviours.Add(toHub);
+                sky.hubBearing = BearingOf(z.hubDoorPosition);
+                sky.ownBearing = BearingOf(g.Local(start));
                 Quaternion hubRot = Quaternion.Euler(0, z.hubDoorYaw, 0);
                 inDoor = ZoneDoor(hubRoot, k + "Door", z.hubDoorPosition, hubRot, hubRot, door, z.displayName + "\n(click door)  " + z.levelRange);
                 var toZone = UdonSharpUndo.AddComponent<TeleportHelper>(inDoor);
@@ -255,13 +286,14 @@ namespace WizardsVRC.EditorTools
                 toZone.showZones = new[] { root.gameObject };
                 wb.behaviours.Add(toZone);
             }
+            wb.skyAreas.Add(sky);
 
             wb.areaMin.Add(z.height - 50f);
             wb.areaMax.Add(z.height + 60f);
             wb.areaIn.Add(inDoor.transform);
             wb.areaOut.Add(outDoor.transform);
-            wb.areaInNames.Add(z.displayName + (gate != null ? " gate (castle)" : " door (castle)"));
-            wb.areaOutNames.Add("Door back to Starfall Castle");
+            wb.areaInNames.Add(z.displayName + (gate != null ? " tunnel (castle)" : " door (castle)"));
+            wb.areaOutNames.Add(gate != null ? "Tunnel back to Starfall Castle" : "Door back to Starfall Castle");
 
             // ---- NPCs, points, encounters
             foreach (var npc in z.npcs) if (npc != null) BuildNpc(root, g, z, npc, qm, wb);
@@ -309,21 +341,27 @@ namespace WizardsVRC.EditorTools
         /// </summary>
         private static List<RectInt> Rects(ZoneGrid g, System.Func<char, bool> match, int maxW, int maxH)
         {
+            return RectsAt(g, (x, y) => match(g.At(x, y)), maxW, maxH);
+        }
+
+        /// <summary>As <see cref="Rects"/>, matching cells by position.</summary>
+        private static List<RectInt> RectsAt(ZoneGrid g, System.Func<int, int, bool> match, int maxW, int maxH)
+        {
             var used = new bool[g.width, g.height];
             var list = new List<RectInt>();
             for (int y = 0; y < g.height; y++)
                 for (int x = 0; x < g.width; x++)
                 {
-                    if (used[x, y] || !match(g.At(x, y))) continue;
+                    if (used[x, y] || !match(x, y)) continue;
                     int lv = g.Level(x, y);
                     int w = 1;
-                    while (w < maxW && x + w < g.width && !used[x + w, y] && match(g.At(x + w, y)) && g.Level(x + w, y) == lv) w++;
+                    while (w < maxW && x + w < g.width && !used[x + w, y] && match(x + w, y) && g.Level(x + w, y) == lv) w++;
                     int h = 1;
                     while (h < maxH && y + h < g.height)
                     {
                         bool rowOk = true;
                         for (int i = 0; i < w; i++)
-                            if (used[x + i, y + h] || !match(g.At(x + i, y + h)) || g.Level(x + i, y + h) != lv) { rowOk = false; break; }
+                            if (used[x + i, y + h] || !match(x + i, y + h) || g.Level(x + i, y + h) != lv) { rowOk = false; break; }
                         if (!rowOk) break;
                         h++;
                     }
