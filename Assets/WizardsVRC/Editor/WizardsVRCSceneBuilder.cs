@@ -37,6 +37,35 @@ namespace WizardsVRC.EditorTools
         static WizardsVRCSceneBuilder()
         {
             EditorApplication.delayCall += TryAutoBuild;
+            EditorApplication.delayCall += CheckInputHandling;
+        }
+
+        private const string InputCheckKey = "WizardsVRC.InputHandlingChecked";
+
+        /// <summary>
+        /// VRChat (the SDK's PhysBones, ClientSim, Udon's Input) reads input through the old Input Manager. With Player
+        /// Settings > Active Input Handling set to "Input System Package (New)" only, every frame throws
+        /// InvalidOperationException. Offer to switch it to "Both" (needs an editor restart to take effect).
+        /// </summary>
+        private static void CheckInputHandling()
+        {
+            if (SessionState.GetBool(InputCheckKey, false)) return;
+            SessionState.SetBool(InputCheckKey, true);
+            var settings = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset");
+            if (settings == null || settings.Length == 0) return;
+            var so = new SerializedObject(settings[0]);
+            var prop = so.FindProperty("activeInputHandler");
+            // 0 = Input Manager (Old), 1 = Input System Package (New), 2 = Both
+            if (prop == null || prop.intValue != 1) return;
+            if (!EditorUtility.DisplayDialog("WizardsVRC",
+                    "Active Input Handling is set to \"Input System Package (New)\" only, but VRChat reads input the old way, so Play mode "
+                    + "spams InvalidOperationException (PhysBoneGrabHelper).\n\nSwitch it to \"Both\"? Unity needs to restart for it to apply.",
+                    "Switch and restart", "Not now"))
+                return;
+            prop.intValue = 2;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.SaveAssets();
+            EditorApplication.OpenProject(Directory.GetCurrentDirectory());
         }
 
         private static void TryAutoBuild()
