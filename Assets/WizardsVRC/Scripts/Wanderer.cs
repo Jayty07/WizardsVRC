@@ -36,18 +36,43 @@ namespace WizardsVRC
         public float aggroRadius = 2.5f;
         public GameObject body;
         public Text label;
+        [Tooltip("This patrol monster's number in its encounter (BattleManager.wandererMonsters).")]
+        public int wandererIndex;
+        [Tooltip("Even fights: within this distance of the duel circle's centre it has reached the circle.")]
+        public float contactRadius = 10f;
+        [Tooltip("Seconds it takes to fade away (shrinks and rises) when it leaves its patrol.")]
+        public float fadeSeconds = 0.7f;
 
         private float _nextTry;
         private float[] _cum;
         private float _length;
         private Vector3 _pose;
         private Vector3 _heading;
+        private Vector3 _bodyScale = Vector3.one;
+        private Vector3 _bodyPos;
+        private bool _wasHidden;
+        private float _fadeStart = -100f;
+        private int _contactBattle = -1;
 
         private void Start()
         {
             if (label != null && cardDatabase != null)
                 label.text = cardDatabase.MonsterName(monsterId) + "\nLevel " + cardDatabase.MonsterLevel(monsterId).ToString();
+            if (body != null) { _bodyScale = body.transform.localScale; _bodyPos = body.transform.localPosition; }
             BuildRoute();
+        }
+
+        /// <summary>Leaving the patrol mid-fight (joining the duel or fading away): shrinks and rises, then hides.</summary>
+        private bool AnimateFade()
+        {
+            float t = (Time.time - _fadeStart) / Mathf.Max(0.1f, fadeSeconds);
+            if (t >= 1f || body == null) return false;
+            float tq = Mathf.Floor(t * 15f) / 15f;
+            if (!body.activeSelf) body.SetActive(true);
+            body.transform.localScale = _bodyScale * (1f - tq);
+            body.transform.localPosition = _bodyPos + Vector3.up * (tq * 0.8f);
+            body.transform.localRotation = Quaternion.Euler(0f, tq * 540f, 0f);
+            return true;
         }
 
         private void BuildRoute()
@@ -71,7 +96,21 @@ namespace WizardsVRC
         private void Update()
         {
             if (manager == null) return;
-            bool hidden = manager.WanderersHidden();
+            bool hidden = manager.WandererHidden(wandererIndex);
+            // Even fights: a patrol monster that just left (joined the duel or faded away) fades out where it stood.
+            if (hidden && !_wasHidden && manager.evenFight && manager.phase != BattleManager.PHASE_IDLE) _fadeStart = Time.time;
+            if (!hidden && _wasHidden && body != null)
+            {
+                body.transform.localScale = _bodyScale;
+                body.transform.localPosition = _bodyPos;
+                body.transform.localRotation = Quaternion.identity;
+            }
+            _wasHidden = hidden;
+            if (hidden && AnimateFade())
+            {
+                if (label != null && label.gameObject.activeSelf) label.gameObject.SetActive(false);
+                return;
+            }
             if (body != null && body.activeSelf == hidden) body.SetActive(!hidden);
             if (label != null && label.gameObject.activeSelf == hidden) label.gameObject.SetActive(!hidden);
             if (hidden) return;
@@ -96,6 +135,21 @@ namespace WizardsVRC
             if (facing.sqrMagnitude < 0.0001f) facing = transform.forward;
             transform.SetPositionAndRotation(pos, Quaternion.LookRotation(facing, Vector3.up));
 
+            // Even fights: walking into the duel circle during a fight, it joins (if a wizard is unmatched) or fades away.
+            // The wizards in the fight report it; the referee decides (once per monster).
+            int ph = manager.phase;
+            if (manager.evenFight && ph >= BattleManager.PHASE_JOINING && ph <= BattleManager.PHASE_PLAYBACK && client != null && client.IsInBattle() &&
+                client.arenaCenter != null && _contactBattle != manager.battleId)
+            {
+                Vector3 c = pos - client.arenaCenter.position;
+                c.y = 0f;
+                if (c.magnitude <= contactRadius)
+                {
+                    _contactBattle = manager.battleId;
+                    manager.RequestWandererContact(wandererIndex);
+                }
+            }
+
             if (Time.time < _nextTry || client == null || !client.CanFight()) return;
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
@@ -103,7 +157,7 @@ namespace WizardsVRC
             d.y = 0f;
             if (d.magnitude > aggroRadius) return;
             _nextTry = Time.time + 1.5f;
-            manager.RequestEngageWander();
+            manager.RequestEngageWander(wandererIndex);
         }
 
         /// <summary>Position and heading on the route at time t: loops wrap around, lines turn back at the ends.</summary>

@@ -581,6 +581,10 @@ namespace WizardsVRC.EditorTools
             var client = MakeEncounter(systems, name, cardDb, itemDb, playerState, spawn, roster.ToArray(), true, encounters);
             client.questManager = qm;
             client.manager.scaleRosterWithParty = e.scaleWithParty;
+            // Even fights: one monster per wizard, patrol monster w is roster[w % roster size].
+            client.manager.evenFight = e.evenFight;
+            client.manager.wandererMonsters = new int[Mathf.Max(0, e.wanderers)];
+            for (int w = 0; w < e.wanderers; w++) client.manager.wandererMonsters[w] = roster[w % roster.Count];
             client.manager.respawnSeconds = Mathf.Max(5, e.respawnSeconds);
 
             // Ring spots: the fight forms at the one nearest the wizard who touched a monster. Monsters take the side away
@@ -628,6 +632,8 @@ namespace WizardsVRC.EditorTools
                     for (int w = 0; w < e.wanderers; w++)
                     {
                         var wd = MakeWanderer(patrol, client, cardDb, roster[w % roster.Count], "Wanderer" + w);
+                        wd.wandererIndex = w;
+                        wd.contactRadius = DuelCircleRadius + 8f;
                         wd.path = path;
                         wd.loop = loop;
                         wd.speed = Mathf.Max(0.2f, e.patrolSpeed);
@@ -641,6 +647,8 @@ namespace WizardsVRC.EditorTools
                     for (int w = 0; w < e.wanderers; w++)
                     {
                         var wd = MakeWanderer(patrol, client, cardDb, roster[w % roster.Count], "Wanderer" + w);
+                        wd.wandererIndex = w;
+                        wd.contactRadius = DuelCircleRadius + 8f;
                         wd.center = client.arenaCenter;
                         wd.radius = DuelCircleRadius + 3f;
                         wd.speed = Mathf.Max(0.2f, e.patrolSpeed);

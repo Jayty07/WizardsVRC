@@ -1482,7 +1482,7 @@ namespace WizardsVRC
                 if (p.magnitude <= engageRadius)
                 {
                     _nextEngage = Time.time + 1f;
-                    manager.RequestEngageWander();
+                    manager.RequestEngageWander(-1);
                 }
             }
             if (manager != null) AnimateCast();

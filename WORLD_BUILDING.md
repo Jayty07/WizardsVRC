@@ -81,6 +81,7 @@ Each **Encounter** in the zone's list links a ring digit to a fight:
 | Patrol Speed | walking speed in m/s |
 | Respawn Seconds | how long the patrol is gone after a fight |
 | Scale With Party | spawn only the first monster plus one per wizard (bosses with adds) |
+| Even Fight | for new players' areas: the fight starts with **only the monster that was touched**. Each extra wizard who joins lets one more patrol monster join when it reaches the circle (or, with no patrol monster left, the next roster monster at once); any other patrol monster that reaches the circle **fades away** until it respawns. The rest keep patrolling during the fight. On in the castle practice ring and all of Sunpetal Gardens |
 
 When a wizard touches a patrolling monster, the fight forms at the **nearest ring spot** of that encounter, like
 Wizard101's duel circles. Other players can walk into the circle and fill free seats, even mid-fight. After a fight you

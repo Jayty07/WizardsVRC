@@ -209,6 +209,10 @@ namespace WizardsVRC.EditorTools.WorldData
         public int respawnSeconds = 20;
         [Tooltip("Spawn only the first monster plus one per wizard (good for bosses with adds).")]
         public bool scaleWithParty;
+        [Tooltip("Even fight, for new players' areas: the fight starts with only the monster that was touched. Each extra " +
+                 "wizard lets one more patrol monster join when it reaches the circle; other patrol monsters that reach the " +
+                 "circle fade away. (Overrides Scale With Party.)")]
+        public bool evenFight;
 
         public char Symbol { get { return string.IsNullOrEmpty(ringSymbol) ? '\0' : ringSymbol[0]; } }
         public char PatrolSymbol { get { char d = Symbol; return d >= '1' && d <= '9' ? (char)('a' + (d - '1')) : '\0'; } }

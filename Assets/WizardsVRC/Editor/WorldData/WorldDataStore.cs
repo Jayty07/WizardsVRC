@@ -61,7 +61,7 @@ namespace WizardsVRC.EditorTools.WorldData
         public static void NewQuestline() { CreateNew<Questline>("Questline_New", q => { }); }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -145,7 +145,24 @@ namespace WizardsVRC.EditorTools.WorldData
         /// </summary>
         private static void Upgrade(int from)
         {
-            if (from >= 2) return;
+            if (from < 2) UpgradeTo2();
+            if (from < 3) UpgradeTo3();
+        }
+
+        /// <summary>v3: the first areas (castle practice ring, Sunpetal Gardens) use even fights.</summary>
+        private static void UpgradeTo3()
+        {
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z.zoneKey != "SunpetalGardens" && z.zoneKey != "StarfallCastle") continue;
+                foreach (var e in z.encounters) if (e != null) e.evenFight = true;
+                EditorUtility.SetDirty(z);
+                Debug.Log("[WizardsVRC] Upgraded world data: even fights in " + z.displayName + ".");
+            }
+        }
+
+        private static void UpgradeTo2()
+        {
             var zones = FindAll<ZoneDefinition>();
             var questlines = FindAll<Questline>();
             var report = new List<string>();

@@ -393,7 +393,7 @@ namespace WizardsVRC.EditorTools.WorldData
 
             z.encounters = new List<ZoneEncounter>
             {
-                new ZoneEncounter { ringSymbol = "1", key = "TrainingDummies", roster = new List<int> { 12, 12 }, wanderers = 2, patrolSpeed = 0.5f, respawnSeconds = 10 },
+                new ZoneEncounter { ringSymbol = "1", key = "TrainingDummies", roster = new List<int> { 12, 12 }, wanderers = 2, patrolSpeed = 0.5f, respawnSeconds = 10, evenFight = true },
             };
 
             z.landmarks = new List<ZoneLandmark>
@@ -504,10 +504,11 @@ namespace WizardsVRC.EditorTools.WorldData
             };
             z.encounters = new List<ZoneEncounter>
             {
-                new ZoneEncounter { ringSymbol = "1", key = "Sprouts", roster = new List<int> { 9, 9 }, wanderers = 2, patrolSpeed = 1f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "2", key = "Newts", roster = new List<int> { 8, 8 }, wanderers = 2, patrolSpeed = 1.1f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "3", key = "Moths", roster = new List<int> { 10, 9 }, wanderers = 2, patrolSpeed = 1.3f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "4", key = "Briarwick", roster = new List<int> { 11, 9, 9 }, wanderers = 1, patrolSpeed = 0.6f, respawnSeconds = 30, scaleWithParty = true },
+                // Even fights throughout: a new wizard only ever faces one monster at a time (one more per extra wizard).
+                new ZoneEncounter { ringSymbol = "1", key = "Sprouts", roster = new List<int> { 9, 9 }, wanderers = 2, patrolSpeed = 1f, respawnSeconds = 20, evenFight = true },
+                new ZoneEncounter { ringSymbol = "2", key = "Newts", roster = new List<int> { 8, 8 }, wanderers = 2, patrolSpeed = 1.1f, respawnSeconds = 20, evenFight = true },
+                new ZoneEncounter { ringSymbol = "3", key = "Moths", roster = new List<int> { 10, 9 }, wanderers = 2, patrolSpeed = 1.3f, respawnSeconds = 20, evenFight = true },
+                new ZoneEncounter { ringSymbol = "4", key = "Briarwick", roster = new List<int> { 11, 9, 9 }, wanderers = 1, patrolSpeed = 0.6f, respawnSeconds = 30, scaleWithParty = true, evenFight = true },
             };
             z.landmarks = new List<ZoneLandmark>
             {

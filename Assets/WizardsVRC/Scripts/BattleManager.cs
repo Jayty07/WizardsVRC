@@ -88,6 +88,15 @@ namespace WizardsVRC
         public bool wanderMode;
         [Tooltip("Seconds after a fight before the lane's wandering monsters come back.")]
         public int respawnSeconds = 20;
+        [Tooltip("Even fight (for new players): the fight starts with only the monster that was touched. Each extra wizard " +
+                 "lets one more patrol monster join when it reaches the ring; other patrol monsters that reach the ring fade " +
+                 "away. With no patrol monster left to come, the next roster monster joins at once.")]
+        public bool evenFight;
+        [Tooltip("Monster id of each patrol monster (index = Wanderer.wandererIndex).")]
+        public int[] wandererMonsters = new int[0];
+
+        /// <summary>Even fights: bit w set = patrol monster w is in this fight or faded away (hidden until it respawns).</summary>
+        [UdonSynced] public int wandererGone;
 
         [Header("Wizard101-style rules")]
         [Tooltip("Level from which every combatant gets the base power pip chance (gear adds to it at any level).")]
@@ -179,6 +188,9 @@ namespace WizardsVRC
         private int[] _pickTarget = new int[SLOTS];
         private int[] _targets = new int[SIDE];
         private int[] _usedSrc = new int[FX_MAX];
+        private int _startWanderer = -1;
+        /// <summary>Round in which a monster joined mid-fight (it sits that round out); -1 = from the start.</summary>
+        private int[] _joinRound = new int[SLOTS];
         // Effects used since the last act entry; attached to the next one (the hit they belong to).
         private int _pendFx;
         private int[] _pendSlot = new int[MAX_FX_LOG];
@@ -254,6 +266,18 @@ namespace WizardsVRC
         public bool WanderersHidden()
         {
             return phase != PHASE_IDLE || (lastEndMs != 0 && Now() - lastEndMs < respawnSeconds * 1000);
+        }
+
+        /// <summary>
+        /// Whether patrol monster w is hidden. Normal encounters hide every patrol monster during a fight. Even fights only
+        /// hide the ones in the fight or faded away (the rest keep walking), until they respawn after the fight.
+        /// </summary>
+        public bool WandererHidden(int w)
+        {
+            if (!evenFight) return WanderersHidden();
+            bool gone = w >= 0 && w < 31 && (wandererGone & (1 << w)) != 0;
+            if (phase != PHASE_IDLE) return gone;
+            return gone && lastEndMs != 0 && Now() - lastEndMs < respawnSeconds * 1000;
         }
 
         public int MonsterCount()
@@ -487,24 +511,46 @@ namespace WizardsVRC
             SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetEngage), local.playerId);
         }
 
-        /// <summary>Wandering-monster lane: a wizard touched a monster (starts the fight) or walked up during the join window.</summary>
-        public void RequestEngageWander()
+        /// <summary>
+        /// Wandering-monster lane: a wizard touched patrol monster <paramref name="wanderer"/> (starts or joins the fight) or
+        /// walked into the circle (wanderer -1).
+        /// </summary>
+        public void RequestEngageWander(int wanderer)
         {
             VRCPlayerApi local = Networking.LocalPlayer;
             if (!Utilities.IsValid(local)) return;
-            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetEngageWander), local.playerId);
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetEngageWander), local.playerId, wanderer);
+        }
+
+        /// <summary>Even fights: patrol monster w reached the circle during the fight (sent by the fighting wizards' clients).</summary>
+        public void RequestWandererContact(int wanderer)
+        {
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetWandererContact), wanderer);
         }
 
         [NetworkCallable]
-        public void NetEngageWander(int playerId)
+        public void NetWandererContact(int w)
+        {
+            if (!Networking.IsOwner(gameObject) || !evenFight || w < 0 || w >= 31 || w >= wandererMonsters.Length) return;
+            if (phase < PHASE_JOINING || phase > PHASE_PLAYBACK || (wandererGone & (1 << w)) != 0) return;
+            // It either joins (a wizard is still unmatched) or fades away; either way it's gone until the respawn.
+            wandererGone |= 1 << w;
+            if (EvenMonsterCount() < EvenWizardCount()) AddMonster(wandererMonsters[w]);
+            Publish();
+        }
+
+        [NetworkCallable]
+        public void NetEngageWander(int playerId, int wanderer)
         {
             if (!Networking.IsOwner(gameObject) || !wanderMode || playerId <= 0) return;
             if (phase == PHASE_IDLE)
             {
-                if (WanderersHidden()) return;
+                if (evenFight ? WandererHidden(wanderer) : WanderersHidden()) return;
                 for (int i = 0; i < SIDE; i++) queueIds[i] = 0;
                 queueIds[0] = playerId;
                 ringSpot = NearestRingSpot(playerId);
+                // Even fights start with just the monster that was touched.
+                _startWanderer = wanderer;
                 StartBattle();
                 if (phase != PHASE_ROAMING) return;
                 phase = PHASE_JOINING;
@@ -520,9 +566,68 @@ namespace WizardsVRC
                 ResetSeat(s, playerId);
                 if (phase == PHASE_JOINING) phaseEndMs = Mathf.Max(phaseEndMs, Now() + 4000);
                 else locked[s] = 1;
+                if (evenFight)
+                {
+                    // The patrol monster they touched comes with them; otherwise one joins when it reaches the circle.
+                    if (wanderer >= 0 && wanderer < 31 && wanderer < wandererMonsters.Length && (wandererGone & (1 << wanderer)) == 0)
+                    {
+                        wandererGone |= 1 << wanderer;
+                        if (EvenMonsterCount() < EvenWizardCount()) AddMonster(wandererMonsters[wanderer]);
+                    }
+                    if (EvenMonsterCount() < EvenWizardCount() && !AnyWandererLeft()) AddMonster(NextRosterMonster());
+                }
                 Publish();
                 return;
             }
+        }
+
+        // ------------------------------------------------------------------ even fights
+
+        private int EvenWizardCount()
+        {
+            int n = 0;
+            for (int s = 0; s < SIDE; s++) if (Alive(s) && !IsSummon(s)) n++;
+            return n;
+        }
+
+        private int EvenMonsterCount()
+        {
+            int n = 0;
+            for (int s = SIDE; s < SLOTS; s++) if (Alive(s) && !IsSummon(s)) n++;
+            return n;
+        }
+
+        private bool AnyWandererLeft()
+        {
+            for (int w = 0; w < wandererMonsters.Length && w < 31; w++) if ((wandererGone & (1 << w)) == 0) return true;
+            return false;
+        }
+
+        /// <summary>A roster monster for a boss room with no patrol left: the first roster entry not already seated.</summary>
+        private int NextRosterMonster()
+        {
+            if (roster == null || roster.Length == 0) return 0;
+            for (int m = 0; m < roster.Length && m < SIDE; m++) if (!Occupied(BOSS_SLOT + m)) return roster[m];
+            return roster[roster.Length - 1];
+        }
+
+        /// <summary>
+        /// Seats a monster mid-fight, preferring the seat whose roster entry is that monster (each seat shows its roster
+        /// monster's model). It acts from the next round, like a wizard who walks in.
+        /// </summary>
+        private void AddMonster(int id)
+        {
+            if (id <= 0 || cardDatabase.MonsterIndexOf(id) < 0) return;
+            int seat = -1;
+            for (int m = 0; m < SIDE; m++)
+                if (!Occupied(BOSS_SLOT + m) && roster != null && m < roster.Length && roster[m] == id) { seat = BOSS_SLOT + m; break; }
+            if (seat < 0)
+                for (int m = 0; m < SIDE; m++) if (!Occupied(BOSS_SLOT + m)) { seat = BOSS_SLOT + m; break; }
+            if (seat < 0) return;
+            ResetSeat(seat, 0);
+            SetMonster(seat, id, cardDatabase.MonsterSchool(id), cardDatabase.MonsterLevel(id), cardDatabase.MonsterHp(id));
+            _joinRound[seat] = round;
+            if (phase == PHASE_PLANNING) locked[seat] = 1;
         }
 
         /// <summary>The ring spot closest to the player (0 when there are no spots or the player is unknown).</summary>
@@ -711,14 +816,29 @@ namespace WizardsVRC
             }
             if (n == 0) { phase = PHASE_IDLE; Publish(); return; }
 
+            for (int s = 0; s < SLOTS; s++) _joinRound[s] = -1;
+            // Patrol monsters from the last fight that haven't respawned yet stay gone.
+            if (!(lastEndMs != 0 && Now() - lastEndMs < respawnSeconds * 1000)) wandererGone = 0;
             int count = roster == null ? 0 : Mathf.Min(roster.Length, SIDE);
             if (scaleRosterWithParty) count = Mathf.Min(count, 1 + n);
-            for (int m = 0; m < count; m++)
+            if (evenFight && count > 0)
             {
-                int id = roster[m];
-                int health = cardDatabase.MonsterHp(id) + (cardDatabase.IsBossMonster(id) ? cardDatabase.MonsterHpPerExtraPlayer(id) * (n - 1) : 0);
-                SetMonster(BOSS_SLOT + m, id, cardDatabase.MonsterSchool(id), cardDatabase.MonsterLevel(id), health);
+                // One monster per wizard: the patrol monster that was touched (it leaves its patrol).
+                int w = _startWanderer;
+                int first = w >= 0 && w < wandererMonsters.Length && w < 31 ? wandererMonsters[w] : roster[0];
+                if (w >= 0 && w < 31) wandererGone |= 1 << w;
+                AddMonster(first);
+                if (MonsterCount() == 0) AddMonster(roster[0]);
+                count = MonsterCount();
             }
+            else
+                for (int m = 0; m < count; m++)
+                {
+                    int id = roster[m];
+                    int health = cardDatabase.MonsterHp(id) + (cardDatabase.IsBossMonster(id) ? cardDatabase.MonsterHpPerExtraPlayer(id) * (n - 1) : 0);
+                    SetMonster(BOSS_SLOT + m, id, cardDatabase.MonsterSchool(id), cardDatabase.MonsterLevel(id), health);
+                }
+            _startWanderer = -1;
             if (count == 0) { phase = PHASE_IDLE; Publish(); return; }
 
             battleId++;
@@ -784,7 +904,13 @@ namespace WizardsVRC
 
         private void Resolve()
         {
-            for (int s = SIDE; s < SLOTS; s++) if (Alive(s) && !IsSummon(s)) PickForMonster(s);
+            for (int s = SIDE; s < SLOTS; s++)
+            {
+                if (!Alive(s) || IsSummon(s)) continue;
+                // A monster that joined this round sits it out (it acts from the next one).
+                if (_joinRound[s] == round && round > 0) { _pickCard[s] = 0; _pickTarget[s] = -1; continue; }
+                PickForMonster(s);
+            }
             for (int s = 0; s < SLOTS; s++) if (taunt[s] > 0) taunt[s]--;
 
             actCount = 0;
