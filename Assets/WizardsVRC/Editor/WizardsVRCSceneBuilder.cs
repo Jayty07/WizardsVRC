@@ -361,6 +361,26 @@ namespace WizardsVRC.EditorTools
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         }
 
+        /// <summary>
+        /// When the editor loads: drops this project's UdonSharp program assets whose script has been deleted (e.g. the old
+        /// LootChest testing chest). UdonSharp refuses to compile, and so to enter play mode, while one is left behind.
+        /// </summary>
+        [InitializeOnLoadMethod]
+        private static void DropOrphanPrograms()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                foreach (string guid in AssetDatabase.FindAssets("t:UdonSharpProgramAsset", new[] { "Assets/WizardsVRC" }))
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    var program = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(path);
+                    if (program == null || program.sourceCsScript != null) continue;
+                    AssetDatabase.DeleteAsset(path);
+                    Debug.Log("[WizardsVRC] Removed " + path + ": its script no longer exists.");
+                }
+            };
+        }
+
         /// <summary>UdonSharp only compiles scripts that have a program asset next to them.</summary>
         private static bool EnsureProgramAssets()
         {

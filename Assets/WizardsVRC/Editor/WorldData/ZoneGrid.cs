@@ -127,7 +127,10 @@ namespace WizardsVRC.EditorTools.WorldData
                 case global::WizardsVRC.EditorTools.WorldData.DoorSide.South: return new Vector2Int(0, 1);
                 case global::WizardsVRC.EditorTools.WorldData.DoorSide.West: return new Vector2Int(-1, 0);
             }
-            return FrontSide(Footprint(l.Symbol));
+            // The building stands at the height of its own cells (a corner of its block may be something else, e.g. a
+            // pond, when it's turned to face the centre).
+            var cells = Find(l.Symbol);
+            return FrontSide(Footprint(l.Symbol), cells.Count > 0 ? Level(cells[0]) : int.MinValue);
         }
 
         /// <summary>Bounding block of a landmark's cells (empty when it isn't on the map).</summary>
@@ -144,14 +147,17 @@ namespace WizardsVRC.EditorTools.WorldData
         /// The side a building's door opens on: among the sides with open cells next to them, the one facing the map's
         /// centre most. Returns a map step (0,0 when no side is open).
         /// </summary>
-        public Vector2Int FrontSide(RectInt r)
+        public Vector2Int FrontSide(RectInt r) { return FrontSide(r, int.MinValue); }
+
+        /// <summary>As <see cref="FrontSide(RectInt)"/>, counting open cells at level 'lv' (int.MinValue = the block's corner).</summary>
+        public Vector2Int FrontSide(RectInt r, int lv)
         {
             Vector2 center = new Vector2(width * 0.5f, height * 0.5f);
             Vector2 mid = new Vector2(r.x + r.width * 0.5f, r.y + r.height * 0.5f);
             Vector2Int best = Vector2Int.zero;
             float bestScore = float.MinValue;
             // Only open cells at the building's own height count (a door into a retaining wall is no use).
-            int lv = Level(r.x, r.y);
+            if (lv == int.MinValue) lv = Level(r.x, r.y);
             foreach (var d in Dirs)
             {
                 int open = 0;
