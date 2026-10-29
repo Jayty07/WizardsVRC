@@ -1772,6 +1772,7 @@ namespace WizardsVRC
         private void Update()
         {
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); AnimateCircle(); AnimatePips(); AnimateGauges(); }
+            if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) FaceViewer();
             AnimateFlash();
             AnimateDefeats();
             AnimatePops();
@@ -2342,6 +2343,30 @@ namespace WizardsVRC
             floaters[i].position = _floatBase[i];
             floaters[i].localScale = Vector3.zero;
             floaters[i].gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// Billboards the circle's words (the name / health line over every seat, the round banner and the clock's label)
+        /// so they always face this player, staying upright. Floating numbers turn themselves (AnimateFloaters).
+        /// </summary>
+        private void FaceViewer()
+        {
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me)) return;
+            Vector3 head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
+            if (overheadLabels != null)
+                for (int i = 0; i < overheadLabels.Length; i++)
+                    if (overheadLabels[i] != null && overheadLabels[i].text.Length > 0) Billboard(overheadLabels[i].transform.parent, head);
+            if (bannerLabel != null && bannerLabel.text.Length > 0) Billboard(bannerLabel.transform.parent, head);
+            if (clockLabel != null && clockLabel.text.Length > 0) Billboard(clockLabel.transform.parent, head);
+        }
+
+        private void Billboard(Transform t, Vector3 head)
+        {
+            if (t == null) return;
+            Vector3 look = t.position - head;
+            look.y = 0f;
+            if (look.sqrMagnitude > 0.0001f) t.rotation = Quaternion.LookRotation(look);
         }
 
         private void AnimateFloaters()

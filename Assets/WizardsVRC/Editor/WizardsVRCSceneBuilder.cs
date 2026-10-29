@@ -1444,6 +1444,8 @@ namespace WizardsVRC.EditorTools
                 wanderer.speed = 1.1f + 0.2f * w;
                 wanderer.phaseOffset = w * Mathf.PI * 2f / Mathf.Max(1, wanderCount);
             }
+            // Every word in the fight (labels, banner, clock, floating numbers, the hand and its cards) in the PSX pixel font.
+            ApplyCombatFont(root);
         }
 
         private static void BuildHandPanel(Transform arenaRoot, BattleClient client)
