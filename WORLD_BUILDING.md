@@ -75,8 +75,19 @@ size of a step (1.5 m by default). The builder then:
 - adds **stairs** (with stone cheeks) wherever two *paved* cells (road, plaza, an NPC's or point's cell...) meet at different
   heights, up to **2 steps** apart. Lawns, trees and water never get stairs, so a raised lawn is a wall you can't climb;
 - caps every drop with a **coping** stone, or a waist-high **parapet** along paths more than 2.5 m above the ground below;
-- fills **water** (`~`) a little below its lowest rim, with a low stone rim (and an invisible fence) round it. Paint the
+- fills **water** (`~`) a little below its lowest rim, with a railing (or an invisible fence) round it. Paint the
   water's cells lower than the ground round it for a proper pond.
+
+**Corner Radius** (metres, 0 = square) rounds the map's corners: outer corners of raised ground are rounded off, inner
+corners (a sunken plaza's corners, a pond's banks) curve in, and so do the corners where paths meet lawns, with the
+kerbs, copings and railings following the curves. Corners right next to stairs stay square.
+
+**Railings**: *Drops* puts iron railings (solid) along paths at the top of a drop and round ponds, and handrails on every
+staircase. *Drops And Paths* also lines paths with low railings where they meet lawns (you can walk through these).
+*None* leaves just the copings.
+
+Lawns up on a hill or down in a sunken garden can be pure scenery (nothing has to reach them); only paths, NPCs and points
+must be reachable from `S`.
 
 Keep buildings, fountains and battle-ring plazas on one height each (the checks warn otherwise). The map preview shades
 cells by height, with white edges where stairs join and black edges where walls drop; red tint still means "can't be
@@ -163,17 +174,19 @@ Headmaster's office; otherwise the old indoor Hall of Schools is used. Without a
 The default hub is laid out like Wizard City's Ravenwood and Commons, on several levels:
 
 ```
- Observatory  Storm   Headmaster's Tower   Balance  Myth        NORTH TERRACE (+2 steps, parapet along its edge)
-              ===== avenue ==== X waterfall =======              3 flights of stairs down
- Fire         ~~~ pond (-2) ~~~        Y gazebo         Life
+ OBSERVATORY HILL (+6)  Storm  Headmaster's Tower  Balance  Myth  WOODED HILL (+6)
+              ===== avenue ==== X waterfall =======       NORTH TERRACE (+4 = 6 m, railed edge)
+              landings (+2) half way down the three flights of stairs
+ Fire         ~~~ pond (-2) ~~~      GAZEBO MOUND (+1)  Life
  hats shop                                     wands shop
- Ice                 SUNKEN PLAZA (-1): Starfall fountain,      Death
- potion shop         C chest, P backpack, S arrival, A, N       Training Grounds (H, ring 1)
-   Bazaar (stalls, Pell)       grand stairs                     ARENA DAIS (+1): Z boss arena pad
- LIBRARY RISE (+1)             RAISED GARDEN (+1)
+ Ice                 SUNKEN PLAZA (-2): Starfall fountain,      Death
+ potion shop         C chest, P backpack, A Bramwell, N board   Training Grounds (H, ring 1)
+   Bazaar (stalls, Pell)   lower tier (-1): S arrival           ARENA DAIS (+2): Z boss arena pad
+ LIBRARY RISE (+2)   SUNKEN HEDGE GARDEN (-1)   RAISED GARDEN (+2)
    bakery  pets                                   inn   cards
         R Lantern Row gate                   G Sunpetal Gardens gate     (south wall)
 ```
+Corner Radius 2.5 m, Railings *Drops And Paths*.
 
 The story order the defaults set up (nothing with real monsters until the castle tour is done):
 

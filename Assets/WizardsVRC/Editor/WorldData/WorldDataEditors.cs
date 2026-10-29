@@ -175,7 +175,7 @@ namespace WizardsVRC.EditorTools.WorldData
                         int lv = g.Level(x, y);
                         col = lv >= 0 ? Color.Lerp(col, Color.white, Mathf.Min(0.6f, lv * 0.14f)) : Color.Lerp(col, Color.black, Mathf.Min(0.6f, -lv * 0.18f));
                     }
-                    if (g.Walkable(x, y) && !reach.Contains(new Vector2Int(x, y)) && reach.Count > 0) col = Color.Lerp(col, Color.red, 0.5f);
+                    if (g.Paved(x, y) && !reach.Contains(new Vector2Int(x, y)) && reach.Count > 0) col = Color.Lerp(col, Color.red, 0.5f);
                     EditorGUI.DrawRect(r, col);
                     if (_showHeights && g.HasHeights)
                     {
@@ -190,7 +190,7 @@ namespace WizardsVRC.EditorTools.WorldData
                     if (marked && px >= 11f) GUI.Label(r, c.ToString(), WorldEditorUI.CellLabel);
                 }
             EditorGUILayout.LabelField(g.width + " x " + g.height + " cells = " + (g.width * z.cellSize) + " m x " + (g.height * z.cellSize)
-                                       + " m. North is up. Red tint = can't be reached from S.", EditorStyles.miniLabel);
+                                       + " m. North is up. Red tint = a path that can't be reached from S (lawns may be scenery).", EditorStyles.miniLabel);
 
             Event e = Event.current;
             if ((e.type == EventType.MouseDown || e.type == EventType.MouseDrag) && e.button == 0 && area.Contains(e.mousePosition))

@@ -186,10 +186,11 @@ namespace WizardsVRC.EditorTools.WorldData
                 for (int x = 0; x < g.width; x++)
                 {
                     if (!g.Walkable(x, y)) continue;
-                    if (!reach.Contains(new Vector2Int(x, y)) && starts.Count > 0) { if (unreachable++ == 0) firstUnreachable = new Vector2Int(x, y); }
+                    // Lawns on a hill or down in a sunken garden can be scenery; paths, NPCs and points must be reachable.
+                    if (g.Paved(x, y) && !reach.Contains(new Vector2Int(x, y)) && starts.Count > 0) { if (unreachable++ == 0) firstUnreachable = new Vector2Int(x, y); }
                     if (x == 0 || y == 0 || x == g.width - 1 || y == g.height - 1) r.Warn(zn + ": open cell on the map edge at column " + x + ", row " + y + " (the edge gets an invisible wall).");
                 }
-            if (unreachable > 0) r.Warn(zn + ": " + unreachable + " open cell(s) can't be reached from S (first at column " + firstUnreachable.x + ", row " + firstUnreachable.y + ").");
+            if (unreachable > 0) r.Warn(zn + ": " + unreachable + " path cell(s) can't be reached from S (first at column " + firstUnreachable.x + ", row " + firstUnreachable.y + ").");
 
             // NPCs and points
             var symbols = new HashSet<char>();

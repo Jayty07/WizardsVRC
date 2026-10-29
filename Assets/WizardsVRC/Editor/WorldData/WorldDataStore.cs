@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 8;
+        public const int CurrentVersion = 9;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -169,6 +169,44 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 6) UpgradeTo6();
             if (from < 7) UpgradeTo7();
             if (from < 8) UpgradeTo8();
+            if (from < 9) UpgradeTo9();
+        }
+
+        /// <summary>
+        /// v9: a taller hub (6 m terrace with landings, hills, a deeper plaza, mounds and a sunken garden), rounded corners
+        /// and railings. Only if the hub still has exactly the v8 layout.
+        /// </summary>
+        private static void UpgradeTo9()
+        {
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || !z.isHub) continue;
+                var current = ScriptableObject.CreateInstance<ZoneDefinition>();
+                WorldDefaults.FillStarfallCastle(current);
+                if (Normalize(z.map) == Normalize(current.map) && Normalize(z.heightMap) == Normalize(current.heightMap)) continue; // already done by v8
+                if (Normalize(z.map) != Normalize(WorldDefaults.HubMapV8) || Normalize(z.heightMap) != Normalize(WorldDefaults.HubHeightsV8))
+                {
+                    if (Normalize(z.map) != Normalize(WorldDefaults.HubMapV2))
+                        Debug.Log("[WizardsVRC] Your hub (" + z.displayName + ") has been edited, so the taller layout wasn't applied. Corner Radius " +
+                                  "and Railings are new settings on the zone; try a radius of 2.5 and Drops And Paths.");
+                    continue;
+                }
+                ApplyDefaultHubLayout(z);
+                Debug.Log("[WizardsVRC] Upgraded world data: " + z.displayName + " is taller, with rounded corners and railings.");
+            }
+        }
+
+        private static void ApplyDefaultHubLayout(ZoneDefinition z)
+        {
+            var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+            WorldDefaults.FillStarfallCastle(fresh);
+            z.map = fresh.map;
+            z.heightMap = fresh.heightMap;
+            z.heightStep = fresh.heightStep;
+            z.cornerRadius = fresh.cornerRadius;
+            z.railings = fresh.railings;
+            WorldDefaults.AddHubV8Landmarks(z);
+            EditorUtility.SetDirty(z);
         }
 
         /// <summary>
@@ -186,13 +224,7 @@ namespace WizardsVRC.EditorTools.WorldData
                               "shops) wasn't applied. You can paint '~' water, Shop / Waterfall landmarks and a Height Map yourself.");
                     continue;
                 }
-                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
-                WorldDefaults.FillStarfallCastle(fresh);
-                z.map = fresh.map;
-                z.heightMap = fresh.heightMap;
-                z.heightStep = fresh.heightStep;
-                WorldDefaults.AddHubV8Landmarks(z);
-                EditorUtility.SetDirty(z);
+                ApplyDefaultHubLayout(z);
                 Debug.Log("[WizardsVRC] Upgraded world data: " + z.displayName + " now has a terrace, a waterfall, walk-in school halls and shops.");
             }
         }

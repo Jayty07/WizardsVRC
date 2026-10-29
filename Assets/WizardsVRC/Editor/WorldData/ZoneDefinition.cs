@@ -51,6 +51,12 @@ namespace WizardsVRC.EditorTools.WorldData
     public enum DoorSide { Auto, North, East, South, West }
 
     /// <summary>
+    /// Railings the builder adds. Drops: iron railings (solid) along paths at the edge of a drop, round ponds, and
+    /// handrails on stairs. Drops And Paths: also low decorative railings where paths meet lawns.
+    /// </summary>
+    public enum RailingMode { None, Drops, DropsAndPaths }
+
+    /// <summary>
     /// One explorable area (a street, a dungeon...). The layout is a text map: each character is one square cell
     /// (see the legend in the inspector). Saved as a text asset in Assets/WizardsVRC/WorldData so it is versioned
     /// with the repo; the scene builder generates the whole zone from it on every rebuild.
@@ -97,6 +103,11 @@ namespace WizardsVRC.EditorTools.WorldData
         [TextArea(6, 60)] public string heightMap = "";
         [Tooltip("Height of one step in the height map, in metres.")]
         [Range(0.5f, 4f)] public float heightStep = 1.5f;
+        [Tooltip("Rounded corners, in metres (0 = square). Rounds the outer and inner corners of terraces, sunken areas, ponds and " +
+                 "the edges where paths meet lawns. Corners next to stairs stay square.")]
+        [Range(0f, 3f)] public float cornerRadius = 0f;
+        [Tooltip("Railings: along paths at drops and round ponds (solid, with handrails on stairs), and optionally low ones where paths meet lawns.")]
+        public RailingMode railings = RailingMode.Drops;
 
         [Header("Look")]
         public Color groundColor = new Color(0.13f, 0.16f, 0.13f);

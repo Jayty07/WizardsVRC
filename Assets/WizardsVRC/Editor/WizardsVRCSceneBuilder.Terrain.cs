@@ -18,7 +18,7 @@ namespace WizardsVRC.EditorTools
 
         private class TerrainMats
         {
-            public Material paving, lawn, wall, kerb, bed, water, foam;
+            public Material paving, lawn, wall, kerb, bed, water, foam, iron;
         }
 
         private static TerrainMats MakeTerrainMats(ZoneDefinition z, string k)
@@ -35,43 +35,72 @@ namespace WizardsVRC.EditorTools
                 bed = PsxTexMat(k + "_PondBed", new Color(0.34f, 0.36f, 0.3f), cobble, 3f),
                 water = PsxWaterMat(),
                 foam = PsxFoamMat(),
+                iron = PMat("RailingIron", new Color(0.17f, 0.16f, 0.21f), 1f),
             };
         }
 
         /// <summary>
-        /// Builds the zone's ground on top of a base at baseY (the lowest level): ground blocks for higher levels,
-        /// paving and lawns, kerbs, stairs, retaining-wall copings / parapets and water. Cells marked by 'stairCells' get
-        /// stairs in them (callers can keep lamps off them).
+        /// Builds the zone's ground above a base at baseY (the lowest level): every cell is a column up to its height,
+        /// its top cobbled, grassy or a pond bed, with stone walls where it drops to a lower neighbour. With a corner
+        /// radius, outer corners of raised ground are rounded off and inner corners filled in (likewise where paths meet
+        /// lawns). Then kerbs, copings, railings, stairs (with stringers and handrails) and water. Stair cells are added
+        /// to 'stairCells' so callers can keep lamps off them. Geometry is merged into a few meshes per 8x8-cell chunk.
         /// </summary>
         private static void BuildTerrain(Transform parent, ZoneGrid g, TerrainMats m, float baseY, HashSet<Vector2Int> stairCells)
         {
             float cs = g.cell;
             Transform t = Child(parent, "Terrain", Vector3.zero);
+            var stairs = StairRuns(g);
+            var tc = new TerrainContext(g, stairs);
+            var piles = new Dictionary<long, MeshBuilder>();
+            Transform colliders = Child(t, "RailingColliders", Vector3.zero);
+            RailingMode mode = g.zone.railings;
 
-            // ---- raised ground: every cell above the base level stands on a block of retaining-wall stone
-            if (g.HasHeights)
-                foreach (var r in Rects(g, ch => true, 10, 10))
-                {
-                    int lv = g.Level(r.xMin, r.yMin);
-                    if (lv <= g.minLevel) continue;
-                    Vector3 c = RectCenter(g, r);
-                    float top = lv * g.step;
-                    Block(t, "Ground", new Vector3(c.x, (baseY + top) / 2f, c.z), new Vector3(r.width * cs, top - baseY, r.height * cs), m.wall);
-                }
+            for (int y = 0; y < g.height; y++)
+                for (int x = 0; x < g.width; x++)
+                    BuildCell(tc, x, y, piles, colliders, mode);
 
-            // ---- surfaces: lawns (grass, trees, hedges), water beds, cobbles everywhere else
-            foreach (var r in Rects(g, ch => ch == ',' || ch == '^' || ch == '=', 8, 8)) Slab(t, "Lawn", g, r, 0.025f, m.lawn);
-            foreach (var r in Rects(g, ch => ch != ',' && ch != '^' && ch != '=' && !ZoneGrid.IsWater(ch), 8, 8)) Slab(t, "Paving", g, r, 0.03f, m.paving);
-            foreach (var r in Rects(g, ZoneGrid.IsWater, 8, 8)) Slab(t, "PondBed", g, r, 0.02f, m.bed);
-
-            // ---- kerbs where paths meet lawn at the same height
-            foreach (var run in EdgeRuns(g, (a, b) => g.Paved(a.x, a.y) && IsLawn(g.At(b.x, b.y)) && g.Level(a) == g.Level(b)))
+            // ---- stairs where paved cells change height: steps, sloped stone stringers and handrails
+            foreach (var run in stairs)
             {
-                Vector3 c = RunCenter(g, run, -0.15f);
-                Deco(t, PrimitiveType.Cube, "Kerb", c + new Vector3(0, 0.08f, 0), RunScale(g, run, 0.3f, 0.16f), m.kerb, Quaternion.identity, false);
+                // 'start' is the upper cell; the stairs fill the edge of the lower cells.
+                Vector3 dirDown = ZoneGrid.ToLocalDir(run.dir);
+                Vector3 edge = RunCenter(g, run, 0f);
+                float upper = g.Elevation(run.start.x, run.start.y) + Lift;
+                Vector2Int low = run.start + run.dir;
+                float lower = g.Elevation(low.x, low.y) + Lift;
+                float rise = upper - lower;
+                float runLen = Mathf.Min(cs - 0.6f, rise * 1.7f);
+                float width = run.length * cs - 0.2f;
+                Vector3 top = new Vector3(edge.x, upper, edge.z);
+                Vector3 bottom = top + dirDown * runLen;
+                bottom.y = lower;
+                Stairs(t, "Stairs", bottom, top, width, m.kerb);
+                Vector3 side = Vector3.Cross(Vector3.up, dirDown);
+                Vector2 d2 = new Vector2(dirDown.x, dirDown.z);
+                foreach (float sgn in new[] { -1f, 1f })
+                {
+                    Vector3 o = side * sgn * (width / 2f + 0.2f);
+                    Vector2 a = new Vector2(top.x + o.x, top.z + o.z), b = a + d2 * runLen;
+                    var cell = new Vector2Int(low.x, low.y);
+                    Prism(Pile(piles, cell, MatTrim), a, b, 0.4f, lower - 0.05f, upper + 0.35f, lower - 0.05f, lower + 0.35f);
+                    if (mode != RailingMode.None)
+                    {
+                        // Handrail: posts at both ends and the middle, the rail following the slope.
+                        var iron = Pile(piles, cell, MatIron);
+                        for (int k = 0; k <= 2; k++)
+                        {
+                            Vector2 pp = Vector2.Lerp(a, b, k / 2f);
+                            float yb = Mathf.Lerp(upper, lower, k / 2f) + 0.35f;
+                            Prism(iron, pp - d2 * 0.05f, pp + d2 * 0.05f, 0.1f, yb, yb + 0.95f, yb, yb + 0.95f);
+                        }
+                        Prism(iron, a, b, 0.09f, upper + 1.22f, upper + 1.32f, lower + 1.22f, lower + 1.32f);
+                    }
+                }
+                for (int i = 0; i < run.length; i++) stairCells.Add(low + run.along * i);
             }
 
-            // ---- water: surface heights per pond, the water itself and a rim (with a taller invisible wall) round it
+            // ---- water surfaces, a little below each pond's lowest rim
             var surface = WaterSurfaces(g);
             foreach (var r in Rects(g, ZoneGrid.IsWater, 12, 12))
             {
@@ -81,49 +110,392 @@ namespace WizardsVRC.EditorTools
                 Mesh grid = GridMesh(Mathf.Clamp(Mathf.CeilToInt(w / 2f), 2, 32), Mathf.Clamp(Mathf.CeilToInt(h / 2f), 2, 32), false);
                 Shape(t, "Water", grid, new Vector3(c.x, y, c.z), new Vector3(w, 1f, h), m.water, false, Quaternion.identity);
             }
-            foreach (var run in EdgeRuns(g, (a, b) => !ZoneGrid.IsWater(g.At(a.x, a.y)) && ZoneGrid.IsWater(g.At(b.x, b.y)) && g.Walkable(a.x, a.y)))
+
+            // ---- one mesh per chunk and material (solid ones get colliders)
+            var mats = new[] { m.wall, m.paving, m.lawn, m.bed, m.kerb, m.iron };
+            foreach (var kv in piles)
             {
-                Vector3 c = RunCenter(g, run, -0.25f);
-                Block(t, "PondRim", c + new Vector3(0, 0.28f, 0), RunScale(g, run, 0.5f, 0.56f), m.kerb);
-                var fence = Child(t, "PondFence", c + new Vector3(0, 0.75f, 0)).gameObject.AddComponent<BoxCollider>();
-                fence.size = RunScale(g, run, 0.5f, 1.5f);
+                int mat = (int)(kv.Key & 0xff);
+                if (kv.Value.v.Count == 0) continue;
+                var go = new GameObject("TerrainMesh_" + (kv.Key >> 8) + "_" + MatNames[mat]);
+                go.isStatic = true;
+                go.transform.SetParent(t, false);
+                var mesh = kv.Value.ToMesh(go.name);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                go.AddComponent<MeshRenderer>().sharedMaterial = mats[mat];
+                if (mat <= MatBed) go.AddComponent<MeshCollider>().sharedMesh = mesh;
+            }
+        }
+
+        // ------------------------------------------------------------------ terrain cells
+
+        private const float Lift = 0.02f;
+        private const int ArcSegs = 4;
+        private const int MatWall = 0, MatPaving = 1, MatLawn = 2, MatBed = 3, MatTrim = 4, MatIron = 5;
+        private static readonly string[] MatNames = { "Walls", "Paving", "Lawn", "PondBed", "Trim", "Railings" };
+
+        // Corners of a cell, anticlockwise seen from above (SW, SE, NE, NW), as map signs (x east, y south); side k runs
+        // from corner k to corner k + 1 and faces the neighbour in SideDirs[k].
+        private static readonly Vector2Int[] CornerSigns = { new Vector2Int(-1, 1), new Vector2Int(1, 1), new Vector2Int(1, -1), new Vector2Int(-1, -1) };
+        private static readonly Vector2Int[] SideDirs = { new Vector2Int(0, 1), new Vector2Int(1, 0), new Vector2Int(0, -1), new Vector2Int(-1, 0) };
+
+        private enum CornerKind { Square, TerrainCut, LawnCut, PaveCut, Fillet }
+        private enum EdgeKind { None, Drop, StairWall, Kerb, PondFence }
+
+        /// <summary>What every cell corner does, worked out once per zone.</summary>
+        private class TerrainContext
+        {
+            public readonly ZoneGrid g;
+            public readonly float r;
+            public readonly CornerKind[,,] kinds;
+            public readonly HashSet<Vector2Int> stairTouch = new HashSet<Vector2Int>();
+            public readonly HashSet<long> stairEdges = new HashSet<long>();
+
+            public TerrainContext(ZoneGrid g, List<EdgeRun> stairs)
+            {
+                this.g = g;
+                r = Mathf.Clamp(g.zone.cornerRadius, 0f, g.cell * 0.45f);
+                foreach (var run in stairs)
+                    for (int i = 0; i < run.length; i++)
+                    {
+                        var up = run.start + run.along * i;
+                        stairTouch.Add(up);
+                        stairTouch.Add(up + run.dir);
+                        stairEdges.Add(EdgeKey(up, run.dir));
+                        stairEdges.Add(EdgeKey(up + run.dir, -run.dir));
+                    }
+                kinds = new CornerKind[g.width, g.height, 4];
+                for (int y = 0; y < g.height; y++)
+                    for (int x = 0; x < g.width; x++)
+                        for (int k = 0; k < 4; k++)
+                            kinds[x, y, k] = Kind(x, y, k);
             }
 
-            // ---- stairs where paved cells change height; copings or parapets along every other drop
-            foreach (var run in StairRuns(g))
+            public bool In(int x, int y) { return x >= 0 && y >= 0 && x < g.width && y < g.height; }
+            /// <summary>Level, with cells off the map at the base (so the zone's outer edge gets a wall down to it).</summary>
+            public int Lv(int x, int y) { return In(x, y) ? g.Level(x, y) : g.minLevel; }
+            public bool Lawn(int x, int y) { return In(x, y) && IsLawn(g.At(x, y)); }
+            public bool Water(int x, int y) { return In(x, y) && ZoneGrid.IsWater(g.At(x, y)); }
+            public int Surface(int x, int y) { return Lawn(x, y) ? MatLawn : Water(x, y) ? MatBed : MatPaving; }
+
+            public static long EdgeKey(Vector2Int c, Vector2Int d) { return ((long)c.x << 40) ^ ((long)c.y << 16) ^ ((long)(d.x + 2) << 4) ^ (long)(d.y + 2); }
+
+            private CornerKind Kind(int x, int y, int k)
             {
-                // 'a' is the upper cell; the stairs fill the edge of the lower cells (b side).
-                Vector3 dirDown = ZoneGrid.ToLocalDir(run.dir);
-                Vector3 edge = RunCenter(g, run, 0f);
-                float upper = g.Elevation(run.start.x, run.start.y) + 0.06f;
-                Vector2Int low = run.start + run.dir;
-                float lower = g.Elevation(low.x, low.y) + 0.06f;
-                float rise = upper - lower;
-                float runLen = Mathf.Min(cs - 0.6f, rise * 1.7f);
-                float width = run.length * cs - 0.2f;
-                Vector3 top = new Vector3(edge.x, upper, edge.z);
-                Vector3 bottom = top + dirDown * runLen;
-                bottom.y = lower;
-                Stairs(t, "Stairs", bottom, top, width, m.kerb);
-                Vector3 side = Vector3.Cross(Vector3.up, dirDown);
-                foreach (float sgn in new[] { -1f, 1f })
+                if (r <= 0.01f) return CornerKind.Square;
+                Vector2Int s = CornerSigns[k];
+                int x1 = x + s.x, y2 = y + s.y;
+                if (!In(x1, y) || !In(x, y2) || !In(x1, y2)) return CornerKind.Square;
+                if (stairTouch.Contains(new Vector2Int(x, y)) || stairTouch.Contains(new Vector2Int(x1, y)) ||
+                    stairTouch.Contains(new Vector2Int(x, y2)) || stairTouch.Contains(new Vector2Int(x1, y2))) return CornerKind.Square;
+                int lc = Lv(x, y), l1 = Lv(x1, y), l2 = Lv(x, y2), ld = Lv(x1, y2);
+                if (l1 < lc && l2 == l1 && ld == l1) return CornerKind.TerrainCut;
+                if (l1 > lc && l2 == l1 && ld >= l1) return CornerKind.Fillet;
+                if (l1 == lc && l2 == lc && ld == lc)
                 {
-                    Vector3 p = (top + bottom) / 2f + side * sgn * (width / 2f + 0.2f);
-                    Block(t, "StairCheek", new Vector3(p.x, lower + (rise + 0.45f) / 2f, p.z), new Vector3(0.4f, rise + 0.45f, runLen),
-                        m.kerb, Quaternion.LookRotation(dirDown));
+                    bool lawn = Lawn(x, y), a = Lawn(x1, y), b = Lawn(x, y2);
+                    if (lawn && !a && !b && g.Walkable(x1, y) && g.Walkable(x, y2)) return CornerKind.LawnCut;
+                    if (!lawn && a && b && g.Walkable(x, y)) return CornerKind.PaveCut;
                 }
-                for (int i = 0; i < run.length; i++) stairCells.Add(low + run.along * i);
+                return CornerKind.Square;
             }
-            foreach (var run in EdgeRuns(g, (a, b) => g.Level(b) < g.Level(a) && !g.HasStairs(a, b) && !ZoneGrid.IsWater(g.At(b.x, b.y)) &&
-                                                        !ZoneGrid.IsWater(g.At(a.x, a.y))))
+
+            /// <summary>Corner point in zone-local XZ.</summary>
+            public Vector2 Corner(int x, int y, int k)
             {
-                Vector2Int low = run.start + run.dir;
-                float drop = g.Elevation(run.start.x, run.start.y) - g.Elevation(low.x, low.y);
-                bool parapet = drop >= 2.5f && g.Paved(run.start.x, run.start.y);
-                Vector3 c = RunCenter(g, run, -0.25f);
-                if (parapet) Block(t, "Parapet", c + new Vector3(0, 0.45f, 0), RunScale(g, run, 0.5f, 0.9f), m.kerb);
-                else Deco(t, PrimitiveType.Cube, "Coping", c + new Vector3(0, 0.1f, 0), RunScale(g, run, 0.5f, 0.2f), m.kerb, Quaternion.identity, false);
+                Vector3 c = g.Local(x, y);
+                Vector2Int s = CornerSigns[k];
+                return new Vector2(c.x + s.x * g.cell / 2f, c.z - s.y * g.cell / 2f);
             }
+
+            /// <summary>The corner of the neighbour across side 'side' that is the same point as corner k of this cell.</summary>
+            public CornerKind NeighbourCorner(int x, int y, int side, int k)
+            {
+                Vector2Int d = SideDirs[side], s = CornerSigns[k];
+                int nx = x + d.x, ny = y + d.y;
+                if (!In(nx, ny)) return CornerKind.Square;
+                var ns = new Vector2Int(d.x != 0 ? -s.x : s.x, d.y != 0 ? -s.y : s.y);
+                for (int i = 0; i < 4; i++) if (CornerSigns[i] == ns) return kinds[nx, ny, i];
+                return CornerKind.Square;
+            }
+
+            /// <summary>Points of the rounded corner piece at corner k: the corner, then along the arc between its two sides.</summary>
+            public List<Vector2> Arc(int x, int y, int k)
+            {
+                Vector2 p = Corner(x, y, k), prev = Corner(x, y, (k + 3) % 4), next = Corner(x, y, (k + 1) % 4);
+                Vector2 dp = (prev - p).normalized, dn = (next - p).normalized;
+                Vector2 c = p + (dp + dn) * r;
+                var pts = new List<Vector2>();
+                for (int i = 0; i <= ArcSegs; i++)
+                {
+                    float a = i / (float)ArcSegs * Mathf.PI * 0.5f;
+                    pts.Add(c - r * (Mathf.Cos(a) * dn + Mathf.Sin(a) * dp));
+                }
+                return pts;
+            }
+        }
+
+        private static MeshBuilder Pile(Dictionary<long, MeshBuilder> piles, Vector2Int cell, int mat)
+        {
+            long key = ((long)(cell.x / 8) << 20 | (long)(cell.y / 8)) << 8 | (long)mat;
+            MeshBuilder mb;
+            if (!piles.TryGetValue(key, out mb)) piles[key] = mb = new MeshBuilder();
+            return mb;
+        }
+
+        /// <summary>One cell: its top (with rounded corner cuts), corner pieces, walls down to lower neighbours and edge trim.</summary>
+        private static void BuildCell(TerrainContext tc, int x, int y, Dictionary<long, MeshBuilder> piles, Transform colliders, RailingMode mode)
+        {
+            ZoneGrid g = tc.g;
+            var cell = new Vector2Int(x, y);
+            int lc = g.Level(x, y);
+            float yc = lc * g.step + Lift;
+            var pts = new List<Vector2>();
+            var kinds = new List<EdgeKind>();
+            var lows = new List<int>();
+            var sides = new List<int>();
+            for (int k = 0; k < 4; k++)
+            {
+                CornerKind ck = tc.kinds[x, y, k];
+                // The side that starts at this corner.
+                Vector2Int d = SideDirs[k];
+                int nx = x + d.x, ny = y + d.y, ln = tc.Lv(nx, ny);
+                EdgeKind side = EdgeKind.None;
+                if (ln < lc) side = tc.stairEdges.Contains(TerrainContext.EdgeKey(cell, d)) ? EdgeKind.StairWall : EdgeKind.Drop;
+                else if (ln == lc && tc.Lawn(x, y) && !tc.Lawn(nx, ny) && tc.In(nx, ny) && g.Walkable(nx, ny)) side = EdgeKind.Kerb;
+                else if (ln == lc && tc.Water(nx, ny) && !tc.Water(x, y) && g.Walkable(x, y)) side = EdgeKind.PondFence;
+
+                if (ck == CornerKind.TerrainCut || ck == CornerKind.LawnCut || ck == CornerKind.PaveCut)
+                {
+                    var arc = tc.Arc(x, y, k);
+                    EdgeKind arcKind = ck == CornerKind.TerrainCut ? EdgeKind.Drop : ck == CornerKind.LawnCut ? EdgeKind.Kerb : EdgeKind.None;
+                    Vector2Int s = CornerSigns[k];
+                    int arcLow = tc.Lv(x + s.x, y);
+                    for (int i = 0; i < arc.Count - 1; i++) { pts.Add(arc[i]); kinds.Add(arcKind); lows.Add(arcLow); sides.Add(-1); }
+                    pts.Add(arc[arc.Count - 1]);
+                    // The corner piece cut away: lower ground (terrain), cobbles or lawn round the corner.
+                    var piece = new List<Vector2> { tc.Corner(x, y, k) };
+                    piece.AddRange(arc);
+                    if (ck == CornerKind.TerrainCut) TopPoly(Pile(piles, cell, tc.Surface(x + s.x, y)), piece, arcLow * g.step + Lift);
+                    else if (ck == CornerKind.LawnCut) TopPoly(Pile(piles, cell, MatPaving), piece, yc);
+                    else
+                    {
+                        TopPoly(Pile(piles, cell, MatLawn), piece, yc);
+                        PieceTrim(piles, cell, piece, yc, mode == RailingMode.DropsAndPaths);
+                    }
+                }
+                else pts.Add(tc.Corner(x, y, k));
+                kinds.Add(side);
+                lows.Add(ln);
+                sides.Add(k);
+
+                if (ck == CornerKind.Fillet)
+                {
+                    // Inner corner: the higher ground round this corner sweeps into this cell in a curve.
+                    Vector2Int s = CornerSigns[k];
+                    int lu = tc.Lv(x + s.x, y);
+                    var piece = new List<Vector2> { tc.Corner(x, y, k) };
+                    piece.AddRange(tc.Arc(x, y, k));
+                    float yu = lu * g.step + Lift;
+                    TopPoly(Pile(piles, cell, tc.Surface(x + s.x, y)), piece, yu);
+                    var arc = tc.Arc(x, y, k);
+                    bool railed = mode != RailingMode.None && (g.Paved(x + s.x, y) || g.Paved(x, y + s.y) || tc.Water(x, y));
+                    for (int i = 0; i < arc.Count - 1; i++)
+                    {
+                        // Walls face out of the piece (towards this cell's middle).
+                        Vector2 a = arc[i], b = arc[i + 1];
+                        Vector2 mid = (a + b) / 2f, toCorner = tc.Corner(x, y, k) - mid;
+                        if (Vector2.Dot(Right(b - a), toCorner) > 0f) { var tmp = a; a = b; b = tmp; }
+                        Wall(Pile(piles, cell, MatWall), a, b, yc, yu);
+                        DropTrim(piles, cell, a, b, yu, railed, colliders);
+                    }
+                }
+            }
+            // Order the corner points anticlockwise (they already are) and lay the top.
+            TopPoly(Pile(piles, cell, tc.Surface(x, y)), pts, yc);
+
+            // Walls and trim along the outline.
+            for (int i = 0; i < pts.Count; i++)
+            {
+                Vector2 a = pts[i], b = pts[(i + 1) % pts.Count];
+                EdgeKind ek = kinds[i];
+                if (ek == EdgeKind.None || (a - b).sqrMagnitude < 0.0001f) continue;
+                float yl = lows[i] * g.step + Lift;
+                if (ek == EdgeKind.Drop || ek == EdgeKind.StairWall) Wall(Pile(piles, cell, MatWall), a, b, yl, yc);
+                if (ek == EdgeKind.StairWall) continue;
+                // Straight sides stop short where a neighbour's rounded piece takes over the corner.
+                Vector2 sa = a, sb = b;
+                int side = sides[i];
+                if (side >= 0)
+                {
+                    int k0 = side, k1 = (side + 1) % 4;
+                    var c0 = tc.NeighbourCorner(x, y, side, k0);
+                    var c1 = tc.NeighbourCorner(x, y, side, k1);
+                    Vector2 dir = (b - a).normalized;
+                    if ((c0 == CornerKind.Fillet || c0 == CornerKind.PaveCut) && (a - tc.Corner(x, y, k0)).sqrMagnitude < 0.0001f) sa = a + dir * tc.r;
+                    if ((c1 == CornerKind.Fillet || c1 == CornerKind.PaveCut) && (b - tc.Corner(x, y, k1)).sqrMagnitude < 0.0001f) sb = b - dir * tc.r;
+                    if (Vector2.Dot(sb - sa, dir) <= 0.01f) continue;
+                }
+                if (ek == EdgeKind.Drop)
+                {
+                    Vector2Int d = side >= 0 ? SideDirs[side] : Vector2Int.zero;
+                    bool lowWater = side >= 0 ? tc.Water(x + d.x, y + d.y) : false;
+                    bool railed = mode != RailingMode.None && (g.Paved(x, y) || lowWater);
+                    DropTrim(piles, cell, sa, sb, yc, railed, colliders);
+                }
+                else if (ek == EdgeKind.Kerb)
+                {
+                    Prism(Pile(piles, cell, MatTrim), sa, sb, 0.3f, yc - 0.05f, yc + 0.16f, yc - 0.05f, yc + 0.16f);
+                    if (mode == RailingMode.DropsAndPaths) Railing(piles, cell, Shift(sa, sa, sb, 0.45f), Shift(sb, sa, sb, 0.45f), yc, 0.55f, false, null);
+                }
+                else if (ek == EdgeKind.PondFence)
+                {
+                    Vector2 fa = Shift(sa, sa, sb, 0.25f), fb = Shift(sb, sa, sb, 0.25f);
+                    Prism(Pile(piles, cell, MatTrim), fa, fb, 0.5f, yc - 0.05f, yc + 0.5f, yc - 0.05f, yc + 0.5f);
+                    if (mode != RailingMode.None) Railing(piles, cell, fa, fb, yc + 0.5f, 0.6f, true, colliders);
+                    else PondFenceCollider(colliders, sa, sb, yc);
+                }
+            }
+        }
+
+        /// <summary>Kerb (and low railing) round a lawn piece filling a path corner.</summary>
+        private static void PieceTrim(Dictionary<long, MeshBuilder> piles, Vector2Int cell, List<Vector2> piece, float y, bool railing)
+        {
+            var poly = Ccw(piece);
+            for (int i = 0; i < poly.Count; i++)
+            {
+                Vector2 a = poly[i], b = poly[(i + 1) % poly.Count];
+                // Only the curved edge (the two straight edges lie against the lawn cells either side).
+                bool straightFromCorner = (a - piece[0]).sqrMagnitude < 0.0001f || (b - piece[0]).sqrMagnitude < 0.0001f;
+                if (straightFromCorner) continue;
+                Prism(Pile(piles, cell, MatTrim), a, b, 0.3f, y - 0.05f, y + 0.16f, y - 0.05f, y + 0.16f);
+                if (railing) Railing(piles, cell, Shift(a, a, b, 0.45f), Shift(b, a, b, 0.45f), y, 0.55f, false, null);
+            }
+        }
+
+        /// <summary>Coping along the top of a drop (a -> b anticlockwise, high ground on the left), plus a railing on paths.</summary>
+        private static void DropTrim(Dictionary<long, MeshBuilder> piles, Vector2Int cell, Vector2 a, Vector2 b, float y, bool railing, Transform colliders)
+        {
+            Vector2 ca = Shift(a, a, b, 0.22f), cb = Shift(b, a, b, 0.22f);
+            Prism(Pile(piles, cell, MatTrim), ca, cb, 0.45f, y - 0.12f, y + 0.18f, y - 0.12f, y + 0.18f);
+            if (railing) Railing(piles, cell, ca, cb, y + 0.18f, 0.95f, true, colliders);
+        }
+
+        /// <summary>Iron railing from a to b standing at height y: posts about every 2 m, a top rail (and a middle one when tall).</summary>
+        private static void Railing(Dictionary<long, MeshBuilder> piles, Vector2Int cell, Vector2 a, Vector2 b, float y, float height, bool solid, Transform colliders)
+        {
+            float len = (b - a).magnitude;
+            if (len < 0.05f) return;
+            var iron = Pile(piles, cell, MatIron);
+            Vector2 d = (b - a) / len;
+            int n = Mathf.Max(1, Mathf.CeilToInt(len / 2f));
+            for (int i = 0; i <= n; i++)
+            {
+                Vector2 p = Vector2.Lerp(a, b, i / (float)n);
+                Prism(iron, p - d * 0.05f, p + d * 0.05f, 0.1f, y, y + height + 0.08f, y, y + height + 0.08f);
+            }
+            Prism(iron, a, b, 0.08f, y + height - 0.06f, y + height + 0.02f, y + height - 0.06f, y + height + 0.02f);
+            if (height > 0.8f) Prism(iron, a, b, 0.06f, y + height * 0.48f - 0.03f, y + height * 0.48f + 0.03f, y + height * 0.48f - 0.03f, y + height * 0.48f + 0.03f);
+            if (solid && colliders != null)
+            {
+                Vector2 mid = (a + b) / 2f;
+                var go = Child(colliders, "Railing", new Vector3(mid.x, y + 0.6f, mid.y));
+                go.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y));
+                go.gameObject.AddComponent<BoxCollider>().size = new Vector3(0.25f, 1.2f, len + 0.1f);
+            }
+        }
+
+        private static void PondFenceCollider(Transform colliders, Vector2 a, Vector2 b, float y)
+        {
+            Vector2 mid = (a + b) / 2f, d = (b - a).normalized;
+            var go = Child(colliders, "PondFence", new Vector3(mid.x, y + 0.75f, mid.y));
+            go.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y));
+            go.gameObject.AddComponent<BoxCollider>().size = new Vector3(0.5f, 1.5f, (b - a).magnitude);
+        }
+
+        /// <summary>Point p moved 'inset' metres to the left of the line a -> b (into the high ground / the lawn).</summary>
+        private static Vector2 Shift(Vector2 p, Vector2 a, Vector2 b, float inset)
+        {
+            Vector2 d = (b - a).normalized;
+            return p + new Vector2(-d.y, d.x) * inset;
+        }
+
+        private static Vector2 Right(Vector2 d) { return new Vector2(d.y, -d.x); }
+
+        private static List<Vector2> Ccw(List<Vector2> poly)
+        {
+            float area = 0f;
+            for (int i = 0; i < poly.Count; i++) { Vector2 a = poly[i], b = poly[(i + 1) % poly.Count]; area += a.x * b.y - b.x * a.y; }
+            if (area >= 0f) return poly;
+            var r = new List<Vector2>(poly);
+            r.Reverse();
+            return r;
+        }
+
+        // ------------------------------------------------------------------ mesh building
+
+        private class MeshBuilder
+        {
+            public readonly List<Vector3> v = new List<Vector3>();
+            public readonly List<int> t = new List<int>();
+
+            /// <summary>A triangle facing 'want' (Unity draws clockwise faces; this swaps the winding if needed).</summary>
+            public void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 want)
+            {
+                if (Vector3.Dot(Vector3.Cross(b - a, c - a), want) < 0f) { var tmp = b; b = c; c = tmp; }
+                int i = v.Count;
+                v.Add(a); v.Add(b); v.Add(c);
+                t.Add(i); t.Add(i + 1); t.Add(i + 2);
+            }
+
+            public void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want) { Tri(a, b, c, want); Tri(a, c, d, want); }
+
+            public Mesh ToMesh(string name)
+            {
+                var mesh = new Mesh { name = name };
+                if (v.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                mesh.SetVertices(v);
+                mesh.SetTriangles(t, 0);
+                mesh.RecalculateNormals();
+                mesh.RecalculateBounds();
+                return mesh;
+            }
+        }
+
+        /// <summary>Flat top polygon at height y (fan from its first point, which suits convex cells and corner pieces).</summary>
+        private static void TopPoly(MeshBuilder mb, List<Vector2> poly, float y)
+        {
+            for (int i = 1; i + 1 < poly.Count; i++)
+                mb.Tri(new Vector3(poly[0].x, y, poly[0].y), new Vector3(poly[i].x, y, poly[i].y), new Vector3(poly[i + 1].x, y, poly[i + 1].y), Vector3.up);
+        }
+
+        /// <summary>Vertical wall along a -> b (high ground on the left), from y0 up to y1, facing right (outwards).</summary>
+        private static void Wall(MeshBuilder mb, Vector2 a, Vector2 b, float y0, float y1)
+        {
+            if (y1 - y0 < 0.001f) return;
+            Vector2 n = Right(b - a).normalized;
+            mb.Quad(new Vector3(a.x, y0, a.y), new Vector3(b.x, y0, b.y), new Vector3(b.x, y1, b.y), new Vector3(a.x, y1, a.y), new Vector3(n.x, 0, n.y));
+        }
+
+        /// <summary>
+        /// A beam from a to b, w wide, its bottom and top heights given at each end (sloped stringers and rails). All faces
+        /// but the bottom.
+        /// </summary>
+        private static void Prism(MeshBuilder mb, Vector2 a, Vector2 b, float w, float y0a, float y1a, float y0b, float y1b)
+        {
+            Vector2 d = (b - a);
+            if (d.sqrMagnitude < 0.000001f) return;
+            Vector2 n = new Vector2(-d.y, d.x).normalized * (w / 2f);
+            Vector3 A0 = new Vector3(a.x + n.x, y0a, a.y + n.y), A1 = new Vector3(a.x - n.x, y0a, a.y - n.y);
+            Vector3 A2 = new Vector3(a.x - n.x, y1a, a.y - n.y), A3 = new Vector3(a.x + n.x, y1a, a.y + n.y);
+            Vector3 B0 = new Vector3(b.x + n.x, y0b, b.y + n.y), B1 = new Vector3(b.x - n.x, y0b, b.y - n.y);
+            Vector3 B2 = new Vector3(b.x - n.x, y1b, b.y - n.y), B3 = new Vector3(b.x + n.x, y1b, b.y + n.y);
+            Vector3 n3 = new Vector3(n.x, 0, n.y), d3 = new Vector3(d.x, 0, d.y);
+            mb.Quad(A3, A2, B2, B3, Vector3.up);
+            mb.Quad(A0, A3, B3, B0, n3);
+            mb.Quad(A1, A2, B2, B1, -n3);
+            mb.Quad(A0, A1, A2, A3, -d3);
+            mb.Quad(B0, B1, B2, B3, d3);
         }
 
         private static bool IsLawn(char c) { return c == ',' || c == '^' || c == '='; }
@@ -202,12 +574,6 @@ namespace WizardsVRC.EditorTools
             Vector3 first = g.Local(run.start), last = g.Local(run.start + run.along * (run.length - 1));
             Vector3 dir = ZoneGrid.ToLocalDir(run.dir);
             return (first + last) / 2f + dir * (g.cell / 2f + inset);
-        }
-
-        private static Vector3 RunScale(ZoneGrid g, EdgeRun run, float thickness, float height)
-        {
-            float len = run.length * g.cell;
-            return run.dir.x != 0 ? new Vector3(thickness, height, len) : new Vector3(len, height, thickness);
         }
 
         /// <summary>Water surface height for every water cell: each pond sits a little below its lowest rim.</summary>
