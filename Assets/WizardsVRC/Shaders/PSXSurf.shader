@@ -70,8 +70,8 @@ Shader "WizardsVRC/PSXSurf"
                 float d = i.uv.z;
                 // Lines of breaking waves rolling in to the shore (phase wobbles along the shore so they don't look ruled).
                 float phase = d * _Waves + _Time.y * _Speed + sin(i.uv.w * 37.0) * 0.15;
-                float line = 1.0 - abs(frac(phase) - 0.5) * 2.0;
-                float foam = step(0.78 - r * 0.25, line) * (1.0 - d);
+                float crest = 1.0 - abs(frac(phase) - 0.5) * 2.0;
+                float foam = step(0.78 - r * 0.25, crest) * (1.0 - d);
                 // Churning white water right against the rocks.
                 foam = max(foam, step(d, 0.12 + r * 0.08));
                 float3 col = lerp(_WaterColor.rgb, _FoamColor.rgb, foam);

@@ -77,15 +77,15 @@ namespace WizardsVRC.EditorTools
             {
                 int col = r % 4, row = r / 4;
                 Vector2 at = new Vector2(-600 + col * 152, 210 - row * 225);
-                var card = CardFace(tr, "Row" + r, at, 0.64f, true, tTarget, "Row" + r);
+                var rowCard = CardFace(tr, "Row" + r, at, 0.64f, true, tTarget, "Row" + r);
                 // The status sits under the card, as part of it (so it hides with the card).
-                Text info = Label(card.root.transform, "Info", new Vector2(0, -172), new Vector2(230, 56), "", 26, TextAnchor.UpperCenter);
+                Text info = Label(rowCard.root.transform, "Info", new Vector2(0, -172), new Vector2(230, 56), "", 26, TextAnchor.UpperCenter);
                 info.raycastTarget = false;
-                trainer.rowRoots[r] = card.root;
-                trainer.rowIcons[r] = card.frame;
-                trainer.rowNames[r] = card.name;
-                trainer.rowPips[r] = card.pips;
-                trainer.rowArts[r] = card.art;
+                trainer.rowRoots[r] = rowCard.root;
+                trainer.rowIcons[r] = rowCard.frame;
+                trainer.rowNames[r] = rowCard.name;
+                trainer.rowPips[r] = rowCard.pips;
+                trainer.rowArts[r] = rowCard.art;
                 trainer.rowInfo[r] = info;
             }
 
