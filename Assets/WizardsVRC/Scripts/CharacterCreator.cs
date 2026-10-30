@@ -226,7 +226,7 @@ namespace WizardsVRC
             if (auraMarks != null)
                 for (int i = 0; i < auraMarks.Length; i++)
                     if (auraMarks[i] != null) auraMarks[i].SetActive(i == _aura);
-            if (sigLabel != null) sigLabel.text = "Signature colour: " + ColorName(_sig);
+            if (sigLabel != null) sigLabel.text = "Signature color: " + ColorName(_sig);
             if (auraLabel != null) auraLabel.text = "Pip aura: " + ColorName(_aura);
             if (colorPreviewName != null)
             {
@@ -238,7 +238,7 @@ namespace WizardsVRC
 
         private string ColorName(int i)
         {
-            if (i == 0) return "School colour (" + At(schoolNames, _school) + ")";
+            if (i == 0) return "School color (" + At(schoolNames, _school) + ")";
             return At(colorNames, i);
         }
 
@@ -254,7 +254,7 @@ namespace WizardsVRC
                 summaryName.color = ColorFor(_sig, _school);
             }
             if (summaryDetails != null)
-                summaryDetails.text = "Wizard of " + At(schoolNames, _school) + "\nSignature colour: " + ColorName(_sig) + "\nPip aura: " + ColorName(_aura);
+                summaryDetails.text = "Wizard of " + At(schoolNames, _school) + "\nSignature color: " + ColorName(_sig) + "\nPip aura: " + ColorName(_aura);
             if (summaryAura != null) summaryAura.color = Faded(ColorFor(_aura, _school));
         }
 

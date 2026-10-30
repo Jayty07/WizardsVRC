@@ -30,7 +30,7 @@ namespace WizardsVRC.EditorTools
             new Color(1f, 0.45f, 0.7f), new Color(0.82f, 0.84f, 0.9f), new Color(0.36f, 0.24f, 0.48f),
         };
         private static readonly string[] LookPaletteNames =
-            { "School colour", "Crimson", "Ember", "Gold", "Meadow", "Jade", "Frost", "Royal", "Amethyst", "Rose", "Silver", "Shadow" };
+            { "School color", "Crimson", "Ember", "Gold", "Meadow", "Jade", "Frost", "Royal", "Amethyst", "Rose", "Silver", "Shadow" };
 
         private static readonly string[] CreatorFirstNames =
         {
@@ -341,7 +341,7 @@ namespace WizardsVRC.EditorTools
             creator.auraMarks = new GameObject[k];
             creator.sigSwatches = new Image[k];
             creator.auraSwatches = new Image[k];
-            Label(s2, "SigTitle", new Vector2(0, 310), new Vector2(1000, 50), "Signature colour: your name, your duel seat and your casting ring", 28, TextAnchor.MiddleCenter).color = ink;
+            Label(s2, "SigTitle", new Vector2(0, 310), new Vector2(1000, 50), "Signature color: your name, your duel seat and your casting ring", 28, TextAnchor.MiddleCenter).color = ink;
             Label(s2, "AuraTitle", new Vector2(0, 90), new Vector2(1000, 50), "Pip aura: the glow round you when you hold a lot of pips", 28, TextAnchor.MiddleCenter).color = ink;
             for (int i = 0; i < k; i++)
             {
