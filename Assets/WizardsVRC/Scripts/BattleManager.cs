@@ -405,19 +405,19 @@ namespace WizardsVRC
         public bool IsCreature(int s) { return Occupied(s) && ((s >= SIDE && !pvpMode) || IsSummon(s)); }
 
         /// <summary>
-        /// "Rank 2 Life Plant" for a monster, "Fire Minion" for a summoned minion, or "" (Wizard101-style: the school still
-        /// sets what the creature resists and is weak to, it just isn't spelled out).
+        /// The line under a monster in the duel, Wizard101-style: "Rank 2 &lt;school icon&gt;", with " Elite" or " Boss"
+        /// after it for those; a summoned minion shows "&lt;school icon&gt; Minion". The icon is a glyph in the combat
+        /// pixel font, coloured as rich text (CardDatabase.SchoolIcon).
         /// </summary>
         public string MatchupText(int s)
         {
             if (!IsCreature(s) || cardDatabase == null) return "";
-            int sc = school[s];
-            string schoolName = sc >= 0 ? cardDatabase.SchoolName(sc) : "";
-            if (slotIds[s] < 0) return (schoolName + " Minion").Trim();
-            string type = cardDatabase.MonsterType(slotIds[s]);
+            string icon = cardDatabase.SchoolIcon(school[s]);
+            if (slotIds[s] < 0) return (icon + " Minion").Trim();
             string text = "Rank " + cardDatabase.MonsterRank(slotIds[s]).ToString();
-            if (schoolName.Length > 0) text += " " + schoolName;
-            if (type.Length > 0) text += " " + type;
+            if (icon.Length > 0) text += " " + icon;
+            if (cardDatabase.IsBossMonster(slotIds[s])) text += " Boss";
+            else if (cardDatabase.IsEliteMonster(slotIds[s])) text += " Elite";
             return text;
         }
 

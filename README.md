@@ -195,7 +195,7 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   Gear Pierce % ignores that much of shields and resist. Bosses have `bossCritPct`.
 - **School matchups:** monsters and minions take `creatureSchoolWeakness` (30%) more damage from the opposite school
   (Fire/Ice, Storm/Myth, Life/Death) and `creatureSchoolResist` (30%) less from their own. Their overhead label doesn't
-  spell this out: it reads like Wizard101, e.g. "Rank 2 Life Plant" (minions: "Fire Minion"). The round log marks critical / weak / resisted / blocked hits.
+  spell this out: it reads like Wizard101, e.g. "Rank 2 <Life icon>", with "Elite" or "Boss" after it for those (minions: "<Fire icon> Minion"). The school icons are glyphs U+E000-U+E006 in the combat pixel font, coloured per school. The round log marks critical / weak / resisted / blocked hits.
 - **Health and mana persist** between fights, and the HUD shows your live health during a fight. The school health
   trait (`PlayerState.schoolHealthPct`, e.g. Ice +25%, Storm -15%) is part of your max health everywhere. They regenerate slowly while you're out of combat
   (`PlayerState.healthRegenPct` / `manaRegenPct`), refill on level-up, and potions restore them: drink from the

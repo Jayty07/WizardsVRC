@@ -312,6 +312,17 @@ namespace WizardsVRC
             return school >= 0 && school < schoolNames.Length ? schoolNames[school] : "General";
         }
 
+        // School icons: glyphs U+E000-U+E006 in the combat pixel font (Fonts/PsxNameFont.txt -> PsxPixel.ttf), coloured.
+        private string[] _schoolIconGlyphs = { "\uE000", "\uE001", "\uE002", "\uE003", "\uE004", "\uE005", "\uE006" };
+        private string[] _schoolIconHex = { "#F25926", "#8CD9FF", "#A666F2", "#66E666", "#B3A6C7", "#F2CC40", "#D99966" };
+
+        /// <summary>The school's icon as rich text (its glyph in the school's colour), for labels in the combat font.</summary>
+        public string SchoolIcon(int school)
+        {
+            if (school < 0 || school >= _schoolIconGlyphs.Length) return "";
+            return "<color=" + _schoolIconHex[school] + ">" + _schoolIconGlyphs[school] + "</color>";
+        }
+
         // ------------------------------------------------------------------ card faces (book, professors, new spell popup)
 
         [Header("Card art (filled by the builder)")]
@@ -491,6 +502,8 @@ namespace WizardsVRC
         /// <summary>Body size multiplier (1 = wizard sized).</summary>
         [HideInInspector] public float[] monsterBodyScales = { 1.7f, 1f, 0.8f, 0.7f, 0.6f, 0.9f, 1.6f };
         [HideInInspector] public int[] monsterIsBoss = { 1, 0, 0, 0, 0, 0, 1 };
+        /// <summary>1 = elite (a tougher regular enemy): the duel shows "Rank 2 &lt;icon&gt; Elite".</summary>
+        [HideInInspector] public int[] monsterIsElite = { 0, 0, 0, 0, 0, 0, 0 };
         /// <summary>Body colour (wandering and ring bodies).</summary>
         [HideInInspector] public Color[] monsterColors =
         {
@@ -527,6 +540,7 @@ namespace WizardsVRC
         }
 
         public bool IsBossMonster(int id) { int i = MonsterIndexOf(id); return i >= 0 && monsterIsBoss[i] != 0; }
+        public bool IsEliteMonster(int id) { int i = MonsterIndexOf(id); return i >= 0 && monsterIsElite != null && i < monsterIsElite.Length && monsterIsElite[i] != 0; }
         public int MonsterHpPerExtraPlayer(int id) { int i = MonsterIndexOf(id); return i < 0 ? 0 : monsterHpPerExtraPlayer[i]; }
 
         /// <summary>Spell k (0..MONSTER_SPELLS-1) of the monster, 0 = none.</summary>

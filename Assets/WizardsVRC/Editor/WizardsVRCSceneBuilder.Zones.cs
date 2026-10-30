@@ -83,6 +83,7 @@ namespace WizardsVRC.EditorTools
             db.monsterDropChances = new int[n];
             db.monsterBodyScales = new float[n];
             db.monsterIsBoss = new int[n];
+            db.monsterIsElite = new int[n];
             db.monsterHpPerExtraPlayer = new int[n];
             db.monsterColors = new Color[n];
             _monsterMats = new Material[n];
@@ -104,6 +105,7 @@ namespace WizardsVRC.EditorTools
                 db.monsterDropChances[i] = Mathf.Clamp(m.dropChance, 0, 100);
                 db.monsterBodyScales[i] = Mathf.Max(0.2f, m.bodyScale);
                 db.monsterIsBoss[i] = m.isBoss ? 1 : 0;
+                db.monsterIsElite[i] = m.isElite && !m.isBoss ? 1 : 0;
                 db.monsterHpPerExtraPlayer[i] = m.healthPerExtraWizard;
                 db.monsterColors[i] = m.bodyColor;
                 _monsterMats[i] = PMat("Monster_" + m.id, m.bodyColor, 1f);

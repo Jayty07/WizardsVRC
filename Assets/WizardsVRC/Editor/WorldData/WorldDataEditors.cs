@@ -307,7 +307,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 int id = m.FindPropertyRelative("id").intValue;
                 string title = id + "  " + m.FindPropertyRelative("name").stringValue + "  (" +
                                ((School)m.FindPropertyRelative("school").enumValueIndex) + ", Lv " + m.FindPropertyRelative("level").intValue +
-                               (m.FindPropertyRelative("isBoss").boolValue ? ", boss" : "") + ")";
+                               (m.FindPropertyRelative("isBoss").boolValue ? ", boss" : m.FindPropertyRelative("isElite").boolValue ? ", elite" : "") + ")";
                 bool open;
                 _open.TryGetValue(i, out open);
                 using (new EditorGUILayout.HorizontalScope())
