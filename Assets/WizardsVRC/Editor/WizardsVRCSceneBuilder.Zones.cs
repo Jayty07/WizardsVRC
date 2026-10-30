@@ -606,6 +606,9 @@ namespace WizardsVRC.EditorTools
                 if (p.kind == ZonePointKind.Explore)
                 {
                     var trig = Child(holder, "Trigger", new Vector3(0, 1.5f, 0));
+                    // Ignore Raycast: still a trigger you walk into, but the pointer passes through it (no hover
+                    // highlight, and it can't block a panel's buttons).
+                    trig.gameObject.layer = 2;
                     var box = trig.gameObject.AddComponent<BoxCollider>();
                     box.isTrigger = true;
                     float size = g.cell * Mathf.Max(0.25f, p.triggerSizeCells);

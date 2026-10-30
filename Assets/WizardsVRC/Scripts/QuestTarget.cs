@@ -26,6 +26,12 @@ namespace WizardsVRC
 
         private bool _used;
 
+        private void Start()
+        {
+            // A walk-in spot isn't clicked, so don't let it light up (or catch the pointer) like a button.
+            if (isTrigger) DisableInteractive = true;
+        }
+
         public override void Interact()
         {
             if (isTrigger || questManager == null || (singleUse && _used)) return;
