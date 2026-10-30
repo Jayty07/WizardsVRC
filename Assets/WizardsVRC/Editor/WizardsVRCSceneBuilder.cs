@@ -231,6 +231,7 @@ namespace WizardsVRC.EditorTools
             if (!string.IsNullOrEmpty(hubPlan.padLockedHint)) battleClient.queueLockedText = "Boss Arena Teleporter\n(locked: " + hubPlan.padLockedHint + ")";
             BuildArena(battleClient, new[] { laneA, laneB });
             var cutscenes = BuildCutscenes(systems.transform, selectUI, interior);
+            var opening = BuildAwakening(systems.transform, interior, selectUI, teleporter, (IntroFlow)cutscenes[1], saveManager, hud, selectCanvas);
             var learning = BuildSpellLearning(systems.transform, playerState, cardDb, hud, out SpellTrainer trainer, out InteractionMenu interactionMenu);
             var quests = BuildQuests(systems.transform, interior, (CutscenePlayer)cutscenes[0], playerState, hud, hubRoot, trainer, interactionMenu, queuePad.transform, hubPlan);
             var questManager = (QuestManager)quests[0];
@@ -272,7 +273,13 @@ namespace WizardsVRC.EditorTools
 
             // Interface sounds: every button gets a click / hover sound; cards, the book and cutscenes call it directly.
             var uiAudio = BuildUiAudio(systems.transform);
-            foreach (var ec in encounters) ec.uiAudio = uiAudio;
+            foreach (var ec in encounters)
+            {
+                ec.uiAudio = uiAudio;
+                ec.lookPalette = (Color[])LookPalette.Clone();
+                ec.schoolColors = (Color[])SchoolColors.Clone();
+            }
+            hud.lookPalette = (Color[])LookPalette.Clone();
             foreach (var orb in hubPlan.orbBehaviours) orb.uiAudio = uiAudio;
             book.uiAudio = uiAudio;
             ((CutscenePlayer)cutscenes[0]).uiAudio = uiAudio;
@@ -280,6 +287,7 @@ namespace WizardsVRC.EditorTools
             streets.Add(uiAudio);
 
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
+            toSync.AddRange(opening);
             toSync.AddRange(quests);
             toSync.AddRange(learning);
             toSync.AddRange(streets);
@@ -391,7 +399,7 @@ namespace WizardsVRC.EditorTools
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             AssetDatabase.DeleteAsset(ProgramsDir + "/LootChest.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -1613,18 +1621,6 @@ namespace WizardsVRC.EditorTools
         private static readonly Vector3 FilmSetOrigin = new Vector3(0f, -800f, 0f);
         private const string VoiceDir = "Assets/WizardsVRC/Audio/Voice";
 
-        private static readonly string[] IntroLines =
-        {
-            "Long ago, the first wizards bound the magic of the world into seven schools.",
-            "Fire, the school of passion, burns away all that stands before it.",
-            "Ice, the school of endurance, holds firm like the oldest glacier.",
-            "Storm, the school of wild power, strikes with thunder and fury.",
-            "Life, the school of growth, mends all that has been broken.",
-            "Death, the school of shadow, draws strength from what is lost.",
-            "Myth, the school of legend, calls forth creatures of story.",
-            "Balance, the school of harmony, weaves every magic together.",
-            "And now, a new wizard arrives. Welcome to Wizards VRC.",
-        };
 
         private static readonly string[] SchoolLabels = { "Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance" };
         private static readonly Color[] SchoolColors =
@@ -1633,54 +1629,13 @@ namespace WizardsVRC.EditorTools
             new Color(0.35f, 0.3f, 0.4f), new Color(0.95f, 0.8f, 0.25f), new Color(0.85f, 0.6f, 0.4f),
         };
 
-        /// <summary>Film sets (far below the world), the in-front-of-player video screen, and the intro cutscenes.</summary>
+        /// <summary>The film camera and the in-front-of-player video screen NPC cutscenes play on, and the intro flow.</summary>
         private static UdonSharpBehaviour[] BuildCutscenes(Transform systems, CharacterSelectUI selectUI, Interior interior)
         {
             var player = UdonSharpUndo.AddComponent<CutscenePlayer>(Child(systems, "CutscenePlayer", Vector3.zero).gameObject);
             var flow = UdonSharpUndo.AddComponent<IntroFlow>(Child(systems, "IntroFlow", Vector3.zero).gameObject);
             var sets = new GameObject("FilmSets").transform;
             sets.position = FilmSetOrigin;
-
-            // ---- school showcase: seven monuments in a circle
-            var showcase = Child(sets, "SchoolShowcase", Vector3.zero);
-            Block(showcase, "Floor", new Vector3(0, -0.25f, 0), new Vector3(30, 0.5f, 30), Mat("FilmFloor", new Color(0.2f, 0.2f, 0.25f)));
-            var introShots = new Transform[IntroLines.Length];
-            introShots[0] = Shot(showcase, "ShotWide", new Vector3(0, 7f, -15f), new Vector3(0, 1.5f, 0));
-            for (int i = 0; i < SchoolLabels.Length; i++)
-            {
-                float ang = i * 360f / SchoolLabels.Length;
-                Vector3 dir = Quaternion.Euler(0, ang, 0) * Vector3.forward;
-                Vector3 pos = dir * 8f;
-                Material mat = Mat("School" + SchoolLabels[i], SchoolColors[i]);
-                Block(showcase, SchoolLabels[i] + "Pillar", pos + new Vector3(0, 1.5f, 0), new Vector3(1.2f, 3f, 1.2f), mat);
-                var crystal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                crystal.name = SchoolLabels[i] + "Crystal";
-                crystal.transform.SetParent(showcase, false);
-                crystal.transform.localPosition = pos + new Vector3(0, 3.7f, 0);
-                crystal.transform.localScale = Vector3.one * 0.9f;
-                Material glow = Mat("SchoolGlow" + SchoolLabels[i], SchoolColors[i]);
-                glow.EnableKeyword("_EMISSION");
-                glow.SetColor("_EmissionColor", SchoolColors[i] * 2f);
-                crystal.GetComponent<Renderer>().sharedMaterial = glow;
-                Object.DestroyImmediate(crystal.GetComponent<Collider>());
-                var light = Child(showcase, SchoolLabels[i] + "Light", pos + new Vector3(0, 4.5f, 0) - dir * 1.5f).gameObject.AddComponent<Light>();
-                light.type = LightType.Point;
-                light.color = SchoolColors[i];
-                light.range = 8f;
-                light.intensity = 2f;
-                Quaternion faceIn = Quaternion.LookRotation(dir);
-                WorldText(showcase, SchoolLabels[i] + "Label", pos + new Vector3(0, 5f, 0) - dir * 0.2f, faceIn, new Vector2(600, 150), 0.006f, SchoolLabels[i], 90);
-                introShots[i + 1] = Shot(showcase, "Shot" + SchoolLabels[i], pos - dir * 5f + new Vector3(0, 2.2f, 0), pos + new Vector3(0, 3.2f, 0));
-            }
-
-            // ---- placeholder title screen
-            var title = Child(sets, "TitleCard", new Vector3(0, 0, 60f));
-            Block(title, "Backdrop", new Vector3(0, 3f, 1f), new Vector3(16, 9, 0.2f), Mat("TitleBackdrop", new Color(0.08f, 0.06f, 0.15f)));
-            WorldText(title, "Title", new Vector3(0, 3.8f, 0.8f), Quaternion.identity, new Vector2(1600, 300), 0.006f, "WIZARDS VRC", 200);
-            WorldText(title, "Subtitle", new Vector3(0, 2.2f, 0.8f), Quaternion.identity, new Vector2(1600, 200), 0.006f, "(placeholder title screen)", 70);
-            introShots[IntroLines.Length - 1] = Shot(title, "ShotTitle", new Vector3(0, 3f, -7f), new Vector3(0, 3f, 0.8f));
-
-            var headShots = OfficeShots(interior);
 
             // ---- film camera + video screen in front of the player
             string rtPath = MaterialsDir + "/CutsceneFilm.renderTexture";
@@ -1737,19 +1692,10 @@ namespace WizardsVRC.EditorTools
             cam.cullingMask = ~hidden;
             screenGo.SetActive(false);
 
-            // ---- cutscene data + flow
-            var intro = MakeCutscene(sets, "IntroCutscene", "Narrator", IntroLines, "intro", introShots);
-            var headmaster = MakeCutscene(sets, "HeadmasterGreeting", "Headmaster Greymantle", interior.outdoorSchools ? ProphecyLinesOutdoor : ProphecyLines, "prophecy", headShots);
-            if (interior.outdoorSchools) Unvoice(headmaster, 5);
-            intro.onFinished = flow;
-            intro.onFinishedEvent = nameof(IntroFlow.OnIntroFinished);
-            headmaster.onFinished = flow;
-            headmaster.onFinishedEvent = nameof(IntroFlow.OnHeadmasterFinished);
-            flow.player = player;
-            flow.introCutscene = intro;
-            flow.headmasterCutscene = headmaster;
+            // The opening for new characters (the awakening, the Headmaster's visions, the creator) is built in
+            // WizardsVRCSceneBuilder.Awakening.cs and wired to the flow there.
             flow.selectUI = selectUI;
-            return new UdonSharpBehaviour[] { player, flow, intro, headmaster };
+            return new UdonSharpBehaviour[] { player, flow };
         }
 
         private static Cutscene MakeCutscene(Transform parent, string name, string speaker, string[] lines, string voicePrefix, Transform[] shots)

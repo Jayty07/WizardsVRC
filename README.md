@@ -45,7 +45,10 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/PlayerState.cs` | Live character (source of truth) + autosave, current health/mana helpers, out-of-combat regeneration |
 | `Assets/WizardsVRC/Scripts/TeleportHelper.cs` | `TeleportTo(Transform)` via `VRCPlayerApi.TeleportTo` |
 | `Assets/WizardsVRC/Scripts/TunnelPassage.cs`, `TunnelGate.cs` | Walk-through tunnels between areas (no portals): the hand-over between two identical Z-shaped tunnels out of sight, and the castle end's quest-locked portcullis |
-| `Assets/WizardsVRC/Scripts/CharacterSelectUI.cs` | Slot panels, school picker, delete confirm, teleport to hub |
+| `Assets/WizardsVRC/Scripts/CharacterSelectUI.cs` | Slot panels, delete confirm, teleport to hub; New Character plays the opening, and `CreateFromCreator` makes the character the creator describes |
+| `Assets/WizardsVRC/Scripts/IntroFlow.cs` | First join: once saves load, a player with no characters gets the opening; returning players stay at character select |
+| `Assets/WizardsVRC/Scripts/AwakeningSequence.cs` | The opening, played round the player (not on a screen): whispers in the dark, eyes flickering open on five visions in a dream space (the Starfall Crystal, a rift in the sky, an iron legion, a figure in grey iron over a broken crystal, the title), then waking in the Headmaster's study to hear his visions, the creator, and his send-off. A beat table (subtitle, speaker, seconds, eyelid openness, vision, place, sounds) filled by `WizardsVRCSceneBuilder.Awakening.cs`; Skip jumps to the creator. Voice lines: `Audio/Voice/awaken_00.wav`... one per beat |
+| `Assets/WizardsVRC/Scripts/CharacterCreator.cs` | The creator panel beside you in the study: a name from lists (first name + two-part surname, nothing typed), school (with each professor's pitch), signature colour and pip aura colour (12 each, the first = your school's colour), then a last look and Begin |
 | `Assets/WizardsVRC/Scripts/ItemDatabase.cs` | Placeholder item definitions (category, level/school req, stat bonuses incl. critical/block/pierce/power pip, potion restore amounts) + stat totals |
 | `Assets/WizardsVRC/Scripts/InventoryBook.cs` | Backpack book: live avatar portrait (MirrorReflection-layer camera → RenderTexture), equipment slots + stats (left page), tabbed paged item grid + Equip/Unequip (right page) |
 | `Assets/WizardsVRC/Scripts/CardDatabase.cs` | Placeholder spell cards (4 per school + 4 general), level/school learning rules, deck limits |
@@ -68,6 +71,8 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Terrain.cs` | Zone ground from the map + **height map**, as merged per-chunk meshes: every cell a column to its height with stone walls down to lower neighbours, cobbles / lawns / pond beds, optional **rounded corners** (outer corners cut, inner corners filled, path-lawn corners curved), kerbs, copings, iron **railings** (drops, ponds, stair handrails, optional path edges), stairs with stringers, water, waterfalls |
 | `Assets/WizardsVRC/Shaders/PSXSkyline.shader` | Skybox: gradient sky plus a pixel-art skyline strip round the horizon (the other areas where they lie, far isles, sea, clouds), 15-bit dithered |
 | `Assets/WizardsVRC/Shaders/PSXSurf.shader` | Surf on a ring round an island: churning foam at the rocks and breaking wave lines rolling in |
+| `Assets/WizardsVRC/Shaders/PSXEyelids.shader` | The opening's eyelids, on an inside-out sphere that follows your head: lids closing from top and bottom, vignette, dream tint and white flash |
+| `Tools/make_intro_audio.py` | Generates the opening's placeholder sounds in `Audio/Intro` (drone, wordless whispers, war drums, vision flash, heartbeat). Replace any with a real recording of the same name |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Travel.cs`, `.Sky.cs` | Tunnels, mountains, the sea's swell and surf; the world's layout and each area's skyline (painted at build time) |
 | `Assets/WizardsVRC/Shaders/PSXBillboard.shader` | Pixel labels that face each player's camera (GPU only, VR-safe: faces the point between the eyes), stay upright, vertex-snap and dither out with distance |
 | `Assets/WizardsVRC/Fonts/PsxNameFont.txt` | The PSX pixel font for NPC name tags, hint lines and quest markers, as editable `#`/`.` glyph grids (7 rows, or 9 with descenders). The builder bakes each label into `Materials/NameTags/` on rebuild (`WizardsVRCSceneBuilder.NameTags.cs`) |
@@ -117,6 +122,10 @@ v7 stores 8 equipment slots (slot 7 = deck) and 6 deck card lists, and appends `
 owns each list). Older saves get an equipped Apprentice Deck holding their old Deck 1.
 
 v8 has 512 quest slots (save ids up to 511) with u16 counts and tracked quest; older saves load as before.
+v9 appends `signatureColor u8, auraColor u8` (the creator's colours; 0 = the school's colour). Older saves get 0 for both.
+In battle they ride to the referee on top of the level in `NetJoin` (`level | signature << 8 | aura << 16`) and are
+synced per seat in `BattleManager.look`: the wizard's name, seat frame and casting ring take the signature colour,
+and a seat holding 5+ pips (`BattleClient.auraPipThreshold`) gets an aura of motes in the aura colour.
 Typical saves are 1-2 KB raw (worst case about 2.6 KB raw). `meta` = `1|school,level,name|...|...` (empty entry = free slot).
 
 Saving rotates the previous valid blob into `char_N_bak`. Loading a blob that fails the checksum falls back to the

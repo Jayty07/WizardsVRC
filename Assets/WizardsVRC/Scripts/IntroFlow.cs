@@ -4,38 +4,42 @@ using UnityEngine;
 namespace WizardsVRC
 {
     /// <summary>
-    /// First-join sequence: school showcase + title cutscene, then the Headmaster's greeting,
-    /// then the character select asks the player to pick a school.
+    /// First join: once the saves have loaded, a player with no characters gets the opening (the awakening, the
+    /// Headmaster's visions and the character creator: <see cref="AwakeningSequence"/>). Returning players stay at the
+    /// character select in the Headmaster's study; New Character there plays the opening too. Without an awakening
+    /// sequence the old school picker is used.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class IntroFlow : UdonSharpBehaviour
     {
-        public CutscenePlayer player;
-        public Cutscene introCutscene;
-        public Cutscene headmasterCutscene;
+        public AwakeningSequence awakening;
         public CharacterSelectUI selectUI;
+        public SaveManager saveManager;
+        [Tooltip("Seconds after joining before the opening starts (lets the world finish loading).")]
         public float startDelay = 2f;
+
+        private bool _decided;
 
         private void Start()
         {
-            SendCustomEventDelayedSeconds(nameof(_StartIntro), startDelay);
+            SendCustomEventDelayedSeconds(nameof(_Check), startDelay);
         }
 
-        public void _StartIntro()
+        public void _Check()
         {
-            if (player != null && introCutscene != null) player.Play(introCutscene);
-            else OnIntroFinished();
-        }
-
-        public void OnIntroFinished()
-        {
-            if (player != null && headmasterCutscene != null) player.Play(headmasterCutscene);
-            else OnHeadmasterFinished();
-        }
-
-        public void OnHeadmasterFinished()
-        {
-            if (selectUI != null) selectUI.PromptSchool();
+            if (_decided) return;
+            if (saveManager == null || selectUI == null) return;
+            if (!saveManager.isReady)
+            {
+                SendCustomEventDelayedSeconds(nameof(_Check), 0.5f);
+                return;
+            }
+            _decided = true;
+            if (!selectUI.IsNewPlayer()) return;
+            int slot = selectUI.FirstEmptySlot();
+            if (slot < 0) return;
+            if (awakening != null) awakening.Begin(slot);
+            else selectUI.PromptSchool();
         }
     }
 }

@@ -148,6 +148,9 @@ namespace WizardsVRC.EditorTools
             client.pipIcons = new Renderer[slots * max];
             client.pipSwirls = new ParticleSystem[slots];
             client.powerSwirls = new ParticleSystem[slots];
+            client.auraSwirls = new ParticleSystem[slots];
+            client.auraRenderers = new Renderer[slots];
+            Material auraMat = Glow("DuelPipAura", Color.white, 2.2f);
             for (int s = 0; s < slots; s++)
             {
                 Transform seat = client.seats[s];
@@ -166,6 +169,17 @@ namespace WizardsVRC.EditorTools
                 }
                 client.pipSwirls[s] = MoteSwirl(ring, "PipSwirl" + s, seat.localPosition, scale, white);
                 client.powerSwirls[s] = MoteSwirl(ring, "PowerSwirl" + s, seat.localPosition, scale, gold);
+                // The pip aura: bigger, slower motes in a wider ring (tinted per wizard at runtime).
+                var aura = MoteSwirl(ring, "PipAura" + s, seat.localPosition, scale, auraMat);
+                var am = aura.main;
+                am.startSize = new ParticleSystem.MinMaxCurve(0.12f * scale, 0.26f * scale);
+                am.startLifetime = new ParticleSystem.MinMaxCurve(1.0f, 1.6f);
+                am.startSpeed = new ParticleSystem.MinMaxCurve(0.9f, 1.4f);
+                am.maxParticles = 140;
+                var ash = aura.shape;
+                ash.radius = 0.8f * scale;
+                client.auraSwirls[s] = aura;
+                client.auraRenderers[s] = aura.GetComponent<ParticleSystemRenderer>();
             }
         }
 

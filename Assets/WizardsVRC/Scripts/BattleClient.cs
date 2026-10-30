@@ -124,6 +124,14 @@ namespace WizardsVRC
         [Tooltip("Gold motes for power pips (one per seat).")]
         public ParticleSystem[] powerSwirls;
         public float swirlInterval = 0.4f;
+        [Header("Creator colours (signature, pip aura)")]
+        [Tooltip("The character creator's palette; index 0 means the wizard's school colour.")]
+        public Color[] lookPalette;
+        public Color[] schoolColors;
+        [Tooltip("Aura motes round each seat, shown while it holds at least auraPipThreshold pips (one per seat).")]
+        public ParticleSystem[] auraSwirls;
+        public Renderer[] auraRenderers;
+        public int auraPipThreshold = 5;
 
         [Header("Effect breaks and floating combat text")]
         [Tooltip("Shards that flash and burst where a shield / blade / trap breaks.")]
@@ -804,7 +812,9 @@ namespace WizardsVRC
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_BLOCK),
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_PIERCE),
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_POWERPIP));
-            manager.RequestJoin(maxHealth, curHealth, sc, c.level, statsA, statsB);
+            // The creator colours ride above the level: level | signature << 8 | aura << 16.
+            int look = Mathf.Clamp(c.signatureColor, 0, 255) | (Mathf.Clamp(c.auraColor, 0, 255) << 8);
+            manager.RequestJoin(maxHealth, curHealth, sc, Mathf.Clamp(c.level, 1, 255) | (look << 8), statsA, statsB);
         }
 
         /// <summary>In-battle health is on the same scale as the character's health.</summary>
@@ -1255,6 +1265,16 @@ namespace WizardsVRC
             {
                 if (castRingRenderer != null && seatSchoolMats != null && school >= 0 && school < seatSchoolMats.Length)
                     castRingRenderer.sharedMaterial = seatSchoolMats[school];
+                // A wizard's casting ring is drawn in their signature colour.
+                int sig = SigIndex(from);
+                if (castRingRenderer != null && sig > 0)
+                {
+                    if (_castCustom == null) _castCustom = castRingRenderer.material;
+                    else castRingRenderer.sharedMaterial = _castCustom;
+                    Color c = LookColor(sig, school);
+                    _castCustom.SetColor("_Color", c);
+                    _castCustom.SetColor("_EmissionColor", c * 1.6f);
+                }
                 castRing.position = _ringBase;
                 castRing.gameObject.SetActive(true);
             }
@@ -1661,6 +1681,14 @@ namespace WizardsVRC
                         _gaugeMats[s] = r.material;
                         _gaugeMats[s].SetColor("_FrameColor", s >= BattleManager.SIDE ? gaugeFrameMonster : gaugeFrameWizard);
                     }
+                    // The seat's frame takes a wizard's signature colour.
+                    int frameKey = manager.slotIds[s] * 16 + SigIndex(s);
+                    if (_frameKey[s] != frameKey)
+                    {
+                        _frameKey[s] = frameKey;
+                        int sig = SigIndex(s);
+                        _gaugeMats[s].SetColor("_FrameColor", sig > 0 ? LookColor(sig, 0) * 0.85f : (s >= BattleManager.SIDE ? gaugeFrameMonster : gaugeFrameWizard));
+                    }
                     if (r.sharedMaterial != _gaugeMats[s]) r.sharedMaterial = _gaugeMats[s];
                     // A new occupant starts with the gauge at their health (no drain from whoever sat here before).
                     if (_gaugeOwner[s] != manager.slotIds[s] || _gaugeBattle[s] != manager.battleId)
@@ -1681,6 +1709,46 @@ namespace WizardsVRC
         }
 
         private Material[] _gaugeMats = new Material[BattleManager.SLOTS];
+        private int[] _frameKey = new int[BattleManager.SLOTS];
+        private Material[] _auraMats = new Material[BattleManager.SLOTS];
+        private int[] _auraKey = new int[BattleManager.SLOTS];
+        private Material _castCustom;
+
+        // ------------------------------------------------------------------ creator colours
+
+        /// <summary>A wizard seat's signature colour index (0 = none chosen, or not a wizard).</summary>
+        private int SigIndex(int s)
+        {
+            if (manager == null || !manager.IsPlayerSeat(s) || manager.slotIds[s] <= 0 || manager.look == null || s >= manager.look.Length) return 0;
+            return manager.look[s] & 0xFF;
+        }
+
+        private int AuraIndex(int s)
+        {
+            if (manager == null || !manager.IsPlayerSeat(s) || manager.slotIds[s] <= 0 || manager.look == null || s >= manager.look.Length) return 0;
+            return (manager.look[s] >> 8) & 0xFF;
+        }
+
+        /// <summary>A palette colour; index 0 (or out of range) gives the school's colour.</summary>
+        private Color LookColor(int index, int school)
+        {
+            if (index > 0 && lookPalette != null && index < lookPalette.Length) return lookPalette[index];
+            if (schoolColors != null && school >= 0 && school < schoolColors.Length) return schoolColors[school];
+            return Color.white;
+        }
+
+        /// <summary>Colours a seat's aura motes for whoever sits there (once per change).</summary>
+        private void TintAura(int s)
+        {
+            if (auraRenderers == null || s >= auraRenderers.Length || auraRenderers[s] == null) return;
+            int key = manager.slotIds[s] * 4096 + AuraIndex(s) * 16 + manager.school[s] + 1;
+            if (_auraKey[s] == key) return;
+            _auraKey[s] = key;
+            if (_auraMats[s] == null) _auraMats[s] = auraRenderers[s].material;
+            Color c = LookColor(AuraIndex(s), manager.school[s]);
+            _auraMats[s].SetColor("_Color", c);
+            _auraMats[s].SetColor("_EmissionColor", c * 2.2f);
+        }
         private int[] _gaugeOwner = new int[BattleManager.SLOTS];
         private int[] _gaugeBattle = new int[BattleManager.SLOTS];
         private float[] _gFill = new float[BattleManager.SLOTS];
@@ -1853,6 +1921,10 @@ namespace WizardsVRC
             {
                 if (overheadLabels == null || s >= overheadLabels.Length || overheadLabels[s] == null) continue;
                 overheadLabels[s].text = manager.Occupied(s) && manager.phase >= (manager.IsPlayerSeat(s) ? BattleManager.PHASE_JOINING : BattleManager.PHASE_ROAMING) ? SlotLine(s, false) : "";
+                // A wizard's name shows in their signature colour.
+                int sig = SigIndex(s);
+                Color want = sig > 0 ? LookColor(sig, 0) : Color.white;
+                if (overheadLabels[s].color != want) overheadLabels[s].color = want;
             }
             if (partyLabel != null)
             {
@@ -2110,6 +2182,13 @@ namespace WizardsVRC
                 if (!manager.Occupied(s) || _shownHp[s] <= 0) continue;
                 if (pipSwirls != null && s < pipSwirls.Length && pipSwirls[s] != null && _shownPips[s] > 0) pipSwirls[s].Emit(_shownPips[s]);
                 if (powerSwirls != null && s < powerSwirls.Length && powerSwirls[s] != null && _shownPower[s] > 0) powerSwirls[s].Emit(_shownPower[s] * 2);
+                // Holding a lot of pips: an aura rises round you in your pip aura colour.
+                int held = _shownPips[s] + _shownPower[s];
+                if (auraSwirls != null && s < auraSwirls.Length && auraSwirls[s] != null && held >= auraPipThreshold)
+                {
+                    TintAura(s);
+                    auraSwirls[s].Emit(3 + (held - auraPipThreshold) * 2);
+                }
             }
         }
 

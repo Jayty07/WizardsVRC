@@ -149,6 +149,8 @@ namespace WizardsVRC
         [UdonSynced] public int[] piercePct = new int[SLOTS];
         [UdonSynced] public int[] school = new int[SLOTS];
         [UdonSynced] public int[] level = new int[SLOTS];
+        /// <summary>A wizard's creator colours: signature colour index | pip aura index &lt;&lt; 8 (0 = their school's colour).</summary>
+        [UdonSynced] public int[] look = new int[SLOTS];
         [UdonSynced] public int[] dmgPct = new int[SLOTS];
         [UdonSynced] public int[] resistPct = new int[SLOTS];
         [UdonSynced] public int[] accPct = new int[SLOTS];
@@ -511,7 +513,7 @@ namespace WizardsVRC
             slotIds[s] = id;
             maxHp[s] = 400; hp[s] = 400;
             pips[s] = 0; powerPips[s] = 0; powerPipPct[s] = 0; critPct[s] = 0; blockPct[s] = 0; piercePct[s] = 0;
-            school[s] = 0; level[s] = 1;
+            school[s] = 0; level[s] = 1; look[s] = 0;
             dmgPct[s] = 0; resistPct[s] = 0; accPct[s] = 0; focus[s] = 0; locked[s] = 0;
             dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0;
             ClearFx(shields, s); ClearFx(blades, s); ClearFx(traps, s);
@@ -736,14 +738,16 @@ namespace WizardsVRC
             // Wizard101 health carries over between fights: you fight with what you walked in with.
             hp[s] = Mathf.Clamp(curHealth, 1, maxHp[s]);
             school[s] = Mathf.Clamp(playerSchool, 0, 6);
-            level[s] = playerLevel;
+            // playerLevel carries the creator colours above the level (see BattleClient's join): level | look << 8.
+            level[s] = Mathf.Clamp(playerLevel & 0xFF, 1, 255);
+            look[s] = (playerLevel >> 8) & 0xFFFF;
             dmgPct[s] = Mathf.Clamp(Unpack(statsA, 0), 0, 200);
             resistPct[s] = Mathf.Clamp(Unpack(statsA, 1), 0, 80);
             accPct[s] = Mathf.Clamp(Unpack(statsA, 2) - 128, -50, 100);
             critPct[s] = Mathf.Clamp(Unpack(statsB, 0), 0, 100);
             blockPct[s] = Mathf.Clamp(Unpack(statsB, 1), 0, 100);
             piercePct[s] = Mathf.Clamp(Unpack(statsB, 2), 0, 100);
-            powerPipPct[s] = Mathf.Clamp(Unpack(statsB, 3) + (playerLevel >= powerPipLevel ? basePowerPipChance : 0), 0, 100);
+            powerPipPct[s] = Mathf.Clamp(Unpack(statsB, 3) + (level[s] >= powerPipLevel ? basePowerPipChance : 0), 0, 100);
             _joined[s] = true;
             Publish();
         }

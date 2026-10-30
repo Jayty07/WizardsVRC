@@ -13,6 +13,8 @@ namespace WizardsVRC
     public class PlayerHUD : UdonSharpBehaviour
     {
         public PlayerState playerState;
+        [Tooltip("The character creator's palette (index 0 = no signature colour: the name stays white).")]
+        public Color[] lookPalette;
         public ItemDatabase itemDatabase;
         public GameObject hudRoot;
         public Text nameLabel;
@@ -125,7 +127,11 @@ namespace WizardsVRC
         {
             if (playerState == null || !playerState.HasCharacter()) return;
             CharacterData c = playerState.current;
-            if (nameLabel != null) nameLabel.text = c.characterName + "  Lv " + c.level.ToString();
+            if (nameLabel != null)
+            {
+                nameLabel.text = c.characterName + "  Lv " + c.level.ToString();
+                nameLabel.color = c.signatureColor > 0 && lookPalette != null && c.signatureColor < lookPalette.Length ? lookPalette[c.signatureColor] : Color.white;
+            }
             if (healthLabel != null) healthLabel.text = "Health " + playerState.DisplayHealth().ToString() + " / " + playerState.MaxHealth().ToString();
             if (manaLabel != null) manaLabel.text = "Mana " + playerState.GetMana().ToString() + " / " + playerState.MaxMana().ToString();
             if (goldLabel != null) goldLabel.text = "Gold " + c.gold.ToString() + "    Training Points " + c.trainingPoints.ToString();

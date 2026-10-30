@@ -38,7 +38,7 @@ namespace WizardsVRC
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 8;
+        public const int FORMAT_VERSION = 9;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -85,6 +85,12 @@ namespace WizardsVRC
         [Header("Identity")]
         public string characterName = "";
         public School school = School.Fire;
+        [Tooltip("Signature colour (index into the creator's palette; 0 = the school's colour). Tints your name, your duel seat, your casting ring and your HUD.")]
+        public int signatureColor;
+        [Tooltip("Pip aura colour (index into the same palette; 0 = the school's colour): the aura round you when you hold a lot of pips.")]
+        public int auraColor;
+        /// <summary>Palette size shared by both colours (see the character creator).</summary>
+        public const int COLOR_CHOICES = 12;
 
         [Header("Progression")]
         public int level = 1;
@@ -131,6 +137,8 @@ namespace WizardsVRC
         {
             characterName = SanitizeName(newName);
             school = newSchool;
+            signatureColor = 0;
+            auraColor = 0;
             level = 1;
             xp = 0;
             gold = 50;
@@ -191,6 +199,8 @@ namespace WizardsVRC
             other.EnsureArrays();
             characterName = other.characterName;
             school = other.school;
+            signatureColor = other.signatureColor;
+            auraColor = other.auraColor;
             level = other.level;
             xp = other.xp;
             gold = other.gold;
@@ -527,6 +537,9 @@ namespace WizardsVRC
             WriteU16(Mathf.Clamp(currentHealth, 0, FULL));
             WriteU16(Mathf.Clamp(currentMana, 0, FULL));
             for (int d = 0; d < DECK_COUNT; d++) WriteU16(deckOwners[d]);
+            // v9: the creator's colour choices
+            WriteU8(Mathf.Clamp(signatureColor, 0, COLOR_CHOICES - 1));
+            WriteU8(Mathf.Clamp(auraColor, 0, COLOR_CHOICES - 1));
 
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
@@ -589,6 +602,8 @@ namespace WizardsVRC
         private bool ReadPayload(int version)
         {
             EnsureArrays();
+            signatureColor = 0;
+            auraColor = 0;
 
             if (!Need(1)) return false;
             int nameLen = ReadU8();
@@ -702,6 +717,12 @@ namespace WizardsVRC
             {
                 if (!Need(DECK_COUNT * 2)) return false;
                 for (int d = 0; d < DECK_COUNT; d++) deckOwners[d] = (ushort)ReadU16();
+            }
+            if (version >= 9)
+            {
+                if (!Need(2)) return false;
+                signatureColor = Mathf.Clamp(ReadU8(), 0, COLOR_CHOICES - 1);
+                auraColor = Mathf.Clamp(ReadU8(), 0, COLOR_CHOICES - 1);
             }
             MigrateDecks(version);
             return true;

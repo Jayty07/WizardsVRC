@@ -52,15 +52,6 @@ namespace WizardsVRC.EditorTools
             };
         }
 
-        private static readonly string[] ProphecyLines =
-        {
-            "Ah, you have arrived at last! Welcome to Starfall Castle, young wizard.",
-            "I am Headmaster Greymantle. Forgive the sudden summons; it was I who called you across the stars to this place.",
-            "Long ago, a prophecy was carved into the oldest stone of this castle: when the Starfall Crystal dims, a wizard from beyond the sky shall come to rekindle it.",
-            "The crystal in our courtyard has begun to fade. Far to the north, Morvane the Hollow King stirs once more, draining the light from our world.",
-            "The prophecy speaks of you. But no wizard can face such darkness untrained.",
-            "So tell me, which school of magic calls to you? Choose, and your professor will be waiting in the Hall of Schools.",
-        };
 
         private static readonly string[] ReportLines =
         {
@@ -72,11 +63,6 @@ namespace WizardsVRC.EditorTools
 
         // Outdoor-schools versions (the hub map has a quarter for every school). Lines that differ from the recorded
         // voice clips play without voice (see Unvoice).
-        private static readonly string[] ProphecyLinesOutdoor =
-        {
-            ProphecyLines[0], ProphecyLines[1], ProphecyLines[2], ProphecyLines[3], ProphecyLines[4],
-            "So tell me, which school of magic calls to you? Choose, and your professor will be waiting at their school's hall out in the castle grounds.",
-        };
         private static readonly string[] ReportLinesOutdoor =
         {
             ReportLines[0], ReportLines[1],

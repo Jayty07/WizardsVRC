@@ -22,6 +22,8 @@ namespace WizardsVRC
         public Transform newCharacterSpawn;
         [Tooltip("Receives OnCharacterActivated after a character is created or loaded.")]
         public UdonSharpBehaviour questManager;
+        [Tooltip("The opening for new characters (awakening, the Headmaster, the creator). Without it New Character opens the old school picker.")]
+        public AwakeningSequence awakening;
 
         [Header("Slot panels (index = slot)")]
         public Text[] slotNameLabels;
@@ -150,6 +152,14 @@ namespace WizardsVRC
         private void OpenPicker(int slot)
         {
             if (!CanAct() || saveManager.HasSlot(slot)) return;
+            if (awakening != null)
+            {
+                if (awakening.IsRunning()) return;
+                SetPopup(confirmPanel, false);
+                SetStatus("");
+                awakening.Begin(slot);
+                return;
+            }
             _pendingSlot = slot;
             SetPopup(confirmPanel, false);
             SetPopup(schoolPickerPanel, true);
@@ -194,6 +204,48 @@ namespace WizardsVRC
                 if (teleporter != null) teleporter.TeleportTo(newCharacterSpawn);
             }
             else EnterHub();
+        }
+
+        /// <summary>
+        /// The character creator's Begin: a new character with the chosen name, school and colours in this slot. The
+        /// player is already in the Headmaster's study, so nobody is moved. False if it couldn't be made or saved.
+        /// </summary>
+        public bool CreateFromCreator(int slot, int school, string characterName, int signatureColor, int auraColor)
+        {
+            if (!CanAct() || slot < 0 || slot >= SaveManager.SLOT_COUNT || saveManager.HasSlot(slot)) return false;
+            if (school < 0 || school > (int)School.Balance) return false;
+            playerState.Deactivate();
+            playerState.current.ResetToDefaults((School)school, characterName);
+            playerState.current.signatureColor = Mathf.Clamp(signatureColor, 0, CharacterData.COLOR_CHOICES - 1);
+            playerState.current.auraColor = Mathf.Clamp(auraColor, 0, CharacterData.COLOR_CHOICES - 1);
+            if (!saveManager.SaveSlot(slot, playerState.current))
+            {
+                SetStatus("Could not save the new character.");
+                return false;
+            }
+            playerState.Activate(slot);
+            RefreshSlots();
+            NotifyActivated();
+            SetStatus("Welcome, " + playerState.current.characterName);
+            return true;
+        }
+
+        /// <summary>First empty save slot, or -1 when all are used.</summary>
+        public int FirstEmptySlot()
+        {
+            if (saveManager == null || !saveManager.isReady) return -1;
+            for (int i = 0; i < SaveManager.SLOT_COUNT; i++)
+                if (!saveManager.HasSlot(i)) return i;
+            return -1;
+        }
+
+        /// <summary>True when this player has no saved characters at all (a first visit).</summary>
+        public bool IsNewPlayer()
+        {
+            if (saveManager == null || !saveManager.isReady) return false;
+            for (int i = 0; i < SaveManager.SLOT_COUNT; i++)
+                if (saveManager.HasSlot(i)) return false;
+            return true;
         }
 
         // ------------------------------------------------------------------ delete
