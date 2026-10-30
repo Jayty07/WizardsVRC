@@ -13,7 +13,7 @@ namespace WizardsVRC.EditorTools
     /// The round tavern (Tavern landmark): a cylindrical hall filling the circle inside its block, with a conical roof
     /// open over the middle (the Starfall fountain stands there in the hub). Inside, a hang-out space: a curved bar with
     /// stools, shelves, kegs and a bell that brings the mugs back, round tables with stools, a stage with curtains, lights
-    /// and a music source, a hearth with log seats, a mirror you switch on yourself, hanging lanterns. Every seat is a
+    /// and a jukebox (video player heard only inside, WizardsVRCSceneBuilder.Jukebox.cs), a hearth with log seats, a mirror you switch on yourself, hanging lanterns. Every seat is a
     /// VRCStation you can sit in; the mugs are pickups synced for everyone.
     /// Angles below: 0 = east, 90 = north (doors at 90, 180 and 270; the bar faces them from the east).
     /// </summary>
@@ -275,7 +275,7 @@ namespace WizardsVRC.EditorTools
             SetInteractText(reset, "Ring for fresh mugs");
             behaviours.Add(reset);
 
-            // ---- stage (north-west): raised planks, a step, curtains, coloured lights, instruments and a music source
+            // ---- stage (north-west): raised planks, a step, curtains, coloured lights, instruments and the jukebox
             var stage = new MeshBuilder();
             SectorPrism(stage, c, 12.6f, R - 0.85f, 104f, 166f, 0f, 0.45f, 12);
             SectorPrism(stage, c, 11.9f, 12.6f, 106f, 164f, 0f, 0.22f, 12);
@@ -298,25 +298,9 @@ namespace WizardsVRC.EditorTools
                 Shape(t, "StageLamp", GemMesh(), TPolar(c, 14.5f, a, 6.3f), new Vector3(0.45f, 0.6f, 0.45f),
                     PMat("StageLamp" + k, stageColours[k], 1f, stageColours[k] * 0.8f), false, Quaternion.identity);
             }
-            // Music: drop a looping clip on TavernMusic's AudioSource and it plays for everyone nearby (each player can mute it).
-            var music = Child(t, "TavernMusic", TPolar(c, 15f, 135f, 2.5f)).gameObject;
-            var src = music.AddComponent<AudioSource>();
-            src.loop = true;
-            src.playOnAwake = true;
-            src.volume = 0.35f;
-            src.spatialBlend = 1f;
-            src.minDistance = 6f;
-            src.maxDistance = R * 2.2f;
-            src.rolloffMode = AudioRolloffMode.Linear;
-            var musicButton = Shape(t, "MusicToggle", GemMesh(), TPolar(c, 13.3f, 168f, 1.3f), new Vector3(0.35f, 0.5f, 0.35f),
-                PMat("MusicGem", new Color(0.7f, 0.5f, 1f), 1f, new Color(0.4f, 0.25f, 0.7f)), false, Quaternion.identity);
-            musicButton.isStatic = false;
-            musicButton.AddComponent<SphereCollider>().radius = 0.6f;
-            Block(t, "MusicStand", TPolar(c, 13.3f, 168f, 0.5f), new Vector3(0.15f, 1f, 0.15f), darkWood);
-            var musicToggle = UdonSharpUndo.AddComponent<LocalToggle>(musicButton);
-            musicToggle.targets = new[] { music };
-            SetInteractText(musicToggle, "Music on/off (just for you)");
-            behaviours.Add(musicToggle);
+            // Music: the jukebox (a synced video player, heard only inside the tavern) with its screen over the
+            // curtains and its controls on a lectern at the stage's west end.
+            BuildJukebox(t, c, R, TavernWallH, TavernRoofRise, 135f, 168f, darkWood, darkWood, behaviours);
 
             // ---- hearth (south-west): a big fireplace with a chimney through the roof, a rug and log seats round it
             const float hearthA = 225f;
