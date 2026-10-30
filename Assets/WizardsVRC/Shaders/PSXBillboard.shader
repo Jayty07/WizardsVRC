@@ -27,6 +27,7 @@ Shader "WizardsVRC/PSXBillboard"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
+            #include "PSXCommon.cginc"
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
@@ -83,8 +84,7 @@ Shader "WizardsVRC/PSXBillboard"
 
                 float4 clip = UnityWorldToClipPos(world);
                 float w = max(clip.w, 0.0001);
-                if (_SnapRes > 0)
-                    clip.xy = round(clip.xy / w * _SnapRes) / _SnapRes * w;
+                clip = PsxSnap(clip, _SnapRes);
                 o.pos = clip;
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.fade = saturate((_FadeEnd - dist) / max(_FadeEnd - _FadeStart, 0.001));

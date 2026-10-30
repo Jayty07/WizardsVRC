@@ -43,6 +43,7 @@ Shader "WizardsVRC/PSXWater"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
+            #include "PSXCommon.cginc"
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
@@ -52,7 +53,6 @@ Shader "WizardsVRC/PSXWater"
             float _WaveHeight, _WaveLength, _WaveSpeed, _Shimmer, _CrestFoam;
             fixed4 _FoamColor;
             float _SnapRes, _Affine, _ColorDepth;
-            static const float Bayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
 
             struct appdata
             {
@@ -90,8 +90,7 @@ Shader "WizardsVRC/PSXWater"
 
                 float4 clip = UnityWorldToClipPos(wp);
                 float w = max(clip.w, 0.0001);
-                if (_SnapRes > 0)
-                    clip.xy = round(clip.xy / w * _SnapRes) / _SnapRes * w;
+                clip = PsxSnap(clip, _SnapRes);
                 o.pos = clip;
 
                 float tile = max(_TileSize, 0.01);
@@ -125,14 +124,10 @@ Shader "WizardsVRC/PSXWater"
                 float sparkle = step(1.0 - _Sparkle * 0.5, a * b + 0.0001);
                 col = lerp(col, _SparkleColor.rgb, sparkle);
 
-                // 15-bit colour with the PS1's ordered dither.
-                float2 px = floor(fmod(i.screen.xy / max(i.screen.w, 0.0001) * _ScreenParams.xy, 4));
-                float d = (Bayer[(int)px.y * 4 + (int)px.x] + 0.5) / 16.0 - 0.5;
-                float levels = max(_ColorDepth, 2) - 1;
-                col = floor(saturate(col) * levels + 0.5 + d) / levels;
-
                 fixed4 c = fixed4(col, saturate(_Alpha + sparkle * 0.2));
                 UNITY_APPLY_FOG(i.fogCoord, c);
+                // 15-bit colour with the PS1's ordered dither (after the fog, like the real thing).
+                c.rgb = PsxDither(c.rgb, i.screen, _ColorDepth);
                 return c;
             }
             ENDCG

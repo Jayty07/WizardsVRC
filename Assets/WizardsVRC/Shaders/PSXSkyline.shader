@@ -27,10 +27,10 @@ Shader "WizardsVRC/PSXSkyline"
             #pragma fragment frag
             #pragma target 3.0
             #include "UnityCG.cginc"
+            #include "PSXCommon.cginc"
             fixed4 _TopColor, _HorizonColor, _BottomColor;
             float _Sharpness, _Low, _High, _Rotation, _ColorDepth;
             sampler2D _Skyline;
-            static const float Bayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float3 dir : TEXCOORD0; float4 screen : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata v)
@@ -68,11 +68,7 @@ Shader "WizardsVRC/PSXSkyline"
                     col = lerp(col, s.rgb, s.a * saturate(1.0 + v * 4.0));
                 }
 
-                float2 px = floor(fmod(i.screen.xy / max(i.screen.w, 0.0001) * _ScreenParams.xy, 4));
-                float dd = (Bayer[(int)px.y * 4 + (int)px.x] + 0.5) / 16.0 - 0.5;
-                float levels = max(_ColorDepth, 2) - 1;
-                col = floor(saturate(col) * levels + 0.5 + dd) / levels;
-                return fixed4(col, 1);
+                return fixed4(PsxDither(col, i.screen, _ColorDepth), 1);
             }
             ENDCG
         }

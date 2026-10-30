@@ -86,6 +86,7 @@ namespace WizardsVRC.EditorTools
 
             var light = Child(ring, "FlashLight", new Vector3(0, 3f, 0)).gameObject.AddComponent<Light>();
             light.type = LightType.Point;
+            light.renderMode = LightRenderMode.ForceVertex;
             light.color = new Color(1f, 0.95f, 0.85f);
             light.range = 26f;
             light.intensity = 0f;

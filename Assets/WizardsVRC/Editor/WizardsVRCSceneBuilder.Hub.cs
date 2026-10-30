@@ -767,6 +767,7 @@ namespace WizardsVRC.EditorTools
             }
             var light = Child(root, "CrystalLight", c + new Vector3(0, 5f * f, 0)).gameObject.AddComponent<Light>();
             light.type = LightType.Point;
+            light.renderMode = LightRenderMode.ForceVertex;
             light.color = new Color(0.5f, 0.7f, 1f);
             light.range = rad * 3f;
             light.intensity = 1.2f;

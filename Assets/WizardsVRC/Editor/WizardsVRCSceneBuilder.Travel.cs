@@ -315,6 +315,8 @@ namespace WizardsVRC.EditorTools
                 mat.mainTexture = TileTexture(WaterTexDir + "/WaterRipple.png");
                 AssetDatabase.CreateAsset(mat, path);
             }
+            mat.SetFloat("_SnapRes", PsxShake);
+            EditorUtility.SetDirty(mat);
             return mat;
         }
 

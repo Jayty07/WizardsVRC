@@ -10,14 +10,16 @@ namespace WizardsVRC.EditorTools
     {
         private const string MeshesDir = "Assets/WizardsVRC/Meshes";
         private const string ShakePrefKey = "WizardsVRC.PsxShake";
-        private const float PsxAffine = 0.2f;
+        private const float PsxAffine = 0.35f;
 
-        // Vertex-snap grid for the PSX shader: higher = finer, subtler wobble; 0 = off.
-        private static float PsxShake { get { return EditorPrefs.GetFloat(ShakePrefKey, 900f); } }
+        // Vertex-snap grid for the PSX shaders (cells across half the screen): higher = finer, subtler wobble; 0 = off.
+        // A real PS1 is about 160; Classic is a little finer so it stays comfortable in VR.
+        private static float PsxShake { get { return EditorPrefs.GetFloat(ShakePrefKey, 560f); } }
 
         [MenuItem("WizardsVRC/PSX Shake/Off")] private static void ShakeOff() { SetShake(0f); }
-        [MenuItem("WizardsVRC/PSX Shake/Subtle (default)")] private static void ShakeSubtle() { SetShake(900f); }
-        [MenuItem("WizardsVRC/PSX Shake/Strong (retro)")] private static void ShakeStrong() { SetShake(320f); }
+        [MenuItem("WizardsVRC/PSX Shake/Subtle")] private static void ShakeSubtle() { SetShake(900f); }
+        [MenuItem("WizardsVRC/PSX Shake/Classic PS1 (default)")] private static void ShakeClassic() { SetShake(560f); }
+        [MenuItem("WizardsVRC/PSX Shake/Strong (real PS1)")] private static void ShakeStrong() { SetShake(240f); }
 
         private static void SetShake(float res)
         {

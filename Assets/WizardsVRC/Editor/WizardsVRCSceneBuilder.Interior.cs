@@ -448,6 +448,8 @@ namespace WizardsVRC.EditorTools
         {
             var l = Child(parent, "Light", pos).gameObject.AddComponent<Light>();
             l.type = LightType.Point;
+            // Per-vertex (Gouraud) like a PS1: the PSX shader lights its vertices with the four nearest of these.
+            l.renderMode = LightRenderMode.ForceVertex;
             l.color = c;
             l.range = range;
             l.intensity = intensity;

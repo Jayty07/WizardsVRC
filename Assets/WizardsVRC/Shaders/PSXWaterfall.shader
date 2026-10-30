@@ -38,11 +38,11 @@ Shader "WizardsVRC/PSXWaterfall"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
+            #include "PSXCommon.cginc"
 
             sampler2D _MainTex;
             fixed4 _Color, _StreakColor, _FoamColor;
             float _Alpha, _TileSize, _Speed, _Speed2, _Lip, _Splash, _Sway, _SnapRes, _ColorDepth;
-            static const float Bayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
 
             struct appdata
             {
@@ -74,8 +74,7 @@ Shader "WizardsVRC/PSXWaterfall"
                 wp += n * sin(_Time.y * 3.1 + wp.y * 1.7 + (wp.x + wp.z) * 0.9) * _Sway * (1.2 - v.uv.y);
                 float4 clip = UnityWorldToClipPos(wp);
                 float w = max(clip.w, 0.0001);
-                if (_SnapRes > 0)
-                    clip.xy = round(clip.xy / w * _SnapRes) / _SnapRes * w;
+                clip = PsxSnap(clip, _SnapRes);
                 o.pos = clip;
                 float tile = max(_TileSize, 0.01);
                 // Across: object X in metres; down: world height, so every fall streaks at the same scale.
@@ -100,12 +99,9 @@ Shader "WizardsVRC/PSXWaterfall"
                 col = lerp(col, _FoamColor.rgb, step(0.5, foam) * 0.9 + foam * 0.1);
                 alpha = lerp(alpha, 1, step(0.5, foam));
 
-                float2 px = floor(fmod(i.screen.xy / max(i.screen.w, 0.0001) * _ScreenParams.xy, 4));
-                float d = (Bayer[(int)px.y * 4 + (int)px.x] + 0.5) / 16.0 - 0.5;
-                float levels = max(_ColorDepth, 2) - 1;
-                col = floor(saturate(col) * levels + 0.5 + d) / levels;
                 fixed4 c = fixed4(col, alpha);
                 UNITY_APPLY_FOG(i.fogCoord, c);
+                c.rgb = PsxDither(c.rgb, i.screen, _ColorDepth);
                 return c;
             }
             ENDCG

@@ -15,6 +15,7 @@ Shader "WizardsVRC/PSXSurf"
         _Speed ("Waves per Second", Float) = 0.18
         _Bob ("Bob (m)", Float) = 0.25
         _ColorDepth ("Colour Levels per Channel (32 = PS1)", Float) = 32
+        _SnapRes ("Vertex Snap Resolution (0 = off)", Float) = 560
     }
     SubShader
     {
@@ -30,11 +31,11 @@ Shader "WizardsVRC/PSXSurf"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
+            #include "PSXCommon.cginc"
 
             sampler2D _MainTex;
             fixed4 _FoamColor, _WaterColor;
-            float _TileSize, _Waves, _Speed, _Bob, _ColorDepth;
-            static const float Bayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
+            float _TileSize, _Waves, _Speed, _Bob, _ColorDepth, _SnapRes;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
@@ -55,8 +56,7 @@ Shader "WizardsVRC/PSXSurf"
                 float3 wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 wp.y += sin(_Time.y * 1.3 + v.uv.y * 9.0 + v.uv.x * 40.0) * _Bob * v.uv.y;
                 float4 clip = UnityWorldToClipPos(wp);
-                float w = max(clip.w, 0.0001);
-                clip.xy = round(clip.xy / w * 900.0) / 900.0 * w;
+                clip = PsxSnap(clip, _SnapRes);
                 o.pos = clip;
                 o.uv = float4(wp.xz / max(_TileSize, 0.01) + _Time.y * float2(0.03, 0.02), v.uv.y, v.uv.x);
                 o.screen = ComputeScreenPos(clip);
@@ -77,12 +77,9 @@ Shader "WizardsVRC/PSXSurf"
                 float3 col = lerp(_WaterColor.rgb, _FoamColor.rgb, foam);
                 float alpha = max(foam, 0.35 * (1.0 - d)) * saturate((1.0 - d) * 3.0);
 
-                float2 px = floor(fmod(i.screen.xy / max(i.screen.w, 0.0001) * _ScreenParams.xy, 4));
-                float dd = (Bayer[(int)px.y * 4 + (int)px.x] + 0.5) / 16.0 - 0.5;
-                float levels = max(_ColorDepth, 2) - 1;
-                col = floor(saturate(col) * levels + 0.5 + dd) / levels;
                 fixed4 c = fixed4(col, alpha);
                 UNITY_APPLY_FOG(i.fogCoord, c);
+                c.rgb = PsxDither(c.rgb, i.screen, _ColorDepth);
                 return c;
             }
             ENDCG
