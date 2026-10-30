@@ -244,7 +244,9 @@ namespace WizardsVRC.EditorTools
             ClassroomCarpet(room, s, W, D);
             float boardW = Mathf.Clamp(W * 0.42f, 6f, 10f);
             Block(room, "Board", new Vector3(0, 3.4f, back - 0.25f), new Vector3(boardW, 2.6f, 0.12f), PMat("Chalkboard", new Color(0.15f, 0.25f, 0.2f), 1f));
-            WorldText(room, "BoardText", new Vector3(0, 3.6f, back - 0.33f), Quaternion.identity, new Vector2(1000, 300), 0.005f, "School of " + SchoolLabels[s], 110).color = col;
+            // A wooden frame round the board (behind it, so only its edge shows) and a chalk ledge.
+            Block(room, "BoardFrame", new Vector3(0, 3.4f, back - 0.18f), new Vector3(boardW + 0.3f, 2.9f, 0.1f), wood);
+            Block(room, "ChalkLedge", new Vector3(0, 2.05f, back - 0.4f), new Vector3(boardW + 0.1f, 0.08f, 0.22f), wood);
             Block(room, "Lectern", new Vector3(0, 0.6f, back - 3.4f), new Vector3(1.2f, 1.2f, 0.7f), wood);
             // Desks fill the middle of the room in rows facing the board, leaving an aisle down the middle to the door.
             ClassroomDesks(room, s, W, D);

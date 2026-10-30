@@ -551,7 +551,6 @@ namespace WizardsVRC.EditorTools
             var wall = PsxTexMat("HallWall" + sn, Color.Lerp(z.buildingColor, col, 0.3f), TileTexture(TerrainTexDir + "/StoneWall.png"), 3.4f);
             var roofMat = PsxTexMat("HallRoof" + sn, Color.Lerp(col, Color.black, 0.3f), TileTexture(StreetTexDir + "/RoofTiles.png"), 2.6f);
             var bright = PMat("School" + sn + "Glow", col, 1f, col * 0.6f);
-            var cloth = PMat("School" + sn + "Cloth", col, 1f);
             // With every school in the hub, each hall is a walk-in classroom with its professor inside.
             bool walkIn = hub != null && hub.outdoorSchools && interior != null;
             const float hallH = 10f;
@@ -559,14 +558,10 @@ namespace WizardsVRC.EditorTools
             Vector3 front;
             float across;
             Vector3 face = HubBuilding(root, g, l, hallH, 6f, wall, roofMat, gold, door, out front, out across, walkIn, true, 5.2f, floorMat);
-            Vector3 side = Vector3.Cross(Vector3.up, front);
-            float outYaw = Mathf.Atan2(-front.x, -front.z) * Mathf.Rad2Deg;
-            FrontWindows(root, face, front, across, 6.6f, bright);
-            Shape(root, "HallCrest", GemMesh(), face + front * 0.3f + new Vector3(0, 7.6f, 0), new Vector3(1.4f, 1.8f, 0.4f), bright, false, Quaternion.LookRotation(front));
-            foreach (float t in new[] { -2.9f, 2.9f })
-                StarBanner(root, face + front * 0.15f + side * t + new Vector3(0, 4.2f, 0), outYaw, cloth, gold);
-            LandmarkSign(root, face + front * 0.4f + new Vector3(0, 9.2f, 0), front, string.IsNullOrEmpty(l.label) ? "School of " + sn : l.label, col);
-            SchoolPorch(root, s, face + front * 1.8f, front, col, bright);
+            // The front: a pillared porch with a gable bearing the school's symbol, framed windows, lanterns, carved bands
+            // and the school's banners (WizardsVRCSceneBuilder.SchoolFront.cs). No lettering: the symbol says which school.
+            SchoolFront(root, g, l, s, face, front, across, hallH, wall, gold, bright);
+            SchoolPorch(root, s, face + front * 2.4f, front, col, bright);
             if (!walkIn) return;
 
             // ---- the classroom inside: local +Z is the back wall, the door is behind you as you face the professor
@@ -658,7 +653,7 @@ namespace WizardsVRC.EditorTools
         private static void SchoolPorch(Transform root, int s, Vector3 at, Vector3 front, Color col, Material bright)
         {
             Vector3 side = Vector3.Cross(Vector3.up, front);
-            foreach (float t in new[] { -3.6f, 3.6f })
+            foreach (float t in new[] { -4.9f, 4.9f })
             {
                 Vector3 p = at + side * t;
                 switch (s)
