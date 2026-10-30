@@ -144,7 +144,7 @@ stay where you are; defeated wizards go back to the zone's entrance.
 | Display Name, colours, beard | how they look |
 | Facing | degrees (0 = north), or -1 to face the road |
 | Default Dialogue | what they say when no quest needs them (one line per row) |
-| Voice Prefix | optional voice clips `Audio/Voice/<prefix>_00.wav`, `_01`... |
+| Voice Prefix | optional voice clips `Audio/Voice/<prefix>_00.wav`, `_01`...; left empty, idle lines use `npc_<key>_NN.wav` (quest steps: `q<quest>_s<step>_NN.wav`, offers: `q<quest>_offer_NN.wav`) |
 | Show From Quest | only there once this quest is started or done (-1 = always), e.g. the Herald who arrives for the finale |
 | Hide After Quest | gone once this quest is done (-1 = never), e.g. Selwyn the spy after he flees |
 

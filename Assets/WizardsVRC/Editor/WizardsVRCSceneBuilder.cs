@@ -295,6 +295,9 @@ namespace WizardsVRC.EditorTools
             Debug.Log("[WizardsVRC] Interface sounds on " + WireUiSounds(scene, uiAudio) + " buttons.");
             streets.Add(uiAudio);
 
+            // Background music: hub, combat and character creation themes (local to each player).
+            streets.Add(BuildMusic(systems.transform, playerState, hubPlan.cullBounds, interior.root, book));
+
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
             toSync.AddRange(opening);
             toSync.AddRange(quests);
@@ -408,7 +411,7 @@ namespace WizardsVRC.EditorTools
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             AssetDatabase.DeleteAsset(ProgramsDir + "/LootChest.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -751,6 +754,8 @@ namespace WizardsVRC.EditorTools
                 24, TextAnchor.MiddleCenter);
             GameObject change = Button(right, "ChangeCharacter", new Vector2(0, -150), new Vector2(560, 95), "Change Character", new Color(0.55f, 0.25f, 0.2f), target, nameof(InventoryBook.SettingChangeCharacter));
             book.changeCharacterLabel = change.GetComponentInChildren<Text>();
+            GameObject musicBtn = Button(right, "MusicVolume", new Vector2(0, -290), new Vector2(560, 85), "Music: Full", brown, target, nameof(InventoryBook.SettingCycleMusic));
+            book.musicSettingLabel = musicBtn.GetComponentInChildren<Text>();
             view.gameObject.SetActive(false);
         }
 

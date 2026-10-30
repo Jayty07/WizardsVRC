@@ -636,7 +636,9 @@ namespace WizardsVRC.EditorTools
                 Shot(root, "Shot_" + npc.key + "_Close", pos + front * 4.6f + side * 2.8f + Vector3.up * 2.05f, face),
             };
             var lines = npc.defaultDialogue != null && npc.defaultDialogue.Length > 0 ? npc.defaultDialogue : new[] { "..." };
-            var cs = MakeCutscene(wb.cutsceneParent, z.zoneKey + "_" + npc.key, npc.displayName, lines, npc.voicePrefix ?? "", shots);
+            // Voice clips: the NPC's Voice Prefix, or by default Audio/Voice/npc_<key>_00.wav, _01...
+            string npcVoice = string.IsNullOrEmpty(npc.voicePrefix) ? "npc_" + npc.key.ToLowerInvariant() : npc.voicePrefix;
+            var cs = MakeCutscene(wb.cutsceneParent, z.zoneKey + "_" + npc.key, npc.displayName, lines, npcVoice, shots);
             cs.cutsceneId = z.zoneKey + "_" + npc.key;
             cs.onFinished = qm;
             cs.onFinishedEvent = nameof(QuestManager.OnStreetNpcFinished);
@@ -885,7 +887,8 @@ namespace WizardsVRC.EditorTools
                 qm.questStepCounts[id] = 0;
 
                 if (!q.startsAutomatically && HasLines(q.offerDialogue))
-                    offerCs[id] = QuestDialogue(qm, wb, "Quest" + id + "_Offer", q.giverNpc, q.offerDialogue, q.offerVoicePrefix);
+                    offerCs[id] = QuestDialogue(qm, wb, "Quest" + id + "_Offer", q.giverNpc, q.offerDialogue,
+                        string.IsNullOrEmpty(q.offerVoicePrefix) ? "q" + id + "_offer" : q.offerVoicePrefix);
 
                 for (int s = 0; s < q.steps.Count && s < MS; s++)
                 {
@@ -900,7 +903,9 @@ namespace WizardsVRC.EditorTools
                             param = NpcId(st.npc, wb);
                             wb.npcTargets.TryGetValue(st.npc ?? "", out target);
                             if (string.IsNullOrEmpty(label)) { string nn; label = wb.npcNames.TryGetValue(st.npc ?? "", out nn) ? nn : st.npc; }
-                            if (HasLines(st.dialogue)) stepCs[id * MS + s] = QuestDialogue(qm, wb, "Quest" + id + "_Step" + s, st.npc, st.dialogue, st.voicePrefix);
+                            // Voice clips: the step's Voice Prefix, or by default Audio/Voice/q<quest>_s<step>_00.wav, _01...
+                            if (HasLines(st.dialogue)) stepCs[id * MS + s] = QuestDialogue(qm, wb, "Quest" + id + "_Step" + s, st.npc, st.dialogue,
+                                string.IsNullOrEmpty(st.voicePrefix) ? "q" + id + "_s" + s : st.voicePrefix);
                             break;
                         case QuestStepKind.Interact:
                         case QuestStepKind.Explore:

@@ -57,6 +57,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
 | `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb: walk through it to restore health / mana (local; respawns after 30 s) |
+| `Assets/WizardsVRC/Scripts/MusicDirector.cs` | Local background music: picks the combat, character creation or hub track from what you're doing and where you are, crossfades between them, and scales by the Music setting |
 | `Assets/WizardsVRC/Scripts/TavernJukebox.cs` | The tavern's synced video player: link, start time and pause are synced (anyone can change the song), everyone seeks to the same point, retries when VRChat rate-limits loads, and fades the speaker so it's only heard inside the tavern; mute and volume are per player |
 | `Assets/WizardsVRC/Scripts/PlayerHUD.cs` | Head-following HUD: name, level, health, mana, gold, and a segmented XP bar (fills in steps; on level-up it fills, flashes and starts again) |
 | `Assets/WizardsVRC/Scripts/EventRelay.cs` | Interact → `SendCustomEvent` on a target (backpack pedestal) |
@@ -264,6 +265,12 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Sounds:** hit, heal and defeat sounds in the duel, the circle sound at the start, card hover / click / spell select,
   and click / hover sounds on every button (OK, Cancel, Delete, Next / Prev, tabs...). The book opening, potions and
   dialogue pop-ups have their own (`Audio/UI`).
+- **Music** (`MusicDirector`, built by `WizardsVRCSceneBuilder.Music.cs`, local to each player): the combat theme in
+  every duel (from the top each fight), the character creation theme on the select screen and in the creator, and the
+  hub theme in the castle grounds and the keep (not in the tavern, where the jukebox plays; nothing during the opening
+  dream). Tracks crossfade; the hub and creation tracks carry on where they left off. The book's Settings page has
+  **Music: Full / Medium / Quiet / Off** (remembered). Tracks are `Audio/Music/Music_Hub_Temp.mp3` (a placeholder),
+  `Music_Combat_World1.mp3` and `Music_CharacterCreation.mp3`; replace a file with one of the same name to change it.
 - **Monster AI:** monsters heal an ally under 45% health, sometimes put a blade or shield on themselves first, and
   otherwise cast their biggest affordable attack (occasionally saving pips).
 

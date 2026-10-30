@@ -54,6 +54,9 @@ namespace WizardsVRC
         public Text hudSettingLabel;
         public Text guideSettingLabel;
         public Text warpSettingLabel;
+        public Text musicSettingLabel;
+        [Tooltip("Background music (the Music setting sets its volume).")]
+        public MusicDirector music;
         public Text changeCharacterLabel;
         public Text settingsStatus;
 
@@ -180,12 +183,41 @@ namespace WizardsVRC
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_Udon_PsxWarpOff"), _warpOff ? 1f : 0f);
         }
 
+        // Music volume: full, two thirds, one third, off (local only, remembered).
+        private const string MusicKey = "wz_music_step";
+        private int _musicStep;
+
+        public void SettingCycleMusic()
+        {
+            _musicStep = (_musicStep + 1) % 4;
+            ApplyMusic();
+            PlayerData.SetInt(MusicKey, _musicStep);
+            RefreshSettings("");
+        }
+
+        private void ApplyMusic()
+        {
+            if (music != null) music.SetMasterVolume(1f - _musicStep / 3f);
+        }
+
+        private string MusicText()
+        {
+            if (_musicStep == 0) return "Music: Full";
+            if (_musicStep == 1) return "Music: Medium";
+            if (_musicStep == 2) return "Music: Quiet";
+            return "Music: Off";
+        }
+
         public override void OnPlayerRestored(VRCPlayerApi player)
         {
             if (!Utilities.IsValid(player) || !player.isLocal) return;
             bool off;
             if (PlayerData.TryGetBool(player, WarpKey, out off)) _warpOff = off;
             ApplyWarp();
+            int step;
+            if (PlayerData.TryGetInt(player, MusicKey, out step)) _musicStep = Mathf.Clamp(step, 0, 3);
+            ApplyMusic();
+            RefreshSettings("");
         }
 
         public void SettingSaveNow()
@@ -229,6 +261,7 @@ namespace WizardsVRC
             if (hudSettingLabel != null) hudSettingLabel.text = "On-screen HUD: " + (hud != null && hud.hudEnabled ? "On" : "Off");
             if (guideSettingLabel != null) guideSettingLabel.text = "Quest arrow: " + (questGuide != null && questGuide.IsGuideEnabled() ? "On" : "Off");
             if (warpSettingLabel != null) warpSettingLabel.text = "PS1 wobble: " + (_warpOff ? "Off" : "On");
+            if (musicSettingLabel != null) musicSettingLabel.text = MusicText();
             if (changeCharacterLabel != null) changeCharacterLabel.text = Time.time <= _confirmUntil ? "Press again to confirm" : "Change Character";
             if (settingsStatus != null) settingsStatus.text = status;
         }

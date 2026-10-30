@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UdonSharp;
 using UdonSharpEditor;
 using UnityEditor;
@@ -517,13 +518,22 @@ namespace WizardsVRC.EditorTools
             }
 
             Transform[] officeShots = OfficeShots(info);
-            qm.headmasterReport = MakeCutscene(sets, "HeadmasterReport", "Headmaster Greymantle", outdoor ? ReportLinesOutdoor : ReportLines, "hm_report", officeShots);
-            if (outdoor) Unvoice(qm.headmasterReport, 2);
-            Unvoice(qm.headmasterReport, 1); // reworded for the Dominion (the recording has the old line)
+            // New recordings of the current lines go in as hm_report_w1_00... / hm_hint_w1_00 (see the World 1 voice script);
+            // until then the old recordings play for the lines that haven't changed.
+            bool newReport = outdoor && File.Exists(VoiceDir + "/hm_report_w1_00.wav");
+            qm.headmasterReport = MakeCutscene(sets, "HeadmasterReport", "Headmaster Greymantle", outdoor ? ReportLinesOutdoor : ReportLines,
+                newReport ? "hm_report_w1" : "hm_report", officeShots);
+            if (!newReport)
+            {
+                if (outdoor) Unvoice(qm.headmasterReport, 2);
+                Unvoice(qm.headmasterReport, 1); // reworded for the Dominion (the recording has the old line)
+            }
             qm.headmasterReport.onFinished = qm;
             qm.headmasterReport.onFinishedEvent = nameof(QuestManager.OnHeadmasterFinished);
-            qm.headmasterHint = MakeCutscene(sets, "HeadmasterHint", "Headmaster Greymantle", outdoor ? HintLinesOutdoor : HintLines, "hm_hint", new[] { officeShots[1] });
-            if (outdoor) Unvoice(qm.headmasterHint, 0);
+            bool newHint = outdoor && File.Exists(VoiceDir + "/hm_hint_w1_00.wav");
+            qm.headmasterHint = MakeCutscene(sets, "HeadmasterHint", "Headmaster Greymantle", outdoor ? HintLinesOutdoor : HintLines,
+                newHint ? "hm_hint_w1" : "hm_hint", new[] { officeShots[1] });
+            if (outdoor && !newHint) Unvoice(qm.headmasterHint, 0);
             qm.headmasterHint.onFinished = qm;
             qm.headmasterHint.onFinishedEvent = nameof(QuestManager.OnHeadmasterFinished);
             qm.headmasterIdle = MakeCutscene(sets, "HeadmasterIdle", "Headmaster Greymantle", IdleLines, "hm_idle", new[] { officeShots[2] });
