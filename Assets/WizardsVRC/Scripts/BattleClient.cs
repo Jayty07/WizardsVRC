@@ -49,6 +49,8 @@ namespace WizardsVRC
         public ParticleSystem[] castBursts;
         [Tooltip("Indexed by School. General spells play no cast sound.")]
         public AudioClip[] castSounds;
+        [Tooltip("Cast sound for General (school-less) spells.")]
+        public AudioClip generalCastSound;
         public Transform[] stagingSpots;
         public Transform arenaCenter;
         public float engageRadius = 14f;
@@ -1300,9 +1302,10 @@ namespace WizardsVRC
         {
             if (castAudio == null) return;
             castAudio.Stop();
-            if (castSounds == null || school < 0 || school >= castSounds.Length || castSounds[school] == null) return;
+            AudioClip clip = school < 0 ? generalCastSound : castSounds != null && school < castSounds.Length ? castSounds[school] : null;
+            if (clip == null) return;
             castAudio.transform.position = seats[from].position + Vector3.up * 1.2f;
-            castAudio.clip = castSounds[school];
+            castAudio.clip = clip;
             castAudio.Play();
         }
 

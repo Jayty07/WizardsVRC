@@ -1362,6 +1362,15 @@ namespace WizardsVRC.EditorTools
                 if (client.castSounds[k] == null) Debug.LogWarning("[WizardsVRC] Missing cast sound for " + SchoolLabels[k] + " in " + CastSoundDir);
                 else if (client.manager != null && k < client.manager.castSeconds.Length) client.manager.castSeconds[k] = client.castSounds[k].length;
             }
+            // General spells (Tools/make_cast_sound.py): same shape as the school ones, released at 2 s.
+            client.generalCastSound = AssetDatabase.LoadAssetAtPath<AudioClip>(CastSoundDir + "/FX_CastingSound_General.mp3")
+                                      ?? AssetDatabase.LoadAssetAtPath<AudioClip>(CastSoundDir + "/FX_CastingSound_General.wav");
+            if (client.generalCastSound == null) Debug.LogWarning("[WizardsVRC] Missing cast sound for General spells in " + CastSoundDir);
+            else if (client.manager != null)
+            {
+                client.manager.generalCastSeconds = client.generalCastSound.length;
+                client.manager.generalCastPeakSeconds = 2f;
+            }
 
             // School-coloured particle burst that explodes off the caster at the cast sound's peak.
             client.castBursts = new ParticleSystem[SchoolLabels.Length + 1];

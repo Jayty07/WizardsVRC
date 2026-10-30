@@ -77,6 +77,8 @@ namespace WizardsVRC
         public float[] castPeakSeconds = { 2f, 2f, 2f, 2f, 2f, 2f, 2f };
         [Tooltip("Wind-up for General spells (no cast sound).")]
         public float generalCastSeconds = 1.2f;
+        [Tooltip("When General spells' cast sound peaks (the particle burst), seconds.")]
+        public float generalCastPeakSeconds = 0.72f;
         [Tooltip("Orb flight + impact after the wind-up, before the next caster.")]
         public float impactSeconds = 1.0f;
 
@@ -226,7 +228,7 @@ namespace WizardsVRC
         public float CastPeakSeconds(int school)
         {
             float len = CastSeconds(school);
-            float p = school >= 0 && castPeakSeconds != null && school < castPeakSeconds.Length ? castPeakSeconds[school] : len * 0.6f;
+            float p = school < 0 ? generalCastPeakSeconds : castPeakSeconds != null && school < castPeakSeconds.Length ? castPeakSeconds[school] : len * 0.6f;
             return Mathf.Clamp(p, 0f, len);
         }
 
