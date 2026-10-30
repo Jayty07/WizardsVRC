@@ -148,7 +148,7 @@ namespace WizardsVRC.EditorTools
             text.supportRichText = false;
             field.textComponent = text;
             field.placeholder = placeholder;
-            field.lineType = InputField.LineType.SingleLine;
+            field.lineType = VRCUrlInputField.LineType.SingleLine;
             UnityEventTools.AddStringPersistentListener(field.onEndEdit, new UnityAction<string>(target.SendCustomEvent), nameof(TavernJukebox.OnUrlEntered));
             return field;
         }
