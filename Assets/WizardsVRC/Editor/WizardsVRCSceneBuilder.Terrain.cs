@@ -14,6 +14,7 @@ namespace WizardsVRC.EditorTools
     public static partial class WizardsVRCSceneBuilder
     {
         private const string TerrainTexDir = TexturesDir + "/Terrain";
+        private const string StreetTexDir = TexturesDir + "/Street";
         private const string WaterTexDir = TexturesDir + "/Water";
 
         private class TerrainMats
@@ -24,13 +25,18 @@ namespace WizardsVRC.EditorTools
         private static TerrainMats MakeTerrainMats(ZoneDefinition z, string k)
         {
             Texture2D cobble = TileTexture(TerrainTexDir + "/Cobble.png");
-            Texture2D grass = TileTexture(TerrainTexDir + "/Grass.png");
             Texture2D stone = TileTexture(TerrainTexDir + "/StoneWall.png");
+            ZoneTextureStyle st = z.textureStyle;
+            // The street's own paving and lawn (see ZoneTextureStyle); walls and kerbs are stone everywhere.
+            string pave = st == ZoneTextureStyle.Garden || st == ZoneTextureStyle.Keep ? "Flagstone" : st == ZoneTextureStyle.Forest ? "Dirt" : "Cobble";
+            string lawnTex = st == ZoneTextureStyle.Forest ? "ForestFloor" : "Grass";
+            float paveTile = pave == "Flagstone" ? 3.4f : pave == "Dirt" ? 3f : 2.4f;
             return new TerrainMats
             {
-                paving = PsxTexMat(k + "_Paving", z.roadColor, cobble, 2.4f),
-                lawn = PsxTexMat(k + "_Lawn", z.grassColor, grass, 3f),
-                wall = PsxTexMat(k + "_RetainingWall", Color.Lerp(z.buildingColor, new Color(0.62f, 0.55f, 0.5f), 0.55f), stone, 2.2f),
+                paving = PsxTexMat(k + "_Paving", z.roadColor, TileTexture(TerrainTexDir + "/" + pave + ".png"), paveTile),
+                lawn = PsxTexMat(k + "_Lawn", z.grassColor, TileTexture(TerrainTexDir + "/" + lawnTex + ".png"), 3f),
+                wall = PsxTexMat(k + "_RetainingWall", Color.Lerp(z.buildingColor, new Color(0.62f, 0.55f, 0.5f), 0.55f),
+                    st == ZoneTextureStyle.Forge ? TileTexture(TerrainTexDir + "/Brick.png") : stone, st == ZoneTextureStyle.Forge ? 2f : 3f),
                 kerb = PsxTexMat(k + "_Kerb", Color.Lerp(z.roadColor, new Color(0.85f, 0.83f, 0.8f), 0.55f), stone, 1.1f),
                 bed = PsxTexMat(k + "_PondBed", new Color(0.34f, 0.36f, 0.3f), cobble, 3f),
                 water = PsxWaterMat(),
@@ -637,7 +643,9 @@ namespace WizardsVRC.EditorTools
         /// <summary>PSX material with a texture that tiles in world space every 'tile' metres (whatever the object's size).</summary>
         private static Material PsxTexMat(string name, Color color, Texture2D tex, float tile)
         {
-            Material mat = PMat(name, color, 1f);
+            // The PS1 textures are darker on average than the plain speckle; lift the tint so a colour looks the same.
+            float gain = tex == null ? 1f : TexGain(tex.name);
+            Material mat = PMat(name, new Color(color.r * gain, color.g * gain, color.b * gain, color.a), 1f);
             if (tex != null)
             {
                 mat.mainTexture = tex;
@@ -646,6 +654,48 @@ namespace WizardsVRC.EditorTools
             }
             EditorUtility.SetDirty(mat);
             return mat;
+        }
+
+        /// <summary>How much to lift a tint on each PS1 texture (about 0.8 / its average brightness).</summary>
+        private static float TexGain(string texName)
+        {
+            switch (texName)
+            {
+                case "Cobble": return 1.3f;
+                case "Flagstone": return 1.2f;
+                case "Grass": return 1.25f;
+                case "ForestFloor": return 1.5f;
+                case "Dirt": return 1.4f;
+                case "StoneWall": return 1.3f;
+                case "Brick": return 1.4f;
+                case "WoodPlanks": return 1.5f;
+                case "Plaster": return 1.15f;
+                case "Boards": return 1.45f;
+                case "RoofTiles": return 1.6f;
+                case "Leaves": return 1.7f;
+                case "Hedge": return 1.6f;
+                case "Bark": return 1.6f;
+                default: return 1f;
+            }
+        }
+
+        /// <summary>
+        /// A street's building, roof, low-wall, tree and trunk materials, textured for its style (ZoneTextureStyle) and tinted
+        /// with its colours.
+        /// </summary>
+        private static void StreetMats(ZoneDefinition z, string k, out Material building, out Material roof, out Material low, out Material leaves, out Material trunk)
+        {
+            ZoneTextureStyle st = z.textureStyle;
+            string wallTex = st == ZoneTextureStyle.Docks ? StreetTexDir + "/Boards.png" : st == ZoneTextureStyle.Forge ? TerrainTexDir + "/Brick.png"
+                : st == ZoneTextureStyle.Keep || st == ZoneTextureStyle.Forest ? TerrainTexDir + "/StoneWall.png" : StreetTexDir + "/Plaster.png";
+            float wallTile = st == ZoneTextureStyle.Forge ? 2.2f : st == ZoneTextureStyle.Docks ? 3f : st == ZoneTextureStyle.Keep ? 3.6f : 4f;
+            building = PsxTexMat(k + "_Building", z.buildingColor, TileTexture(wallTex), wallTile);
+            roof = PsxTexMat(k + "_Roof", z.roofColor, TileTexture(StreetTexDir + "/RoofTiles.png"), 2.6f);
+            bool hedge = st == ZoneTextureStyle.Garden || st == ZoneTextureStyle.Forest;
+            low = PsxTexMat(k + "_LowWall", z.lowWallColor, TileTexture(hedge ? StreetTexDir + "/Hedge.png" : st == ZoneTextureStyle.Forge ? TerrainTexDir + "/Brick.png" : TerrainTexDir + "/StoneWall.png"),
+                hedge ? 1.6f : 2.2f);
+            leaves = PsxTexMat(k + "_Tree", z.treeColor, TileTexture(StreetTexDir + "/Leaves.png"), 2.2f);
+            trunk = PsxTexMat(k + "_Trunk", new Color(0.3f, 0.2f, 0.13f), TileTexture(StreetTexDir + "/Bark.png"), 1.4f);
         }
 
         // Water materials are made once and then left alone, so you can tune them in the inspector.

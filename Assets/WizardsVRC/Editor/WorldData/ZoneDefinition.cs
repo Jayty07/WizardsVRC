@@ -77,6 +77,17 @@ namespace WizardsVRC.EditorTools.WorldData
     /// </summary>
     public enum RailingMode { None, Drops, DropsAndPaths }
 
+    /// <summary>Which set of PS1 textures a street uses (Textures/Terrain and Textures/Street; the zone colours tint them).</summary>
+    public enum ZoneTextureStyle
+    {
+        Town,    // cobbles, lawns, timber-framed plaster houses, tiled roofs
+        Garden,  // flagstone paths, lawns, plaster houses, hedges for low walls
+        Docks,   // cobbles, board-walled sheds and warehouses
+        Forge,   // cobbles, brick buildings and walls
+        Forest,  // dirt paths, leaf litter, hedges
+        Keep,    // flagstones, big stone blocks everywhere
+    }
+
     /// <summary>
     /// One explorable area (a street, a dungeon...). The layout is a text map: each character is one square cell
     /// (see the legend in the inspector). Saved as a text asset in Assets/WizardsVRC/WorldData so it is versioned
@@ -135,6 +146,8 @@ namespace WizardsVRC.EditorTools.WorldData
         public RailingMode railings = RailingMode.Drops;
 
         [Header("Look")]
+        [Tooltip("The set of PS1 textures for the ground, walls, buildings, roofs and trees (the colours below tint them).")]
+        public ZoneTextureStyle textureStyle = ZoneTextureStyle.Town;
         public Color groundColor = new Color(0.13f, 0.16f, 0.13f);
         public Color roadColor = new Color(0.24f, 0.22f, 0.27f);
         public Color grassColor = new Color(0.18f, 0.24f, 0.16f);

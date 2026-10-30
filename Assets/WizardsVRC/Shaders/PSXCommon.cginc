@@ -8,12 +8,16 @@
 // How many dither cells across the screen (the PS1 drew 320 pixels across; higher = finer, subtler grain).
 #define PSX_DITHER_RES 480.0
 
+// Set from the book's settings (VRCShader.SetGlobalFloat): 1 turns the wobble and texture warp off for this player.
+// Unset (0) means on.
+float _Udon_PsxWarpOff;
+
 static const float PsxBayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
 
 // Snaps a clip-space position to a grid 'res' cells across half the screen's width (square cells). 0 = off.
 float4 PsxSnap(float4 clip, float res)
 {
-    if (res <= 0) return clip;
+    if (res <= 0 || _Udon_PsxWarpOff > 0.5) return clip;
     float w = max(clip.w, 0.0001);
     float2 grid = res * float2(1.0, _ScreenParams.y / max(_ScreenParams.x, 1.0));
     clip.xy = round(clip.xy / w * grid) / grid * w;
@@ -41,6 +45,12 @@ float PsxHash(float3 p)
     p = frac(p * 0.3183099 + 0.1);
     p *= 17.0;
     return frac(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+// Affine texture warp, unless the player turned the warping off.
+float PsxAffine(float amount)
+{
+    return amount * (1.0 - saturate(_Udon_PsxWarpOff));
 }
 
 #endif

@@ -736,9 +736,12 @@ namespace WizardsVRC.EditorTools
             book.hudSettingLabel = hudBtn.GetComponentInChildren<Text>();
             GameObject guideBtn = Button(left, "GuideToggle", new Vector2(0, 150), new Vector2(560, 85), "Quest arrow: On", brown, target, nameof(InventoryBook.SettingToggleGuide));
             book.guideSettingLabel = guideBtn.GetComponentInChildren<Text>();
-            Button(left, "SaveNow", new Vector2(0, 40), new Vector2(560, 85), "Save Now", new Color(0.25f, 0.45f, 0.3f), target, nameof(InventoryBook.SettingSaveNow));
-            Button(left, "GoHome", new Vector2(0, -70), new Vector2(560, 85), "Return to Starfall Castle", new Color(0.3f, 0.35f, 0.55f), target, nameof(InventoryBook.SettingGoHome));
-            book.settingsStatus = InkLabel(left, "Status", new Vector2(0, -230), new Vector2(760, 60), "", 26, TextAnchor.MiddleCenter);
+            // PS1 wobble: the vertex snap and texture swim (some players find it uncomfortable in VR).
+            GameObject warpBtn = Button(left, "WarpToggle", new Vector2(0, 40), new Vector2(560, 85), "PS1 wobble: On", brown, target, nameof(InventoryBook.SettingToggleWarp));
+            book.warpSettingLabel = warpBtn.GetComponentInChildren<Text>();
+            Button(left, "SaveNow", new Vector2(0, -70), new Vector2(560, 85), "Save Now", new Color(0.25f, 0.45f, 0.3f), target, nameof(InventoryBook.SettingSaveNow));
+            Button(left, "GoHome", new Vector2(0, -180), new Vector2(560, 85), "Return to Starfall Castle", new Color(0.3f, 0.35f, 0.55f), target, nameof(InventoryBook.SettingGoHome));
+            book.settingsStatus = InkLabel(left, "Status", new Vector2(0, -290), new Vector2(760, 60), "", 26, TextAnchor.MiddleCenter);
             Button(left, "Close", new Vector2(0, -440), new Vector2(260, 65), "Close", new Color(0.45f, 0.25f, 0.15f), target, nameof(InventoryBook.CloseBook));
 
             InkLabel(right, "Title", new Vector2(0, 430), new Vector2(800, 60), "Character", 44, TextAnchor.MiddleCenter);

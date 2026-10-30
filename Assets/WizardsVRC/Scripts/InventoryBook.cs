@@ -1,6 +1,7 @@
 using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
+using VRC.SDK3.Persistence;
 using VRC.SDKBase;
 
 namespace WizardsVRC
@@ -52,6 +53,7 @@ namespace WizardsVRC
         public Text settingsCharacterLabel;
         public Text hudSettingLabel;
         public Text guideSettingLabel;
+        public Text warpSettingLabel;
         public Text changeCharacterLabel;
         public Text settingsStatus;
 
@@ -161,6 +163,31 @@ namespace WizardsVRC
             RefreshSettings("");
         }
 
+        // PS1 wobble: the vertex snap and texture warp of every PSX shader, through a global shader value (local only).
+        private const string WarpKey = "wz_psx_warp_off";
+        private bool _warpOff;
+
+        public void SettingToggleWarp()
+        {
+            _warpOff = !_warpOff;
+            ApplyWarp();
+            PlayerData.SetBool(WarpKey, _warpOff);
+            RefreshSettings("");
+        }
+
+        private void ApplyWarp()
+        {
+            VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_Udon_PsxWarpOff"), _warpOff ? 1f : 0f);
+        }
+
+        public override void OnPlayerRestored(VRCPlayerApi player)
+        {
+            if (!Utilities.IsValid(player) || !player.isLocal) return;
+            bool off;
+            if (PlayerData.TryGetBool(player, WarpKey, out off)) _warpOff = off;
+            ApplyWarp();
+        }
+
         public void SettingSaveNow()
         {
             bool ok = playerState != null && playerState.SaveNow();
@@ -201,6 +228,7 @@ namespace WizardsVRC
             }
             if (hudSettingLabel != null) hudSettingLabel.text = "On-screen HUD: " + (hud != null && hud.hudEnabled ? "On" : "Off");
             if (guideSettingLabel != null) guideSettingLabel.text = "Quest arrow: " + (questGuide != null && questGuide.IsGuideEnabled() ? "On" : "Off");
+            if (warpSettingLabel != null) warpSettingLabel.text = "PS1 wobble: " + (_warpOff ? "Off" : "On");
             if (changeCharacterLabel != null) changeCharacterLabel.text = Time.time <= _confirmUntil ? "Press again to confirm" : "Change Character";
             if (settingsStatus != null) settingsStatus.text = status;
         }

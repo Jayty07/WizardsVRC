@@ -65,7 +65,14 @@ Rules the checks enforce:
 - The outer edge should be `#`. It also gets an invisible wall.
 
 Roads and plazas are cobbled with a kerb where they meet lawn, lawns are grassy, and the ground textures tile at a fixed
-size whatever the cell size (`Textures/Terrain`, made by `Tools/make_psx_textures.py`; the zone colours tint them).
+size whatever the cell size. The zone's **Texture Style** picks a set of 64x64 PS1-style textures for its paving, lawns,
+walls, buildings, roofs, low walls and trees: *Town* (cobbles, timber-framed plaster), *Garden* (flagstones, hedges),
+*Docks* (board-walled sheds), *Forge* (brick), *Forest* (dirt paths, leaf litter, hedges) or *Keep* (flagstones, big stone
+blocks). The zone colours tint them. They're made by `Tools/make_street_textures.py` (`Textures/Terrain`, `Textures/Street`):
+change a function there and run it again to repaint them.
+
+Water that reaches the map's edge carries on to the horizon (a sea past that edge), so a harbour or lake shore can open
+onto the water: put `~` right up to the edge instead of `#`.
 
 ### Heights (terraces, sunken plazas, ponds)
 

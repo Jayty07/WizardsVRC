@@ -1,4 +1,4 @@
-"""PSX-style tiling textures for the terrain and water (all seamless, point-filtered in Unity).
+"""PSX-style tiling textures for the water (the terrain ones moved to make_street_textures.py) (all seamless, point-filtered in Unity).
 
 Terrain textures are mostly grey so the zone colours (road, grass, building...) still tint them. The water textures
 carry two independent patterns in the red and green channels; PSXWater scrolls them against each other.
@@ -166,11 +166,9 @@ def waterfall(w=32, h=64, seed=11):
     return img
 
 
+# The ground and wall textures are made by Tools/make_street_textures.py now (64x64, richer); this script keeps the
+# water ones. (cobble(), grass(), stone_wall() and planks() above are the old 32x32 versions.)
 out = {
-    'Terrain/Cobble.png': cobble(),
-    'Terrain/Grass.png': grass(),
-    'Terrain/StoneWall.png': stone_wall(),
-    'Terrain/WoodPlanks.png': planks(),
     'Water/WaterRipple.png': water(),
     'Water/WaterfallStreaks.png': waterfall(),
 }

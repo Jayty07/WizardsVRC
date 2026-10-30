@@ -179,11 +179,9 @@ namespace WizardsVRC.EditorTools
             float cs = g.cell;
 
             Material ground = PMat(k + "_Ground", z.groundColor, 8f);
-            Material bld = PMat(k + "_Building", z.buildingColor, 2f);
-            Material roof = PMat(k + "_Roof", z.roofColor, 2f);
-            Material low = PMat(k + "_LowWall", z.lowWallColor, 2f);
-            Material leaves = PMat(k + "_Tree", z.treeColor, 1f);
-            Material trunk = PMat(k + "_Trunk", new Color(0.3f, 0.2f, 0.13f), 1f);
+            // PS1 textures for the street's style (Tools/make_street_textures.py), tinted with its colours.
+            Material bld, roof, low, leaves, trunk;
+            StreetMats(z, k, out bld, out roof, out low, out leaves, out trunk);
             Material glow = PMat(k + "_Glow", z.accentColor, 1f, z.accentColor);
             Material window = PMat(k + "_Window", z.accentColor * 0.8f, 1f, z.accentColor * 0.6f);
             Material deadLamp = PMat(k + "_DeadLamp", new Color(0.12f, 0.12f, 0.14f), 1f);
@@ -225,6 +223,7 @@ namespace WizardsVRC.EditorTools
             Transform layout = Child(root, "Layout", Vector3.zero);
             var stairCells = new HashSet<Vector2Int>();
             BuildTerrain(layout, g, MakeTerrainMats(z, k), baseY, stairCells);
+            OuterSea(layout, g);
             int houseIndex = 0;
             var noHouse = new HashSet<Vector2Int>();
             if (gate != null)
@@ -408,6 +407,62 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>A house filling the rectangle: walls, an overhanging roof, sometimes a ridge, lit windows facing the roads.</summary>
+        /// <summary>
+        /// Water that reaches the map's edge (a harbour, a lake shore) carries on out to the horizon: a water plane past
+        /// each edge where the map's water meets it, over a dark sea bed so nothing shows through. East and west planes run
+        /// on past the corners they reach; north and south ones stop at the map's corners, so the planes never overlap.
+        /// </summary>
+        private static void OuterSea(Transform parent, ZoneGrid g)
+        {
+            const float Out = 600f;
+            float cs = g.cell, W = g.width * cs, H = g.height * cs;
+            var surfaces = WaterSurfaces(g);
+            Material water = PsxWaterMat();
+            Material bed = PMat("SeaBed", new Color(0.05f, 0.09f, 0.16f), 4f);
+            for (int side = 0; side < 4; side++)
+            {
+                // side 0 north (row 0), 1 south (last row), 2 east (last column), 3 west (column 0)
+                bool alongX = side < 2;
+                int n = alongX ? g.width : g.height;
+                int first = -1, last = -1;
+                float y = 0f;
+                for (int i = 0; i < n; i++)
+                {
+                    int x = alongX ? i : side == 2 ? g.width - 1 : 0;
+                    int row = alongX ? (side == 0 ? 0 : g.height - 1) : i;
+                    if (!ZoneGrid.IsWater(g.At(x, row))) continue;
+                    if (first < 0) { first = i; y = surfaces[new Vector2Int(x, row)]; }
+                    last = i;
+                }
+                if (first < 0) continue;
+                float a0 = first * cs, a1 = (last + 1) * cs;
+                if (!alongX)
+                {
+                    if (first == 0) a0 -= Out;
+                    if (last == n - 1) a1 += Out;
+                }
+                float mid = (a0 + a1) / 2f, len = a1 - a0;
+                Vector3 c;
+                Vector3 size;
+                if (alongX)
+                {
+                    float x = mid - W / 2f;
+                    float zc = side == 0 ? H / 2f + Out / 2f : -H / 2f - Out / 2f;
+                    c = new Vector3(x, 0f, zc);
+                    size = new Vector3(len, 1f, Out);
+                }
+                else
+                {
+                    float zc = H / 2f - mid;
+                    float x = side == 2 ? W / 2f + Out / 2f : -W / 2f - Out / 2f;
+                    c = new Vector3(x, 0f, zc);
+                    size = new Vector3(Out, 1f, len);
+                }
+                Shape(parent, "OuterSea", GridMesh(24, 24, false), new Vector3(c.x, y, c.z), size, water, false, Quaternion.identity);
+                Block(parent, "OuterSeaBed", new Vector3(c.x, y - 3f, c.z), new Vector3(size.x, 0.5f, size.z), bed);
+            }
+        }
+
         private static void House(Transform parent, ZoneGrid g, ZoneDefinition z, RectInt r, int index, Material wall, Material roof, Material window)
         {
             float cs = g.cell;

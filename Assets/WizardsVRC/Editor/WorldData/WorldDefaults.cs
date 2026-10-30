@@ -132,6 +132,7 @@ namespace WizardsVRC.EditorTools.WorldData
         /// </summary>
         public static void FillLanternRow(ZoneDefinition z)
         {
+            z.textureStyle = ZoneTextureStyle.Town;
             z.zoneKey = "LanternRow";
             z.displayName = "Lantern Row";
             z.levelRange = "Lv 4-6";
@@ -1219,6 +1220,7 @@ namespace WizardsVRC.EditorTools.WorldData
         /// </summary>
         public static void FillSunpetalGardens(ZoneDefinition z)
         {
+            z.textureStyle = ZoneTextureStyle.Garden;
             z.zoneKey = "SunpetalGardens";
             z.displayName = "Sunpetal Gardens";
             z.levelRange = "Lv 1-3";

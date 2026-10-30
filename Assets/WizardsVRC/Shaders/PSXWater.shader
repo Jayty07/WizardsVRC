@@ -109,8 +109,8 @@ Shader "WizardsVRC/PSXWater"
             fixed4 frag (v2f i) : SV_Target
             {
                 float iw = 1.0 / max(i.affine1.z, 0.0001);
-                float2 uv1 = lerp(i.uv.xy, i.affine1.xy * iw, _Affine);
-                float2 uv2 = lerp(i.uv.zw, i.affine2.xy * iw, _Affine);
+                float2 uv1 = lerp(i.uv.xy, i.affine1.xy * iw, PsxAffine(_Affine));
+                float2 uv2 = lerp(i.uv.zw, i.affine2.xy * iw, PsxAffine(_Affine));
                 float a = tex2D(_MainTex, uv1).r;
                 float b = tex2D(_MainTex, uv2).g;
 

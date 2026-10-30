@@ -118,7 +118,7 @@ Shader "WizardsVRC/PSX"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                float2 uv = lerp(i.uv, i.affineUv.xy / i.affineUv.z, _Affine);
+                float2 uv = lerp(i.uv, i.affineUv.xy / i.affineUv.z, PsxAffine(_Affine));
                 fixed4 col = tex2D(_MainTex, uv) * _Color;
                 col.rgb = col.rgb * i.light + _EmissionColor.rgb;
                 float grey = dot(col.rgb, float3(0.299, 0.587, 0.114));

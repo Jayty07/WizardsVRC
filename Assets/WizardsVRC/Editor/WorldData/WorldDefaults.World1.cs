@@ -15,52 +15,53 @@ namespace WizardsVRC.EditorTools.WorldData
         /// <summary>Tidewatch Docks (Lv 7-9): a grey harbor, the quay along the sea, two piers, warehouses and Grell's yard.</summary>
         public static void FillTidewatchDocks(ZoneDefinition z)
         {
+            z.textureStyle = ZoneTextureStyle.Docks;
             z.zoneKey = "TidewatchDocks";
             z.displayName = "Tidewatch Docks";
             z.levelRange = "Lv 7-9";
             z.height = 800f;
             z.cellSize = 8f;
             z.map =
-            "#################################\n" +
-            "########################~~~~~~~~#\n" +
-            "##fffff.##..eeeee...####~~~~~~~~#\n" +
-            "##f...f.##..e...e...#.b.~~~~~~~~#\n" +
-            "##f.6.f.....e.5.e...#.b.~~~~~~~~#\n" +
-            "##f...f.##..e...e...#.bN~~~~~~~~#\n" +
-            "##fffff.##..eeeee.....b.~~~~~~~~#\n" +
-            "##########...........2b.~~~~~~~~#\n" +
-            "#############.W.......b.~~~~~~~~#\n" +
-            "###.ddddddd..########.b.~~~~~~~~#\n" +
-            "###.d.....d4.########Bb.~~~~~~~~#\n" +
-            "##..d.....d..########.b.~~~~~~~~#\n" +
-            "##.4d..4..d.#.........b.~~~~~~~~#\n" +
-            "##..d.....d..########.b......~~~#\n" +
-            "###.d.....d4.########.b2...2.~~~#\n" +
-            "###.ddddddd..########.bbbbbb.~~~#\n" +
-            "######...############.g......~~~#\n" +
-            "######.3.############.g......~~~#\n" +
-            "###.cccccc.##########.g.~~~~~~~~#\n" +
-            "###.c....c.##########Bg.~~~~~~~~#\n" +
-            "###.c....c.##########.g.~~~~~~~~#\n" +
-            "###.c....c.gggggggggggg.~~~~~~~~#\n" +
-            "###.c.3..c3.########.7.N~~~~~~~~#\n" +
-            "###.c....c..########....~~~~~~~~#\n" +
-            "###.c....c.##########...~~~~~~~~#\n" +
-            "###.c....c.##########........~~~#\n" +
-            "###.cccccc.##########...1....~~~#\n" +
-            "######,,,############.aaaaaa.~~~#\n" +
-            "######,,,############Fa......~~~#\n" +
-            "######,,,############.a......~~~#\n" +
-            "######,,,############Ba.~~~~~~~~#\n" +
-            "##########............a.~~~~~~~~#\n" +
-            "##########...........1a.~~~~~~~~#\n" +
-            "##########.Q..........a.~~~~~~~~#\n" +
-            "##########.......1....a.~~~~~~~~#\n" +
-            "##########^..aaaaaaaaaaN~~~~~~~~#\n" +
-            "###########,,,#...###...~~~~~~~~#\n" +
-            "###########,^,#...######~~~~~~~~#\n" +
-            "###############.S.######~~~~~~~~#\n" +
-            "#################################\n";
+            "########################~~~~~~~~~\n" +
+            "########################~~~~~~~~~\n" +
+            "##fffff.##..eeeee...####~~~~~~~~~\n" +
+            "##f...f.##..e...e...#.b.~~~~~~~~~\n" +
+            "##f.6.f.....e.5.e...#.b.~~~~~~~~~\n" +
+            "##f...f.##..e...e...#.bN~~~~~~~~~\n" +
+            "##fffff.##..eeeee.....b.~~~~~~~~~\n" +
+            "##########...........2b.~~~~~~~~~\n" +
+            "#############.W.......b.~~~~~~~~~\n" +
+            "###.ddddddd..########.b.~~~~~~~~~\n" +
+            "###.d.....d4.########Bb.~~~~~~~~~\n" +
+            "##..d.....d..########.b.~~~~~~~~~\n" +
+            "##.4d..4..d.#.........b.~~~~~~~~~\n" +
+            "##..d.....d..########.b......~~~~\n" +
+            "###.d.....d4.########.b2...2.~~~~\n" +
+            "###.ddddddd..########.bbbbbb.~~~~\n" +
+            "######...############.g......~~~~\n" +
+            "######.3.############.g......~~~~\n" +
+            "###.cccccc.##########.g.~~~~~~~~~\n" +
+            "###.c....c.##########Bg.~~~~~~~~~\n" +
+            "###.c....c.##########.g.~~~~~~~~~\n" +
+            "###.c....c.gggggggggggg.~~~~~~~~~\n" +
+            "###.c.3..c3.########.7.N~~~~~~~~~\n" +
+            "###.c....c..########....~~~~~~~~~\n" +
+            "###.c....c.##########...~~~~~~~~~\n" +
+            "###.c....c.##########........~~~~\n" +
+            "###.cccccc.##########...1....~~~~\n" +
+            "######,,,############.aaaaaa.~~~~\n" +
+            "######,,,############Fa......~~~~\n" +
+            "######,,,############.a......~~~~\n" +
+            "######,,,############Ba.~~~~~~~~~\n" +
+            "##########............a.~~~~~~~~~\n" +
+            "##########...........1a.~~~~~~~~~\n" +
+            "##########.Q..........a.~~~~~~~~~\n" +
+            "##########.......1....a.~~~~~~~~~\n" +
+            "##########^..aaaaaaaaaaN~~~~~~~~~\n" +
+            "###########,,,#...###...~~~~~~~~~\n" +
+            "###########,^,#...######~~~~~~~~~\n" +
+            "###############.S.######~~~~~~~~~\n" +
+            "########################~~~~~~~~~\n";
             z.groundColor = new Color(0.3f, 0.34f, 0.3f);
             z.roadColor = new Color(0.52f, 0.5f, 0.47f);
             z.grassColor = new Color(0.32f, 0.42f, 0.3f);
@@ -112,6 +113,7 @@ namespace WizardsVRC.EditorTools.WorldData
         /// <summary>Kiln Street (Lv 8-10): the smoky forge quarter, Cole's yard and back forge, slag heaps and the sealed furnace hall.</summary>
         public static void FillKilnStreet(ZoneDefinition z)
         {
+            z.textureStyle = ZoneTextureStyle.Forge;
             z.zoneKey = "KilnStreet";
             z.displayName = "Kiln Street";
             z.levelRange = "Lv 8-10";
@@ -215,6 +217,7 @@ namespace WizardsVRC.EditorTools.WorldData
         /// <summary>Thornhollow Grove (Lv 10-11): old forest cut through by a dead-straight survey line, with a Dominion camp at its head.</summary>
         public static void FillThornhollowGrove(ZoneDefinition z)
         {
+            z.textureStyle = ZoneTextureStyle.Forest;
             z.zoneKey = "ThornhollowGrove";
             z.displayName = "Thornhollow Grove";
             z.levelRange = "Lv 10-11";
@@ -310,6 +313,7 @@ namespace WizardsVRC.EditorTools.WorldData
         /// <summary>The Hollow Keep (Lv 11-13): Morvane's black keep on its crag, the outer bailey, the hall of lanterns and the throne hall.</summary>
         public static void FillHollowKeep(ZoneDefinition z)
         {
+            z.textureStyle = ZoneTextureStyle.Keep;
             z.zoneKey = "HollowKeep";
             z.displayName = "The Hollow Keep";
             z.levelRange = "Lv 11-13";

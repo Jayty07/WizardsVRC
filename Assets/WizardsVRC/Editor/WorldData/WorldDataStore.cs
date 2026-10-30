@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 14;
+        public const int CurrentVersion = 15;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -177,6 +177,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 12) UpgradeTo12();
             if (from < 13) UpgradeTo13();
             if (from < 14) UpgradeTo14();
+            if (from < 15) UpgradeTo15();
         }
 
         private class ZoneDefault { public string file, key; public System.Action<ZoneDefinition> fill; }
@@ -341,18 +342,45 @@ namespace WizardsVRC.EditorTools.WorldData
         /// </summary>
         private static void UpgradeTo14()
         {
+            RefreshStreets(V14Zones, V14OldMaps, V14Fills, "bigger patrols and more duel ring spots");
+        }
+
+        /// <summary>v15: Tidewatch Docks loses the row of buildings along the sea edge (the harbour opens onto the sea).</summary>
+        private static void UpgradeTo15()
+        {
+            RefreshStreets(new[] { "TidewatchDocks" }, new[] { 0x9C89451Au }, new System.Action<ZoneDefinition>[] { WorldDefaults.FillTidewatchDocks },
+                "the open sea past the harbour");
+            // PS1 texture sets for the default streets (only where still the default, Town).
+            string[] keys = { "SunpetalGardens", "TidewatchDocks", "KilnStreet", "ThornhollowGrove", "HollowKeep" };
+            ZoneTextureStyle[] styles = { ZoneTextureStyle.Garden, ZoneTextureStyle.Docks, ZoneTextureStyle.Forge, ZoneTextureStyle.Forest, ZoneTextureStyle.Keep };
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || z.textureStyle != ZoneTextureStyle.Town) continue;
+                int i = System.Array.IndexOf(keys, z.zoneKey);
+                if (i < 0) continue;
+                z.textureStyle = styles[i];
+                EditorUtility.SetDirty(z);
+            }
+        }
+
+        /// <summary>
+        /// Gives each listed street the default map (and new encounters, bigger patrols) if its map is still the given old
+        /// default; leaves edited maps alone and says so.
+        /// </summary>
+        private static void RefreshStreets(string[] keys, uint[] oldMaps, System.Action<ZoneDefinition>[] fills, string what)
+        {
             var report = new List<string>();
             foreach (var z in FindAll<ZoneDefinition>())
             {
                 if (z == null) continue;
-                int i = System.Array.IndexOf(V14Zones, z.zoneKey);
+                int i = System.Array.IndexOf(keys, z.zoneKey);
                 if (i < 0) continue;
                 var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
-                V14Fills[i](fresh);
+                fills[i](fresh);
                 bool current = Normalize(z.map) == Normalize(fresh.map);
-                if (!current && MapHash(z.map) != V14OldMaps[i])
+                if (!current && MapHash(z.map) != oldMaps[i])
                 {
-                    Debug.Log("[WizardsVRC] " + z.displayName + "'s map has been edited, so its new patrol routes and ring spots weren't applied. " +
+                    Debug.Log("[WizardsVRC] " + z.displayName + "'s map has been edited, so the new default map (" + what + ") wasn't applied. " +
                               "See WorldDefaults.Fill" + z.zoneKey + " for the new layout.");
                     Object.DestroyImmediate(fresh);
                     continue;
@@ -369,7 +397,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 EditorUtility.SetDirty(z);
                 if (!current) report.Add(z.displayName);
             }
-            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data: bigger patrols and more duel ring spots in " + string.Join(", ", report) + ".");
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (" + what + "): " + string.Join(", ", report) + ".");
         }
 
         /// <summary>FNV-1a hash of a map (after Normalize), to recognise an old default map without keeping a copy of it.</summary>
