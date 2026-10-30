@@ -25,6 +25,10 @@ Shader "WizardsVRC/PSX"
         _VertexPaint ("Hand-painted Vertex Colour (0-1)", Range(0,1)) = 0.3
         _Saturation ("Saturation", Range(0,2)) = 1.15
         _PointLights ("Point Light Strength", Range(0,3)) = 0.8
+
+        [Header(Layering)]
+        _OffsetFactor ("Depth Offset Factor (negative = drawn in front of what it lies on)", Float) = 0
+        _OffsetUnits ("Depth Offset Units", Float) = 0
     }
     SubShader
     {
@@ -32,6 +36,7 @@ Shader "WizardsVRC/PSX"
         Pass
         {
             Tags { "LightMode"="ForwardBase" }
+            Offset [_OffsetFactor], [_OffsetUnits]
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag

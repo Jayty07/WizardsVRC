@@ -222,6 +222,8 @@ namespace WizardsVRC.EditorTools
 
             Transform layout = Child(root, "Layout", Vector3.zero);
             var stairCells = new HashSet<Vector2Int>();
+            // No ground (or kerbs) under the tunnel home: it has its own floor, and a kerb across its mouth would trip you.
+            if (gate != null) _terrainSkip = CellsBehind(g, mouth, -openDir, TunW / 2f + TunT + 1f, TunL1 + TunL3 + 2f);
             BuildTerrain(layout, g, MakeTerrainMats(z, k), baseY, stairCells);
             OuterSea(layout, g);
             int houseIndex = 0;
@@ -407,6 +409,37 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>A house filling the rectangle: walls, an overhanging roof, sometimes a ridge, lit windows facing the roads.</summary>
+        /// <summary>Cells lying wholly past 'mouth' in direction 'dir', within 'halfWidth' of its line and 'length' of it.</summary>
+        private static HashSet<Vector2Int> CellsBehind(ZoneGrid g, Vector3 mouth, Vector3 dir, float halfWidth, float length)
+        {
+            var set = new HashSet<Vector2Int>();
+            Vector3 right = Vector3.Cross(Vector3.up, dir);
+            for (int y = 0; y < g.height; y++)
+                for (int x = 0; x < g.width; x++)
+                {
+                    float sMin, sMax, lMin, lMax;
+                    CellSpan(g, x, y, mouth, dir, right, out sMin, out sMax, out lMin, out lMax);
+                    if (sMin >= -0.01f && sMin < length && lMax > -halfWidth && lMin < halfWidth) set.Add(new Vector2Int(x, y));
+                }
+            return set;
+        }
+
+        /// <summary>A cell's extent along 'dir' (s) and across it (l), measured from 'origin'.</summary>
+        private static void CellSpan(ZoneGrid g, int x, int y, Vector3 origin, Vector3 dir, Vector3 right, out float sMin, out float sMax, out float lMin, out float lMax)
+        {
+            Vector3 c = g.Local(x, y) - origin;
+            float h = g.cell / 2f;
+            sMin = lMin = float.MaxValue;
+            sMax = lMax = float.MinValue;
+            for (int i = 0; i < 4; i++)
+            {
+                Vector3 q = c + new Vector3(i % 2 == 0 ? -h : h, 0f, i < 2 ? -h : h);
+                float s = q.x * dir.x + q.z * dir.z, l = q.x * right.x + q.z * right.z;
+                sMin = Mathf.Min(sMin, s); sMax = Mathf.Max(sMax, s);
+                lMin = Mathf.Min(lMin, l); lMax = Mathf.Max(lMax, l);
+            }
+        }
+
         /// <summary>
         /// Water that reaches the map's edge (a harbour, a lake shore) carries on out to the horizon: a water plane past
         /// each edge where the map's water meets it, over a dark sea bed so nothing shows through. East and west planes run

@@ -52,8 +52,21 @@ namespace WizardsVRC.EditorTools
         /// lawns). Then kerbs, copings, railings, stairs (with stringers and handrails) and water. Stair cells are added
         /// to 'stairCells' so callers can keep lamps off them. Geometry is merged into a few meshes per 8x8-cell chunk.
         /// </summary>
+        /// <summary>
+        /// Cells the next BuildTerrain leaves out (under a tunnel, which has its own floor), and cells it fills with a plain
+        /// paved block up to a given level instead (between a gate and its tunnel, so the way in is level). Edges next to
+        /// left-out cells get no kerb, coping or railing. Set just before BuildTerrain; it clears them.
+        /// </summary>
+        private static HashSet<Vector2Int> _terrainSkip;
+        private static Dictionary<Vector2Int, int> _terrainFill;
+
         private static void BuildTerrain(Transform parent, ZoneGrid g, TerrainMats m, float baseY, HashSet<Vector2Int> stairCells)
         {
+            var skip = _terrainSkip ?? new HashSet<Vector2Int>();
+            var fill = _terrainFill ?? new Dictionary<Vector2Int, int>();
+            _terrainSkip = null;
+            _terrainFill = null;
+            _skipNow = skip;
             float cs = g.cell;
             Transform t = Child(parent, "Terrain", Vector3.zero);
             var stairs = StairRuns(g);
@@ -64,7 +77,17 @@ namespace WizardsVRC.EditorTools
 
             for (int y = 0; y < g.height; y++)
                 for (int x = 0; x < g.width; x++)
-                    if (!g.IsVoid(x, y)) BuildCell(tc, x, y, piles, colliders, mode);
+                    if (!g.IsVoid(x, y) && !skip.Contains(new Vector2Int(x, y))) BuildCell(tc, x, y, piles, colliders, mode);
+            _skipNow = null;
+            // Filled cells: a stone block up to the fill level, paved on top (flush with paving at that level).
+            foreach (var kv in fill)
+            {
+                Vector3 c = g.Local(kv.Key);
+                float top = kv.Value * g.step + Lift;
+                float bottom = Mathf.Min(g.Elevation(kv.Key.x, kv.Key.y), top) - 0.4f;
+                Block(t, "GateFill", new Vector3(c.x, (bottom + top - 0.12f) / 2f, c.z), new Vector3(cs, top - 0.12f - bottom, cs), m.wall);
+                Block(t, "GateFillPaving", new Vector3(c.x, top - 0.06f, c.z), new Vector3(cs, 0.12f, cs), m.paving);
+            }
 
             // ---- stairs where paved cells change height: steps, sloped stone stringers and handrails
             foreach (var run in stairs)
@@ -136,8 +159,9 @@ namespace WizardsVRC.EditorTools
         // ------------------------------------------------------------------ terrain cells
 
         private const float Lift = 0.02f;
+        private static HashSet<Vector2Int> _skipNow;
         /// <summary>How far the plain ground slab (or island top) under a map sits below its lowest terrain.</summary>
-        private const float GroundDrop = 0.3f;
+        private const float GroundDrop = 0.5f;
         private const int ArcSegs = 4;
         private const int MatWall = 0, MatPaving = 1, MatLawn = 2, MatBed = 3, MatTrim = 4, MatIron = 5;
         private static readonly string[] MatNames = { "Walls", "Paving", "Lawn", "PondBed", "Trim", "Railings" };
@@ -270,7 +294,9 @@ namespace WizardsVRC.EditorTools
                 Vector2Int d = SideDirs[k];
                 int nx = x + d.x, ny = y + d.y, ln = tc.Lv(nx, ny);
                 EdgeKind side = EdgeKind.None;
-                if (ln < lc) side = tc.stairEdges.Contains(TerrainContext.EdgeKey(cell, d)) ? EdgeKind.StairWall : EdgeKind.Drop;
+                bool openSide = _skipNow != null && _skipNow.Contains(new Vector2Int(nx, ny));
+                if (openSide) side = ln < lc ? EdgeKind.StairWall : EdgeKind.None;   // a plain wall, no coping or railing
+                else if (ln < lc) side = tc.stairEdges.Contains(TerrainContext.EdgeKey(cell, d)) ? EdgeKind.StairWall : EdgeKind.Drop;
                 else if (ln == lc && tc.Lawn(x, y) && !tc.Lawn(nx, ny) && tc.In(nx, ny) && g.Walkable(nx, ny)) side = EdgeKind.Kerb;
                 else if (ln == lc && tc.Water(nx, ny) && !tc.Water(x, y) && g.Walkable(x, y)) side = EdgeKind.PondFence;
 

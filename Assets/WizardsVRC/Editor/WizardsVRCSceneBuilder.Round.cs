@@ -115,8 +115,16 @@ namespace WizardsVRC.EditorTools
             var iron = PMat("Iron", new Color(0.25f, 0.22f, 0.22f), 1f);
 
             // Floor: a stone disc with a gold rim, a tinted half for each team under the circle.
-            Shape(t, "DuelFloor", CylMesh(), new Vector3(0, 0.03f, 0), new Vector3(rr * 2f - 0.6f, 0.03f, rr * 2f - 0.6f), floor, false, Quaternion.identity);
-            Shape(t, "DuelRim", CylMesh(), new Vector3(0, 0.01f, 0), new Vector3(rr * 2f - 0.1f, 0.03f, rr * 2f - 0.1f), gold, false, Quaternion.identity);
+            // (5 cm over the paving and 7 cm under the duel circle's painted layers, so none of them flicker; the gold rim
+            // is a band of segments round the edge rather than a second disc under the floor.)
+            Shape(t, "DuelFloor", CylMesh(), new Vector3(0, 0.035f, 0), new Vector3(rr * 2f - 0.6f, 0.035f, rr * 2f - 0.6f), floor, false, Quaternion.identity);
+            const int rimSegs = 32;
+            float rimChord = 2f * (rr - 0.05f) * Mathf.Sin(Mathf.PI / rimSegs) + 0.04f;
+            for (int i = 0; i < rimSegs; i++)
+            {
+                Vector3 dir = Quaternion.Euler(0, (i + 0.5f) / rimSegs * 360f, 0) * Vector3.forward;
+                Deco(t, PrimitiveType.Cube, "DuelRim", dir * (rr - 0.15f) + new Vector3(0, 0.045f, 0), new Vector3(rimChord, 0.09f, 0.22f), gold, Quaternion.LookRotation(dir), false);
+            }
             // Low kerb round the edge with four gaps (no colliders: step over it anywhere).
             const int segs = 32;
             float chord = 2f * (rr - 0.5f) * Mathf.Sin(Mathf.PI / segs) + 0.05f;
@@ -221,8 +229,8 @@ namespace WizardsVRC.EditorTools
                 col.radius = 1.3f;
                 col.center = new Vector3(0, 1.2f, 0);
                 // A rune disc marks the spot (it stays while the orb is away).
-                Shape(t, "OrbRune", CylMesh(), new Vector3(0, 0.04f, 0), new Vector3(1.6f, 0.02f, 1.6f), rune, false, Quaternion.identity);
-                Shape(t, "OrbRuneGlow", CylMesh(), new Vector3(0, 0.05f, 0), new Vector3(1.1f, 0.02f, 1.1f), o.mana ? blueGlow : redGlow, false, Quaternion.identity);
+                Shape(t, "OrbRune", CylMesh(), new Vector3(0, 0.05f, 0), new Vector3(1.6f, 0.04f, 1.6f), rune, false, Quaternion.identity);
+                Shape(t, "OrbRuneGlow", CylMesh(), new Vector3(0, 0.12f, 0), new Vector3(1.1f, 0.02f, 1.1f), o.mana ? blueGlow : redGlow, false, Quaternion.identity);
                 // The orb: a glowing low-poly ball with a bright gem inside and four motes circling it.
                 Transform vis = Child(t, "Visual", new Vector3(0, 1.35f, 0));
                 Deco(vis, PrimitiveType.Sphere, "Orb", Vector3.zero, Vector3.one * 0.62f, o.mana ? blueGlow : redGlow, Quaternion.identity, false);

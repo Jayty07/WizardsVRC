@@ -20,6 +20,8 @@ namespace WizardsVRC.EditorTools
     public static partial class WizardsVRCSceneBuilder
     {
         private const float TavernWallH = 9f, TavernRoofRise = 9f, TavernDoorH = 5.2f;
+        // The plank floor sits 12 cm over the paving under it (well clear, so the two never flicker) and is walked on.
+        private const float TavernFloorY = 0.14f;
         private static readonly float[] TavernDoors = { 90f, 180f, 270f };
 
         private static Vector3 TDir(float deg) { float a = deg * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); }
@@ -93,9 +95,9 @@ namespace WizardsVRC.EditorTools
             string name = string.IsNullOrEmpty(l.label) ? "The Crystal Tap" : l.label;
             Transform t = Child(root, "Tavern_" + l.symbol, Vector3.zero);
 
-            var plaster = PMat("TavernPlaster", new Color(0.93f, 0.86f, 0.72f), 2f);
-            var beam = PMat("TimberBeam", new Color(0.3f, 0.19f, 0.12f), 2f);
-            var darkWood = PMat("TavernDarkWood", new Color(0.36f, 0.22f, 0.13f), 2f);
+            var plaster = PsxTexMat("TavernPlaster", new Color(0.93f, 0.86f, 0.72f), TileTexture(StreetTexDir + "/Plaster.png"), 4f);
+            var beam = PsxTexMat("TimberBeam", new Color(0.3f, 0.19f, 0.12f), TileTexture(StreetTexDir + "/Bark.png"), 1.2f);
+            var darkWood = PsxTexMat("TavernDarkWood", new Color(0.36f, 0.22f, 0.13f), TileTexture(TerrainTexDir + "/WoodPlanks.png"), 1.6f);
             var planks = PsxTexMat("TavernFloor", new Color(0.72f, 0.5f, 0.32f), TileTexture(TerrainTexDir + "/WoodPlanks.png"), 2.4f);
             var ceiling = PsxTexMat("TavernCeiling", new Color(0.55f, 0.37f, 0.22f), TileTexture(TerrainTexDir + "/WoodPlanks.png"), 2.4f);
             var roofTex = PsxTexMat("TavernRoof", Color.Lerp(roofMat.color, new Color(0.7f, 0.25f, 0.2f), 0.5f), TileTexture(TerrainTexDir + "/StoneWall.png"), 1.6f);
@@ -150,15 +152,15 @@ namespace WizardsVRC.EditorTools
             for (int i = 0; i < segs; i++)
             {
                 float a0 = dA * i, a1 = dA * (i + 1);
-                Vector3 f0 = TPolar(c, R - 0.8f, a0, 0.09f), f1 = TPolar(c, R - 0.8f, a1, 0.09f);
-                floor.Tri(c + new Vector3(0, 0.09f, 0), f0, f1, Vector3.up);
+                Vector3 f0 = TPolar(c, R - 0.8f, a0, TavernFloorY), f1 = TPolar(c, R - 0.8f, a1, TavernFloorY);
+                floor.Tri(c + new Vector3(0, TavernFloorY, 0), f0, f1, Vector3.up);
                 Vector3 p00 = TPolar(c, r0, a0, yr0), p01 = TPolar(c, r0, a1, yr0), p10 = TPolar(c, r1, a0, yr1), p11 = TPolar(c, r1, a1, yr1);
                 Vector3 outward = (TDir((a0 + a1) / 2f) * TavernRoofRise + Vector3.up * (r0 - r1)).normalized;
                 roofOut.Quad(p00, p01, p11, p10, outward);
                 Vector3 dn = new Vector3(0, -0.3f, 0);
                 roofIn.Quad(p00 + dn, p01 + dn, p11 + dn, p10 + dn, -outward);
             }
-            TavernMesh(t, "TavernFloor", floor, planks, false);
+            TavernMesh(t, "TavernFloor", floor, planks, true);
             TavernMesh(t, "TavernRoof", roofOut, roofTex, true);
             TavernMesh(t, "TavernCeiling", roofIn, ceiling, false);
             for (int i = 0; i < 16; i++)

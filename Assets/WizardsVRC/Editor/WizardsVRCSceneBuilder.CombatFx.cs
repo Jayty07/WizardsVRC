@@ -21,7 +21,7 @@ namespace WizardsVRC.EditorTools
     {
         private const string UiSoundDir = "Assets/WizardsVRC/Audio/UI";
         /// <summary>The whole duel ring sits this far above the ground so it's never hidden under paths and lawns.</summary>
-        private const float RingLift = 0.1f;
+        private const float RingLift = 0.14f;
 
         private static AudioClip UiClip(string name)
         {

@@ -111,20 +111,22 @@ namespace WizardsVRC.EditorTools
             hub.root = root;
             float cs = g.cell, W = g.width * cs, H = g.height * cs;
 
-            Material ground = PMat(k + "_Ground", z.groundColor, 24f);
-            Material stone = PMat(k + "_Building", z.buildingColor, 3f);
-            Material roof = PMat(k + "_Roof", z.roofColor, 2f);
-            Material low = PMat(k + "_LowWall", z.lowWallColor, 2f);
-            Material leaves = PMat(k + "_Tree", z.treeColor, 1f);
-            Material trunk = PMat(k + "_Trunk", new Color(0.3f, 0.2f, 0.13f), 1f);
+            // PS1 textures (Tools/make_street_textures.py), tinted with the hub's colours: stone blocks for the castle,
+            // tiled roofs, hedges, leaves and bark.
+            Material ground = PsxTexMat(k + "_Ground", z.groundColor, TileTexture(TerrainTexDir + "/Grass.png"), 3f);
+            Material stone = PsxTexMat(k + "_Building", z.buildingColor, TileTexture(TerrainTexDir + "/StoneWall.png"), 3.4f);
+            Material roof = PsxTexMat(k + "_Roof", z.roofColor, TileTexture(StreetTexDir + "/RoofTiles.png"), 2.6f);
+            Material low = PsxTexMat(k + "_LowWall", z.lowWallColor, TileTexture(StreetTexDir + "/Hedge.png"), 1.6f);
+            Material leaves = PsxTexMat(k + "_Tree", z.treeColor, TileTexture(StreetTexDir + "/Leaves.png"), 2.2f);
+            Material trunk = PsxTexMat(k + "_Trunk", new Color(0.3f, 0.2f, 0.13f), TileTexture(StreetTexDir + "/Bark.png"), 1.4f);
             Material glow = PMat(k + "_Glow", z.accentColor, 1f, z.accentColor);
             Material window = PMat("Window", new Color(1f, 0.85f, 0.4f), 1f, new Color(0.9f, 0.7f, 0.25f));
             Material gold = PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f));
             Material banner = PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f);
-            Material door = PMat("Door", new Color(0.35f, 0.2f, 0.12f), 2f);
-            Material wood = PMat("Wood", new Color(0.55f, 0.34f, 0.18f), 2f);
-            Material dirt = PMat("Dirt", new Color(0.62f, 0.45f, 0.28f), 6f);
-            Material cliff = PMat("Cliff", new Color(0.55f, 0.42f, 0.36f), 6f);
+            Material door = PsxTexMat(k + "_Door", new Color(0.35f, 0.2f, 0.12f), TileTexture(StreetTexDir + "/Boards.png"), 2.4f);
+            Material wood = PsxTexMat(k + "_Wood", new Color(0.55f, 0.34f, 0.18f), TileTexture(TerrainTexDir + "/WoodPlanks.png"), 2f);
+            Material dirt = PsxTexMat(k + "_Dirt", new Color(0.62f, 0.45f, 0.28f), TileTexture(TerrainTexDir + "/Dirt.png"), 3f);
+            Material cliff = PsxTexMat(k + "_Cliff", new Color(0.55f, 0.42f, 0.36f), TileTexture(TerrainTexDir + "/StoneWall.png"), 6f);
 
             // ---- ground: an island in the sea (castle style) or a plain slab, at the lowest level of the height map;
             // higher ground is built on top of it by BuildTerrain.
@@ -154,8 +156,8 @@ namespace WizardsVRC.EditorTools
                 // The island's top sits GroundDrop below the map's terrain (which covers every map cell), so the two
                 // never fight; only the strip outside the map shows it.
                 float islandTop = baseY - GroundDrop;
-                Shape(root, "IslandCliff", PrismMesh("PSX_HubIsland2_" + dims, poly, -7f, islandTop - 0.2f), Vector3.zero, Vector3.one, cliff, true, Quaternion.identity);
-                Shape(root, "IslandTop", PrismMesh("PSX_HubIslandTop2_" + dims, poly, islandTop - 0.2f, islandTop), Vector3.zero, Vector3.one, ground, true, Quaternion.identity);
+                Shape(root, "IslandCliff", PrismMesh("PSX_HubIsland3_" + dims, poly, -7f, islandTop - 0.2f), Vector3.zero, Vector3.one, cliff, true, Quaternion.identity);
+                Shape(root, "IslandTop", PrismMesh("PSX_HubIslandTop3_" + dims, poly, islandTop - 0.2f, islandTop), Vector3.zero, Vector3.one, ground, true, Quaternion.identity);
                 // The sea: a big subdivided PSX water plane rolling with long swells and whitecaps (the island's cliffs
                 // stand in it), and surf breaking round a round island's shore.
                 var sea = Shape(root, "Sea", GridMesh(96, 96, false), new Vector3(0, -6.2f, 0), new Vector3(W + 420f, 1f, H + 420f), PsxSwellMat(), false,
@@ -193,6 +195,7 @@ namespace WizardsVRC.EditorTools
             // ---- terrain (heights, paving, lawns, kerbs, stairs, water), walls, hedges, trees
             Transform layout = Child(root, "Layout", Vector3.zero);
             var stairCells = new HashSet<Vector2Int>();
+            GateGround(g, z, data);
             BuildTerrain(layout, g, MakeTerrainMats(z, k), baseY, stairCells);
             int houseIndex = 0;
             if (round) RoundCurtainWall(layout, g, baseY, stone, roof, gold, banner, TunnelBearings(g, z, data));
@@ -502,7 +505,7 @@ namespace WizardsVRC.EditorTools
                 Block(b, "BackWall", new Vector3(0, height / 2f, -depth / 2f + t / 2f), new Vector3(across, height, t), wall);
                 Block(b, "Ceiling", new Vector3(0, height - 0.25f, 0), new Vector3(across - 0.1f, 0.5f, depth - 0.1f), wall);
                 if (floorMat != null)
-                    Deco(b, PrimitiveType.Cube, "Floor", new Vector3(0, 0.07f, 0), new Vector3(across - 2f * t, 0.06f, depth - 2f * t), floorMat, Quaternion.identity, false);
+                    Deco(b, PrimitiveType.Cube, "Floor", new Vector3(0, 0.1f, 0), new Vector3(across - 2f * t, 0.08f, depth - 2f * t), floorMat, Quaternion.identity, false);
                 // The doors stand open, swung inwards against the wall.
                 foreach (float sgn in new[] { -1f, 1f })
                 {
@@ -544,8 +547,8 @@ namespace WizardsVRC.EditorTools
             int s = Mathf.Clamp((int)l.school, 0, 6);
             Color col = SchoolColors[s];
             string sn = SchoolLabels[s];
-            var wall = PMat("HallWall" + sn, Color.Lerp(z.buildingColor, col, 0.3f), 3f);
-            var roofMat = PMat("HallRoof" + sn, Color.Lerp(col, Color.black, 0.3f), 2f);
+            var wall = PsxTexMat("HallWall" + sn, Color.Lerp(z.buildingColor, col, 0.3f), TileTexture(TerrainTexDir + "/StoneWall.png"), 3.4f);
+            var roofMat = PsxTexMat("HallRoof" + sn, Color.Lerp(col, Color.black, 0.3f), TileTexture(StreetTexDir + "/RoofTiles.png"), 2.6f);
             var bright = PMat("School" + sn + "Glow", col, 1f, col * 0.6f);
             var cloth = PMat("School" + sn + "Cloth", col, 1f);
             // With every school in the hub, each hall is a walk-in classroom with its professor inside.
@@ -754,19 +757,31 @@ namespace WizardsVRC.EditorTools
             Vector3 c = RectCenter(g, fp);
             float rad = Mathf.Max(2f, Mathf.Min(fp.width, fp.height) * g.cell * 0.5f - 0.4f);
             float f = Mathf.Clamp(rad / 4.5f, 1f, 2.2f);
-            // PSX water in the basin (a subdivided disc-sized plane inside the rim) and falling-water jets.
+            // An octagonal basin: a low floor, a rim of eight stone walls, and PSX water filling the inside below the rim's
+            // top (so no water pokes through the stone), with falling-water jets round the pillar.
             var waterBright = PsxWaterfallMat();
-            Shape(root, "FountainBasin", CylMesh(), c + new Vector3(0, 0.45f, 0), new Vector3(rad * 2f, 0.45f, rad * 2f), stone, true, Quaternion.Euler(0, 22.5f, 0));
-            Shape(root, "FountainWater", GridMesh(8, 8, false), c + new Vector3(0, 0.88f, 0), new Vector3(rad * 1.3f, 1f, rad * 1.3f), PsxWaterMat(), false,
-                Quaternion.Euler(0, 22.5f, 0));
+            const float rimH = 0.95f, rimT = 0.6f;
+            float ap = rad * Mathf.Cos(22.5f * Mathf.Deg2Rad);                 // apothem: centre to the middle of a side
+            float side = 2f * ap * Mathf.Tan(22.5f * Mathf.Deg2Rad) + 0.04f;
+            Mesh disc = OctagonDisc();
+            Shape(root, "FountainFloor", disc, c + new Vector3(0, 0.3f, 0), new Vector3(rad * 2f, 1f, rad * 2f),
+                PMat("FountainBed", new Color(0.18f, 0.3f, 0.42f), 2f), false, Quaternion.identity);
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 n = Quaternion.Euler(0, i * 45f, 0) * Vector3.forward;
+                Block(root, "FountainRim", c + n * (ap - rimT / 2f) + new Vector3(0, rimH / 2f, 0), new Vector3(side, rimH, rimT), stone, Quaternion.LookRotation(n));
+                Block(root, "FountainRimCap", c + n * (ap - rimT / 2f) + new Vector3(0, rimH + 0.06f, 0), new Vector3(side + 0.05f, 0.12f, rimT + 0.12f), gold, Quaternion.LookRotation(n));
+            }
+            float waterR = (ap - rimT + 0.15f) / Mathf.Cos(22.5f * Mathf.Deg2Rad);   // reaches a little under the rim
+            Shape(root, "FountainWater", disc, c + new Vector3(0, 0.7f, 0), new Vector3(waterR * 2f, 1f, waterR * 2f), PsxWaterMat(), false, Quaternion.identity);
             Shape(root, "FountainPillar", CylMesh(), c + new Vector3(0, 1.3f * f, 0), new Vector3(1.4f * f, 1.3f * f, 1.4f * f), stone, true, Quaternion.identity);
             Shape(root, "FountainStar", GemMesh(), c + new Vector3(0, 2.8f * f, 0), new Vector3(3f, 0.5f, 3f) * f, gold, false, Quaternion.identity);
             Shape(root, "StarfallCrystal", GemMesh(), c + new Vector3(0, 5f * f, 0), new Vector3(1.8f, 3.4f, 1.8f) * f,
                 PMat("Crystal_Starfall", new Color(0.35f, 0.6f, 1f), 1f, new Color(0.25f, 0.45f, 0.9f)), false, Quaternion.Euler(0, 15, 0));
             for (int i = 0; i < 8; i++)
             {
-                float a = i / 8f * Mathf.PI * 2f;
-                Shape(root, "FountainJet", CylMesh(), c + new Vector3(Mathf.Cos(a) * rad * 0.55f, 1.6f, Mathf.Sin(a) * rad * 0.55f), new Vector3(0.25f, 0.8f, 0.25f), waterBright, false, Quaternion.identity);
+                float a = (i + 0.5f) / 8f * Mathf.PI * 2f;
+                Shape(root, "FountainJet", CylMesh(), c + new Vector3(Mathf.Cos(a) * rad * 0.5f, 1.45f, Mathf.Sin(a) * rad * 0.5f), new Vector3(0.22f, 0.75f, 0.22f), waterBright, false, Quaternion.identity);
             }
             var light = Child(root, "CrystalLight", c + new Vector3(0, 5f * f, 0)).gameObject.AddComponent<Light>();
             light.type = LightType.Point;
@@ -776,6 +791,35 @@ namespace WizardsVRC.EditorTools
             light.intensity = 1.2f;
             if (!string.IsNullOrEmpty(l.label))
                 WorldText(root, "FountainSign", c + new Vector3(0, 10f * f, 0), Quaternion.identity, new Vector2(1200, 220), 0.006f, l.label, 70).color = new Color(0.7f, 0.85f, 1f);
+        }
+
+        /// <summary>
+        /// A flat octagon (circumradius 0.5, corners at 22.5 + k * 45 degrees so its sides face 0, 45, 90... degrees), split
+        /// into small triangles so water on it can ripple. Faces up.
+        /// </summary>
+        private static Mesh OctagonDisc()
+        {
+            const int rings = 5;
+            var tris = new List<Vector3>();
+            for (int k = 0; k < 8; k++)
+            {
+                float a0 = (22.5f + k * 45f) * Mathf.Deg2Rad, a1 = (22.5f + (k + 1) * 45f) * Mathf.Deg2Rad;
+                Vector3 A = new Vector3(Mathf.Sin(a0), 0f, Mathf.Cos(a0)) * 0.5f, B = new Vector3(Mathf.Sin(a1), 0f, Mathf.Cos(a1)) * 0.5f;
+                for (int i = 0; i < rings; i++)
+                    for (int j = 0; j <= i; j++)
+                    {
+                        Vector3 p00 = A * (i / (float)rings) + (B - A) * (j / (float)rings);
+                        Vector3 p10 = A * ((i + 1) / (float)rings) + (B - A) * (j / (float)rings);
+                        Vector3 p11 = A * ((i + 1) / (float)rings) + (B - A) * ((j + 1) / (float)rings);
+                        tris.Add(p00); tris.Add(p10); tris.Add(p11);
+                        if (j < i)
+                        {
+                            Vector3 p01 = A * (i / (float)rings) + (B - A) * ((j + 1) / (float)rings);
+                            tris.Add(p00); tris.Add(p11); tris.Add(p01);
+                        }
+                    }
+            }
+            return SaveMesh("PSX_OctagonDisc_5", tris, new Vector3(0f, -1f, 0f));
         }
 
         private static void Statue(Transform root, Vector3 p, Vector3 front, Material stone, Material gold, string label)
@@ -815,6 +859,49 @@ namespace WizardsVRC.EditorTools
 
         /// <summary>Where a hub tunnel's mouth is and which way it runs: round castles bore through the curtain wall at the
         /// gate's bearing; otherwise the tunnel starts at the back of the gate's cell (away from its open side).</summary>
+        /// <summary>
+        /// The ground at each Street Gate, for the next BuildTerrain: none under the tunnel (it has its own floor), and a
+        /// level paved way from the gate to the tunnel's mouth where the ground between dips lower (a gate on a terrace
+        /// whose tunnel opens through the curtain wall's lower ring), with no kerbs or railings across it.
+        /// </summary>
+        private static void GateGround(ZoneGrid g, ZoneDefinition z, WorldDataStore.Data data)
+        {
+            var skip = new HashSet<Vector2Int>();
+            var fill = new Dictionary<Vector2Int, int>();
+            if (z.landmarks != null)
+                foreach (var l in z.landmarks)
+                {
+                    if (l == null || l.kind != LandmarkKind.StreetGate || GateTarget(l, data) == null) continue;
+                    var cells = g.Find(l.Symbol);
+                    if (cells.Count == 0) continue;
+                    Vector2Int cell = cells[0];
+                    Vector3 mouth, outward;
+                    TunnelMouth(g, z, cell, out mouth, out outward);
+                    float hw = TunW / 2f + TunT + 1f;
+                    foreach (var c in CellsBehind(g, mouth, outward, hw, TunL1 + TunL3 + 2f)) if (c != cell) skip.Add(c);
+                    // The way in, from the gate cell to the mouth.
+                    Vector3 right = Vector3.Cross(Vector3.up, outward);
+                    Vector3 gp = g.Local(cell) - mouth;
+                    float back = -(gp.x * outward.x + gp.z * outward.z);
+                    int lv = g.Level(cell);
+                    for (int y = 0; y < g.height; y++)
+                        for (int x = 0; x < g.width; x++)
+                        {
+                            var c = new Vector2Int(x, y);
+                            if (c == cell || skip.Contains(c) || g.IsVoid(x, y) || g.Level(x, y) >= lv) continue;
+                            float sMin, sMax, lMin, lMax;
+                            CellSpan(g, x, y, mouth, outward, right, out sMin, out sMax, out lMin, out lMax);
+                            if (sMax > -back && sMin < 0f && lMax > -hw && lMin < hw)
+                            {
+                                skip.Add(c);
+                                fill[c] = lv;
+                            }
+                        }
+                }
+            _terrainSkip = skip;
+            _terrainFill = fill;
+        }
+
         private static void TunnelMouth(ZoneGrid g, ZoneDefinition z, Vector2Int cell, out Vector3 mouth, out Vector3 outward)
         {
             Vector3 p = g.Local(cell);
@@ -871,10 +958,14 @@ namespace WizardsVRC.EditorTools
         private static Material[] TunnelMats(ZoneDefinition z)
         {
             Texture2D wallTex = TileTexture(TerrainTexDir + "/StoneWall.png");
+            Material floor = PsxTexMat("TunnelFloor", new Color(0.5f, 0.45f, 0.4f), TileTexture(TerrainTexDir + "/Cobble.png"), 2.4f);
+            // Where the street's paving runs into the mouth, the paving wins (no flicker between the two).
+            floor.SetFloat("_OffsetFactor", 1f);
+            floor.SetFloat("_OffsetUnits", 1f);
             return new[]
             {
                 PsxTexMat("TunnelStone", Color.Lerp(z.buildingColor, new Color(0.45f, 0.42f, 0.44f), 0.6f), wallTex, 2.2f),
-                PsxTexMat("TunnelFloor", new Color(0.5f, 0.45f, 0.4f), TileTexture(TerrainTexDir + "/Cobble.png"), 2.4f),
+                floor,
                 PMat("TunnelDark", new Color(0.04f, 0.04f, 0.06f), 1f),
                 PMat("TunnelLantern", new Color(1f, 0.75f, 0.4f), 1f, new Color(1f, 0.6f, 0.2f)),
                 PMat("RailingIron", new Color(0.17f, 0.16f, 0.21f), 1f),

@@ -271,7 +271,7 @@ namespace WizardsVRC.EditorTools
             Shape(root, "Pond", CylMesh(), new Vector3(-23, 0.05f, -20), new Vector3(8, 0.05f, 8), waterBright, false, Quaternion.identity);
             Shape(root, "PondRim", CylMesh(), new Vector3(-23, 0.03f, -20), new Vector3(9, 0.03f, 9), stone, false, Quaternion.identity);
             for (int i = 0; i < 4; i++)
-                Shape(root, "LilyPad", CylMesh(), new Vector3(-23 + R(-2.5f, 2.5f), 0.12f, -20 + R(-2.5f, 2.5f)), new Vector3(0.8f, 0.02f, 0.8f), PMat("Leaf0", LeafColors[0], 2f), false, Quaternion.identity);
+                Shape(root, "LilyPad", CylMesh(), new Vector3(-23 + R(-2.5f, 2.5f), 0.12f, -20 + R(-2.5f, 2.5f)), new Vector3(0.8f, 0.02f, 0.8f), PsxTexMat("Leaf0", LeafColors[0], TileTexture(StreetTexDir + "/Leaves.png"), 2.2f), false, Quaternion.identity);
             Bench(root, new Vector3(-27, 0, -25), 20, wood);
             FlowerBed(root, new Vector3(-30, 0, -9), new Vector2(4, 3), dirt);
             Gazebo(root, new Vector3(32, 0, -16), wood, roofPurple, gold);
@@ -405,8 +405,8 @@ namespace WizardsVRC.EditorTools
             var t = new GameObject("Conifer").transform;
             t.SetParent(root, false);
             t.localPosition = p;
-            Shape(t, "Trunk", CylMesh(), new Vector3(0, 0.6f * s, 0), new Vector3(0.5f * s, 0.6f * s, 0.5f * s), PMat("Bark", new Color(0.5f, 0.3f, 0.16f), 2f), true, Quaternion.identity);
-            var needles = PMat("Pine", new Color(0.12f, 0.48f, 0.28f), 2f);
+            Shape(t, "Trunk", CylMesh(), new Vector3(0, 0.6f * s, 0), new Vector3(0.5f * s, 0.6f * s, 0.5f * s), PsxTexMat("Bark", new Color(0.5f, 0.3f, 0.16f), TileTexture(StreetTexDir + "/Bark.png"), 1.4f), true, Quaternion.identity);
+            var needles = PsxTexMat("Pine", new Color(0.12f, 0.48f, 0.28f), TileTexture(StreetTexDir + "/Leaves.png"), 1.8f);
             for (int i = 0; i < 3; i++)
                 Shape(t, "Needles", ConeMesh(), new Vector3(0, (2f + i * 1.5f) * s, 0), new Vector3((3.2f - i * 0.8f) * s, 2.6f * s, (3.2f - i * 0.8f) * s), needles, false, Quaternion.Euler(0, i * 20f, 0));
         }
@@ -474,7 +474,7 @@ namespace WizardsVRC.EditorTools
             {
                 float a = i / 6f * Mathf.PI;
                 int idx = i % 2 == 0 ? 0 : 3;
-                Shape(t, "ArchLeaf", BlobMesh(), new Vector3(Mathf.Cos(a) * 1.5f, 2.8f + Mathf.Sin(a) * 1f, 0), Vector3.one * 0.8f, PMat("Leaf" + idx, LeafColors[idx], 2f), false, Quaternion.identity);
+                Shape(t, "ArchLeaf", BlobMesh(), new Vector3(Mathf.Cos(a) * 1.5f, 2.8f + Mathf.Sin(a) * 1f, 0), Vector3.one * 0.8f, PsxTexMat("Leaf" + idx, LeafColors[idx], TileTexture(StreetTexDir + "/Leaves.png"), 2.2f), false, Quaternion.identity);
             }
         }
 
@@ -524,9 +524,9 @@ namespace WizardsVRC.EditorTools
             var t = new GameObject("Tree").transform;
             t.SetParent(root, false);
             t.localPosition = p;
-            Shape(t, "Trunk", CylMesh(), new Vector3(0, 1.6f * s, 0), new Vector3(0.7f * s, 1.6f * s, 0.7f * s), PMat("Bark", new Color(0.5f, 0.3f, 0.16f), 2f), true, Quaternion.identity);
+            Shape(t, "Trunk", CylMesh(), new Vector3(0, 1.6f * s, 0), new Vector3(0.7f * s, 1.6f * s, 0.7f * s), PsxTexMat("Bark", new Color(0.5f, 0.3f, 0.16f), TileTexture(StreetTexDir + "/Bark.png"), 1.4f), true, Quaternion.identity);
             int leafIdx = _rng.Next(0, 10) < 7 ? _rng.Next(0, 3) : _rng.Next(3, 5);
-            var leaf = PMat("Leaf" + leafIdx, LeafColors[leafIdx], 2f);
+            var leaf = PsxTexMat("Leaf" + leafIdx, LeafColors[leafIdx], TileTexture(StreetTexDir + "/Leaves.png"), 2.2f);
             for (int i = 0; i < 3; i++)
                 Shape(t, "Leaves", BlobMesh(), new Vector3(R(-0.8f, 0.8f) * s, (3.4f + i * 0.9f) * s, R(-0.8f, 0.8f) * s),
                     Vector3.one * (3.4f - i * 0.7f) * s, leaf, false, Quaternion.Euler(0, R(0, 360), 0));
@@ -536,7 +536,7 @@ namespace WizardsVRC.EditorTools
         {
             int idx = _rng.Next(0, 3);
             Shape(root, "Bush", BlobMesh(), p + new Vector3(0, 0.45f * s, 0), new Vector3(1.6f * s, 1.1f * s, 1.6f * s),
-                PMat("Leaf" + idx, LeafColors[idx], 2f), false, Quaternion.Euler(0, R(0, 360), 0));
+                PsxTexMat("Leaf" + idx, LeafColors[idx], TileTexture(StreetTexDir + "/Leaves.png"), 2.2f), false, Quaternion.Euler(0, R(0, 360), 0));
         }
 
         private static readonly Color[] PetalColors =
@@ -590,7 +590,7 @@ namespace WizardsVRC.EditorTools
             var vineMat = PMat("Vine", new Color(0.15f, 0.5f, 0.2f), 1f);
             Block(v, "Strand", new Vector3(0, -length / 2f, 0), new Vector3(0.25f, length, 0.12f), vineMat);
             for (float y = 0.4f; y < length; y += 0.7f)
-                Shape(v, "VineLeaf", BlobMesh(), new Vector3(R(-0.25f, 0.25f), -y, 0), new Vector3(0.5f, 0.35f, 0.25f), PMat("Leaf0", LeafColors[0], 2f), false, Quaternion.identity);
+                Shape(v, "VineLeaf", BlobMesh(), new Vector3(R(-0.25f, 0.25f), -y, 0), new Vector3(0.5f, 0.35f, 0.25f), PsxTexMat("Leaf0", LeafColors[0], TileTexture(StreetTexDir + "/Leaves.png"), 2.2f), false, Quaternion.identity);
             StripColliders(v, "Strand");
         }
 

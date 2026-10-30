@@ -14,13 +14,21 @@ float _Udon_PsxWarpOff;
 
 static const float PsxBayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
 
+// The wobble fades out with distance: full up to PSX_SNAP_NEAR metres, gone by PSX_SNAP_FAR. A snapped vertex can move
+// a pixel up or down the screen, which on ground seen at a low angle far away is a big jump in depth, enough to make
+// stacked surfaces (paving over its base, a floor over the paving) flicker through each other. Up close, where the
+// wobble shows, the jumps are small.
+#define PSX_SNAP_NEAR 6.0
+#define PSX_SNAP_FAR 14.0
+
 // Snaps a clip-space position to a grid 'res' cells across half the screen's width (square cells). 0 = off.
 float4 PsxSnap(float4 clip, float res)
 {
     if (res <= 0 || _Udon_PsxWarpOff > 0.5) return clip;
     float w = max(clip.w, 0.0001);
     float2 grid = res * float2(1.0, _ScreenParams.y / max(_ScreenParams.x, 1.0));
-    clip.xy = round(clip.xy / w * grid) / grid * w;
+    float2 snapped = round(clip.xy / w * grid) / grid * w;
+    clip.xy = lerp(snapped, clip.xy, saturate((w - PSX_SNAP_NEAR) / (PSX_SNAP_FAR - PSX_SNAP_NEAR)));
     return clip;
 }
 

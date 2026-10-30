@@ -1109,8 +1109,8 @@ namespace WizardsVRC.EditorTools
             var arrivalPad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             arrivalPad.name = "ArrivalPad";
             arrivalPad.transform.SetParent(root, false);
-            arrivalPad.transform.localPosition = new Vector3(-22f, 0.02f, -6.75f);
-            arrivalPad.transform.localScale = new Vector3(3.5f, 0.02f, 6f);
+            arrivalPad.transform.localPosition = new Vector3(-22f, 0.05f, -6.75f);
+            arrivalPad.transform.localScale = new Vector3(3.5f, 0.06f, 6f);
             arrivalPad.GetComponent<Renderer>().sharedMaterial = Mat("ArenaPad", new Color(0.55f, 0.3f, 0.85f));
             Object.DestroyImmediate(arrivalPad.GetComponent<Collider>());
 
