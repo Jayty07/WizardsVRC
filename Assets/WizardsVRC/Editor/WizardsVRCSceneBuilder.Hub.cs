@@ -332,6 +332,7 @@ namespace WizardsVRC.EditorTools
                             if (hub != null) foreach (var oc in cells) hub.orbs.Add(new HubOrb { pos = g.Local(oc), mana = l.kind == LandmarkKind.ManaOrb });
                             break;
                         case LandmarkKind.DuelCircle: if (hub != null) DuelCircleLandmark(root, g, l, hub, stone, gold, wood); break;
+                        case LandmarkKind.DungeonSigil: if (hub == null) DungeonLandmark(root, g, z, l, behaviours, stone, gold); break;
                         case LandmarkKind.BackpackPedestal: if (hub != null) hub.pedestalPos = p; break;
                         case LandmarkKind.NoticeBoard:
                         {
@@ -843,22 +844,21 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>Bearings (degrees, 0 = north) of the hub's tunnels, so the round wall leaves a gateway for each.</summary>
-        private static List<float> TunnelBearings(ZoneGrid g, ZoneDefinition z, WorldDataStore.Data data)
+        /// <summary>Each Street Gate's tunnel: x = its bearing (degrees from north), y = its floor height (the gate's ground).</summary>
+        private static List<Vector2> TunnelBearings(ZoneGrid g, ZoneDefinition z, WorldDataStore.Data data)
         {
-            var list = new List<float>();
+            var list = new List<Vector2>();
             var keys = new HashSet<string>();
             if (z.landmarks == null) return list;
             foreach (var l in z.landmarks)
             {
                 if (l == null || l.kind != LandmarkKind.StreetGate || GateTarget(l, data) == null || !keys.Add(l.targetZone)) continue;
                 var cells = g.Find(l.Symbol);
-                if (cells.Count > 0) list.Add(BearingOf(g.Local(cells[0])));
+                if (cells.Count > 0) list.Add(new Vector2(BearingOf(g.Local(cells[0])), g.Elevation(cells[0].x, cells[0].y)));
             }
             return list;
         }
 
-        /// <summary>Where a hub tunnel's mouth is and which way it runs: round castles bore through the curtain wall at the
-        /// gate's bearing; otherwise the tunnel starts at the back of the gate's cell (away from its open side).</summary>
         /// <summary>
         /// The ground at each Street Gate, for the next BuildTerrain: none under the tunnel (it has its own floor), and a
         /// level paved way from the gate to the tunnel's mouth where the ground between dips lower (a gate on a terrace
@@ -902,6 +902,8 @@ namespace WizardsVRC.EditorTools
             _terrainFill = fill;
         }
 
+        /// <summary>Where a hub tunnel's mouth is and which way it runs: round castles bore through the curtain wall at the
+        /// gate's bearing; otherwise the tunnel starts at the back of the gate's cell (away from its open side).</summary>
         private static void TunnelMouth(ZoneGrid g, ZoneDefinition z, Vector2Int cell, out Vector3 mouth, out Vector3 outward)
         {
             Vector3 p = g.Local(cell);

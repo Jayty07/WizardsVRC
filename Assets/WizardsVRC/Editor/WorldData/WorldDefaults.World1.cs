@@ -327,7 +327,7 @@ namespace WizardsVRC.EditorTools.WorldData
             "###########...e.5.e...###########\n" +
             "###########...e...e...###########\n" +
             "###########...eeeee...###########\n" +
-            "###########...........###########\n" +
+            "###########.....;.....###########\n" +
             "##.ddddddd#...........###########\n" +
             "##.d.....d#####.X.###############\n" +
             "##.d..4..d#####...###############\n" +
@@ -349,11 +349,11 @@ namespace WizardsVRC.EditorTools.WorldData
             "##.a.........a.....b.........b.##\n" +
             "##.a.........a.....b.........b.##\n" +
             "##.a........1a.....b........2b.##\n" +
-            "##.aaaaaaaaaaa.....bbbbbbbbbbb.##\n" +
-            "##........====.....====........##\n" +
-            "###############...###############\n" +
+            "##.aaaaaaaaaaa..}..bbbbbbbbbbb.##\n" +
+            "##........====..;..====........##\n" +
+            "###############|||###############\n" +
             "#########,,,,,,,,,,,,,,,#########\n" +
-            "#########,^,,.......,,,,#########\n" +
+            "#########,^,,...{...,,,,#########\n" +
             "#########,,,,..R....,,,,#########\n" +
             "#########,,,,.......,,,,#########\n" +
             "#########,^,,.......,,^,#########\n" +
@@ -396,6 +396,15 @@ namespace WizardsVRC.EditorTools.WorldData
                 new ZoneEncounter { ringSymbol = "3", key = "LanternHall", roster = new List<int> { 24, 21, 21 }, wanderers = 4, patrolSpeed = 0.9f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "4", key = "Chapel", roster = new List<int> { 24, 24 }, wanderers = 3, patrolSpeed = 0.9f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "5", key = "Morvane", roster = new List<int> { 25, 24, 24 }, wanderers = 1, patrolSpeed = 0.6f, respawnSeconds = 30, scaleWithParty = true },
+            };
+            // The keep itself is a dungeon: the sigil in Rhona's courtyard, the barred gate, the start inside the bailey, and
+            // two ways out (by the gate, and by the throne hall after Morvane).
+            z.landmarks = new List<ZoneLandmark>
+            {
+                new ZoneLandmark { symbol = "{", kind = LandmarkKind.DungeonSigil, label = "The Hollow Keep" },
+                new ZoneLandmark { symbol = "}", kind = LandmarkKind.DungeonStart },
+                new ZoneLandmark { symbol = ";", kind = LandmarkKind.DungeonExit },
+                new ZoneLandmark { symbol = "|", kind = LandmarkKind.DungeonGate },
             };
         }
 

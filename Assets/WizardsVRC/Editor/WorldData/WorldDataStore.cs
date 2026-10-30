@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 15;
+        public const int CurrentVersion = 16;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -178,6 +178,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 13) UpgradeTo13();
             if (from < 14) UpgradeTo14();
             if (from < 15) UpgradeTo15();
+            if (from < 16) UpgradeTo16();
         }
 
         private class ZoneDefault { public string file, key; public System.Action<ZoneDefinition> fill; }
@@ -363,9 +364,16 @@ namespace WizardsVRC.EditorTools.WorldData
             }
         }
 
+        /// <summary>v16: the Hollow Keep becomes a dungeon (sigil, barred gate, start and exits).</summary>
+        private static void UpgradeTo16()
+        {
+            RefreshStreets(new[] { "HollowKeep" }, new[] { 0x8C3317ECu }, new System.Action<ZoneDefinition>[] { WorldDefaults.FillHollowKeep },
+                "the Hollow Keep dungeon");
+        }
+
         /// <summary>
-        /// Gives each listed street the default map (and new encounters, bigger patrols) if its map is still the given old
-        /// default; leaves edited maps alone and says so.
+        /// Gives each listed street the default map (and new encounters, bigger patrols, missing landmarks) if its map is
+        /// still the given old default; leaves edited maps alone and says so.
         /// </summary>
         private static void RefreshStreets(string[] keys, uint[] oldMaps, System.Action<ZoneDefinition>[] fills, string what)
         {
@@ -392,6 +400,16 @@ namespace WizardsVRC.EditorTools.WorldData
                     foreach (var e in z.encounters) if (e != null && e.ringSymbol == fe.ringSymbol) mine = e;
                     if (mine == null) z.encounters.Add(fe);
                     else if (mine.wanderers < fe.wanderers) mine.wanderers = fe.wanderers;
+                }
+                if (fresh.landmarks != null)
+                {
+                    if (z.landmarks == null) z.landmarks = new List<ZoneLandmark>();
+                    foreach (var fl in fresh.landmarks)
+                    {
+                        bool have = false;
+                        foreach (var l in z.landmarks) have |= l != null && l.symbol == fl.symbol;
+                        if (!have) z.landmarks.Add(fl);
+                    }
                 }
                 Object.DestroyImmediate(fresh);
                 EditorUtility.SetDirty(z);

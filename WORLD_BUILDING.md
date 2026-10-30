@@ -275,6 +275,22 @@ Every zone is culled on each player's own client automatically, so you don't hav
 Tips: keep zones at least 100 m apart in height (the checks enforce it), lower Detail Distance for dense mazes, and
 lower `Lamp Density` if a zone has lots of lamps. The rebuild log says how many props were chunked per zone.
 
+### Dungeons
+
+Like Wizard101, part of a street can be a **dungeon** that one party has to itself. Add these landmarks:
+
+| Landmark | Paint | What it does |
+| --- | --- | --- |
+| Dungeon Sigil | one cell outside, in front of the way in | a rune sigil with four pads. Stand on a pad and a 10 second countdown starts; others can step on the free pads; when it ends everyone on a pad is taken inside together. Its label is the dungeon's name |
+| Dungeon Gate | right across the way in | iron bars, for good: the sigil is the only way in |
+| Dungeon Start | one cell inside | where the party arrives, and where wizards defeated inside go back to |
+| Dungeon Exit | any cells inside | a glowing doorway: click it to leave (back out by the sigil) |
+
+The inside is everything you can walk to from the start without crossing the gate. While a party is inside, the sigil
+says so and nobody else can enter; it opens again once they've all left (by an exit, by going home, or by leaving the
+instance). One party at a time per dungeon. The default Hollow Keep is one: the sigil is in Watch-Captain Rhona's
+courtyard, and there are exits by the gate and in front of the throne hall.
+
 ## Monsters
 
 Open `Monsters.asset`. Each monster has:

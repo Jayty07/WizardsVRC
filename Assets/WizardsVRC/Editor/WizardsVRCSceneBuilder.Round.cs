@@ -21,8 +21,10 @@ namespace WizardsVRC.EditorTools
         /// tunnel goes out through it (gateBearings, degrees from north).
         /// </summary>
         private static void RoundCurtainWall(Transform parent, ZoneGrid g, float baseY, Material stone, Material roof, Material gold, Material banner,
-            List<float> gateBearings)
+            List<Vector2> gates)
         {
+            var gateBearings = new List<float>();
+            foreach (var gv in gates) gateBearings.Add(gv.x);
             Transform t = Child(parent, "CurtainWall", Vector3.zero);
             float R = g.RoundWallRadius(), thick = 4f;
             // Stands on the ring of '#' cells; take the ground height there from the cell straight north of the centre.
@@ -51,8 +53,13 @@ namespace WizardsVRC.EditorTools
                     }
             }
             float segHalf = 180f / segs;
-            foreach (float gb in gateBearings)
+            foreach (var gv in gates)
             {
+                float gb = gv.x;
+                // A tunnel from a raised gate runs higher than the wall's ring: the arch (and the gatehouse round it) stands
+                // clear of the tunnel's own roof, whatever height its floor is.
+                float archBottom = Mathf.Max(ground, gv.y) + TunH + TunT;
+                float gTop = Mathf.Max(top, archBottom + 1.6f);
                 // Gatehouse: the wall either side reaches to the nearest standing wall piece; an arch over the tunnel; two towers.
                 Transform gh = Child(t, "Gatehouse", Vector3.zero);
                 gh.localRotation = Quaternion.Euler(0, gb, 0);
@@ -68,14 +75,14 @@ namespace WizardsVRC.EditorTools
                     }
                     float reach = R * Mathf.Sin((nearest - segHalf) * Mathf.Deg2Rad) + 0.4f;
                     float x0 = side < 0 ? -reach : open, x1 = side < 0 ? -open : reach;
-                    TBox(gh, "GateWall", x0, x1, baseY - 0.5f, top, R - thick / 2f, R + thick / 2f, stone);
+                    TBox(gh, "GateWall", x0, x1, baseY - 0.5f, gTop, R - thick / 2f, R + thick / 2f, stone);
                     Vector3 tp = new Vector3(side * (open + 4.4f), baseY, R - thick / 2f - 1.2f);
-                    Tower(gh, tp, 3.2f, top - baseY + 6f, 5f, roof, stone, gold);
-                    Pennant(gh, tp + new Vector3(0, top - baseY + 11.5f, 0), gold, banner);
+                    Tower(gh, tp, 3.2f, gTop - baseY + 6f, 5f, roof, stone, gold);
+                    Pennant(gh, tp + new Vector3(0, gTop - baseY + 11.5f, 0), gold, banner);
                 }
-                TBox(gh, "GateArch", -open - 0.1f, open + 0.1f, ground + TunH + TunT, top, R - thick / 2f, R + thick / 2f, stone);
+                TBox(gh, "GateArch", -open - 0.1f, open + 0.1f, archBottom, gTop, R - thick / 2f, R + thick / 2f, stone);
                 for (float x = -open + 0.4f; x < open; x += 1.2f)
-                    Deco(gh, PrimitiveType.Cube, "Merlon", new Vector3(x, top + 0.6f, R - thick / 2f + 0.35f), new Vector3(0.7f, 1.2f, 0.7f), stone, Quaternion.identity, false);
+                    Deco(gh, PrimitiveType.Cube, "Merlon", new Vector3(x, gTop + 0.6f, R - thick / 2f + 0.35f), new Vector3(0.7f, 1.2f, 0.7f), stone, Quaternion.identity, false);
             }
             for (int i = 0; i < 16; i++)
             {

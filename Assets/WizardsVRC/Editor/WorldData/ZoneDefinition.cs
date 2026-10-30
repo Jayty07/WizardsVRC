@@ -63,6 +63,18 @@ namespace WizardsVRC.EditorTools.WorldData
         /// second countdown starts; everyone inside when it ends duels, split into two teams. Nothing is won or lost.
         /// </summary>
         DuelCircle,
+        /// <summary>
+        /// A Wizard101-style dungeon entrance (streets): a rune sigil with four pads, outside the dungeon. Stand on a pad
+        /// and a countdown starts; everyone on a pad when it ends goes in together, and nobody else can until they've all
+        /// come out. Needs a Dungeon Start cell inside and Dungeon Gate cells barring the way in. Label = the dungeon's name.
+        /// </summary>
+        DungeonSigil,
+        /// <summary>Inside a dungeon: where the party arrives (and where wizards defeated inside go back to).</summary>
+        DungeonStart,
+        /// <summary>Inside a dungeon: a glowing doorway; click it to leave (back out to the sigil).</summary>
+        DungeonExit,
+        /// <summary>Paint right across a dungeon's way in: barred for good (the sigil is the only way in).</summary>
+        DungeonGate,
     }
 
     /// <summary>

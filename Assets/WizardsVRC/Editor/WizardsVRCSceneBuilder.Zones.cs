@@ -245,6 +245,9 @@ namespace WizardsVRC.EditorTools
             }
             foreach (var t in g.Find('^')) Tree(layout, g, t, trunk, leaves);
             StreetLamps(layout, g, z, wood, glow, stairCells);
+            _dungeonSystems = systems;
+            _dungeonStart = null;
+            _dungeonCells = null;
             if (z.landmarks != null && z.landmarks.Count > 0)
                 BuildLandmarks(root, g, z, null, null, wb.data, bld, roof, PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)),
                     PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f), door, window, wood, wb.behaviours);
@@ -767,6 +770,8 @@ namespace WizardsVRC.EditorTools
             // Like Wizard101, you stay where you are after a fight; defeat sends you back to the entrance.
             client.hubReturn = null;
             client.defeatReturn = spawn;
+            // In a dungeon, defeat sends you back to the dungeon's start, not out of it.
+            if (_dungeonStart != null && _dungeonCells != null && _dungeonCells.Contains(spots[0])) client.defeatReturn = _dungeonStart;
 
             // Patrol: walkers follow the route of the matching letter, spread evenly along it.
             Transform guideTarget = ringSpots[0];
