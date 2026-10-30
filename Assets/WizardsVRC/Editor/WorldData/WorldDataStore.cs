@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 12;
+        public const int CurrentVersion = 13;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -101,6 +101,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 CreateZone("Zone_StarfallCastle", WorldDefaults.FillStarfallCastle);
                 CreateZone("Zone_SunpetalGardens", WorldDefaults.FillSunpetalGardens);
                 CreateZone("Zone_LanternRow", WorldDefaults.FillLanternRow);
+                foreach (var nz in World1Zones) CreateZone(nz.file, nz.fill);
                 created = true;
             }
             if (FindAll<Questline>().Count == 0)
@@ -109,6 +110,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 CreateQuestline("Questline_SunpetalGardens", WorldDefaults.FillGardenQuests);
                 CreateQuestline("Questline_LanternRow", WorldDefaults.FillLanternRowQuests);
                 CreateQuestline("Questline_World1Finale", WorldDefaults.FillWorld1Finale);
+                foreach (var nq in World1Questlines) CreateQuestline(nq.file, nq.fill);
                 created = true;
             }
             if (FindAll<WorldArc>().Count == 0 && !hadData)
@@ -173,6 +175,165 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 10) UpgradeTo10();
             if (from < 11) UpgradeTo11();
             if (from < 12) UpgradeTo12();
+            if (from < 13) UpgradeTo13();
+        }
+
+        private class ZoneDefault { public string file, key; public System.Action<ZoneDefinition> fill; }
+        private class QuestlineDefault { public string file; public int firstId; public System.Action<Questline> fill; }
+
+        /// <summary>World 1's later streets (world data v13).</summary>
+        private static readonly ZoneDefault[] World1Zones =
+        {
+            new ZoneDefault { file = "Zone_TidewatchDocks", key = "TidewatchDocks", fill = WorldDefaults.FillTidewatchDocks },
+            new ZoneDefault { file = "Zone_KilnStreet", key = "KilnStreet", fill = WorldDefaults.FillKilnStreet },
+            new ZoneDefault { file = "Zone_ThornhollowGrove", key = "ThornhollowGrove", fill = WorldDefaults.FillThornhollowGrove },
+            new ZoneDefault { file = "Zone_HollowKeep", key = "HollowKeep", fill = WorldDefaults.FillHollowKeep },
+        };
+
+        /// <summary>World 1's later storylines (world data v13), in story order.</summary>
+        private static readonly QuestlineDefault[] World1Questlines =
+        {
+            new QuestlineDefault { file = "Questline_SmugglersTide", firstId = 17, fill = WorldDefaults.FillSmugglersTide },
+            new QuestlineDefault { file = "Questline_ColdIron", firstId = 22, fill = WorldDefaults.FillColdIron },
+            new QuestlineDefault { file = "Questline_StarsAndCiphers", firstId = 27, fill = WorldDefaults.FillStarsAndCiphers },
+            new QuestlineDefault { file = "Questline_StraightLines", firstId = 29, fill = WorldDefaults.FillStraightLines },
+            new QuestlineDefault { file = "Questline_QuietMerchant", firstId = 33, fill = WorldDefaults.FillQuietMerchant },
+            new QuestlineDefault { file = "Questline_LostName", firstId = 35, fill = WorldDefaults.FillLostName },
+            new QuestlineDefault { file = "Questline_HollowKing", firstId = 36, fill = WorldDefaults.FillHollowKing },
+        };
+
+        /// <summary>
+        /// v13: the rest of World 1 (see the World 1 blueprint). Adds monsters 13-25, the four new streets and seven
+        /// storylines (where their keys and save ids are free), puts them on World 1, opens the four new gatehouses on the
+        /// round hub (if its map is still the v12 default) with Stargazer Wick, Merchant Selwyn, the herald and the new
+        /// quest points, seeds the Dominion into the built quests' dialogue and extends the finale (where unedited).
+        /// </summary>
+        private static void UpgradeTo13()
+        {
+            var report = new List<string>();
+            // Monsters
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            if (cat != null)
+            {
+                int added = 0;
+                foreach (var m in WorldDefaults.World1Monsters())
+                    if (cat.Find(m.id) == null) { cat.monsters.Add(m); added++; }
+                if (added > 0) { EditorUtility.SetDirty(cat); report.Add(added + " monsters"); }
+            }
+            // Zones
+            var zones = FindAll<ZoneDefinition>();
+            foreach (var nz in World1Zones)
+            {
+                bool have = false;
+                foreach (var z in zones) have |= z != null && z.zoneKey == nz.key;
+                if (have) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                nz.fill(fresh);
+                fresh.height = Mathf.Max(fresh.height, NextFreeHeight());
+                AssetDatabase.CreateAsset(fresh, AssetDatabase.GenerateUniqueAssetPath(Folder + "/" + nz.file + ".asset"));
+                report.Add(fresh.displayName);
+            }
+            // Storylines
+            var questlines = FindAll<Questline>();
+            var used = new HashSet<int>();
+            foreach (var ql in questlines) foreach (var q in ql.quests) if (q != null) used.Add(q.saveId);
+            var newLines = new List<Questline>();
+            foreach (var nq in World1Questlines)
+            {
+                var probe = ScriptableObject.CreateInstance<Questline>();
+                nq.fill(probe);
+                bool free = true;
+                foreach (var q in probe.quests) free &= !used.Contains(q.saveId);
+                if (!free) { Debug.Log("[WizardsVRC] Save ids " + nq.firstId + "+ are already used, so the " + probe.storylineName + " storyline wasn't added."); continue; }
+                string path = AssetDatabase.GenerateUniqueAssetPath(Folder + "/" + nq.file + ".asset");
+                AssetDatabase.CreateAsset(probe, path);
+                newLines.Add(probe);
+                report.Add(probe.storylineName);
+            }
+            // World 1 gets the new storylines and streets
+            foreach (var w in FindAll<WorldArc>())
+            {
+                if (w == null || w.order != 1) continue;
+                foreach (var ql in newLines) if (!w.storylines.Contains(ql)) w.storylines.Add(ql);
+                foreach (var nz in World1Zones) if (!w.zones.Contains(nz.key)) w.zones.Add(nz.key);
+                EditorUtility.SetDirty(w);
+            }
+            // The hub: gatehouses, NPCs, points
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || !z.isHub) continue;
+                if (Normalize(z.map) == Normalize(WorldDefaults.HubMapV12))
+                {
+                    z.map = WorldDefaults.HubMapV13;
+                    WorldDefaults.SyncHubLandmarks(z);
+                    EditorUtility.SetDirty(z);
+                    report.Add("four new gatehouses on " + z.displayName);
+                }
+                else Debug.Log("[WizardsVRC] Your hub (" + z.displayName + ") has been edited, so the World 1 gatehouses weren't added. Paint Street Gate " +
+                              "landmarks for TidewatchDocks, KilnStreet, ThornhollowGrove and HollowKeep (see Zone_StarfallCastle's defaults: " +
+                              "WorldDefaults.HubMapV13), and NPCs Wick, Selwyn and Herald, for the new storylines.");
+                foreach (var n in z.npcs)
+                    if (n != null && n.key == "Mabel" && n.defaultDialogue != null && n.defaultDialogue.Length == 2)
+                    {
+                        var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                        WorldDefaults.FillStarfallCastle(fresh);
+                        foreach (var fn in fresh.npcs) if (fn.key == "Mabel" && fn.defaultDialogue[0] == n.defaultDialogue[0]) n.defaultDialogue = fn.defaultDialogue;
+                        EditorUtility.SetDirty(z);
+                    }
+            }
+            // Built quests: the Dominion seeded into their dialogue, and the finale, where unedited.
+            var fresh8 = DefaultQuests();
+            int seeded = 0;
+            foreach (var ql in questlines)
+            {
+                bool dirty = false;
+                for (int i = 0; i < ql.quests.Count; i++)
+                {
+                    var q = ql.quests[i];
+                    if (q == null) continue;
+                    QuestEntry d;
+                    if (!fresh8.TryGetValue(q.saveId, out d)) continue;
+                    if (q.saveId == 16)
+                    {
+                        // The old finale had two Talk steps (Bramwell, the Headmaster).
+                        if (q.steps.Count == 2 && q.steps[0].npc == "Bramwell" && q.steps[1].npc == "Headmaster") { ql.quests[i] = d; dirty = true; seeded++; }
+                        continue;
+                    }
+                    for (int k = 0; k < q.steps.Count && k < d.steps.Count; k++)
+                    {
+                        var st = q.steps[k];
+                        var ds = d.steps[k];
+                        if (st == null || ds == null || st.dialogue == null || ds.dialogue == null) continue;
+                        // Only steps whose dialogue is the old default: the new default minus its one added line.
+                        if (ds.dialogue.Length != st.dialogue.Length + 1) continue;
+                        int skip = -1, j = 0;
+                        bool same = true;
+                        for (int m = 0; m < ds.dialogue.Length && same; m++)
+                        {
+                            if (j < st.dialogue.Length && st.dialogue[j] == ds.dialogue[m]) { j++; continue; }
+                            if (skip < 0) { skip = m; continue; }
+                            same = false;
+                        }
+                        if (same && j == st.dialogue.Length) { st.dialogue = (string[])ds.dialogue.Clone(); dirty = true; seeded++; }
+                    }
+                }
+                if (dirty) EditorUtility.SetDirty(ql);
+            }
+            if (seeded > 0) report.Add("the Dominion seeded into " + seeded + " built quest steps");
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (World 1): " + string.Join(", ", report) + ".");
+        }
+
+        /// <summary>The built quests as the defaults now have them (2-16), by save id.</summary>
+        private static Dictionary<int, QuestEntry> DefaultQuests()
+        {
+            var map = new Dictionary<int, QuestEntry>();
+            foreach (System.Action<Questline> fill in new System.Action<Questline>[] { WorldDefaults.FillTutorialQuests, WorldDefaults.FillGardenQuests, WorldDefaults.FillLanternRowQuests, WorldDefaults.FillWorld1Finale })
+            {
+                var ql = ScriptableObject.CreateInstance<Questline>();
+                fill(ql);
+                foreach (var q in ql.quests) if (q != null) map[q.saveId] = q;
+            }
+            return map;
         }
 
         /// <summary>
@@ -402,7 +563,9 @@ namespace WizardsVRC.EditorTools.WorldData
         private static void CreateWorld1()
         {
             var storylines = new List<Questline>();
-            foreach (string file in new[] { "Questline_Tutorial", "Questline_SunpetalGardens", "Questline_LanternRow" })
+            var files = new List<string> { "Questline_Tutorial", "Questline_SunpetalGardens", "Questline_LanternRow" };
+            foreach (var nq in World1Questlines) files.Add(nq.file);
+            foreach (string file in files)
             {
                 var ql = AssetDatabase.LoadAssetAtPath<Questline>(Folder + "/" + file + ".asset");
                 if (ql != null) storylines.Add(ql);

@@ -518,6 +518,16 @@ namespace WizardsVRC.EditorTools
             qn.markerTalk = MarkerTag(t, "QuestMarkerTalk", new Vector3(0, 4.5f, 0), "?");
             if (qn.markerNew != null) qn.markerNew.SetActive(false);
             if (qn.markerTalk != null) qn.markerTalk.SetActive(false);
+            qn.showFromQuest = npc.showFromQuest;
+            qn.hideAfterQuest = npc.hideAfterQuest;
+            if (npc.showFromQuest >= 0 || npc.hideAfterQuest >= 0)
+            {
+                var parts = new List<GameObject>();
+                foreach (Transform child in t)
+                    if (child.gameObject != qn.markerNew && child.gameObject != qn.markerTalk) parts.Add(child.gameObject);
+                qn.parts = parts.ToArray();
+                qn.clickCollider = t.GetComponent<Collider>();
+            }
             UdonBehaviour backing = UdonSharpEditorUtility.GetBackingUdonBehaviour(qn);
             if (backing != null)
             {

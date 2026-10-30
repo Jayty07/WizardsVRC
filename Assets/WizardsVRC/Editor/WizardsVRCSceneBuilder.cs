@@ -245,6 +245,7 @@ namespace WizardsVRC.EditorTools
             BuildZones(systems.transform, hubRoot, questManager, cardDb, itemDb, playerState, encounters, wb, hubPlan);
             ApplyQuestlines(questManager, wb, itemDb);
             var streets = wb.behaviours;
+            streets.AddRange(BuildPortalRoom(interior, questManager, playerState));
             var questGuide = BuildQuestGuide(systems.transform, playerState, questManager, (CutscenePlayer)cutscenes[0], encounters.ToArray(),
                 interior.exitDoor, hubRoot.Find("KeepEntrance"));
             ApplyGuideAreas(questGuide, wb, interior.exitDoor, hubRoot.Find("KeepEntrance"), interior.outdoorSchools);

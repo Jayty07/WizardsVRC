@@ -22,6 +22,10 @@ namespace WizardsVRC
         public Text label;
         public string openText = "";
         public string lockedText = "Locked";
+        [Tooltip("Shown while open (e.g. a portal arch's glowing veil).")]
+        public GameObject openVisual;
+        [Tooltip("Shown while locked (e.g. a dark arch).")]
+        public GameObject closedVisual;
 
         private float _next;
         private float _flashUntil;
@@ -50,9 +54,13 @@ namespace WizardsVRC
 
         private void Update()
         {
-            if (label == null || Time.time < _next || Time.time < _flashUntil) return;
+            if (Time.time < _next) return;
             _next = Time.time + 1f;
-            string t = IsOpen() ? openText : lockedText;
+            bool open = IsOpen();
+            if (openVisual != null && openVisual.activeSelf != open) openVisual.SetActive(open);
+            if (closedVisual != null && closedVisual.activeSelf == open) closedVisual.SetActive(!open);
+            if (label == null || Time.time < _flashUntil) return;
+            string t = open ? openText : lockedText;
             if (label.text != t) label.text = t;
         }
     }

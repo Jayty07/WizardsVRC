@@ -56,7 +56,7 @@ namespace WizardsVRC.EditorTools
         private static readonly string[] ReportLines =
         {
             "You found your professor. Good! The castle already feels a little brighter with you in it.",
-            "Study hard. Morvane's shadow grows, and the Starfall Crystal needs a champion.",
+            "Study hard. Morvane's shadow grows, and I fear something stands behind him. The Starfall Crystal needs a champion.",
             "Take this for your journey. Explore the castle, and when you are ready, the Training Yard will test your spells.",
         };
         private static readonly string[] HintLines = { "Your professor awaits in the Hall of Schools, just beyond my door. Go on!" };
@@ -533,6 +533,7 @@ namespace WizardsVRC.EditorTools
             Transform[] officeShots = OfficeShots(info);
             qm.headmasterReport = MakeCutscene(sets, "HeadmasterReport", "Headmaster Greymantle", outdoor ? ReportLinesOutdoor : ReportLines, "hm_report", officeShots);
             if (outdoor) Unvoice(qm.headmasterReport, 2);
+            Unvoice(qm.headmasterReport, 1); // reworded for the Dominion (the recording has the old line)
             qm.headmasterReport.onFinished = qm;
             qm.headmasterReport.onFinishedEvent = nameof(QuestManager.OnHeadmasterFinished);
             qm.headmasterHint = MakeCutscene(sets, "HeadmasterHint", "Headmaster Greymantle", outdoor ? HintLinesOutdoor : HintLines, "hm_hint", new[] { officeShots[1] });

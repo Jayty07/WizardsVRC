@@ -9,7 +9,7 @@ namespace WizardsVRC.EditorTools.WorldData
     /// Only used to create the assets in Assets/WizardsVRC/WorldData (and to upgrade older folders once, see
     /// WorldDataStore); after that, the assets are what you edit.
     /// </summary>
-    public static class WorldDefaults
+    public static partial class WorldDefaults
     {
         public const string StarterMap =
             "###########\n" +
@@ -49,6 +49,52 @@ namespace WizardsVRC.EditorTools.WorldData
                   "Starfall Castle practice ring. Never attacks (no spells), so new wizards can learn the duel ring safely."),
             };
             foreach (var m in cat.monsters) ApplyDefaultRank(m);
+            cat.monsters.AddRange(World1Monsters());
+        }
+
+        /// <summary>
+        /// World 1's later streets (ids 13-25, see the World 1 blueprint): Tidewatch Docks, Kiln Street, Thornhollow Grove
+        /// and the Hollow Keep. The Dominion's own soldiers only appear in the last two streets.
+        /// </summary>
+        public static List<MonsterEntry> World1Monsters()
+        {
+            return new List<MonsterEntry>
+            {
+                R(M(13, "Dock Crab", School.Ice, 7, 450, false, 0, new[] { 112, 113 }, 55, 10, 20, 10, 15, 0.8f, new Color(0.55f, 0.35f, 0.3f),
+                    "Tidewatch Docks piers. Tough shell, weak hits."), 1, "Beast", false),
+                R(M(14, "Smuggler Thug", School.Storm, 8, 500, false, 0, new[] { 124, 126 }, 60, 12, 24, 11, 15, 1f, new Color(0.35f, 0.32f, 0.3f),
+                    "Tidewatch Docks warehouses. Drops shipping manifests (quest 19)."), 2, "Rogue", false),
+                R(M(15, "Captain Marrow Grell", School.Death, 8, 1500, true, 600, new[] { 148, 149, 150, 200 }, 330, 60, 110, 0, 0, 1.3f, new Color(0.22f, 0.2f, 0.26f),
+                    "Tidewatch Docks boss in the smugglers' warehouse. Carries the coded ledger (quest 20)."), 3, "Rogue", false),
+                R(M(16, "Cinder Imp", School.Fire, 8, 420, false, 0, new[] { 100, 101 }, 60, 10, 22, 10, 15, 0.6f, new Color(0.9f, 0.4f, 0.15f),
+                    "Kiln Street. Escaped from the kilns: fast, fragile, burns."), 1, "Spirit", false),
+                R(M(17, "Hollowed Sentry", School.Death, 9, 600, false, 0, new[] { 148, 149 }, 70, 12, 26, 11, 15, 1.1f, new Color(0.4f, 0.42f, 0.46f),
+                    "Kiln Street, Cole's back forge. Empty Dominion armor moved by a spark of stolen light. Drops glowing cores (quest 24)."), 2, "Hollowed", false),
+                R(M(18, "Captain Vesper", School.Fire, 10, 2000, true, 700, new[] { 100, 101, 102, 104, 200 }, 380, 80, 140, 0, 0, 1.2f, new Color(0.55f, 0.12f, 0.1f),
+                    "Kiln Street boss in the sealed furnace hall. Lantern Corps engineer; breaks off and escapes (quest 25)."), 3, "Dominion", false),
+                R(M(19, "Thornback Boar", School.Life, 10, 620, false, 0, new[] { 136, 138 }, 70, 12, 26, 10, 15, 1f, new Color(0.4f, 0.32f, 0.2f),
+                    "Thornhollow Grove. Maddened by the survey stakes; charges in pairs."), 1, "Beast", false),
+                R(M(20, "Dominion Surveyor", School.Balance, 10, 640, false, 0, new[] { 172, 173, 175 }, 75, 14, 28, 11, 15, 1f, new Color(0.45f, 0.42f, 0.36f),
+                    "Thornhollow Grove. The first Dominion soldiers a wizard meets. Drop survey maps (quest 31)."), 2, "Dominion", false),
+                R(M(21, "Dominion Legionnaire", School.Ice, 11, 760, false, 0, new[] { 112, 114, 200 }, 80, 16, 30, 10, 15, 1.1f, new Color(0.38f, 0.4f, 0.44f),
+                    "Thornhollow Grove and the Hollow Keep. Shield and blade, fights beside a sergeant."), 2, "Dominion", true),
+                R(M(22, "Sergeant Halvek Roan", School.Ice, 11, 2200, true, 800, new[] { 112, 113, 114, 116, 200 }, 420, 90, 150, 0, 0, 1.3f, new Color(0.3f, 0.33f, 0.4f),
+                    "Thornhollow Grove boss in the clearing camp, with two legionnaires."), 3, "Dominion", false),
+                R(M(23, "Merchant Selwyn", School.Myth, 11, 1900, true, 700, new[] { 160, 161, 163, 165 }, 350, 80, 140, 0, 0, 1f, new Color(0.3f, 0.28f, 0.34f),
+                    "The Silent Office spy from the Bazaar, caught in the Tidewatch warehouse (quest 34)."), 3, "Dominion", false),
+                R(M(24, "Hollowed Knight", School.Death, 12, 850, false, 0, new[] { 148, 149, 150 }, 85, 16, 32, 11, 15, 1.2f, new Color(0.3f, 0.3f, 0.36f),
+                    "The Hollow Keep. Morvane's guard: heavier Hollowed."), 3, "Hollowed", true),
+                R(M(25, "Morvane the Hollow King", School.Death, 13, 3000, true, 1000, new[] { 149, 150, 152, 153, 154 }, 520, 150, 250, 0, 0, 1.6f, new Color(0.15f, 0.12f, 0.2f),
+                    "World 1's last boss, in the Hollow Keep's throne hall, with two Hollowed Knights (quest 38)."), 4, "Undead King", false),
+            };
+        }
+
+        private static MonsterEntry R(MonsterEntry m, int rank, string type, bool elite)
+        {
+            m.rank = rank;
+            m.creatureType = type;
+            m.isElite = elite;
+            return m;
         }
 
         // Rank and creature type of the default monsters, by id (index 0 unused).
@@ -282,6 +328,7 @@ namespace WizardsVRC.EditorTools.WorldData
                         Fight(QuestStepKind.Boss, 7, 1, "Defeat Ashwick the Snuffer", "Ashwick the Snuffer"),
                         Talk("Tilda", "Tell Watchwoman Tilda the lantern is destroyed", "Watchwoman Tilda",
                             "You beat Ashwick? And the Hollow Lantern... shattered? The whole street is brighter already.",
+                            "Look at the shards, though. There's a maker's mark scratched inside: a little 'V' and a lantern. Somebody built this thing.",
                             "Take this, with my thanks. And tell the Headmaster: there are more of those lanterns out there."),
                     },
                 },
@@ -344,7 +391,7 @@ namespace WizardsVRC.EditorTools.WorldData
             z.roundCastle = true;
             z.height = 0f;
             z.cellSize = 4f;
-            z.map = HubMapV12;
+            z.map = HubMapV13;
             // Ground level is 1 (1.5 m); the central plaza and the pond are sunk to 0, the duelling circle and the gazebo
             // garden raised to 2, the Headmaster's terrace to 3 (with a landing at 2) and the observatory hill to 4.
             z.heightStep = 1.5f;
@@ -396,7 +443,26 @@ namespace WizardsVRC.EditorTools.WorldData
                     {
                         "Welcome to the Crystal Tap! Grab a mug, pull up a stool, and stay as long as you like.",
                         "Ring the bell on the bar when the mugs go walkabout. They always come home.",
+                        "Sailors in last night swore they saw ships past the reef. Grey ships, no lights. More ale, I said.",
                     },
+                },
+                new ZoneNpc
+                {
+                    symbol = "u", key = "Wick", displayName = "Stargazer Tobias Wick", robeColor = new Color(0.12f, 0.15f, 0.35f), hatColor = new Color(0.7f, 0.65f, 0.3f),
+                    facing = -1f,
+                    defaultDialogue = new[] { "The stars are moving wrong this season. Not wrong. Just... not the way they did." },
+                },
+                new ZoneNpc
+                {
+                    symbol = "x", key = "Selwyn", displayName = "Merchant Selwyn", robeColor = new Color(0.32f, 0.3f, 0.36f), hatColor = new Color(0.2f, 0.18f, 0.22f),
+                    facing = -1f, hideAfterQuest = 34,
+                    defaultDialogue = new[] { "Maps, charts, curios from far shores! Every road on the isle, drawn true. Ask me anything about the castle." },
+                },
+                new ZoneNpc
+                {
+                    symbol = "<", key = "Herald", displayName = "Dominion Herald", robeColor = new Color(0.38f, 0.4f, 0.44f), hatColor = new Color(0.55f, 0.08f, 0.1f),
+                    facing = 0f, showFromQuest = 16, hideAfterQuest = 16,
+                    defaultDialogue = new[] { "I carry the Grand General's word, under a white flag. I am not here to fight you. Not today." },
                 },
             };
 
@@ -407,6 +473,11 @@ namespace WizardsVRC.EditorTools.WorldData
                 new ZonePoint { symbol = "z", key = "TrainingGrounds", kind = ZonePointKind.Explore, look = ZonePointLook.None, label = "", triggerSizeCells = 3f },
                 new ZonePoint { symbol = "k", key = "SupplyCrate", kind = ZonePointKind.Interact, look = ZonePointLook.Crate, label = "Supply crate" },
                 new ZonePoint { symbol = "t", key = "SpellTome", kind = ZonePointKind.Interact, look = ZonePointLook.GlowingItem, label = "Spell tome" },
+                new ZonePoint { symbol = "l", key = "Lens", kind = ZonePointKind.Interact, look = ZonePointLook.StreetLamp, label = "Brass lens" },
+                new ZonePoint { symbol = "C", key = "CipherWheel", kind = ZonePointKind.Interact, look = ZonePointLook.GlowingItem, label = "Cipher wheel" },
+                new ZonePoint { symbol = "v", key = "OldRoster", kind = ZonePointKind.Interact, look = ZonePointLook.GlowingItem, label = "Old class roster" },
+                new ZonePoint { symbol = "s", key = "BazaarStall", kind = ZonePointKind.Interact, look = ZonePointLook.Crate, label = "Stall crate" },
+                new ZonePoint { symbol = "(", key = "StarfallCrystal", kind = ZonePointKind.Interact, look = ZonePointLook.GlowingItem, label = "Touch the Starfall Crystal" },
             };
 
             z.encounters = new List<ZoneEncounter>
@@ -437,6 +508,26 @@ namespace WizardsVRC.EditorTools.WorldData
                 {
                     symbol = "R", kind = LandmarkKind.StreetGate, targetZone = "LanternRow", requiredQuest = 15,
                     lockedHint = "Locked: help Gardener Moss in Sunpetal Gardens first",
+                },
+                new ZoneLandmark
+                {
+                    symbol = "$", kind = LandmarkKind.StreetGate, targetZone = "TidewatchDocks", requiredQuest = 5,
+                    lockedHint = "Locked: help Watchwoman Tilda on Lantern Row first",
+                },
+                new ZoneLandmark
+                {
+                    symbol = "!", kind = LandmarkKind.StreetGate, targetZone = "KilnStreet", requiredQuest = 20,
+                    lockedHint = "Locked: deal with the smugglers at Tidewatch Docks first",
+                },
+                new ZoneLandmark
+                {
+                    symbol = "%", kind = LandmarkKind.StreetGate, targetZone = "ThornhollowGrove", requiredQuest = 25,
+                    lockedHint = "Locked: find out what is happening on Kiln Street first",
+                },
+                new ZoneLandmark
+                {
+                    symbol = "?", kind = LandmarkKind.StreetGate, targetZone = "HollowKeep", requiredQuest = 32,
+                    lockedHint = "Locked: clear the Dominion camp in Thornhollow Grove first",
                 },
                 new ZoneLandmark { symbol = "Z", kind = LandmarkKind.ArenaPad, requiredQuest = 15, lockedHint = "help Gardener Moss first" },
                 new ZoneLandmark { symbol = "P", kind = LandmarkKind.BackpackPedestal },
@@ -562,6 +653,83 @@ namespace WizardsVRC.EditorTools.WorldData
             "###################,,,,,,,,,................,,,,^,,,,###################\n" +
             "#####################,,,^,,,................,,,,,,,#####################\n" +
             "#######################,,,,,,,............,,,,,,,#######################\n" +
+            "##########################,,,,,..........,,,,,##########################\n" +
+            "##############################,.....G....,##############################\n" +
+            "########################################################################\n" +
+            "########################################################################\n" +
+            "########################################################################\n";
+
+        /// <summary>The round hub with the World 1 gates (world data v13): Tidewatch Docks east ($), Kiln Street south-east (!),
+        /// Thornhollow Grove south-west (%), the Hollow Keep north-west (?); Stargazer Wick (u), Merchant Selwyn (x), the Dominion
+        /// herald for the finale (&lt;) and quest points: Observatory lenses (l) and cipher wheel (C), the old roster (v), Bazaar stalls (s), the Starfall Crystal by the fountain (().</summary>
+        public const string HubMapV13 =
+            "########################################################################\n" +
+            "########################################################################\n" +
+            "########################################################################\n" +
+            "##############################,,,,,,,,,,,,##############################\n" +
+            "##########################,,,,KKKKKKKKKKKK,,,,##########################\n" +
+            "#######################,,,,,,,KKKKKKKKKKKK,,,,,,,#######################\n" +
+            "#####################,,,,,,^,,KKKKKKKKKKKK,,,^,,,,,#####################\n" +
+            "###################,,,,,,,,,,,KKKKKKKKKKKK,,,,,,^,,,,###################\n" +
+            "##################,?.........,KKKKKKKKKKKK,,,,,,,,,^,,##################\n" +
+            "################,,,,,,,,...................,,^,,,,,,,,,,################\n" +
+            "###############,,,,,,,....,,,,,,,,....,,,,,,,,,,^,X~~~,,,###############\n" +
+            "##############,,,,,,....,,,,,,,..........,,,,,,,,,X~~~~,,,##############\n" +
+            "#############,,,,,,...,,,,,..................,,,,,~~~~~~,,,#############\n" +
+            "############,,,l,...,,,,,......,,,....,,,......,,,~~~~~~~,,,############\n" +
+            "###########,,C,,...,,,,.....,,,,,,....,,,,,,.....,,~~~~~~~,,,###########\n" +
+            "##########,,,TTTu.,,,,....,,,,,,,,....,,,,,,,,....,,~~~~~~~,,,##########\n" +
+            "#########,,,lTTT,,,,....,,,,,,,O,,....,,W,,,,,,,....,~~~~~,,,,,#########\n" +
+            "#########,,,,TTT,,,...,,,^,,,OOO,,....,,WWW,,,,,,,...,~~~rr,,,,#########\n" +
+            "########,,,,,,l,,,...,,,,,,OOOOOO,....,WWWWWW,,,,,,...,,rrrr,,,,########\n" +
+            "#######,,,,,^,,,,..*,,,,,OOOOOOOO,....,WWWWWWWW,^,,,*..,rrrrr,,,,#######\n" +
+            "#######,,,,,,,,,...,,^,,,OOOOOOOO,....,WWWWWWWW,,,,,,....rrrr,,,,#######\n" +
+            "######,,,,,,,,,,..,,,,,,,,OOOOOOOO....WWWWWWWW,,,^,,,,...,rr,,,^,,######\n" +
+            "######,,,nn..,,..,,,,,^,,,OOOOOOOO....WWWWWWWW,,,,,,,,,..,,,,,,,,,######\n" +
+            "#####,,,,nnn.....,,,,,,,,,OOOOOO,,....,,WWWWWW,,,,^,,,,...,,,,,,,,,#####\n" +
+            "#####,,,nnnnUs..,,,,,,,^,,,OOO.J,......,..WWW,,,,,,,,,,,..,,qqqq,,,#####\n" +
+            "#####,,,nnn.....,,,DD,,,,,,O,t............,,W,,,,,,II,,,...,,qqq,,,#####\n" +
+            "####,,,,,nn....,,,,DDDDD,,,,,v..,,....,,...,,,,,IIIII,,,,....qqq,,,,####\n" +
+            "####,,,jj..Us..,,,DDDDDDDD,,..,,,,....,,,,..,,IIIIIIII,,,...,qqqq,,,####\n" +
+            "####,,jjjj....,,,,DDDDDDD,,.+,,,........,,,+.,,IIIIIII,,,,..,,,,,,^,####\n" +
+            "####,,jjjj....,,,DDDDDDDD,..,,,..........,,,..,IIIIIIII,,,..,,,,,,,,####\n" +
+            "###,,,jjjj....,,,DDDDDDD...,,,....LLLL....,,,...IIIIIII,,H...........###\n" +
+            "###.,,,jj.Us.,,,DDDDDDDD...,,...LLLLLLLL...,,...IIIIIIII,............###\n" +
+            "###...,,.....,,,,,DDDDD,,.,,...LLLLLLLLLL...,,.,,IIIII,,,..aaaaaaaaa.###\n" +
+            "###...,,..k..,,,,,,,,DD,..,,...LLLLLLLLLL...,,..,II,,,,,,..a.......a.###\n" +
+            "###...........................LLLLLLLLLLLL.................a.......a.###\n" +
+            "###...........................LLLLLQQLL@LL.................a.......a.###\n" +
+            "###R.....yE.......w...........LLLLLQQLLLLL...............z.a...1...a$###\n" +
+            "###...........................LLLLLL(LLLLL.................a.......a.###\n" +
+            "###..mmm..Ux.,,,,,,,,FF,..,,...LLLLLLLLLL...,,..,VV,,,,,,..a.......a.###\n" +
+            "###..mmmm....,^,,,FFFFF,,.,,...LLLLLLLLLL...,,.,,VVVVV,,,..a.......a.###\n" +
+            "###.,mmmm....,,,FFFFFFFF...,,...LLLLLLLL...,,...VVVVVVVV,..aaaaaaaaa.###\n" +
+            "###,,mmmm.....,,,FFFFFFF...,,,....LLLL..A.,,,...VVVVVVV,,............###\n" +
+            "####,,mmm.U...,,,FFFFFFFF,..,,,..N..S.P..,,,..,VVVVVVVV,,Z..........####\n" +
+            "####,,,,,.....,,,,FFFFFFF,,.+,,,........,,,+.,,VVVVVVV,,,,..,,,,,,,,####\n" +
+            "####,,^,,ooo...,,,FFFFFFFF,,..,,,,....,,,,..,,VVVVVVVV,^,...,,,,,,,,####\n" +
+            "####,,,,oooo...,,,,FFFFF,,,,,...,,....,,...,,,,,VVVVV,,,,..,,,,^,,,,####\n" +
+            "#####,,,,ooo....,,,FF,,,,,,M,,............,,B,,,,,,VV,,,...,,,,,,,,#####\n" +
+            "#####,^,,oooo,..,,,,,,,,,,,MMM..,......,..BBB,,,,,,,,,,,.*,,^,,,,,,#####\n" +
+            "#####,,,,ooo,,...,,,,,,,^,MMMMMM,,....,,BBBBBB,,,,,,,,,...,,,,,^,,,#####\n" +
+            "######,,,,,,,,,..,,^,,,,,,MMMMMMMM....BBBBBBBB,,,,,,^,,..,,,,,,,,,######\n" +
+            "######,,,,,,,,,,..,,,,,,,,MMMMMMMM....BBBBBBBB,,,,,,,,..,,,,^,,,,,######\n" +
+            "#######,,^,,,,,,...,,,,,,MMMMMMMM,....,BBBBBBBB,,,,,,...,,,,,,,^,#######\n" +
+            "#######,,,,,^,,,,..*,,,,,MMMMMMMM,....,BBBBBBBB,^,,,*..,,^,,,,,,,#######\n" +
+            "########,,,,,,,,,....,,,,,,MMMMMM,....,BBBBBB,,,,,,...,,,,,,^,,,########\n" +
+            "#########,,,,,,,......,,,,,,,MMM,,....,,BBB,,,,,,,.......,,,,,,#########\n" +
+            "#########,,,^,,...,,....,,,,,,,M,,....,,B,,,^,,,....&&&&..,,,,,#########\n" +
+            "##########,,,,,..,,,,,....,,,,,,,,....,,,,,,,,.....&&&&&&.,,,,##########\n" +
+            "###########,,,Y.,,^,,,,.....,,,,,,....,,,,,,.....,.&&&&&&.,,,###########\n" +
+            "############,%..,,,,,^,,,......,,,....,,,...+..,,,.&&&&&&..!############\n" +
+            "#############,,^,,,,,,,ppp...................,,,,,.&&&&&&.,#############\n" +
+            "##############,,,,^,,,,ppppp,..............,,,,,,,..&&&&..##############\n" +
+            "###############,,,,,,^,ppppp,..............,,,,,^,,......###############\n" +
+            "################,,,,,,,ppppp................,,,,,,,,,,,,################\n" +
+            "##################,,,,,,,ppp................,^,,,,,,,,##################\n" +
+            "###################,,,,,,,,,................,,,,^,,,,###################\n" +
+            "#####################,,,^,,,................,,,,,,,#####################\n" +
+            "#######################,,,,,,,........<...,,,,,,,#######################\n" +
             "##########################,,,,,..........,,,,,##########################\n" +
             "##############################,.....G....,##############################\n" +
             "########################################################################\n" +
@@ -1154,6 +1322,7 @@ namespace WizardsVRC.EditorTools.WorldData
                     {
                         Talk("Bramwell", "Meet Gatekeeper Bramwell outside the Crystal Tap", "Gatekeeper Bramwell",
                             "So you're the Headmaster's new star! Welcome, welcome.",
+                            "I stood on these walls in the last war, out at the Everweave's edge. Quiet times since. Mostly.",
                             "Before anyone lets you near a monster, you ought to know your way round the castle.",
                             "Have a look at the School Green down the west avenue, the Bazaar past it, and the Training Grounds to the east. Then come back and tell me what you saw."),
                         Point(QuestStepKind.Explore, "SchoolGreen", 1, "Visit the School Green, down the west avenue", "School Green"),
@@ -1211,6 +1380,7 @@ namespace WizardsVRC.EditorTools.WorldData
                         Fight(QuestStepKind.Defeat, 12, 2, "Defeat the training dummies on the practice ring", "Training dummies"),
                         Talk("Holloway", "Return to Duel Master Holloway", "Duel Master Holloway",
                             "Not bad at all! Real monsters hit back, mind. If a fight goes badly you can Flee, or drink a potion as your turn.",
+                            "The Headmaster's asked me to drill the castle watch as well. Says he wants us ready. For what, he won't say.",
                             "Take this athame; it'll steady your aim. I'll tell the Gatekeeper you're ready for the gardens."),
                     },
                 },
@@ -1276,6 +1446,7 @@ namespace WizardsVRC.EditorTools.WorldData
                         Fight(QuestStepKind.Boss, 11, 1, "Defeat Old Briarwick in the briar patch", "Old Briarwick"),
                         Talk("Moss", "Tell Gardener Moss the garden is safe", "Gardener Moss",
                             "Old Briarwick? He's slept in that patch since before the castle was built. Something woke him.",
+                            "And look what I dug out of the briars: an iron stake, driven deep, stamped with a gauntlet closing on a star. That's no gardener's mark.",
                             "You've done the castle proud. I'll send word to the Headmaster, and Bramwell will open the Lantern Row tunnel for you.",
                             "Mind yourself out there. Whatever woke Briarwick isn't finished yet."),
                     },
@@ -1297,12 +1468,12 @@ namespace WizardsVRC.EditorTools.WorldData
             w.includeInBuild = true;
             w.order = 1;
             w.displayName = "Starfall Isle";
-            w.levelRange = "Lv 1-13";
+            w.levelRange = "Lv 1-13 (ends around Lv 10-15)";
             w.goal = World1Goal;
             w.goalQuest = QuestManager.QUEST_PROPHECY;
             w.finaleQuest = 16;
             w.storylines = new List<Questline>(storylines);
-            w.zones = new List<string> { "StarfallCastle", "SunpetalGardens", "LanternRow" };
+            w.zones = new List<string> { "StarfallCastle", "SunpetalGardens", "LanternRow", "TidewatchDocks", "KilnStreet", "ThornhollowGrove", "HollowKeep" };
         }
 
         /// <summary>The World 1 finale (save id 16). The builder adds every storyline's end to its requirements.</summary>
@@ -1310,22 +1481,33 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             ql.includeInBuild = true;
             ql.storylineName = "Finale: Rekindle the Crystal";
-            ql.quests = new List<QuestEntry>
+            ql.quests = new List<QuestEntry> { World1FinaleQuest() };
+        }
+
+        /// <summary>
+        /// Quest 16: the crystal is rekindled, a Dominion herald brings the Grand General's proclamation under a white flag,
+        /// and the first arch in the portal room wakes (World 2's).
+        /// </summary>
+        public static QuestEntry World1FinaleQuest()
+        {
+            return new QuestEntry
             {
-                new QuestEntry
+                saveId = 16, title = "Rekindle the Starfall Crystal", prerequisite = QuestManager.QUEST_PROPHECY, minLevel = 1, xp = 600, gold = 250,
+                description = "Every corner of Starfall Isle has been set right, and the Starfall Crystal is ready to burn again. Gatekeeper Bramwell and the Headmaster want to see you.",
+                steps = new List<QuestStepEntry>
                 {
-                    saveId = 16, title = "Rekindle the Starfall Crystal", prerequisite = QuestManager.QUEST_PROPHECY, minLevel = 1, xp = 500, gold = 200,
-                    description = "Every corner of Starfall Isle has been set right, and the Starfall Crystal is answering. Gatekeeper Bramwell and the Headmaster want to see you.",
-                    steps = new List<QuestStepEntry>
-                    {
-                        Talk("Bramwell", "Talk to Gatekeeper Bramwell outside the Crystal Tap", "Gatekeeper Bramwell",
-                            "Can you feel it? The crystal hasn't burned this bright in months.",
-                            "The gardens, the streets, the castle itself... you've had a hand in all of it. The Headmaster is waiting for you."),
-                        Talk("Headmaster", "Report to Headmaster Greymantle in his office", "Headmaster Greymantle",
-                            "The prophecy chose well. Every light that was stolen from this isle has been returned, and the Starfall Crystal burns again.",
-                            "But do not think Morvane is beaten. The Hollow King has other islands, and other servants.",
-                            "When the portal arches wake, a new world will need you. Until then, rest. You have earned it."),
-                    },
+                    Talk("Bramwell", "Talk to Gatekeeper Bramwell outside the Crystal Tap", "Gatekeeper Bramwell",
+                        "Can you feel it? The crystal hasn't burned this bright in months.",
+                        "The docks, the forges, the grove, the keep... you've had a hand in all of it. Go on. Put your hand on the crystal."),
+                    Point(QuestStepKind.Interact, "StarfallCrystal", 1, "Rekindle the Starfall Crystal in the Crystal Tap", "The Starfall Crystal"),
+                    Talk("Herald", "Meet the stranger at the south gate", "Dominion Herald",
+                        "Wizard of Starfall. I bring the word of the Grand General of the Dominion, under a white flag.",
+                        "'The Everweave will be unified. Every world will burn as one light, under one banner. Starfall Isle has been noted.'",
+                        "That is all. I am to return now. We will meet again, I think, on worse terms."),
+                    Talk("Headmaster", "Report to Headmaster Greymantle in his study", "Headmaster Greymantle",
+                        "The Dominion. So they have come back, as I feared they would.",
+                        "The crystal burns again, and in its light the first of the old arches has woken. The way to the next world is open.",
+                        "When you are ready, it waits in the portal room beneath my tower. And so, I am afraid, does a great deal more."),
                 },
             };
         }

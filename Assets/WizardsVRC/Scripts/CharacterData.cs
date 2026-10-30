@@ -55,7 +55,7 @@ namespace WizardsVRC
         public const int DECK_SIZE = 64;
         /// <summary>Quest save ids 0-511 (0 and 1 are built in). A world needs room for 10+ storylines of several quests.</summary>
         public const int QUEST_SLOTS = 512;
-        public const int MAX_LEVEL = 100;
+        public const int MAX_LEVEL = 50;
         public const int LEARNED_BYTES = 32;
         public const int LEARNED_BASE_ID = 100;
         public const int HEALTH_PER_LEVEL = 15;
@@ -318,9 +318,13 @@ namespace WizardsVRC
         // ------------------------------------------------------------------ progression / spell helpers
 
         /// <summary>XP needed to go from the current level to the next (xp counts up from 0 within each level).</summary>
+        /// <summary>
+        /// XP from this level to the next: 100 x L + 10 x L^2, so each level takes noticeably more than the last (level 2
+        /// needs 110, level 13 needs 2,640). World 1 ends around level 13 (see the World 1 blueprint).
+        /// </summary>
         public int XpToNextLevel()
         {
-            return level * 100;
+            return level * 100 + level * level * 10;
         }
 
         /// <summary>Adds XP and applies level-ups (+health, +1 training point each). Returns the number of levels gained.</summary>

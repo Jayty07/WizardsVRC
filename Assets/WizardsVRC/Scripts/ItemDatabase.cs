@@ -37,25 +37,25 @@ namespace WizardsVRC
         [HideInInspector] public string[] statNames = { "Health", "Mana", "Damage", "Resist", "Accuracy", "Critical", "Block", "Pierce", "Power Pip" };
 
         // id, category, level req, school req (-1 any), health, mana, damage %, resist %, accuracy %
-        [HideInInspector] public int[] ids =         { 1, 2, 3, 4, 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51, 60, 61, 62, 63 };
-        [HideInInspector] public int[] categories =  { 3, 1, 0, 2, 8, 8, 3, 3, 3, 0, 2, 1, 3, 1, 0, 4, 4, 5, 5, 6, 6, 7, 7, 7, 7 };
-        [HideInInspector] public int[] levelReqs =   { 1, 1, 1, 1, 1,  1,  3,  2,  2,  2,  2,  3,  4,  5,  5,  1,  3,  2,  4,  1,  3, 1, 3, 6, 10 };
-        [HideInInspector] public int[] schoolReqs =  { -1,-1,-1,-1,-1, -1, -1, 0,  1,  -1, -1, -1, 2,  3,  4,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-        [HideInInspector] public int[] healthBonus = { 0, 20, 10, 10, 0,  0,  0,  0,  15, 25, 20, 40, 0,  60, 30, 0,  10, 15, 0,  0,  10, 0, 10, 20, 35 };
-        [HideInInspector] public int[] manaBonus =   { 0, 5,  0,  0,  0,  0,  2,  0,  0,  3,  0,  10, 4,  8,  5,  0,  0,  5,  2,  0,  0, 0, 2, 4, 6 };
-        [HideInInspector] public int[] damageBonus = { 2, 0,  0,  0,  0,  0,  8,  10, 6,  0,  0,  3,  12, 0,  4,  3,  0,  0,  3,  0,  0, 0, 0, 0, 2 };
-        [HideInInspector] public int[] resistBonus = { 0, 1,  1,  1,  0,  0,  0,  0,  2,  3,  2,  2,  0,  4,  3,  0,  4,  0,  0,  0,  3, 0, 0, 1, 2 };
-        [HideInInspector] public int[] accuracyBonus={ 0, 0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  3,  2,  1,  1,  0,  0,  0,  2,  0, 0, 1, 1, 2 };
-        [HideInInspector] public int[] critBonus =   { 0, 0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  4,  0,  0,  3,  0,  0,  2,  0,  0, 0, 0, 0, 1 };
-        [HideInInspector] public int[] blockBonus =  { 0, 0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,  0,  3,  0,  0,  0,  2, 0, 0, 1, 1 };
-        [HideInInspector] public int[] pierceBonus = { 0, 0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  2,  0,  0,  2,  0,  0,  0,  1,  0, 0, 0, 0, 0 };
-        [HideInInspector] public int[] powerPipBonus={ 0, 0,  0,  0,  0,  0,  0,  0,  0,  2,  0,  3,  0,  3,  0,  0,  0,  5,  0,  0,  0, 0, 0, 2, 4 };
+        [HideInInspector] public int[] ids =         { 1, 2, 3, 4, 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51, 60, 61, 62, 63 , 70, 71, 72, 73, 74, 75, 76, 77, 78 };
+        [HideInInspector] public int[] categories =  { 3, 1, 0, 2, 8, 8, 3, 3, 3, 0, 2, 1, 3, 1, 0, 4, 4, 5, 5, 6, 6, 7, 7, 7, 7 , 6, 2, 0, 3, 5, 1, 2, 5, 0 };
+        [HideInInspector] public int[] levelReqs =   { 1, 1, 1, 1, 1,  1,  3,  2,  2,  2,  2,  3,  4,  5,  5,  1,  3,  2,  4,  1,  3, 1, 3, 6, 10 , 8, 8, 9, 10, 9, 10, 11, 12, 13 };
+        [HideInInspector] public int[] schoolReqs =  { -1,-1,-1,-1,-1, -1, -1, 0,  1,  -1, -1, -1, 2,  3,  4,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+        [HideInInspector] public int[] healthBonus = { 0, 20, 10, 10, 0,  0,  0,  0,  15, 25, 20, 40, 0,  60, 30, 0,  10, 15, 0,  0,  10, 0, 10, 20, 35 , 20, 35, 40, 0, 25, 80, 50, 40, 70 };
+        [HideInInspector] public int[] manaBonus =   { 0, 5,  0,  0,  0,  0,  2,  0,  0,  3,  0,  10, 4,  8,  5,  0,  0,  5,  2,  0,  0, 0, 2, 4, 6 , 0, 2, 4, 4, 6, 10, 4, 6, 8 };
+        [HideInInspector] public int[] damageBonus = { 2, 0,  0,  0,  0,  0,  8,  10, 6,  0,  0,  3,  12, 0,  4,  3,  0,  0,  3,  0,  0, 0, 0, 0, 2 , 0, 0, 3, 14, 2, 4, 2, 4, 6 };
+        [HideInInspector] public int[] resistBonus = { 0, 1,  1,  1,  0,  0,  0,  0,  2,  3,  2,  2,  0,  4,  3,  0,  4,  0,  0,  0,  3, 0, 0, 1, 2 , 3, 3, 3, 0, 0, 5, 4, 3, 5 };
+        [HideInInspector] public int[] accuracyBonus={ 0, 0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  3,  2,  1,  1,  0,  0,  0,  2,  0, 0, 1, 1, 2 , 3, 0, 1, 3, 2, 2, 2, 2, 3 };
+        [HideInInspector] public int[] critBonus =   { 0, 0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  4,  0,  0,  3,  0,  0,  2,  0,  0, 0, 0, 0, 1 , 0, 0, 2, 4, 2, 0, 2, 3, 3 };
+        [HideInInspector] public int[] blockBonus =  { 0, 0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,  0,  3,  0,  0,  0,  2, 0, 0, 1, 1 , 2, 2, 0, 0, 0, 2, 2, 2, 3 };
+        [HideInInspector] public int[] pierceBonus = { 0, 0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  2,  0,  0,  2,  0,  0,  0,  1,  0, 0, 0, 0, 0 , 1, 0, 0, 3, 0, 0, 0, 1, 2 };
+        [HideInInspector] public int[] powerPipBonus={ 0, 0,  0,  0,  0,  0,  0,  0,  0,  2,  0,  3,  0,  3,  0,  0,  0,  5,  0,  0,  0, 0, 0, 2, 4 , 0, 0, 2, 2, 5, 4, 0, 5, 4 };
         /// <summary>Decks only: how many spells the deck holds, and how many copies of one spell.</summary>
-        [HideInInspector] public int[] deckCapacity =  { 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 20, 25, 30, 40 };
-        [HideInInspector] public int[] deckMaxCopies = { 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 4, 4, 5, 6 };
+        [HideInInspector] public int[] deckCapacity =  { 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 20, 25, 30, 40 , 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        [HideInInspector] public int[] deckMaxCopies = { 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 4, 4, 5, 6 , 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         /// <summary>Potions only: health / mana restored when drunk (outside battle from the backpack, or in battle as your turn).</summary>
-        [HideInInspector] public int[] potionHealth ={ 0, 0,  0,  0,  150,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0 };
-        [HideInInspector] public int[] potionMana =  { 0, 0,  0,  0,  0,  12, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0 };
+        [HideInInspector] public int[] potionHealth ={ 0, 0,  0,  0,  150,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        [HideInInspector] public int[] potionMana =  { 0, 0,  0,  0,  0,  12, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         [HideInInspector] public string[] names =
         {
@@ -65,6 +65,7 @@ namespace WizardsVRC
             "Thunderhorn Wand", "Verdant Vestments", "Gravewarden Cowl",
             "Bone Athame", "Silver Athame", "Moonstone Amulet", "Sunstone Amulet", "Copper Ring", "Ring of Warding",
             "Apprentice Deck", "Scholar's Deck", "Ironbound Deck", "Starfall Deck",
+            "Harbormaster's Ring", "Sea-Grey Boots", "Forgewarden's Cap", "Kilnfire Wand", "Starglass Amulet", "Grove Warden Robe", "Lightfoot Boots", "Hollowbane Amulet", "Hollow Crown",
         };
 
         [HideInInspector] public string[] descriptions =
@@ -94,6 +95,15 @@ namespace WizardsVRC
             "A scholar's tooled-leather deck with room for a few more spells.",
             "Iron-cornered and heavy; it can hold five copies of a favourite spell.",
             "Embossed with the Starfall crest. A deck for a wizard who knows exactly what they want.",
+            "Quill's own signet ring, worn smooth by salt and rope.",
+            "Oiled sealskin boots that never slip on a wet pier.",
+            "A soot-stained leather cap with a brass brim. Smells of hot iron.",
+            "Quenched in a Kiln Street furnace; the grip is still warm.",
+            "A sliver of the Observatory's old lens, set in silver.",
+            "Moss-green robes of the Thornhollow wardens, patched with bark.",
+            "Light enough to catch a spy who runs.",
+            "A shard of a shattered Hollow Lantern, its stolen light set free.",
+            "Morvane's crown. It is lighter than it looks, and colder.",
         };
 
         [HideInInspector] public Color[] iconColors =
@@ -106,6 +116,7 @@ namespace WizardsVRC
             new Color(0.85f, 0.8f, 0.7f), new Color(0.8f, 0.8f, 0.85f), new Color(0.8f, 0.85f, 0.95f), new Color(0.95f, 0.75f, 0.2f),
             new Color(0.75f, 0.45f, 0.25f), new Color(0.5f, 0.6f, 0.75f),
             new Color(0.5f, 0.35f, 0.22f), new Color(0.55f, 0.25f, 0.2f), new Color(0.4f, 0.42f, 0.45f), new Color(0.3f, 0.3f, 0.6f),
+            new Color(0.7f, 0.65f, 0.55f), new Color(0.45f, 0.5f, 0.55f), new Color(0.5f, 0.32f, 0.18f), new Color(0.95f, 0.45f, 0.15f), new Color(0.7f, 0.8f, 1f), new Color(0.3f, 0.5f, 0.25f), new Color(0.6f, 0.55f, 0.45f), new Color(0.6f, 0.5f, 0.9f), new Color(0.25f, 0.22f, 0.32f),
         };
 
         public int IndexOf(int itemId)

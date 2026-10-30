@@ -131,6 +131,8 @@ stay where you are; defeated wizards go back to the zone's entrance.
 | Facing | degrees (0 = north), or -1 to face the road |
 | Default Dialogue | what they say when no quest needs them (one line per row) |
 | Voice Prefix | optional voice clips `Audio/Voice/<prefix>_00.wav`, `_01`... |
+| Show From Quest | only there once this quest is started or done (-1 = always), e.g. the Herald who arrives for the finale |
+| Hide After Quest | gone once this quest is done (-1 = never), e.g. Selwyn the spy after he flees |
 
 NPCs show a floating **!** when they have a quest for you and **?** when one of your quests wants you to talk to them.
 
@@ -297,9 +299,29 @@ World 1's finale (16); give the hub gates to its zones Required Quest 16 (or its
 
 Save ids go up to **511** (save format v8), so there's room for 10+ storylines of several quests in every world.
 
-The default World 1 (Starfall Isle) has three storylines so far (A Castle Tour, The Briar Heart, The First Lantern) and
-its finale, quest 16 *Rekindle the Starfall Crystal*. As Tidewatch Docks, Kiln Street, Thornhollow Grove and the rest are
-built, add their questlines to `World_StarfallIsle` and the finale waits for them too.
+The default World 1 (Starfall Isle, Lv 1-13) has all ten storylines and its finale, quest 16 *Rekindle the Starfall
+Crystal* (4 steps: Bramwell, the crystal, the Dominion Herald, the Headmaster):
+
+| Storyline | Questline | Quests | Where |
+| --- | --- | --- | --- |
+| A Castle Tour | `Questline_Tutorial` | 8-12 | the castle |
+| The Briar Heart | `Questline_SunpetalGardens` | 13-15 | Sunpetal Gardens (Lv 1-3) |
+| The First Lantern | `Questline_LanternRow` | 2-7 | Lantern Row (Lv 4-6) |
+| Smuggler's Tide | `Questline_SmugglersTide` | 17-21 | Tidewatch Docks (Lv 7-9) |
+| Cold Iron | `Questline_ColdIron` | 22-26 | Kiln Street (Lv 8-10) |
+| Stars and Ciphers | `Questline_StarsAndCiphers` | 27-28 | the castle (Librarian's lens and cipher wheel) |
+| Straight Lines | `Questline_StraightLines` | 29-32 | Thornhollow Grove (Lv 10-11) |
+| The Quiet Merchant | `Questline_QuietMerchant` | 33-34 | the bazaar and the docks (Selwyn the spy) |
+| A Lost Name | `Questline_LostName` | 35 | the castle (Wren's old roster) |
+| The Hollow King | `Questline_HollowKing` | 36-38 | Hollow Keep (Lv 11-13) |
+
+New monsters are ids 13-25 (elites 21 and 24; bosses 15, 18, 22, 23 and 25) and new items 70-78. Projects made
+before this version are upgraded on open (data version 13): the new zones, questlines and monsters are added if their
+save ids are free, the hub map gains the four new tunnel gates (if you never changed it; otherwise the console says
+what to add) and the old two-step finale is replaced.
+
+The **portal room** (through the west door of the Headmaster's study) has five arches; the World 2 arch is a Quest Gate
+on quest 16. When World 2 exists, give that gate a teleporter to its first area.
 
 ## Questlines
 

@@ -253,6 +253,10 @@ namespace WizardsVRC.EditorTools.WorldData
         public string[] defaultDialogue = new[] { "Hello there, young wizard." };
         [Tooltip("Optional voice clips: Audio/Voice/<prefix>_00.wav, _01... (blank = none).")]
         public string voicePrefix = "";
+        [Tooltip("Only appears once this quest is started (-1 = always there), e.g. a herald who arrives for the finale.")]
+        public int showFromQuest = -1;
+        [Tooltip("Leaves once this quest is done (-1 = never), e.g. a spy who flees.")]
+        public int hideAfterQuest = -1;
 
         public char Symbol { get { return string.IsNullOrEmpty(symbol) ? '\0' : symbol[0]; } }
     }

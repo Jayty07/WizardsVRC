@@ -150,6 +150,15 @@ ring) are **even fights**: one monster per wizard, starting with the one you tou
 patrol monster to reach the circle, and other patrol monsters that wander into the circle fade away. Finishing the gardens opens the
 **Lantern Row** tunnel (now Lv 4-6) and the boss arena pad. The locks are the Street Gates' *Required Quest* in the hub map.
 
+After Lantern Row the rest of **World 1 (Starfall Isle)** opens street by street, each through its own tunnel:
+**Tidewatch Docks** (Lv 7-9, smugglers and a spy in the castle), **Kiln Street** (Lv 8-10, the forge and the first
+Dominion war-frame), **Thornhollow Grove** (Lv 10-11, survey stakes in the old wood) and **Hollow Keep** (Lv 11-13, the
+Hollow King). Ten storylines lead to the finale, quest 16 *Rekindle the Starfall Crystal*, which ends around Lv 12-13
+and opens the World 2 arch in the portal room.
+
+**Levelling** gets slower as you go: XP to the next level is `100 x level + 10 x level^2` (Lv 1 → 2 takes 110, Lv 10 → 11
+takes 2,000, Lv 30 → 31 takes 12,000). The level cap is **50** (`CharacterData.MAX_LEVEL`).
+
 ## Getting about
 
 There are no portals between the castle and the streets: you walk through tunnels into the mountains round the castle and
@@ -158,6 +167,10 @@ others where they really lie, so from the castle you can see Sunpetal Gardens ov
 the western one, and from the streets the castle with the Starfall Crystal's beam. The sea round the castle rolls with
 swells and breaks in surf on the island. (The boss arena is still reached by its teleporter pad, and the keep's door
 leads to the Headmaster's office.)
+
+Travel **between worlds** goes through the **portal room**, through the door on the west wall of the Headmaster's study:
+a round chamber with five arches. Starfall Isle's always glows; World 2's lights up once you finish quest 16
+(it says "coming soon" until World 2 is built); the other three stay dark.
 
 ## Duels (PvP)
 
