@@ -574,17 +574,17 @@ namespace WizardsVRC.EditorTools
             float a2, depth;
             BuildingFrame(g, l, HallAspect, out c, out f2, out a2, out depth);
             float inW = across - 2f * HallWallThick, inD = depth - 2f * HallWallThick;
-            var room = Child(root, "Classroom_" + sn, c);
+            // The room stands on the hall's floor (its top is 14 cm up, clear of the paving under it).
+            var room = Child(root, "Classroom_" + sn, c + new Vector3(0, 0.14f, 0));
             room.localRotation = Quaternion.LookRotation(-front);
             interior.classrooms[s] = room;
             var trim = PMat("HallTrim", new Color(0.45f, 0.38f, 0.55f), 2f);
             var wood = PMat("Wood", new Color(0.55f, 0.34f, 0.18f), 2f);
             interior.professors[s] = FurnishClassroom(room, s, inW, inD, hallH - 0.5f, trim, wood);
-            // Glowing windows down both side walls, and a school-coloured runner from the door to the lectern.
+            // Glowing windows down both side walls (the carpet, runner and banners are FurnishClassroom's).
             for (float zz = -inD / 2f + 3f; zz < inD / 2f - 2f; zz += 5f)
                 foreach (float x in new[] { -inW / 2f + 0.04f, inW / 2f - 0.04f })
                     Block(room, "InnerWindow", new Vector3(x, 4.6f, zz), new Vector3(0.08f, 2.4f, 1.3f), bright);
-            Deco(room, PrimitiveType.Cube, "Runner", new Vector3(0, 0.12f, -inD / 4f), new Vector3(2.2f, 0.04f, inD / 2f - 1f), cloth, Quaternion.identity, false);
         }
 
         private static readonly Color[] ShopWalls =

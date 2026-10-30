@@ -14,6 +14,7 @@ Shader "WizardsVRC/PSX"
         _MainTex ("Texture", 2D) = "white" {}
         _EmissionColor ("Emission", Color) = (0,0,0,0)
         _WorldUV ("World-space UVs: metres per texture tile (0 = mesh UVs)", Float) = 0
+        _Cutoff ("Alpha Cutoff (0 = solid; e.g. 0.5 for banners with cut-out shapes)", Range(0,1)) = 0
 
         [Header(PlayStation 1)]
         _SnapRes ("Vertex Snap Resolution (0 = off, 160 = real PS1)", Float) = 560
@@ -53,7 +54,7 @@ Shader "WizardsVRC/PSX"
             fixed4 _Color;
             fixed4 _EmissionColor;
             fixed4 _ShadowTint;
-            float _SnapRes, _Affine, _WorldUV, _ColorDepth, _VertexPaint, _Saturation, _PointLights;
+            float _SnapRes, _Affine, _WorldUV, _ColorDepth, _VertexPaint, _Saturation, _PointLights, _Cutoff;
 
             struct appdata
             {
@@ -125,6 +126,7 @@ Shader "WizardsVRC/PSX"
             {
                 float2 uv = lerp(i.uv, i.affineUv.xy / i.affineUv.z, PsxAffine(_Affine));
                 fixed4 col = tex2D(_MainTex, uv) * _Color;
+                if (_Cutoff > 0) clip(col.a - _Cutoff);
                 col.rgb = col.rgb * i.light + _EmissionColor.rgb;
                 float grey = dot(col.rgb, float3(0.299, 0.587, 0.114));
                 col.rgb = max(0, lerp(grey.xxx, col.rgb, _Saturation));
