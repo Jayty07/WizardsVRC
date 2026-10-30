@@ -49,15 +49,17 @@ namespace WizardsVRC.EditorTools
         /// </summary>
         private static void BuildCircleLayers(Transform ring, string name, BattleClient client)
         {
+            // Layers 1.5 cm apart (base, then sigil and runes, then seat rings, then the flash) so they never fight; the
+            // whole ring is lifted RingLift above the ground.
             float d = DuelCircleRadius * 2f;
             Color glow = new Color(0.35f, 0.35f, 0.4f);
-            FlatDecal(ring, "CircleBase", new Vector3(0, 0.02f, 0), d,
+            FlatDecal(ring, "CircleBase", new Vector3(0, 0f, 0), d,
                 CutoutMat("DuelCircleBase", PixelTexture(TexturesDir + "/DuelCircleBase.png"), Color.white, glow));
             Transform sigil = Child(ring, "SigilSpin", Vector3.zero);
             Material sigilMat = CutoutMat("DuelCircleSigil", PixelTexture(TexturesDir + "/DuelCircleSigil.png"), Color.white, glow);
-            FlatDecal(sigil, "CircleSigil", new Vector3(0, 0.021f, 0), d, sigilMat);
+            FlatDecal(sigil, "CircleSigil", new Vector3(0, 0.015f, 0), d, sigilMat);
             Transform runes = Child(ring, "RuneSpin", Vector3.zero);
-            FlatDecal(runes, "CircleRunes", new Vector3(0, 0.021f, 0), d,
+            FlatDecal(runes, "CircleRunes", new Vector3(0, 0.015f, 0), d,
                 CutoutMat("DuelCircleRunes", PixelTexture(TexturesDir + "/DuelCircleRunes.png"), Color.white, glow * 1.3f));
             client.circleSigil = sigil;
             client.circleRunes = runes;
@@ -65,7 +67,7 @@ namespace WizardsVRC.EditorTools
             client.circleSigilGlow = glow;
 
             // Start flash. Its own material per encounter (its glow is animated).
-            Transform flash = Child(ring, "CircleFlash", new Vector3(0, 0.03f, 0));
+            Transform flash = Child(ring, "CircleFlash", new Vector3(0, 0.045f, 0));
             Material flashMat = CutoutMat("DuelFlash_" + name, PixelTexture(TexturesDir + "/DuelCircle.png"), Color.white, Color.white * 3f);
             FlatDecal(flash, "FlashDisc", Vector3.zero, d, flashMat);
             flash.gameObject.SetActive(false);

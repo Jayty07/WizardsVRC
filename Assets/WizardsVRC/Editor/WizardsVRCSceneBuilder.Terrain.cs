@@ -130,6 +130,8 @@ namespace WizardsVRC.EditorTools
         // ------------------------------------------------------------------ terrain cells
 
         private const float Lift = 0.02f;
+        /// <summary>How far the plain ground slab (or island top) under a map sits below its lowest terrain.</summary>
+        private const float GroundDrop = 0.3f;
         private const int ArcSegs = 4;
         private const int MatWall = 0, MatPaving = 1, MatLawn = 2, MatBed = 3, MatTrim = 4, MatIron = 5;
         private static readonly string[] MatNames = { "Walls", "Paving", "Lawn", "PondBed", "Trim", "Railings" };

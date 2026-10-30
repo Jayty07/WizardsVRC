@@ -193,7 +193,8 @@ namespace WizardsVRC.EditorTools
             // ---- ground, boundary and the map layers
             float W = g.width * cs, H = g.height * cs;
             float baseY = g.minLevel * g.step;
-            Block(root, "Ground", new Vector3(0, baseY - 0.25f, 0), new Vector3(W, 0.5f, H), ground);
+            // The terrain tops every cell 2 cm above baseY, so the slab under it sits well below (no z-fighting far off).
+            Block(root, "Ground", new Vector3(0, baseY - GroundDrop - 0.25f, 0), new Vector3(W, 0.5f, H), ground);
 
             // The way home: a tunnel behind the entrance (S) into the mountains, if the castle has a gate (tunnel) for this
             // street. Houses keep clear of it and the map's edge has a gap for it.

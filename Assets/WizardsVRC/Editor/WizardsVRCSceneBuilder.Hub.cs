@@ -151,8 +151,11 @@ namespace WizardsVRC.EditorTools
                     }
                     dims = "Round" + Mathf.RoundToInt(ri) + (g.minLevel != 0 ? "_b" + Mathf.RoundToInt(-baseY * 10f) : "");
                 }
-                Shape(root, "IslandCliff", PrismMesh("PSX_HubIsland_" + dims, poly, -7f, baseY - 0.2f), Vector3.zero, Vector3.one, cliff, true, Quaternion.identity);
-                Shape(root, "IslandTop", PrismMesh("PSX_HubIslandTop_" + dims, poly, baseY - 0.2f, baseY), Vector3.zero, Vector3.one, ground, true, Quaternion.identity);
+                // The island's top sits GroundDrop below the map's terrain (which covers every map cell), so the two
+                // never fight; only the strip outside the map shows it.
+                float islandTop = baseY - GroundDrop;
+                Shape(root, "IslandCliff", PrismMesh("PSX_HubIsland2_" + dims, poly, -7f, islandTop - 0.2f), Vector3.zero, Vector3.one, cliff, true, Quaternion.identity);
+                Shape(root, "IslandTop", PrismMesh("PSX_HubIslandTop2_" + dims, poly, islandTop - 0.2f, islandTop), Vector3.zero, Vector3.one, ground, true, Quaternion.identity);
                 // The sea: a big subdivided PSX water plane rolling with long swells and whitecaps (the island's cliffs
                 // stand in it), and surf breaking round a round island's shore.
                 var sea = Shape(root, "Sea", GridMesh(96, 96, false), new Vector3(0, -6.2f, 0), new Vector3(W + 420f, 1f, H + 420f), PsxSwellMat(), false,
@@ -178,7 +181,7 @@ namespace WizardsVRC.EditorTools
                     }
                 }
             }
-            else Block(root, "Ground", new Vector3(0, baseY - 0.25f, 0), new Vector3(W, 0.5f, H), ground);
+            else Block(root, "Ground", new Vector3(0, baseY - GroundDrop - 0.25f, 0), new Vector3(W, 0.5f, H), ground);
 
             Transform bounds = Child(root, "Bounds", Vector3.zero);
             foreach (var side in new[] { new Vector4(0, H / 2f, W, 1f), new Vector4(0, -H / 2f, W, 1f), new Vector4(W / 2f, 0, 1f, H), new Vector4(-W / 2f, 0, 1f, H) })

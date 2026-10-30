@@ -116,7 +116,7 @@ namespace WizardsVRC.EditorTools
 
             // Floor: a stone disc with a gold rim, a tinted half for each team under the circle.
             Shape(t, "DuelFloor", CylMesh(), new Vector3(0, 0.03f, 0), new Vector3(rr * 2f - 0.6f, 0.03f, rr * 2f - 0.6f), floor, false, Quaternion.identity);
-            Shape(t, "DuelRim", CylMesh(), new Vector3(0, 0.02f, 0), new Vector3(rr * 2f - 0.1f, 0.03f, rr * 2f - 0.1f), gold, false, Quaternion.identity);
+            Shape(t, "DuelRim", CylMesh(), new Vector3(0, 0.01f, 0), new Vector3(rr * 2f - 0.1f, 0.03f, rr * 2f - 0.1f), gold, false, Quaternion.identity);
             // Low kerb round the edge with four gaps (no colliders: step over it anywhere).
             const int segs = 32;
             float chord = 2f * (rr - 0.5f) * Mathf.Sin(Mathf.PI / segs) + 0.05f;
