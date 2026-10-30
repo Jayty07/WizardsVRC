@@ -100,7 +100,12 @@ reached from S".
 - Roads 1-2 cells wide (8-16 m), with plazas where the rings are.
 - Loop roads around blocks of houses so there's more than one way through, and **dead-end courtyards** (`,`) to hide
   quest items, NPCs and side quests in.
-- Put a patrol loop around each ring plaza, or a patrol line along the road leading to it.
+- Give each encounter a **long patrol** that follows the street: a line down a lane and along the next one, or a loop
+  round a block of houses or a whole square. About one patrol monster per 7-8 cells of route (up to 10).
+- Put **several ring spots** along each route (every 7-10 cells), in plazas or little 3x3 squares just off the lane, so a
+  duel forms near where you met the monster.
+- Fill the lanes with several encounters rather than one huge one: each encounter fights one duel at a time, so more
+  encounters means more fights can happen at once.
 - Put the boss in its own walled courtyard (`=` walls, a narrow gate) with an Explore point at the gate.
 
 ### Battle rings (where fights happen)
@@ -111,14 +116,16 @@ Each **Encounter** in the zone's list links a ring digit to a fight:
 | --- | --- |
 | Ring Symbol | `1`-`9`. Put the digit on the map once, or several times for several possible spots. |
 | Roster | monster ids in the fight; the first takes the boss seat (max 4) |
-| Wanderers | how many monsters walk the patrol route (`a` for ring 1, `b` for ring 2...) |
+| Wanderers | how many monsters walk the patrol route (`a` for ring 1, `b` for ring 2...), up to 10, spread evenly along it |
 | Patrol Speed | walking speed in m/s |
 | Respawn Seconds | how long the patrol is gone after a fight |
 | Scale With Party | spawn only the first monster plus one per wizard (bosses with adds) |
 | Even Fight | for new players' areas: the fight starts with **only the monster that was touched**. Each extra wizard who joins lets one more patrol monster join when it reaches the circle (or, with no patrol monster left, the next roster monster at once); any other patrol monster that reaches the circle **fades away** until it respawns. The rest keep patrolling during the fight. On in the castle practice ring and all of Sunpetal Gardens |
 
 When a wizard touches a patrolling monster, the fight forms at the **nearest ring spot** of that encounter, like
-Wizard101's duel circles. Other players can walk into the circle and fill free seats, even mid-fight. After a fight you
+Wizard101's duel circles. Only the monster that was touched leaves its patrol (it comes back *Respawn Seconds* after the
+fight); the rest keep walking. While their encounter is in a duel they can't start another one (their label says so) and
+they step out of sight as they walk through the circle. Other players can walk into the circle and fill free seats, even mid-fight. After a fight you
 stay where you are; defeated wizards go back to the zone's entrance.
 
 ### NPCs
@@ -357,19 +364,44 @@ them up. The guide arrow and HUD tracker work automatically from the step's targ
 #############################
 #^,,,,,,,,,,,^,,,,,,,,,,,,,^#
 #,==========,,,,==========,,#
-#,=,,,,,,,,=.....=,,,,,,,=,,#
-#,=,ddd,,,,=..Y..=,,ccccc=,,#     Y = overgrown gazebo, ring 3: Mischief Moths (loop c)
-#,=,d4d,,,,=..X..=,,c.3.c=,,#     ring 4: Old Briarwick in the briar patch, X = Explore point
-#,=,ddd,,,,.......,,c...c=,,#
-...
-#,,.......bbbbbbbbbbbb....,,#     patrol line b: Puddle Newts by the ponds (ring 2)
-...
-#,,,,,,=,,,aaaaaaaa=,,,=,,,,#     ring 1: Thistle Sprouts, patrol loop a
-...
-#,,^,,,,,,,,M..,,,,,,,^,,,,,#     M = Gardener Moss
-#,,,,,,,,,,,,.S.,,,,,,,,,,,,#     S = gate from the castle
+#,=,,,,,,,,=.....=ccccccc=,,#
+#,=,ddd,,,,=..Y..=c,....c=,,#
+#,=,d4d,,,,=..X..=c,....c=,,#
+#,=,ddd,,,,.......c,.3..c=,,#
+#,=,,,,,,,,=.....=c,....c=,,#
+#,=====.====..=..=c,....c=,,#
+#,,,,,,.,,,,..=..=ccccccc=,,#
+#,^,,,,.,,,,..=..====.====,,#
+#,,.........2...............#
+#,,bbbbbbbbbbbbbbbbbbbbbbb..#
+#,,b,,,,,,=,,,.,,,=,,,,2,b,,#
+#^,b,,^,,,=,,,.,,,=,,^,,,b,^#
+#,,b,,,,,,=,,,.,,,=,,,,,,b,,#
+#,,b,,,,,,=====.====,,,,,b,,#
+#,2b.....................b,,#
+#,,b,,,,,,,,,,,2,,,,,,,,.b,,#
+#,,b,,,,^,,,,.....,,,,^,2b,,#
+#,,b,,,,,,,,,.....,,,,,,.b,,#
+#,,b,,,,2,,,,,,.,,,2,,,,.b,,#
+#,,bbbbbbbbbbbbbbbbbbbbbbb..#
+#,,.........................#
+#,,,,,,==,==,1,.,,,==,==,,,,#
+#,^,,,,=,,,=,,,.,,,=,,,=,,^,#
+#,,,,,,=,,,aaaaaaaa=,,,=,,,,#
+#,,,,,,=,,,a,,,,,,a=,,,=,,,,#
+#,,,,,,=,,,a,,1,,,a=,,,=,,,,#
+#,,,,,,=,,,a,,,,,,a=,,,=,,,,#
+#,,,,,,====a......a====,,,,,#
+#,aaaaaaaaaa,,.,,,aaaaaaaaa,#
+#,,^,,,1,,,,M..,,,1,,,^,,,,,#
+#,,,,,,,,,,,,.S.,,,,,,,,,,,,#
 #############################
 ```
+
+Ring 1 Thistle Sprouts (line `a` past the sprout pen and along the south lawns), ring 2 Puddle Newts (loop `b` round the
+whole middle of the garden, 6 newts), ring 3 Mischief Moths (loop `c` round the walled moth garden), ring 4 Old Briarwick
+in the briar patch. Y = overgrown gazebo, X = Explore point, M = Gardener Moss, S = gate from the castle. Every digit is a
+spot a duel can form at: the one nearest the wizard who touched the monster.
 
 ## The default Lantern Row (Lv 4-6)
 
@@ -377,50 +409,55 @@ them up. The guide arrow and HUD tracker work automatically from the step's targ
 #################################
 ###########^,,,,,,,,,^###########
 ###########,.........,###########
-###########,.........,###########     Snuffer's Tower courtyard: boss ring 4, Ashwick circling it
+###########,.........,###########
 ###########,...ddd...,###########
 ###########,...d4d...,###########
 ###########,...ddd...,###########
 ###########,.........,###########
 ###########==,.....,==###########
-#############=..X..=#############     X = tower gate (Explore)
-######.........................##
-######.###.###.###.###.#######.##
-######.###.###.###.###.#######.##
-##.......#.....ccccccc.....###.##
-##.#####.#.###.c.3.#.c.###.###.##     ring 3: Snatcher gang, patrol loop c
-##.#^,G#.#.###.c...#.c.###.....##     G = brass cog in a dead-end courtyard
-##.#,,,#.#.###.ccccccc.###.###.##
-##.##.##...###.........###.###.##
-##....########.#####.#####.###.##
-#######.......L#####...........##     L = dead street lamps (3 in all)
-#######.#####.######.#########.##
-#.......#####.######.#########.##
-#.#####.#####........#####,,,#.##
-#.#,,C#.#####.bbbbbbb.####,K,#.##     C = Whiskers the cat, K = Marla the Candlemaker
-#.#,,,#.......b.....b.####.,,#.##
-#.##.##.#####.b..2..b.####.###.##     ring 2: Lantern Snatchers, patrol loop b
-#....##.#####.b.....b.#....###.##
-######..#####.bbbbbbb.#.#######.#
-######.######.........#.......L.#
-######.##############.#######.#.#
-##.......#####...............##.#
-##.#####.#####.###.#####.###.##.#
-##.#^G,#.#####.###.#####.###....#
-##.#,,J#.......###.#####.###.####     J = Pip (broken toy side quest)
-##.#,,,#.#####.###.......###.####
-##.##.##.#####.###.#####.###.####
-##.......#####.eee.#####.....####
-##########.....e5e.##############     ring 5: a pack of three Gloom Wisps
-##########.....eee.##############
-##########...aaaaa.##############
-######.......a...a.##############
-######..L....a.1.a.##############     ring 1: Gloom Wisps, patrol loop a
-######..T....a...a.##############     T = Watchwoman Tilda
-######.......aaaaa.##############
-##########...S...################     S = gate from the castle
+#############=..X..=#############
+######fffffffffffffffffffffffff##
+#####...#.6.##.##.3.##.#######f##
+#####.7.#...##.##...##.#######f##
+##ggggggg#....ccccccccc....###f##
+##g#####g#.###c....#..c###.#..f##
+##g#^,G#g#.###c..3.#..c###...6f##
+##g#,,,#g#.###c......3c###.#..f##
+##g##.##ggg###ccccccccc###.###f##
+##gggg########.#####.#####.#..f##
+######........L#####.........6f##
+######.7.####.######.#######..f##
+#........####.######.#########f##
+#.#####.#####bbbbbbbb#####,,,#f##
+#.#,,C#.###..b......b.####,K,#f##
+#.#,,,#.....2b......b..###.,,#f##
+#.##.##.###..b...2..b2.###.###f##
+#....##.#####b......b......###f##
+######..#####b......b.#.#######.#
+#####...#####bbbbbbbb.........L.#
+#####.5.############.1.######.#.#
+##eeeeeee#####....aaaaaaaaaa.##.#
+##e#####e####...##a#####.###.##.#
+##e#^G,#e####.5.##a#####.###....#
+##e#,,J.eeeeeee.##a#####.###.####
+##e#,,,.5.####e###a......###.####
+##e...#...####e#..a#####.###.####
+##e5.....#####e..1a#####.....####
+##...#####....e...a##############
+##########....e...a##############
+##########........a##############
+######............a##############
+######..L......1..a##############
+######..T..1......a##############
+######.aaaaaaaaaaaa##############
+##########...S...################
 #################################
 ```
+
+Ring 1 Gloom Wisps (line `a` from the entrance plaza up the south lane and along the lower street), 2 Lantern Snatchers
+(loop `b` round the market square), 3 the snatcher gang (loop `c`), 4 Snuffer in his tower courtyard, 5 a wisp pack (line
+`e` through the south-west alleys), 6 Lamplighters (snatchers and wisps, line `f` the length of the high street and down the east lane),
+7 Alley Wisps (line `g` round the west houses). The little squares off the lanes are duel ring spots.
 
 264 m x 368 m of crooked lanes, crossroads, loops round the house blocks and dead-end courtyards, with the four story
 quests (ids 2-5, unchanged so existing saves keep their progress) and two new side quests (6: Whiskers Is Missing,

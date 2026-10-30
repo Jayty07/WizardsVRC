@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 13;
+        public const int CurrentVersion = 14;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -176,6 +176,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 11) UpgradeTo11();
             if (from < 12) UpgradeTo12();
             if (from < 13) UpgradeTo13();
+            if (from < 14) UpgradeTo14();
         }
 
         private class ZoneDefault { public string file, key; public System.Action<ZoneDefinition> fill; }
@@ -321,6 +322,66 @@ namespace WizardsVRC.EditorTools.WorldData
             }
             if (seeded > 0) report.Add("the Dominion seeded into " + seeded + " built quest steps");
             if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (World 1): " + string.Join(", ", report) + ".");
+        }
+
+        // v14: the streets whose patrols and duel ring spots were redrawn, the hash of each one's old default map, and its defaults.
+        private static readonly string[] V14Zones = { "SunpetalGardens", "LanternRow", "TidewatchDocks", "KilnStreet", "ThornhollowGrove", "HollowKeep" };
+        private static readonly uint[] V14OldMaps = { 0xD9C50AF1u, 0xB65D2708u, 0x3AC985FFu, 0xE306FBE4u, 0x39B36D20u, 0x619DC702u };
+        private static readonly System.Action<ZoneDefinition>[] V14Fills =
+        {
+            WorldDefaults.FillSunpetalGardens, WorldDefaults.FillLanternRow, WorldDefaults.FillTidewatchDocks,
+            WorldDefaults.FillKilnStreet, WorldDefaults.FillThornhollowGrove, WorldDefaults.FillHollowKeep,
+        };
+
+        /// <summary>
+        /// v14: long patrol routes that follow each street's lanes, many more duel ring spots along them, more patrol
+        /// monsters, and new encounters to fill the empty lanes (Lantern Row, Tidewatch Docks, Kiln Street, Thornhollow
+        /// Grove). Only streets whose map is still the old default get the new map; their encounters get the new patrol
+        /// sizes (never fewer than you set) and any new encounters.
+        /// </summary>
+        private static void UpgradeTo14()
+        {
+            var report = new List<string>();
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null) continue;
+                int i = System.Array.IndexOf(V14Zones, z.zoneKey);
+                if (i < 0) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                V14Fills[i](fresh);
+                bool current = Normalize(z.map) == Normalize(fresh.map);
+                if (!current && MapHash(z.map) != V14OldMaps[i])
+                {
+                    Debug.Log("[WizardsVRC] " + z.displayName + "'s map has been edited, so its new patrol routes and ring spots weren't applied. " +
+                              "See WorldDefaults.Fill" + z.zoneKey + " for the new layout.");
+                    Object.DestroyImmediate(fresh);
+                    continue;
+                }
+                z.map = fresh.map;
+                foreach (var fe in fresh.encounters)
+                {
+                    ZoneEncounter mine = null;
+                    foreach (var e in z.encounters) if (e != null && e.ringSymbol == fe.ringSymbol) mine = e;
+                    if (mine == null) z.encounters.Add(fe);
+                    else if (mine.wanderers < fe.wanderers) mine.wanderers = fe.wanderers;
+                }
+                Object.DestroyImmediate(fresh);
+                EditorUtility.SetDirty(z);
+                if (!current) report.Add(z.displayName);
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data: bigger patrols and more duel ring spots in " + string.Join(", ", report) + ".");
+        }
+
+        /// <summary>FNV-1a hash of a map (after Normalize), to recognise an old default map without keeping a copy of it.</summary>
+        private static uint MapHash(string map)
+        {
+            uint h = 2166136261u;
+            foreach (char ch in Normalize(map))
+            {
+                h ^= ch;
+                h *= 16777619u;
+            }
+            return h;
         }
 
         /// <summary>The built quests as the defaults now have them (2-16), by save id.</summary>

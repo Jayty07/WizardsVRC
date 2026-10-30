@@ -288,7 +288,7 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("Monster ids in the fight. The first takes the boss seat.")]
         public List<int> roster = new List<int> { 1 };
         [Tooltip("How many monsters walk the patrol route.")]
-        [Range(0, 6)] public int wanderers = 2;
+        [Range(0, 10)] public int wanderers = 2;
         [Tooltip("Patrol walking speed (m/s).")]
         public float patrolSpeed = 1.4f;
         [Tooltip("Seconds after a fight before the patrol comes back.")]

@@ -148,40 +148,40 @@ namespace WizardsVRC.EditorTools.WorldData
             "###########,.........,###########\n" +
             "###########==,.....,==###########\n" +
             "#############=..X..=#############\n" +
-            "######.........................##\n" +
-            "######.###.###.###.###.#######.##\n" +
-            "######.###.###.###.###.#######.##\n" +
-            "##.......#.....ccccccc.....###.##\n" +
-            "##.#####.#.###.c.3.#.c.###.###.##\n" +
-            "##.#^,G#.#.###.c...#.c.###.....##\n" +
-            "##.#,,,#.#.###.ccccccc.###.###.##\n" +
-            "##.##.##...###.........###.###.##\n" +
-            "##....########.#####.#####.###.##\n" +
-            "#######.......L#####...........##\n" +
-            "#######.#####.######.#########.##\n" +
-            "#.......#####.######.#########.##\n" +
-            "#.#####.#####........#####,,,#.##\n" +
-            "#.#,,C#.#####.bbbbbbb.####,K,#.##\n" +
-            "#.#,,,#.......b.....b.####.,,#.##\n" +
-            "#.##.##.#####.b..2..b.####.###.##\n" +
-            "#....##.#####.b.....b.#....###.##\n" +
-            "######..#####.bbbbbbb.#.#######.#\n" +
-            "######.######.........#.......L.#\n" +
-            "######.##############.#######.#.#\n" +
-            "##.......#####...............##.#\n" +
-            "##.#####.#####.###.#####.###.##.#\n" +
-            "##.#^G,#.#####.###.#####.###....#\n" +
-            "##.#,,J#.......###.#####.###.####\n" +
-            "##.#,,,#.#####.###.......###.####\n" +
-            "##.##.##.#####.###.#####.###.####\n" +
-            "##.......#####.eee.#####.....####\n" +
-            "##########.....e5e.##############\n" +
-            "##########.....eee.##############\n" +
-            "##########...aaaaa.##############\n" +
-            "######.......a...a.##############\n" +
-            "######..L....a.1.a.##############\n" +
-            "######..T....a...a.##############\n" +
-            "######.......aaaaa.##############\n" +
+            "######fffffffffffffffffffffffff##\n" +
+            "#####...#.6.##.##.3.##.#######f##\n" +
+            "#####.7.#...##.##...##.#######f##\n" +
+            "##ggggggg#....ccccccccc....###f##\n" +
+            "##g#####g#.###c....#..c###.#..f##\n" +
+            "##g#^,G#g#.###c..3.#..c###...6f##\n" +
+            "##g#,,,#g#.###c......3c###.#..f##\n" +
+            "##g##.##ggg###ccccccccc###.###f##\n" +
+            "##gggg########.#####.#####.#..f##\n" +
+            "######........L#####.........6f##\n" +
+            "######.7.####.######.#######..f##\n" +
+            "#........####.######.#########f##\n" +
+            "#.#####.#####bbbbbbbb#####,,,#f##\n" +
+            "#.#,,C#.###..b......b.####,K,#f##\n" +
+            "#.#,,,#.....2b......b..###.,,#f##\n" +
+            "#.##.##.###..b...2..b2.###.###f##\n" +
+            "#....##.#####b......b......###f##\n" +
+            "######..#####b......b.#.#######.#\n" +
+            "#####...#####bbbbbbbb.........L.#\n" +
+            "#####.5.############.1.######.#.#\n" +
+            "##eeeeeee#####....aaaaaaaaaa.##.#\n" +
+            "##e#####e####...##a#####.###.##.#\n" +
+            "##e#^G,#e####.5.##a#####.###....#\n" +
+            "##e#,,J.eeeeeee.##a#####.###.####\n" +
+            "##e#,,,.5.####e###a......###.####\n" +
+            "##e...#...####e#..a#####.###.####\n" +
+            "##e5.....#####e..1a#####.....####\n" +
+            "##...#####....e...a##############\n" +
+            "##########....e...a##############\n" +
+            "##########........a##############\n" +
+            "######............a##############\n" +
+            "######..L......1..a##############\n" +
+            "######..T..1......a##############\n" +
+            "######.aaaaaaaaaaaa##############\n" +
             "##########...S...################\n" +
             "#################################\n";
             z.groundColor = new Color(0.13f, 0.16f, 0.13f);
@@ -239,11 +239,13 @@ namespace WizardsVRC.EditorTools.WorldData
 
             z.encounters = new List<ZoneEncounter>
             {
-                new ZoneEncounter { ringSymbol = "1", key = "Wisps", roster = new List<int> { 5, 5 }, wanderers = 2, patrolSpeed = 1.3f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "1", key = "Wisps", roster = new List<int> { 5, 5 }, wanderers = 4, patrolSpeed = 1.3f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "2", key = "Snatchers", roster = new List<int> { 6, 5, 6 }, wanderers = 3, patrolSpeed = 1.5f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "3", key = "SnatcherGang", roster = new List<int> { 6, 6 }, wanderers = 2, patrolSpeed = 1.5f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "3", key = "SnatcherGang", roster = new List<int> { 6, 6 }, wanderers = 3, patrolSpeed = 1.5f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "4", key = "Snuffer", roster = new List<int> { 7, 5, 5 }, wanderers = 1, patrolSpeed = 0.8f, respawnSeconds = 30, scaleWithParty = true },
-                new ZoneEncounter { ringSymbol = "5", key = "WispPack", roster = new List<int> { 5, 5, 5 }, wanderers = 2, patrolSpeed = 1.2f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "5", key = "WispPack", roster = new List<int> { 5, 5, 5 }, wanderers = 3, patrolSpeed = 1.2f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "6", key = "LampLighters", roster = new List<int> { 6, 5 }, wanderers = 5, patrolSpeed = 1.4f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "7", key = "AlleyWisps", roster = new List<int> { 5, 5 }, wanderers = 3, patrolSpeed = 1.3f, respawnSeconds = 20 },
             };
         }
 
@@ -1226,36 +1228,36 @@ namespace WizardsVRC.EditorTools.WorldData
             "#############################\n" +
             "#^,,,,,,,,,,,^,,,,,,,,,,,,,^#\n" +
             "#,==========,,,,==========,,#\n" +
-            "#,=,,,,,,,,=.....=,,,,,,,=,,#\n" +
-            "#,=,ddd,,,,=..Y..=,,ccccc=,,#\n" +
-            "#,=,d4d,,,,=..X..=,,c...c=,,#\n" +
-            "#,=,ddd,,,,.......,,c.3.c=,,#\n" +
-            "#,=,,,,,,,,=.....=,,c...c=,,#\n" +
-            "#,=====.====..=..=,,ccccc=,,#\n" +
-            "#,,,,,,.,,,,..=..=,,,,,,,=,,#\n" +
+            "#,=,,,,,,,,=.....=ccccccc=,,#\n" +
+            "#,=,ddd,,,,=..Y..=c,....c=,,#\n" +
+            "#,=,d4d,,,,=..X..=c,....c=,,#\n" +
+            "#,=,ddd,,,,.......c,.3..c=,,#\n" +
+            "#,=,,,,,,,,=.....=c,....c=,,#\n" +
+            "#,=====.====..=..=c,....c=,,#\n" +
+            "#,,,,,,.,,,,..=..=ccccccc=,,#\n" +
             "#,^,,,,.,,,,..=..====.====,,#\n" +
+            "#,,.........2...............#\n" +
+            "#,,bbbbbbbbbbbbbbbbbbbbbbb..#\n" +
+            "#,,b,,,,,,=,,,.,,,=,,,,2,b,,#\n" +
+            "#^,b,,^,,,=,,,.,,,=,,^,,,b,^#\n" +
+            "#,,b,,,,,,=,,,.,,,=,,,,,,b,,#\n" +
+            "#,,b,,,,,,=====.====,,,,,b,,#\n" +
+            "#,2b.....................b,,#\n" +
+            "#,,b,,,,,,,,,,,2,,,,,,,,.b,,#\n" +
+            "#,,b,,,,^,,,,.....,,,,^,2b,,#\n" +
+            "#,,b,,,,,,,,,.....,,,,,,.b,,#\n" +
+            "#,,b,,,,2,,,,,,.,,,2,,,,.b,,#\n" +
+            "#,,bbbbbbbbbbbbbbbbbbbbbbb..#\n" +
             "#,,.........................#\n" +
-            "#,,.........................#\n" +
-            "#,,.,,,,,,=,,,.,,,=,,,,,,.,,#\n" +
-            "#^,.,,^,,,=,,,.,,,=,,^,,,.,^#\n" +
-            "#,,.,,,,,,=,,,.,,,=,,,,,,.,,#\n" +
-            "#,,.,,,,,,=====.====,,,,,.,,#\n" +
-            "#,,.......bbbbbbbbbbbb....,,#\n" +
-            "#,,.,,,,,,,,,,,2,,,,,,,,..,,#\n" +
-            "#,,.,,,,^,,,,.....,,,,^,..,,#\n" +
-            "#,,.,,,,,,,,,.....,,,,,,..,,#\n" +
-            "#,,.,,,,,,,,,,,.,,,,,,,,..,,#\n" +
-            "#,,.........................#\n" +
-            "#,,.........................#\n" +
-            "#,,,,,,==,==,,,.,,,==,==,,,,#\n" +
+            "#,,,,,,==,==,1,.,,,==,==,,,,#\n" +
             "#,^,,,,=,,,=,,,.,,,=,,,=,,^,#\n" +
             "#,,,,,,=,,,aaaaaaaa=,,,=,,,,#\n" +
             "#,,,,,,=,,,a,,,,,,a=,,,=,,,,#\n" +
             "#,,,,,,=,,,a,,1,,,a=,,,=,,,,#\n" +
             "#,,,,,,=,,,a,,,,,,a=,,,=,,,,#\n" +
-            "#,,,,,,====aaaaaaaa====,,,,,#\n" +
-            "#,,,,,,,,,,,,,.,,,,,,,,,,,,,#\n" +
-            "#,,^,,,,,,,,M..,,,,,,,^,,,,,#\n" +
+            "#,,,,,,====a......a====,,,,,#\n" +
+            "#,aaaaaaaaaa,,.,,,aaaaaaaaa,#\n" +
+            "#,,^,,,1,,,,M..,,,1,,,^,,,,,#\n" +
             "#,,,,,,,,,,,,.S.,,,,,,,,,,,,#\n" +
             "#############################\n";
             z.groundColor = new Color(0.25f, 0.42f, 0.2f);
@@ -1293,9 +1295,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.encounters = new List<ZoneEncounter>
             {
                 // Even fights throughout: a new wizard only ever faces one monster at a time (one more per extra wizard).
-                new ZoneEncounter { ringSymbol = "1", key = "Sprouts", roster = new List<int> { 9, 9 }, wanderers = 2, patrolSpeed = 1f, respawnSeconds = 20, evenFight = true },
-                new ZoneEncounter { ringSymbol = "2", key = "Newts", roster = new List<int> { 8, 8 }, wanderers = 2, patrolSpeed = 1.1f, respawnSeconds = 20, evenFight = true },
-                new ZoneEncounter { ringSymbol = "3", key = "Moths", roster = new List<int> { 10, 9 }, wanderers = 2, patrolSpeed = 1.3f, respawnSeconds = 20, evenFight = true },
+                new ZoneEncounter { ringSymbol = "1", key = "Sprouts", roster = new List<int> { 9, 9 }, wanderers = 4, patrolSpeed = 1f, respawnSeconds = 20, evenFight = true },
+                new ZoneEncounter { ringSymbol = "2", key = "Newts", roster = new List<int> { 8, 8 }, wanderers = 6, patrolSpeed = 1.1f, respawnSeconds = 20, evenFight = true },
+                new ZoneEncounter { ringSymbol = "3", key = "Moths", roster = new List<int> { 10, 9 }, wanderers = 3, patrolSpeed = 1.3f, respawnSeconds = 20, evenFight = true },
                 new ZoneEncounter { ringSymbol = "4", key = "Briarwick", roster = new List<int> { 11, 9, 9 }, wanderers = 1, patrolSpeed = 0.6f, respawnSeconds = 30, scaleWithParty = true, evenFight = true },
             };
             z.landmarks = new List<ZoneLandmark>

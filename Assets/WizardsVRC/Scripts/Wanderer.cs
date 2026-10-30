@@ -8,8 +8,10 @@ namespace WizardsVRC
     /// <summary>
     /// A wandering monster. With a <see cref="path"/> it walks a patrol route (a loop, or back and forth along a line);
     /// without one it circles its encounter's duel circle. Its position comes from the server clock, so every client sees
-    /// it in the same place without syncing. Touching it (walking within aggroRadius) starts, or joins, the encounter's
-    /// fight; it hides while the fight is on and for a while afterwards.
+    /// it in the same place without syncing. Touching it (walking within aggroRadius) starts the encounter's fight; it
+    /// leaves its patrol for the fight and comes back a while afterwards. The rest of the patrol keeps walking: while their
+    /// group is fighting they can't be touched (walk into the circle to join instead) and they step out of sight as they
+    /// pass through the duel circle.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class Wanderer : UdonSharpBehaviour
@@ -53,11 +55,13 @@ namespace WizardsVRC
         private bool _wasHidden;
         private float _fadeStart = -100f;
         private int _contactBattle = -1;
+        private string _name = "";
+        private bool _busyLabel;
 
         private void Start()
         {
-            if (label != null && cardDatabase != null)
-                label.text = cardDatabase.MonsterName(monsterId) + "\nLevel " + cardDatabase.MonsterLevel(monsterId).ToString();
+            if (cardDatabase != null) _name = cardDatabase.MonsterName(monsterId) + "\nLevel " + cardDatabase.MonsterLevel(monsterId).ToString();
+            if (label != null) label.text = _name;
             if (body != null) { _bodyScale = body.transform.localScale; _bodyPos = body.transform.localPosition; }
             BuildRoute();
         }
@@ -97,8 +101,8 @@ namespace WizardsVRC
         {
             if (manager == null) return;
             bool hidden = manager.WandererHidden(wandererIndex);
-            // Even fights: a patrol monster that just left (joined the duel or faded away) fades out where it stood.
-            if (hidden && !_wasHidden && manager.evenFight && manager.phase != BattleManager.PHASE_IDLE) _fadeStart = Time.time;
+            // A patrol monster that just left (into the duel, or fading away) fades out where it stood.
+            if (hidden && !_wasHidden && manager.phase != BattleManager.PHASE_IDLE) _fadeStart = Time.time;
             if (!hidden && _wasHidden && body != null)
             {
                 body.transform.localScale = _bodyScale;
@@ -111,9 +115,12 @@ namespace WizardsVRC
                 if (label != null && label.gameObject.activeSelf) label.gameObject.SetActive(false);
                 return;
             }
-            if (body != null && body.activeSelf == hidden) body.SetActive(!hidden);
-            if (label != null && label.gameObject.activeSelf == hidden) label.gameObject.SetActive(!hidden);
-            if (hidden) return;
+            if (hidden)
+            {
+                if (body != null && body.activeSelf) body.SetActive(false);
+                if (label != null && label.gameObject.activeSelf) label.gameObject.SetActive(false);
+                return;
+            }
 
             float t = (Networking.GetServerTimeInMilliseconds() % 3600000) / 1000f;
             Vector3 pos;
@@ -135,9 +142,31 @@ namespace WizardsVRC
             if (facing.sqrMagnitude < 0.0001f) facing = transform.forward;
             transform.SetPositionAndRotation(pos, Quaternion.LookRotation(facing, Vector3.up));
 
+            // Normal encounters: while this patrol's group is fighting, the others keep walking but step out of sight as
+            // they pass through the duel circle, and their label says they're busy.
+            int ph = manager.phase;
+            bool fighting = ph != BattleManager.PHASE_IDLE;
+            bool inCircle = false;
+            if (!manager.evenFight && fighting && client != null && client.arenaCenter != null)
+            {
+                Vector3 rc = pos - client.arenaCenter.position;
+                rc.y = 0f;
+                inCircle = rc.magnitude <= contactRadius;
+            }
+            if (body != null && body.activeSelf == inCircle) body.SetActive(!inCircle);
+            if (label != null)
+            {
+                if (label.gameObject.activeSelf == inCircle) label.gameObject.SetActive(!inCircle);
+                bool busy = !manager.evenFight && fighting;
+                if (busy != _busyLabel)
+                {
+                    _busyLabel = busy;
+                    label.text = busy ? _name + "\n(its pack is in a duel)" : _name;
+                }
+            }
+
             // Even fights: walking into the duel circle during a fight, it joins (if a wizard is unmatched) or fades away.
             // The wizards in the fight report it; the referee decides (once per monster).
-            int ph = manager.phase;
             if (manager.evenFight && ph >= BattleManager.PHASE_JOINING && ph <= BattleManager.PHASE_PLAYBACK && client != null && client.IsInBattle() &&
                 client.arenaCenter != null && _contactBattle != manager.battleId)
             {
@@ -151,6 +180,8 @@ namespace WizardsVRC
             }
 
             if (Time.time < _nextTry || client == null || !client.CanFight()) return;
+            // A normal encounter fights one duel at a time: join it by walking into its circle.
+            if (!manager.evenFight && fighting) return;
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
             Vector3 d = me.GetPosition() - pos;

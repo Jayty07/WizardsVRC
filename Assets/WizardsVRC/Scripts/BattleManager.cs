@@ -292,12 +292,11 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// Whether patrol monster w is hidden. Normal encounters hide every patrol monster during a fight. Even fights only
-        /// hide the ones in the fight or faded away (the rest keep walking), until they respawn after the fight.
+        /// Whether patrol monster w is hidden: only the one that was touched (and, in even fights, the ones that joined or
+        /// faded away) leaves its patrol; the rest keep walking. They come back respawnSeconds after the fight.
         /// </summary>
         public bool WandererHidden(int w)
         {
-            if (!evenFight) return WanderersHidden();
             bool gone = w >= 0 && w < 31 && (wandererGone & (1 << w)) != 0;
             if (phase != PHASE_IDLE) return gone;
             return gone && lastEndMs != 0 && Now() - lastEndMs < respawnSeconds * 1000;
@@ -590,7 +589,7 @@ namespace WizardsVRC
             if (!Networking.IsOwner(gameObject) || !wanderMode || playerId <= 0) return;
             if (phase == PHASE_IDLE)
             {
-                if (evenFight ? WandererHidden(wanderer) : WanderersHidden()) return;
+                if (WandererHidden(wanderer)) return;
                 for (int i = 0; i < queueIds.Length; i++) queueIds[i] = 0;
                 queueIds[0] = playerId;
                 ringSpot = NearestRingSpot(playerId);
@@ -879,6 +878,8 @@ namespace WizardsVRC
             for (int s = 0; s < SLOTS; s++) _joinRound[s] = -1;
             // Patrol monsters from the last fight that haven't respawned yet stay gone.
             if (!(lastEndMs != 0 && Now() - lastEndMs < respawnSeconds * 1000)) wandererGone = 0;
+            // The patrol monster that was touched leaves its route for the fight (the rest of the patrol keeps walking).
+            if (_startWanderer >= 0 && _startWanderer < 31) wandererGone |= 1 << _startWanderer;
             int count = roster == null ? 0 : Mathf.Min(roster.Length, SIDE);
             if (scaleRosterWithParty) count = Mathf.Min(count, 1 + n);
             if (evenFight && count > 0)

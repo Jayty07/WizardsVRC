@@ -24,39 +24,39 @@ namespace WizardsVRC.EditorTools.WorldData
             "#################################\n" +
             "########################~~~~~~~~#\n" +
             "##fffff.##..eeeee...####~~~~~~~~#\n" +
-            "##f...f.##..e...e...#...~~~~~~~~#\n" +
-            "##f.6.f.....e.5.e...#...~~~~~~~~#\n" +
-            "##f...f.##..e...e...#..N~~~~~~~~#\n" +
-            "##fffff.##..eeeee...#...~~~~~~~~#\n" +
-            "##########..........#...~~~~~~~~#\n" +
-            "#############.W.........~~~~~~~~#\n" +
-            "###.ddddd...#########...~~~~~~~~#\n" +
-            "###.d...d...#########B..~~~~~~~~#\n" +
-            "###.d.4.d...#########...~~~~~~~~#\n" +
-            "###.d...d...#...........~~~~~~~~#\n" +
-            "###.ddddd....########...bbbbb~~~#\n" +
-            "###..........########...b...b~~~#\n" +
-            "###..........########...b.2.b~~~#\n" +
-            "######...############...b...b~~~#\n" +
-            "######...############...bbbbb~~~#\n" +
-            "###........##########...~~~~~~~~#\n" +
-            "###.ccccc..##########B..~~~~~~~~#\n" +
-            "###.c...c..##########...~~~~~~~~#\n" +
-            "###.c.3.c...............~~~~~~~~#\n" +
-            "###.c...c..##########..N~~~~~~~~#\n" +
-            "###.ccccc..##########...~~~~~~~~#\n" +
-            "###........##########...~~~~~~~~#\n" +
-            "###........##########...aaaaa~~~#\n" +
-            "###........##########...a...a~~~#\n" +
-            "######,,,############...a.1.a~~~#\n" +
-            "######,,,############.F.a...a~~~#\n" +
-            "######,,,############...aaaaa~~~#\n" +
-            "######,,,############B..~~~~~~~~#\n" +
-            "##########............^.~~~~~~~~#\n" +
-            "##########..............~~~~~~~~#\n" +
-            "##########.Q............~~~~~~~~#\n" +
-            "##########..............~~~~~~~~#\n" +
-            "##########^............N~~~~~~~~#\n" +
+            "##f...f.##..e...e...#.b.~~~~~~~~#\n" +
+            "##f.6.f.....e.5.e...#.b.~~~~~~~~#\n" +
+            "##f...f.##..e...e...#.bN~~~~~~~~#\n" +
+            "##fffff.##..eeeee.....b.~~~~~~~~#\n" +
+            "##########...........2b.~~~~~~~~#\n" +
+            "#############.W.......b.~~~~~~~~#\n" +
+            "###.ddddddd..########.b.~~~~~~~~#\n" +
+            "###.d.....d4.########Bb.~~~~~~~~#\n" +
+            "##..d.....d..########.b.~~~~~~~~#\n" +
+            "##.4d..4..d.#.........b.~~~~~~~~#\n" +
+            "##..d.....d..########.b......~~~#\n" +
+            "###.d.....d4.########.b2...2.~~~#\n" +
+            "###.ddddddd..########.bbbbbb.~~~#\n" +
+            "######...############.g......~~~#\n" +
+            "######.3.############.g......~~~#\n" +
+            "###.cccccc.##########.g.~~~~~~~~#\n" +
+            "###.c....c.##########Bg.~~~~~~~~#\n" +
+            "###.c....c.##########.g.~~~~~~~~#\n" +
+            "###.c....c.gggggggggggg.~~~~~~~~#\n" +
+            "###.c.3..c3.########.7.N~~~~~~~~#\n" +
+            "###.c....c..########....~~~~~~~~#\n" +
+            "###.c....c.##########...~~~~~~~~#\n" +
+            "###.c....c.##########........~~~#\n" +
+            "###.cccccc.##########...1....~~~#\n" +
+            "######,,,############.aaaaaa.~~~#\n" +
+            "######,,,############Fa......~~~#\n" +
+            "######,,,############.a......~~~#\n" +
+            "######,,,############Ba.~~~~~~~~#\n" +
+            "##########............a.~~~~~~~~#\n" +
+            "##########...........1a.~~~~~~~~#\n" +
+            "##########.Q..........a.~~~~~~~~#\n" +
+            "##########.......1....a.~~~~~~~~#\n" +
+            "##########^..aaaaaaaaaaN~~~~~~~~#\n" +
             "###########,,,#...###...~~~~~~~~#\n" +
             "###########,^,#...######~~~~~~~~#\n" +
             "###############.S.######~~~~~~~~#\n" +
@@ -99,12 +99,13 @@ namespace WizardsVRC.EditorTools.WorldData
             };
             z.encounters = new List<ZoneEncounter>
             {
-                new ZoneEncounter { ringSymbol = "1", key = "PierCrabs", roster = new List<int> { 13, 13 }, wanderers = 2, patrolSpeed = 0.9f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "2", key = "FarPierCrabs", roster = new List<int> { 13, 13, 13 }, wanderers = 2, patrolSpeed = 0.9f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "3", key = "Thugs", roster = new List<int> { 14, 14 }, wanderers = 2, patrolSpeed = 1.3f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "4", key = "ThugGang", roster = new List<int> { 14, 14, 13 }, wanderers = 2, patrolSpeed = 1.3f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "1", key = "PierCrabs", roster = new List<int> { 13, 13 }, wanderers = 3, patrolSpeed = 0.9f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "2", key = "FarPierCrabs", roster = new List<int> { 13, 13, 13 }, wanderers = 3, patrolSpeed = 0.9f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "3", key = "Thugs", roster = new List<int> { 14, 14 }, wanderers = 3, patrolSpeed = 1.3f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "4", key = "ThugGang", roster = new List<int> { 14, 14, 13 }, wanderers = 3, patrolSpeed = 1.3f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "5", key = "Grell", roster = new List<int> { 15, 14, 14 }, wanderers = 1, patrolSpeed = 0.8f, respawnSeconds = 30, scaleWithParty = true },
                 new ZoneEncounter { ringSymbol = "6", key = "Selwyn", roster = new List<int> { 23 }, wanderers = 1, patrolSpeed = 0.7f, respawnSeconds = 30 },
+                new ZoneEncounter { ringSymbol = "7", key = "QuayThugs", roster = new List<int> { 14, 13 }, wanderers = 2, patrolSpeed = 1.2f, respawnSeconds = 20 },
             };
         }
 
@@ -124,34 +125,34 @@ namespace WizardsVRC.EditorTools.WorldData
             "###########...e.5.e...###########\n" +
             "###########...e...e...###########\n" +
             "###########...eeeee...###########\n" +
-            "##........#...........###########\n" +
-            "##.ccccc..#####.E.###############\n" +
-            "##.c...c..#####...###############\n" +
-            "##.c.3.c..#####...##.........####\n" +
-            "##.c...c..#####...##..ddddd..####\n" +
-            "##.ccccc..#####.......d...d..####\n" +
-            "##........#####.......d.4.d..####\n" +
-            "####..........#...##..d...d..####\n" +
-            "####.X...X....#...##..ddddd..####\n" +
-            "####..............##.........####\n" +
-            "####........C.#...##.........####\n" +
-            "####..X.......#...###############\n" +
-            "####..........#...###############\n" +
-            "####..........#...###############\n" +
-            "########.######...####.........##\n" +
-            "###############...####..bbbbb..##\n" +
-            "###############...####..b...b..##\n" +
-            "########,,,,,,,.........b.2.b..##\n" +
-            "########,.........####..b...b..##\n" +
-            "########,.,,,,,...####..bbbbb..##\n" +
-            "##........#####...####.........##\n" +
-            "##.aaaaa..#####...#####..,,,,,^##\n" +
-            "##.a...a..#####...#####,^T,^,,,##\n" +
-            "##.a.1.a..#####...#####,,,,,,^,##\n" +
-            "##.a...a..#####........,,H,,,,,##\n" +
-            "##.aaaaa...............##########\n" +
-            "##.....................##########\n" +
-            "##########...I.........##########\n" +
+            "##.ccccccc#...........###########\n" +
+            "##.c.....c#####.E.###############\n" +
+            "##.c.....c#####.g.###############\n" +
+            "##.c..3..c#####.g.##ddddddddd####\n" +
+            "##.c.....c#####.g..#d.......d####\n" +
+            "##.c.....c#####.g7..d.......d####\n" +
+            "##.ccccccc#####.g...d...4...d####\n" +
+            "####...fffffff#.g.##d.......d####\n" +
+            "####.X.f.X...f#.g.##d.......d####\n" +
+            "####...f.....f..g.##d.......d####\n" +
+            "####...f..6.Cf.7g.##ddddddddd####\n" +
+            "####..Xf.....f..g.###############\n" +
+            "####...f.....f#.g.###############\n" +
+            "####..6fffffff#.g.###############\n" +
+            "#####....######.g.####bbbbbbbbb##\n" +
+            "###############.g.####b.......b##\n" +
+            "###############.g.##..b.......b##\n" +
+            "########,,,,,,,......2b...2...b##\n" +
+            "########,......1a.##..b.......b##\n" +
+            "########,.,,,,,.a.####b.......b##\n" +
+            "##.a......#####.a.####bbbbbbbbb##\n" +
+            "##.a1.....#####.a.#####..,,,,,^##\n" +
+            "##.a......#####.a.#####,^T,^,,,##\n" +
+            "##.a......#####.a.#####,,,,,,^,##\n" +
+            "##.a......#####.a......,,H,,,,,##\n" +
+            "##.a...1........a......##########\n" +
+            "##.aaaaaaaaaaaaaa......##########\n" +
+            "##########...I.1.......##########\n" +
             "##########.............##########\n" +
             "##########.^.........^.##########\n" +
             "###############...###############\n" +
@@ -201,11 +202,13 @@ namespace WizardsVRC.EditorTools.WorldData
             };
             z.encounters = new List<ZoneEncounter>
             {
-                new ZoneEncounter { ringSymbol = "1", key = "Imps", roster = new List<int> { 16, 16 }, wanderers = 2, patrolSpeed = 1.6f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "2", key = "KilnImps", roster = new List<int> { 16, 16, 16 }, wanderers = 2, patrolSpeed = 1.6f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "3", key = "Sentries", roster = new List<int> { 17, 17 }, wanderers = 2, patrolSpeed = 0.9f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "4", key = "AlleySentries", roster = new List<int> { 17, 16 }, wanderers = 2, patrolSpeed = 1f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "1", key = "Imps", roster = new List<int> { 16, 16 }, wanderers = 4, patrolSpeed = 1.6f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "2", key = "KilnImps", roster = new List<int> { 16, 16, 16 }, wanderers = 3, patrolSpeed = 1.6f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "3", key = "Sentries", roster = new List<int> { 17, 17 }, wanderers = 3, patrolSpeed = 0.9f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "4", key = "AlleySentries", roster = new List<int> { 17, 16 }, wanderers = 4, patrolSpeed = 1f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "5", key = "Vesper", roster = new List<int> { 18, 17, 17 }, wanderers = 1, patrolSpeed = 0.8f, respawnSeconds = 30, scaleWithParty = true },
+                new ZoneEncounter { ringSymbol = "6", key = "FrameWatch", roster = new List<int> { 17, 16 }, wanderers = 3, patrolSpeed = 1f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "7", key = "ForgeLane", roster = new List<int> { 16, 17 }, wanderers = 2, patrolSpeed = 1.5f, respawnSeconds = 20 },
             };
         }
 
@@ -222,35 +225,35 @@ namespace WizardsVRC.EditorTools.WorldData
             "#^^^^^^^^^^^,,,,eeeee,,,,,^^^^^^#\n" +
             "#^^^^^^^^^^^,,,,e...e,,,,,^^^^^^#\n" +
             "#^^^^^^^^^^^,,,,e.5.e,,,,,^^^^^^#\n" +
-            "#^^^^^^^^^^^,,,,e...e,,,,,^^^^^^#\n" +
-            "#^^^^^^^^^^^,,,,eeeee,,,,,,,,,^^#\n" +
-            "#^^^^^^^^^^^,,,,,,,,X,,,,,ddd,^^#\n" +
-            "#^^^^^^^^^^^^^^^^^^^.^,,d...d,^^#\n" +
-            "#^^^^^^^^^^^^^^^^^^^....d.4.d,^^#\n" +
-            "#^^^^^^^^^^^^^^^^^^^.^,,d...d,^^#\n" +
-            "#^^^^^^^^^^^^^^^^^^^K^,,ddddd,^^#\n" +
-            "#^^^^^^^^^^^^,,,,,,,.^,,,,,,,,^^#\n" +
-            "#^^^^^^^^^^^.,ccccc,.^^^^^^^^^^^#\n" +
-            "#^,,,,,,,,^^.,c...c,.^^^^^^^^^^^#\n" +
-            "#^,,,,,,,,^^.,c.3.c,.^^^^^^^^^^^#\n" +
-            "#^,,,,,,,,^^.,c...c,.^^^^^^^^^^^#\n" +
-            "#^,,,O.......,ccccc,.^^^^^^^^^^^#\n" +
-            "#^,,,,,,,,^^^,,,,,,,.^^^^^^^^^^^#\n" +
-            "#^,,K,,,,,^^^^^^^^^^.^^^^^^^^^^^#\n" +
-            "#^,,,,,,,,^^^^^^^^^^.^^,,,,,,,,^#\n" +
-            "#^^^^^^^^^^^^^^^^^^^.^^,bbbbb,,^#\n" +
-            "#^^^^^^^^^^^^^^^^^^^.^^,b...b,,^#\n" +
-            "#^^^^^^^^^^^^^^^^^^^....b.2.b,,^#\n" +
-            "#^^^^^^^^^^^^^^^^^^^K^^,b...b,,^#\n" +
-            "#^,,,,,,,,,^^^^^^^^,.,^,bbbbb,,^#\n" +
-            "#^,aaaaa,,,^^^^^^^^,.,^,,,,,,,,^#\n" +
-            "#^,a...a,,,^^^^^^^^,.,^^^^^^^^^^#\n" +
-            "#^,a.1.a,,,^^^^^^^^,.,^^^^^^^^^^#\n" +
-            "#^,a...a.......^^^^,.,^^^^^^^^^^#\n" +
-            "#^,aaaaa,,,^^^.^^^^,.,^^^^^^^^^^#\n" +
-            "#^,,,,,,,,,^^^.^^^^,K,^^^^^^^^^^#\n" +
-            "#^^^^^^^^,,,,,.,,,,,.,,,^^^^^^^^#\n" +
-            "#^^^^^^^^,,,,,,,,,...,,,^^^^^^^^#\n" +
+            "#^^^^^^^^^^^,,,,e...e,,,4,^^^^^^#\n" +
+            "#^^^^^^^^^^^,,,,eeeee,dddddddd^^#\n" +
+            "#^^^^^^^^^^^,,,,,,,,X,d,,,,,,d^^#\n" +
+            "#^^^^^^^^^^^^^^^^^^^.,d,,...,d^^#\n" +
+            "#^^^^^^^^^^^^^^^^^^^.4d.,.4.,d^^#\n" +
+            "#^^^^^^^^^^^^^^^^^^^.,d,,...,d^^#\n" +
+            "#^^^^^^^^^^^^^^^^^^^K^d,,,,,,d^^#\n" +
+            "#^^^^^^^^^^^^ccccccc.,dddddddd^^#\n" +
+            "#^^^^^^^^^^^.c,,,,,c3,^^^^^^^^^^#\n" +
+            "#^ffffffff^^.c,...,c.,^^^^^^^^^^#\n" +
+            "#^f,,,,,6f^,.c,.3.,c.^^^^^^^^^^^#\n" +
+            "#^f,,,,,,f^,3c,...,c.,^^^^^^^^^^#\n" +
+            "#^f6,O...f...c,,,,,c3,^^^^^^^^^^#\n" +
+            "#^f,,,,,,f^^^ccccccc.,^^^^^^^^^^#\n" +
+            "#^f,K,,6,f^^^^^^^^^^.^^^^^^^^^^^#\n" +
+            "#^ffffffff^^^^^^^^^^.^^bbbbbbbb^#\n" +
+            "#^^^^^^^^^^^^^^^^^^^.^^b,,,,,,b^#\n" +
+            "#^^^^^^^^^^^^^^^^^^^.^^b,...,,b^#\n" +
+            "#^^^^^^^^^^^^^^^^^^^...b,.2.,,b^#\n" +
+            "#^^^^^^^^^^^^^^^^^^^K^^b,...,,b^#\n" +
+            "#^,a,,,,,,,^^^^^^^^,.,,b,,,,,,b^#\n" +
+            "#^,a,,,,,,,^^^^^^^^,.2,bbbbbbbb^#\n" +
+            "#,,a...,,,,,^^^^^^^,.,,^^^^^^^^^#\n" +
+            "#,1a.,1,,,1,^^^^^^^,.,^^^^^^^^^^#\n" +
+            "#,,a...,.aaaaaa^^^^,.,^^^^^^^^^^#\n" +
+            "#^,a,,,,,a,^^^a^^^^,.,^^^^^^^^^^#\n" +
+            "#^,aaaaaaa,^^^a^^^^,K,^^^^^^^^^^#\n" +
+            "#^^^^^^^^,,,,,a,,,,,.,,,^^^^^^^^#\n" +
+            "#^^^^^^^^,1,,,,,,,...,,,^^^^^^^^#\n" +
             "#^^^^^^^^,,,..B......,,,^^^^^^^^#\n" +
             "#^^^^^^^^,,,.......,,,,,^^^^^^^^#\n" +
             "#^^^^^^^^,,,.......,,,,,^^^^^^^^#\n" +
@@ -295,11 +298,12 @@ namespace WizardsVRC.EditorTools.WorldData
             };
             z.encounters = new List<ZoneEncounter>
             {
-                new ZoneEncounter { ringSymbol = "1", key = "Boars", roster = new List<int> { 19, 19 }, wanderers = 2, patrolSpeed = 1.4f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "2", key = "ThicketBoars", roster = new List<int> { 19, 19, 19 }, wanderers = 2, patrolSpeed = 1.4f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "3", key = "Surveyors", roster = new List<int> { 20, 20 }, wanderers = 2, patrolSpeed = 1f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "4", key = "LineGuard", roster = new List<int> { 21, 20, 20 }, wanderers = 2, patrolSpeed = 1f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "1", key = "Boars", roster = new List<int> { 19, 19 }, wanderers = 3, patrolSpeed = 1.4f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "2", key = "ThicketBoars", roster = new List<int> { 19, 19, 19 }, wanderers = 3, patrolSpeed = 1.4f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "3", key = "Surveyors", roster = new List<int> { 20, 20 }, wanderers = 3, patrolSpeed = 1f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "4", key = "LineGuard", roster = new List<int> { 21, 20, 20 }, wanderers = 3, patrolSpeed = 1f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "5", key = "Roan", roster = new List<int> { 22, 21, 21 }, wanderers = 1, patrolSpeed = 0.8f, respawnSeconds = 30, scaleWithParty = true },
+                new ZoneEncounter { ringSymbol = "6", key = "WestBoars", roster = new List<int> { 19, 20 }, wanderers = 3, patrolSpeed = 1.3f, respawnSeconds = 20 },
             };
         }
 
@@ -320,28 +324,28 @@ namespace WizardsVRC.EditorTools.WorldData
             "###########...e...e...###########\n" +
             "###########...eeeee...###########\n" +
             "###########...........###########\n" +
-            "##........#...........###########\n" +
-            "##.ddddd..#####.X.###############\n" +
-            "##.d...d..#####...###############\n" +
-            "##.d.4.d......#...###############\n" +
-            "##.d...d..#####...###############\n" +
-            "##.ddddd..#####...###############\n" +
+            "##.ddddddd#...........###########\n" +
+            "##.d.....d#####.X.###############\n" +
+            "##.d..4..d#####...###############\n" +
+            "##.d.....d....#...###############\n" +
+            "##.d.....d#####...###############\n" +
+            "##.ddddddd#####.3.###############\n" +
             "##.........L.........L.##########\n" +
-            "##########....ccccc....##########\n" +
-            "##########....c...c....##########\n" +
-            "##########....c.3.c....##########\n" +
-            "##########....c...c....##########\n" +
-            "##########....ccccc....##########\n" +
-            "##########...........L.##########\n" +
+            "##########ccccccccccc..##########\n" +
+            "##########c.........c..##########\n" +
+            "##########c....3....c..##########\n" +
+            "##########c3........c3.##########\n" +
+            "##########c.........c..##########\n" +
+            "##########cccccccccccL.##########\n" +
             "##=============...=============##\n" +
-            "##.............................##\n" +
-            "##.............................##\n" +
-            "##.aaaaa.................bbbbb.##\n" +
-            "##.a...a.................b...b.##\n" +
-            "##.a.1.a.................b.2.b.##\n" +
-            "##.a...a.................b...b.##\n" +
-            "##.aaaaa.................bbbbb.##\n" +
-            "##.............................##\n" +
+            "##.aaaaaaaaaaa.....bbbbbbbbbbb.##\n" +
+            "##.a........1a.....b........2b.##\n" +
+            "##.a.........a.....b.........b.##\n" +
+            "##.a1...1....a....2b....2....b.##\n" +
+            "##.a.........a.....b.........b.##\n" +
+            "##.a.........a.....b.........b.##\n" +
+            "##.a........1a.....b........2b.##\n" +
+            "##.aaaaaaaaaaa.....bbbbbbbbbbb.##\n" +
             "##........====.....====........##\n" +
             "###############...###############\n" +
             "#########,,,,,,,,,,,,,,,#########\n" +
@@ -383,10 +387,10 @@ namespace WizardsVRC.EditorTools.WorldData
             };
             z.encounters = new List<ZoneEncounter>
             {
-                new ZoneEncounter { ringSymbol = "1", key = "BaileyWest", roster = new List<int> { 24, 21 }, wanderers = 2, patrolSpeed = 0.9f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "2", key = "BaileyEast", roster = new List<int> { 24, 24 }, wanderers = 2, patrolSpeed = 0.9f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "3", key = "LanternHall", roster = new List<int> { 24, 21, 21 }, wanderers = 2, patrolSpeed = 0.9f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "4", key = "Chapel", roster = new List<int> { 24, 24 }, wanderers = 2, patrolSpeed = 0.9f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "1", key = "BaileyWest", roster = new List<int> { 24, 21 }, wanderers = 4, patrolSpeed = 0.9f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "2", key = "BaileyEast", roster = new List<int> { 24, 24 }, wanderers = 4, patrolSpeed = 0.9f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "3", key = "LanternHall", roster = new List<int> { 24, 21, 21 }, wanderers = 4, patrolSpeed = 0.9f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "4", key = "Chapel", roster = new List<int> { 24, 24 }, wanderers = 3, patrolSpeed = 0.9f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "5", key = "Morvane", roster = new List<int> { 25, 24, 24 }, wanderers = 1, patrolSpeed = 0.6f, respawnSeconds = 30, scaleWithParty = true },
             };
         }
