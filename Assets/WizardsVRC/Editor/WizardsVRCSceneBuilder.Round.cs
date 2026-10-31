@@ -217,27 +217,67 @@ namespace WizardsVRC.EditorTools
 
         // ================================================================== health and mana orbs
 
-        /// <summary>Floating red (health) and blue (mana) orbs on their cells: walk through one to top up.</summary>
-        private static void BuildHubOrbs(HubLayout hub, PlayerState playerState, WorldBuild wb)
+        /// <summary>
+        /// Floating red (health) and blue (mana) orbs that drift around the area: each follows its own wandering loop
+        /// through the streets (to a few random places nearby and back, along walkable ground). Painted orb cells are where
+        /// an orb's loop starts; 'perKind' more of each kind are added at random places. Walk into one to top up.
+        /// </summary>
+        private static void BuildWanderingOrbs(Transform root, ZoneGrid g, string key, List<HubOrb> seeds, int perKind, PlayerState playerState,
+            List<RestoreOrb> output, WorldBuild wb)
         {
-            if (hub.orbs.Count == 0) return;
-            Transform holder = Child(hub.root, "Orbs", Vector3.zero);
+            var reach = new List<Vector2Int>(g.Reachable());
+            if (reach.Count < 4 || (seeds.Count == 0 && perKind <= 0)) return;
+            reach.Sort((a, b) => a.y != b.y ? a.y.CompareTo(b.y) : a.x.CompareTo(b.x));
+            var rng = new System.Random(StableHash(key) ^ 0x51ed);
+            var all = new List<HubOrb>(seeds);
+            for (int k = 0; k < perKind * 2; k++)
+            {
+                var c = reach[rng.Next(reach.Count)];
+                all.Add(new HubOrb { pos = g.Local(c), cell = c, mana = k % 2 == 1 });
+            }
+
+            Transform holder = Child(root, "Orbs", Vector3.zero);
+            Transform routes = Child(root, "OrbRoutes", Vector3.zero);
             var redGlow = PMat("OrbHealth", new Color(1f, 0.2f, 0.22f), 1f, new Color(0.9f, 0.08f, 0.1f));
             var blueGlow = PMat("OrbMana", new Color(0.25f, 0.45f, 1f), 1f, new Color(0.08f, 0.2f, 0.95f));
             var redCore = PMat("OrbHealthCore", new Color(1f, 0.85f, 0.85f), 1f, new Color(1f, 0.55f, 0.55f));
             var blueCore = PMat("OrbManaCore", new Color(0.85f, 0.92f, 1f), 1f, new Color(0.55f, 0.7f, 1f));
-            var rune = PMat("OrbRune", new Color(0.85f, 0.8f, 0.7f), 1f, new Color(0.2f, 0.18f, 0.12f));
             int n = 0;
-            foreach (var o in hub.orbs)
+            foreach (var o in all)
             {
-                Transform t = Child(holder, (o.mana ? "ManaOrb" : "HealthOrb") + n++, o.pos);
-                var col = t.gameObject.AddComponent<SphereCollider>();
-                col.isTrigger = true;
-                col.radius = 1.3f;
-                col.center = new Vector3(0, 1.2f, 0);
-                // A rune disc marks the spot (it stays while the orb is away).
-                Shape(t, "OrbRune", CylMesh(), new Vector3(0, 0.05f, 0), new Vector3(1.6f, 0.04f, 1.6f), rune, false, Quaternion.identity);
-                Shape(t, "OrbRuneGlow", CylMesh(), new Vector3(0, 0.12f, 0), new Vector3(1.1f, 0.02f, 1.1f), o.mana ? blueGlow : redGlow, false, Quaternion.identity);
+                string name = (o.mana ? "ManaOrb" : "HealthOrb") + n;
+                // The loop: from its start to a few random reachable places within ~10 cells, then home, by walkable paths.
+                Vector2Int start = reach.Contains(o.cell) ? o.cell : NearestOf(reach, o.cell);
+                var near = reach.FindAll(c => Mathf.Abs(c.x - start.x) + Mathf.Abs(c.y - start.y) <= 10);
+                var loopCells = new List<Vector2Int> { start };
+                Vector2Int at = start;
+                for (int k = 0; k < 4 && near.Count > 1; k++)
+                {
+                    var to = near[rng.Next(near.Count)];
+                    var leg = GridPath(g, at, to);
+                    if (leg == null) continue;
+                    for (int q = 1; q < leg.Count; q++) loopCells.Add(leg[q]);
+                    at = to;
+                }
+                var back = GridPath(g, at, start);
+                if (back != null) for (int q = 1; q < back.Count - 1; q++) loopCells.Add(back[q]);
+
+                Transform t = Child(holder, name, o.pos);
+                Transform[] path = null;
+                float length = 0f;
+                if (loopCells.Count >= 3)
+                {
+                    var corners = ZoneGrid.Corners(loopCells, true);
+                    Transform r = Child(routes, name + "Route", Vector3.zero);
+                    path = new Transform[corners.Count];
+                    for (int q = 0; q < corners.Count; q++)
+                    {
+                        path[q] = Child(r, "P" + q, g.Local(corners[q]));
+                        if (q > 0) length += Vector3.Distance(path[q - 1].localPosition, path[q].localPosition);
+                    }
+                    if (corners.Count > 1) length += Vector3.Distance(path[corners.Count - 1].localPosition, path[0].localPosition);
+                }
+
                 // The orb: a glowing low-poly ball with a bright gem inside and four motes circling it.
                 Transform vis = Child(t, "Visual", new Vector3(0, 1.35f, 0));
                 Deco(vis, PrimitiveType.Sphere, "Orb", Vector3.zero, Vector3.one * 0.62f, o.mana ? blueGlow : redGlow, Quaternion.identity, false);
@@ -248,8 +288,8 @@ namespace WizardsVRC.EditorTools
                     Deco(vis, PrimitiveType.Cube, "Mote", d * 0.55f + new Vector3(0, (k % 2 == 0 ? 0.12f : -0.12f), 0), Vector3.one * 0.09f,
                         o.mana ? blueCore : redCore, Quaternion.Euler(45f, 45f, 0), false);
                 }
-                // It bobs and spins, so it can't be static (batched).
-                foreach (var tr in vis.GetComponentsInChildren<Transform>(true)) tr.gameObject.isStatic = false;
+                // It drifts, bobs and spins, so it can't be static (batched).
+                foreach (var tr in t.GetComponentsInChildren<Transform>(true)) tr.gameObject.isStatic = false;
                 var orb = UdonSharpUndo.AddComponent<RestoreOrb>(t.gameObject);
                 orb.playerState = playerState;
                 orb.mana = o.mana;
@@ -257,8 +297,63 @@ namespace WizardsVRC.EditorTools
                 orb.percent = 25;
                 orb.minimum = 10;
                 orb.respawnSeconds = 30f;
-                hub.orbBehaviours.Add(orb);
+                orb.path = path;
+                orb.speed = 0.7f + (float)rng.NextDouble() * 0.4f;
+                orb.phaseOffset = (float)rng.NextDouble() * Mathf.Max(1f, length);
+                output.Add(orb);
                 wb.behaviours.Add(orb);
+                n++;
+            }
+            if (n > 0) Debug.Log("[WizardsVRC World] " + key + ": " + n + " wandering health / mana orbs.");
+        }
+
+        private static Vector2Int NearestOf(List<Vector2Int> cells, Vector2Int c)
+        {
+            Vector2Int best = cells[0];
+            int bd = int.MaxValue;
+            foreach (var o in cells)
+            {
+                int d = Mathf.Abs(o.x - c.x) + Mathf.Abs(o.y - c.y);
+                if (d < bd) { bd = d; best = o; }
+            }
+            return best;
+        }
+
+        /// <summary>Shortest walkable path between two cells (breadth-first over CanStep), both ends included; null if none.</summary>
+        private static List<Vector2Int> GridPath(ZoneGrid g, Vector2Int from, Vector2Int to)
+        {
+            if (from == to) return new List<Vector2Int> { from };
+            var prev = new Dictionary<Vector2Int, Vector2Int>();
+            var queue = new Queue<Vector2Int>();
+            queue.Enqueue(from);
+            prev[from] = from;
+            while (queue.Count > 0)
+            {
+                var p = queue.Dequeue();
+                if (p == to) break;
+                foreach (var d in ZoneGrid.Dirs)
+                {
+                    var nb = p + d;
+                    if (prev.ContainsKey(nb) || !g.CanStep(p, nb)) continue;
+                    prev[nb] = p;
+                    queue.Enqueue(nb);
+                }
+            }
+            if (!prev.ContainsKey(to)) return null;
+            var path = new List<Vector2Int>();
+            for (var c = to; c != from; c = prev[c]) path.Add(c);
+            path.Add(from);
+            path.Reverse();
+            return path;
+        }
+
+        private static int StableHash(string s)
+        {
+            unchecked
+            {
+                int h = (int)2166136261;
+                foreach (char ch in s ?? "") h = (h ^ ch) * 16777619;
+                return h & 0x7fffffff;
             }
         }
     }

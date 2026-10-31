@@ -30,8 +30,12 @@ namespace WizardsVRC.EditorTools
         private class HubOrb
         {
             public Vector3 pos;
+            public Vector2Int cell;
             public bool mana;
         }
+
+        /// <summary>Orb landmarks painted in the street being built (each becomes a wandering orb starting there).</summary>
+        private static readonly List<HubOrb> _zoneOrbSeeds = new List<HubOrb>();
 
         /// <summary>Where the hub's fixed pieces go. The defaults are the old hand-placed castle's spots.</summary>
         private class HubLayout
@@ -329,7 +333,8 @@ namespace WizardsVRC.EditorTools
                             break;
                         case LandmarkKind.HealthOrb:
                         case LandmarkKind.ManaOrb:
-                            if (hub != null) foreach (var oc in cells) hub.orbs.Add(new HubOrb { pos = g.Local(oc), mana = l.kind == LandmarkKind.ManaOrb });
+                            foreach (var oc in cells)
+                                (hub != null ? hub.orbs : _zoneOrbSeeds).Add(new HubOrb { pos = g.Local(oc), cell = oc, mana = l.kind == LandmarkKind.ManaOrb });
                             break;
                         case LandmarkKind.DuelCircle: if (hub != null) DuelCircleLandmark(root, g, l, hub, stone, gold, wood); break;
                         case LandmarkKind.DungeonSigil: if (hub == null) DungeonLandmark(root, g, z, l, behaviours, stone, gold); break;
@@ -997,7 +1002,7 @@ namespace WizardsVRC.EditorTools
                         DigitRingSpots(hub.root, g, e, start, byCell), byCell);
                 }
             BuildDuelCircles(hub, systems, cardDb, itemDb, playerState, qm, encounters, wb);
-            BuildHubOrbs(hub, playerState, wb);
+            BuildWanderingOrbs(hub.root, g, z.zoneKey, hub.orbs, 0, playerState, hub.orbBehaviours, wb);
         }
 
         // ================================================================== meshes

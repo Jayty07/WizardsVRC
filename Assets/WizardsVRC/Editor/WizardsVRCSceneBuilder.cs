@@ -290,6 +290,7 @@ namespace WizardsVRC.EditorTools
             }
             hud.lookPalette = (Color[])LookPalette.Clone();
             foreach (var orb in hubPlan.orbBehaviours) orb.uiAudio = uiAudio;
+            foreach (var orb in wb.orbs) orb.uiAudio = uiAudio;
             book.uiAudio = uiAudio;
             ((CutscenePlayer)cutscenes[0]).uiAudio = uiAudio;
             Debug.Log("[WizardsVRC] Interface sounds on " + WireUiSounds(scene, uiAudio) + " buttons.");

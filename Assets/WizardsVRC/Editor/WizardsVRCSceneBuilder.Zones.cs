@@ -26,6 +26,8 @@ namespace WizardsVRC.EditorTools
             public WorldDataStore.Data data;
             public Transform cutsceneParent;
             public readonly List<UdonSharpBehaviour> behaviours = new List<UdonSharpBehaviour>();
+            /// <summary>Street health / mana orbs (they get the interface sounds once those exist).</summary>
+            public readonly List<RestoreOrb> orbs = new List<RestoreOrb>();
             public readonly List<GameObject> zoneRoots = new List<GameObject>();
             public readonly Dictionary<string, int> npcIds = new Dictionary<string, int>();
             public readonly Dictionary<string, Transform> npcTargets = new Dictionary<string, Transform>();
@@ -248,6 +250,7 @@ namespace WizardsVRC.EditorTools
             _dungeonSystems = systems;
             _dungeonStart = null;
             _dungeonCells = null;
+            _zoneOrbSeeds.Clear();
             if (z.landmarks != null && z.landmarks.Count > 0)
                 BuildLandmarks(root, g, z, null, null, wb.data, bld, roof, PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)),
                     PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f), door, window, wood, wb.behaviours);
@@ -342,6 +345,11 @@ namespace WizardsVRC.EditorTools
             if (ringCells.Count > 0)
                 Debug.Log("[WizardsVRC World] " + z.displayName + ": " + outsideSpots.Count + " duel ring spots" +
                           (dungeonSpots.Count > 0 ? " (+" + dungeonSpots.Count + " in the dungeon)" : "") + ".");
+
+            // Health and mana orbs drifting round the street (any painted orb cells start one each, plus about one of
+            // each kind per 110 walkable cells).
+            int orbsPerKind = Mathf.Clamp(g.Reachable().Count / 110, 1, 5);
+            BuildWanderingOrbs(root, g, z.zoneKey, new List<HubOrb>(_zoneOrbSeeds), orbsPerKind, playerState, wb.orbs, wb);
 
             // Culling: small props drop out with distance; the whole zone is off for anyone not in it.
             AddDistanceCulling(root, z.detailDistance);

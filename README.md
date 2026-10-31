@@ -56,7 +56,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
-| `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb: walk through it to restore health / mana (local; respawns after 30 s) |
+| `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb that drifts round the area on a wandering loop (server-clock timed, so everyone sees it in the same place): walk into it to restore health / mana (local; respawns after 30 s) |
 | `Assets/WizardsVRC/Scripts/MusicDirector.cs` | Local background music: picks the combat, character creation or hub track from what you're doing and where you are, crossfades between them, and scales by the Music setting |
 | `Assets/WizardsVRC/Scripts/TavernJukebox.cs` | The tavern's synced video player: link, start time and pause are synced (anyone can change the song), everyone seeks to the same point, retries when VRChat rate-limits loads, and fades the speaker so it's only heard inside the tavern; mute and volume are per player |
 | `Assets/WizardsVRC/Scripts/PlayerHUD.cs` | Head-following HUD: name, level, health, mana, gold, and a segmented XP bar (fills in steps; on level-up it fills, flashes and starts again) |
@@ -102,8 +102,8 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
   a north terrace with a waterfall pouring into a pond, the observatory hill, the Training Grounds (practice ring) and
   the boss arena pad, the **duelling circle** (PvP), the quest-locked tunnels to Sunpetal Gardens (end of the south avenue)
   and Lantern Row (end of the west avenue) through gatehouses into snowy mountains, the inn,
-  bakery and gazebo garden, and the Bazaar and shops (hats, wands, potions, pets, cards). **Red and blue orbs** on the
-  ring roads restore health and mana when you walk through them. It also has the notice board ("Change Character" /
+  bakery and gazebo garden, and the Bazaar and shops (hats, wands, potions, pets, cards). **Red and blue orbs** drift
+  round the ring roads (and every street) and restore health and mana when you walk into them. It also has the notice board ("Change Character" /
   Backpack) and the **Backpack pedestal** by the tavern door. Without a hub zone the older hand-made castle is built.
 - `KeepInterior` (y = 200) — the Headmaster's office (new characters start here). With outdoor schools that's all;
   otherwise also the Hall of Schools with a classroom per school.

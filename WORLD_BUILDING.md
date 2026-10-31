@@ -194,7 +194,7 @@ stands on (a rotated square) and the paths up to its door.
 | Arena Pad | hub | the boss arena teleporter (also lockable with Required Quest) |
 | Backpack Pedestal, Notice Board | hub | the book pedestal, and the Change Character / Backpack board (Bank Chest, the old testing chest, is no longer built) |
 | Duel Circle | hub | the **duelling circle** for PvP: paint a round block about 6-7 cells across, all at one height. A mosaic floor, Blue and Red team banners, braziers and a sign with the countdown. Stepping in starts a 15 s countdown; everyone inside when it ends duels in two teams (see the README) |
-| Health Orb, Mana Orb | any | a floating red / blue orb on every cell you paint (put them on paths): walking through one restores 25% of your health / mana (at least 10) if you need it; it vanishes for you only and comes back after 30 s |
+| Health Orb, Mana Orb | any | a floating red / blue orb **starts** on every cell you paint and then drifts round the area on its own wandering loop (to a few random places within about 10 cells and back, along walkable ground). Streets also get about one of each kind per 110 walkable cells without painting any. Walking into one restores 25% of your health / mana (at least 10) if you need it; it vanishes for you only and comes back after 30 s, further along its loop |
 
 ### The castle hub
 
