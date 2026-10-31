@@ -1299,7 +1299,8 @@ namespace WizardsVRC.EditorTools
             // Pips in front of every seat, with swirling motes.
             BuildSeatPips(ring.transform, client);
 
-            client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 5.2f, 7f), Quaternion.identity, new Vector2(1600, 420), 0.005f, "", 52);
+            // The round / cast / result banner: big, high over the middle of the ring, readable from every seat.
+            client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 6.4f, 0), Quaternion.identity, new Vector2(1800, 480), 0.008f, "", 64);
 
             var divider = GameObject.CreatePrimitive(PrimitiveType.Cube);
             divider.name = "SideDivider";

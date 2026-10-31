@@ -32,6 +32,9 @@ namespace WizardsVRC
         public GameObject[] monsterBodies;
         public Text[] overheadLabels;
         public Text bannerLabel;
+        [Tooltip("Seconds the Victory / Defeat text stays over the ring before it clears.")]
+        public float resultSeconds = 6f;
+        private float _bannerClearAt = -1f;
         public Text padLabel;
         public Transform orb;
         public Renderer orbRenderer;
@@ -677,7 +680,7 @@ namespace WizardsVRC
                     if (_inBattle) result = w < 0 ? "The duel is over." : (w == MySide() ? "Victory! " : "Defeat... ") + TeamName(w) + " wins.";
                     if (_inBattle) result += "\nDuels cost nothing: your health and mana are as they were.";
                     _vitalsDone = true;
-                    SetBanner(result);
+                    ShowResult(result);
                     _note = result;
                     if (_inBattle) SendCustomEventDelayedSeconds(nameof(_LeaveBattle), Mathf.Max(2, manager.endSeconds - 1));
                     _phaseSeen = phase;
@@ -701,11 +704,13 @@ namespace WizardsVRC
                     ApplyDefeat();
                     msg += "\nYou were defeated and return home to recover.";
                 }
-                SetBanner(msg);
+                ShowResult(msg);
                 _note = msg;
                 if (_inBattle) SendCustomEventDelayedSeconds(nameof(_LeaveBattle), Mathf.Max(2, manager.endSeconds - 1));
             }
 
+            // Nothing stays written over an empty ring.
+            if (phase == BattleManager.PHASE_IDLE && bannerLabel != null && bannerLabel.text.Length > 0) SetBanner("");
             if (phase == BattleManager.PHASE_IDLE && _inBattle) _LeaveBattle();
             if (_inBattle && !_leaving && mySlot < 0 && phase != BattleManager.PHASE_IDLE)
             {
@@ -2534,7 +2539,23 @@ namespace WizardsVRC
 
         private void SetBanner(string text)
         {
+            _bannerClearAt = -1f;
             if (bannerLabel != null) bannerLabel.text = text;
+        }
+
+        /// <summary>The Victory / Defeat text: shown over the ring, then cleared after resultSeconds.</summary>
+        private void ShowResult(string text)
+        {
+            SetBanner(text);
+            _bannerClearAt = Time.time + resultSeconds;
+            SendCustomEventDelayedSeconds(nameof(_ClearResult), resultSeconds + 0.05f);
+        }
+
+        public void _ClearResult()
+        {
+            // Skipped if something else has been written there since (a new fight's round banner).
+            if (_bannerClearAt < 0f || Time.time < _bannerClearAt) return;
+            SetBanner("");
         }
     }
 }
