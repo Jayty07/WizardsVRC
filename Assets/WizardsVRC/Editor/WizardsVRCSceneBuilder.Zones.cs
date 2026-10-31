@@ -329,9 +329,9 @@ namespace WizardsVRC.EditorTools
                 {
                     var home = g.Find(e.Symbol);
                     bool inDungeon = home.Count > 0 && _dungeonCells != null && _dungeonCells.Contains(home[0]);
-                    var c = BuildZoneEncounter(root, g, z, e, spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb,
+                    var lanes = BuildZoneEncounter(root, g, z, e, spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb,
                         inDungeon ? dungeonSpots : outsideSpots, ringByCell);
-                    if (c != null) (inDungeon ? dungeonGroups : outsideGroups).Add(c);
+                    (inDungeon ? dungeonGroups : outsideGroups).AddRange(lanes);
                 }
             foreach (var groups in new[] { outsideGroups, dungeonGroups })
             {
@@ -828,44 +828,59 @@ namespace WizardsVRC.EditorTools
             return list;
         }
 
-        private static BattleClient BuildZoneEncounter(Transform root, ZoneGrid g, ZoneDefinition z, ZoneEncounter e, Transform spawn,
+        private static List<BattleClient> BuildZoneEncounter(Transform root, ZoneGrid g, ZoneDefinition z, ZoneEncounter e, Transform spawn,
             Transform systems, CardDatabase cardDb, ItemDatabase itemDb, PlayerState playerState, QuestManager qm, List<BattleClient> encounters, WorldBuild wb,
             List<Transform> streetSpots, Dictionary<Vector2Int, Transform> ringByCell)
         {
+            var lanes = new List<BattleClient>();
             var spots = g.Find(e.Symbol);
-            if (spots.Count == 0 || e.roster == null || e.roster.Count == 0 || streetSpots.Count == 0) return null;
+            if (spots.Count == 0 || e.roster == null || e.roster.Count == 0 || streetSpots.Count == 0) return lanes;
             var roster = new List<int>();
             foreach (int id in e.roster) if (id > 0 && roster.Count < BattleManager.SIDE) roster.Add(id);
-            if (roster.Count == 0) return null;
-            string name = z.zoneKey + "_" + e.key;
-
-            var client = MakeEncounter(systems, name, cardDb, itemDb, playerState, spawn, roster.ToArray(), true, encounters);
-            client.questManager = qm;
-            client.manager.scaleRosterWithParty = e.scaleWithParty;
-            // Even fights: one monster per wizard, patrol monster w is roster[w % roster size].
-            client.manager.evenFight = e.evenFight;
-            client.manager.wandererMonsters = new int[Mathf.Max(0, e.wanderers)];
-            for (int w = 0; w < e.wanderers; w++) client.manager.wandererMonsters[w] = roster[w % roster.Count];
-            client.manager.respawnSeconds = Mathf.Max(5, e.respawnSeconds);
+            if (roster.Count == 0) return lanes;
+            string baseName = z.zoneKey + "_" + e.key;
 
             // Ring spots: every spot in the street (or, for a group inside a dungeon, in the dungeon). The fight forms at
             // the free one nearest the wizard who touched a monster; monsters take the side away from the entrance.
             var ringSpots = streetSpots.ToArray();
-            client.manager.ringSpots = ringSpots;
             Transform home;
             if (!ringByCell.TryGetValue(spots[0], out home) || home == null) home = ringSpots[0];
-            client.manager.ringSpot = System.Array.IndexOf(ringSpots, home);
-            if (client.manager.ringSpot < 0) client.manager.ringSpot = 0;
 
-            BuildEncounter(root, home.localPosition, name, client, 0);
-            Transform encRoot = root.Find("Encounter" + name);
-            if (encRoot != null) encRoot.localRotation = home.localRotation;
-            client.encounterRoot = encRoot;
-            // Like Wizard101, you stay where you are after a fight; defeat sends you back to the entrance.
-            client.hubReturn = null;
-            client.defeatReturn = spawn;
-            // In a dungeon, defeat sends you back to the dungeon's start, not out of it.
-            if (_dungeonStart != null && _dungeonCells != null && _dungeonCells.Contains(spots[0])) client.defeatReturn = _dungeonStart;
+            // Fight lanes: each is one duel the group can have going at once (its own referee and ring), so wizards who
+            // run into the group's monsters elsewhere get their own fight instead of waiting.
+            int laneCount = e.maxFights <= 0 ? 2 : Mathf.Clamp(e.maxFights, 1, 4);
+            for (int lane = 0; lane < laneCount; lane++)
+            {
+                string name = lane == 0 ? baseName : baseName + "_L" + (lane + 1);
+                var client = MakeEncounter(systems, name, cardDb, itemDb, playerState, spawn, roster.ToArray(), true, encounters);
+                client.questManager = qm;
+                client.manager.scaleRosterWithParty = e.scaleWithParty;
+                // Even fights: one monster per wizard, patrol monster w is roster[w % roster size].
+                client.manager.evenFight = e.evenFight;
+                client.manager.wandererMonsters = new int[Mathf.Max(0, e.wanderers)];
+                for (int w = 0; w < e.wanderers; w++) client.manager.wandererMonsters[w] = roster[w % roster.Count];
+                client.manager.respawnSeconds = Mathf.Max(5, e.respawnSeconds);
+                client.manager.ringSpots = ringSpots;
+                client.manager.ringSpot = Mathf.Max(0, System.Array.IndexOf(ringSpots, home));
+
+                BuildEncounter(root, home.localPosition, name, client, 0);
+                Transform encRoot = root.Find("Encounter" + name);
+                if (encRoot != null) encRoot.localRotation = home.localRotation;
+                client.encounterRoot = encRoot;
+                // Like Wizard101, you stay where you are after a fight; defeat sends you back to the entrance.
+                client.hubReturn = null;
+                client.defeatReturn = spawn;
+                // In a dungeon, defeat sends you back to the dungeon's start, not out of it.
+                if (_dungeonStart != null && _dungeonCells != null && _dungeonCells.Contains(spots[0])) client.defeatReturn = _dungeonStart;
+                lanes.Add(client);
+            }
+            var laneManagers = new BattleManager[lanes.Count];
+            for (int i = 0; i < lanes.Count; i++) laneManagers[i] = lanes[i].manager;
+            // Peers start as the group's own lanes (two lanes never share a spot); a street widens this to all its groups.
+            foreach (var l in lanes) { l.manager.groupLanes = laneManagers; l.manager.peers = laneManagers; }
+            var laneClients = lanes.ToArray();
+            var lead = lanes[0];
+            var walkers = new List<Wanderer>();
 
             // Patrol: walkers follow the route of the matching letter, spread evenly along it.
             Transform guideTarget = home;
@@ -888,7 +903,8 @@ namespace WizardsVRC.EditorTools
                     float span = loop ? length : length * 2f;
                     for (int w = 0; w < e.wanderers; w++)
                     {
-                        var wd = MakeWanderer(patrol, client, cardDb, roster[w % roster.Count], "Wanderer" + w);
+                        var wd = MakeWanderer(patrol, lead, cardDb, roster[w % roster.Count], "Wanderer" + w);
+                        walkers.Add(wd);
                         wd.wandererIndex = w;
                         wd.contactRadius = DuelCircleRadius + 8f;
                         wd.path = path;
@@ -903,7 +919,8 @@ namespace WizardsVRC.EditorTools
                 {
                     for (int w = 0; w < e.wanderers; w++)
                     {
-                        var wd = MakeWanderer(patrol, client, cardDb, roster[w % roster.Count], "Wanderer" + w);
+                        var wd = MakeWanderer(patrol, lead, cardDb, roster[w % roster.Count], "Wanderer" + w);
+                        walkers.Add(wd);
                         wd.wandererIndex = w;
                         wd.contactRadius = DuelCircleRadius + 8f;
                         // Circles its home spot (the painted ring digit), not the ring, which moves to wherever a fight forms.
@@ -915,8 +932,13 @@ namespace WizardsVRC.EditorTools
                     }
                 }
             }
+            foreach (var wd in walkers)
+            {
+                wd.laneManagers = laneManagers;
+                wd.laneClients = laneClients;
+            }
             foreach (int id in roster) if (!wb.monsterTargets.ContainsKey(id)) wb.monsterTargets[id] = guideTarget;
-            return client;
+            return lanes;
         }
 
         private static Wanderer MakeWanderer(Transform parent, BattleClient client, CardDatabase db, int monsterId, string name)

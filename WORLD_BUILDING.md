@@ -113,8 +113,8 @@ reached from S".
   level ground with no NPC, quest point, landmark or entrance inside the ring, spaced so rings never overlap), so a
   duel forms right where you met the monster. Painted digits are always spots too; plazas and little 3x3 squares just
   off the lane make good ones.
-- Fill the lanes with several encounters rather than one huge one: each encounter fights one duel at a time, so more
-  encounters means more fights can happen at once.
+- Fill the lanes with several encounters rather than one huge one: each encounter has its own monsters and patrol,
+  and can run up to *Max Fights* duels at once.
 - Put the boss in its own walled courtyard (`=` walls, a narrow gate) with an Explore point at the gate.
 
 ### Battle rings (where fights happen)
@@ -129,6 +129,7 @@ Each **Encounter** in the zone's list links a ring digit to a fight:
 | Patrol Speed | walking speed in m/s |
 | Respawn Seconds | how long the patrol is gone after a fight |
 | Scale With Party | spawn only the first monster plus one per wizard (bosses with adds) |
+| Max Fights | how many duels the group can have going at once, each in its own ring (1-4, default 2) |
 | Even Fight | for new players' areas: the fight starts with **only the monster that was touched**. Each extra wizard who joins lets one more patrol monster join when it reaches the circle (or, with no patrol monster left, the next roster monster at once); any other patrol monster that reaches the circle **fades away** until it respawns. The rest keep patrolling during the fight. On in the castle practice ring and all of Sunpetal Gardens |
 
 Rings aren't tied to an encounter: the digit is the encounter's home (its patrol letter, and what it circles with no
@@ -137,8 +138,11 @@ the **free ring spot nearest the wizard** (one no other encounter is fighting on
 Wizard101's duel circles: the monster walks over to its seat, nearby wizards are pulled in, and the first round waits
 about 3 seconds (`BattleManager.startGraceSeconds`) so everyone starts together. A wizard who walks into a fight later
 sits out the round they arrive in and can't be targeted until they're in. Only the monster that was touched leaves its
-patrol (it comes back *Respawn Seconds* after the fight); the rest keep walking. While their encounter is in a duel they can't start another one (their label says so) and
-they step out of sight as they walk through the circle. Other players can walk into the circle and fill free seats, even mid-fight. After a fight you
+patrol (it comes back *Respawn Seconds* after the fight); the rest keep walking, and step out of sight as they walk through one of the group's rings. Running into one of them
+while the group is fighting pulls you into the group's fight if its ring is close (about 30 m) and has a free seat, and
+the monster you ran into joins that fight with you (if a monster seat is free; in an even fight, if a wizard is
+unmatched). Otherwise you start a new duel with it at the nearest free ring, up to *Max Fights* at once. Other players
+can also walk into a circle and fill free seats, even mid-fight. After a fight you
 stay where you are; defeated wizards go back to the zone's entrance.
 
 ### NPCs

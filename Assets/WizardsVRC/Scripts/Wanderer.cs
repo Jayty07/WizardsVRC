@@ -7,17 +7,24 @@ namespace WizardsVRC
 {
     /// <summary>
     /// A wandering monster. With a <see cref="path"/> it walks a patrol route (a loop, or back and forth along a line);
-    /// without one it circles its encounter's duel circle. Its position comes from the server clock, so every client sees
-    /// it in the same place without syncing. Touching it (walking within aggroRadius) starts the encounter's fight; it
-    /// leaves its patrol for the fight and comes back a while afterwards. The rest of the patrol keeps walking: while their
-    /// group is fighting they can't be touched (walk into the circle to join instead) and they step out of sight as they
-    /// pass through the duel circle.
+    /// without one it circles its group's home spot. Its position comes from the server clock, so every client sees it in
+    /// the same place without syncing. Touching it (walking within aggroRadius) pulls you into a duel with it: into its
+    /// group's fight if one is going on nearby with a free seat (it joins that fight too), otherwise into a new fight at
+    /// the nearest free ring. A group can have several fights at once (one per lane). It leaves its patrol for the fight,
+    /// walks over to its seat and comes back a while afterwards; the rest of the patrol keeps walking (out of sight while
+    /// they pass through one of the group's rings).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class Wanderer : UdonSharpBehaviour
     {
+        [Tooltip("Lane 0 of the group (the others are in Lane Managers / Lane Clients).")]
         public BattleManager manager;
         public BattleClient client;
+        [Tooltip("Every fight lane of this monster group: a lane is one fight that can be going on at once.")]
+        public BattleManager[] laneManagers;
+        public BattleClient[] laneClients;
+        [Tooltip("Touching it joins the group's fight in progress if its ring is within this distance (m) and has a free seat.")]
+        public float joinNearRadius = 30f;
         public CardDatabase cardDatabase;
         public int monsterId;
 
@@ -57,17 +64,40 @@ namespace WizardsVRC
         private Vector3 _bodyPos;
         private bool _wasHidden;
         private float _fadeStart = -100f;
-        private int _contactBattle = -1;
+        private int[] _contactBattle;
         private string _name = "";
-        private bool _busyLabel;
         private float _walkStart = -100f;
+        private int _walkLane;
 
         private void Start()
         {
             if (cardDatabase != null) _name = cardDatabase.MonsterName(monsterId) + "\nLevel " + cardDatabase.MonsterLevel(monsterId).ToString();
             if (label != null) label.text = _name;
             if (body != null) { _bodyScale = body.transform.localScale; _bodyPos = body.transform.localPosition; }
+            if (laneManagers == null || laneManagers.Length == 0) { laneManagers = new BattleManager[] { manager }; laneClients = new BattleClient[] { client }; }
+            _contactBattle = new int[laneManagers.Length];
+            for (int i = 0; i < _contactBattle.Length; i++) _contactBattle[i] = -1;
             BuildRoute();
+        }
+
+        /// <summary>The lane whose fight this monster has left its patrol for (or is waiting to respawn from); -1 = none.</summary>
+        private int HiddenLane()
+        {
+            for (int l = 0; l < laneManagers.Length; l++)
+                if (laneManagers[l] != null && laneManagers[l].WandererHidden(wandererIndex)) return l;
+            return -1;
+        }
+
+        private bool Fighting(BattleManager m)
+        {
+            return m != null && m.phase >= BattleManager.PHASE_JOINING && m.phase <= BattleManager.PHASE_PLAYBACK;
+        }
+
+        private float FlatDistance(Vector3 a, Vector3 b)
+        {
+            Vector3 d = a - b;
+            d.y = 0f;
+            return d.magnitude;
         }
 
         /// <summary>Leaving the patrol mid-fight (joining the duel or fading away): shrinks and rises, then hides.</summary>
@@ -86,7 +116,7 @@ namespace WizardsVRC
         /// <summary>Walking to the ring after a fight formed. False once there (or out of time): it then hides.</summary>
         private bool WalkToRing()
         {
-            if (Time.time - _walkStart > walkSeconds || body == null || client == null) return false;
+            if (Time.time - _walkStart > walkSeconds || body == null) return false;
             Transform to = SeatFor();
             if (to == null) return false;
             Vector3 d = to.position - transform.position;
@@ -101,11 +131,15 @@ namespace WizardsVRC
         /// <summary>The ring seat holding a monster like this one (the boss seat if none does yet).</summary>
         private Transform SeatFor()
         {
-            Transform[] seats = client.seats;
-            if (seats == null || seats.Length < BattleManager.SLOTS) return client.arenaCenter;
+            if (_walkLane < 0 || _walkLane >= laneClients.Length) return null;
+            BattleClient c = laneClients[_walkLane];
+            BattleManager m = laneManagers[_walkLane];
+            if (c == null || m == null) return null;
+            Transform[] seats = c.seats;
+            if (seats == null || seats.Length < BattleManager.SLOTS) return c.arenaCenter;
             for (int s = BattleManager.SIDE; s < BattleManager.SLOTS; s++)
-                if (manager.slotIds[s] == monsterId && seats[s] != null) return seats[s];
-            return seats[BattleManager.BOSS_SLOT] != null ? seats[BattleManager.BOSS_SLOT] : client.arenaCenter;
+                if (m.slotIds[s] == monsterId && seats[s] != null) return seats[s];
+            return seats[BattleManager.BOSS_SLOT] != null ? seats[BattleManager.BOSS_SLOT] : c.arenaCenter;
         }
 
         private void BuildRoute()
@@ -128,11 +162,12 @@ namespace WizardsVRC
 
         private void Update()
         {
-            if (manager == null) return;
-            bool hidden = manager.WandererHidden(wandererIndex);
-            // A patrol monster that just left its patrol for a fight walks over to its seat in the ring (the ring forms at
-            // the free spot nearest the wizard), then steps out of sight as the seated monster appears.
-            if (hidden && !_wasHidden && manager.phase != BattleManager.PHASE_IDLE) { _walkStart = Time.time; _fadeStart = -100f; }
+            if (manager == null || laneManagers == null) return;
+            int lane = HiddenLane();
+            bool hidden = lane >= 0;
+            // A patrol monster that just left its patrol for a fight walks over to its seat in that fight's ring, then
+            // steps out of sight as the seated monster appears.
+            if (hidden && !_wasHidden && laneManagers[lane].phase != BattleManager.PHASE_IDLE) { _walkStart = Time.time; _walkLane = lane; _fadeStart = -100f; }
             if (!hidden && _wasHidden && body != null)
             {
                 body.transform.localScale = _bodyScale;
@@ -182,53 +217,57 @@ namespace WizardsVRC
             if (facing.sqrMagnitude < 0.0001f) facing = transform.forward;
             transform.SetPositionAndRotation(pos, Quaternion.LookRotation(facing, Vector3.up));
 
-            // Normal encounters: while this patrol's group is fighting, the others keep walking but step out of sight as
-            // they pass through the duel circle, and their label says they're busy.
-            int ph = manager.phase;
-            bool fighting = ph != BattleManager.PHASE_IDLE;
+            // While one of the group's fights is on, the others keep walking but step out of sight as they pass through
+            // its ring. In even fights, the fighting wizards report a monster that reaches their ring (it joins if a
+            // wizard is unmatched, or fades away); the referee decides, once per monster.
             bool inCircle = false;
-            if (!manager.evenFight && fighting && client != null && client.arenaCenter != null)
+            for (int l = 0; l < laneManagers.Length; l++)
             {
-                Vector3 rc = pos - client.arenaCenter.position;
-                rc.y = 0f;
-                inCircle = rc.magnitude <= contactRadius;
+                BattleManager m = laneManagers[l];
+                BattleClient c = l < laneClients.Length ? laneClients[l] : null;
+                if (m == null || c == null || c.arenaCenter == null || m.phase == BattleManager.PHASE_IDLE) continue;
+                float dist = FlatDistance(pos, c.arenaCenter.position);
+                if (!m.evenFight && dist <= contactRadius) inCircle = true;
+                if (m.evenFight && Fighting(m) && c.IsInBattle() && _contactBattle[l] != m.battleId && dist <= contactRadius)
+                {
+                    _contactBattle[l] = m.battleId;
+                    m.RequestWandererContact(wandererIndex);
+                }
             }
             if (body != null && body.activeSelf == inCircle) body.SetActive(!inCircle);
-            if (label != null)
-            {
-                if (label.gameObject.activeSelf == inCircle) label.gameObject.SetActive(!inCircle);
-                bool busy = !manager.evenFight && fighting;
-                if (busy != _busyLabel)
-                {
-                    _busyLabel = busy;
-                    label.text = busy ? _name + "\n(its pack is in a duel)" : _name;
-                }
-            }
+            if (label != null && label.gameObject.activeSelf == inCircle) label.gameObject.SetActive(!inCircle);
 
-            // Even fights: walking into the duel circle during a fight, it joins (if a wizard is unmatched) or fades away.
-            // The wizards in the fight report it; the referee decides (once per monster).
-            if (manager.evenFight && ph >= BattleManager.PHASE_JOINING && ph <= BattleManager.PHASE_PLAYBACK && client != null && client.IsInBattle() &&
-                client.arenaCenter != null && _contactBattle != manager.battleId)
-            {
-                Vector3 c = pos - client.arenaCenter.position;
-                c.y = 0f;
-                if (c.magnitude <= contactRadius)
-                {
-                    _contactBattle = manager.battleId;
-                    manager.RequestWandererContact(wandererIndex);
-                }
-            }
-
-            if (Time.time < _nextTry || client == null || !client.CanFight()) return;
-            // A normal encounter fights one duel at a time: join it by walking into its circle.
-            if (!manager.evenFight && fighting) return;
+            if (inCircle || Time.time < _nextTry || client == null || !client.CanFight()) return;
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
-            Vector3 d = me.GetPosition() - pos;
-            d.y = 0f;
-            if (d.magnitude > aggroRadius) return;
+            Vector3 mine = me.GetPosition();
+            if (FlatDistance(mine, pos) > aggroRadius) return;
             _nextTry = Time.time + 1.5f;
-            manager.RequestEngageWander(wandererIndex);
+            int to = PickLane(mine);
+            if (to >= 0) laneManagers[to].RequestEngageWander(wandererIndex);
+        }
+
+        /// <summary>
+        /// Where touching this monster takes you: the group's nearest fight in progress within joinNearRadius that has a
+        /// free seat (the monster joins it with you), otherwise a lane with no fight on (a new duel at the nearest free
+        /// ring). -1 when every lane is busy and none near has room.
+        /// </summary>
+        private int PickLane(Vector3 mine)
+        {
+            int best = -1;
+            float bestD = joinNearRadius;
+            for (int l = 0; l < laneManagers.Length; l++)
+            {
+                BattleManager m = laneManagers[l];
+                BattleClient c = l < laneClients.Length ? laneClients[l] : null;
+                if (!Fighting(m) || c == null || c.arenaCenter == null || !m.HasFreeWizardSeat()) continue;
+                float d = FlatDistance(mine, c.arenaCenter.position);
+                if (d <= bestD) { bestD = d; best = l; }
+            }
+            if (best >= 0) return best;
+            for (int l = 0; l < laneManagers.Length; l++)
+                if (laneManagers[l] != null && laneManagers[l].phase == BattleManager.PHASE_IDLE) return l;
+            return -1;
         }
 
         /// <summary>Position and heading on the route at time t: loops wrap around, lines turn back at the ends.</summary>

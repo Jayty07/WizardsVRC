@@ -324,6 +324,9 @@ namespace WizardsVRC.EditorTools.WorldData
                  "wizard lets one more patrol monster join when it reaches the circle; other patrol monsters that reach the " +
                  "circle fade away. (Overrides Scale With Party.)")]
         public bool evenFight;
+        [Tooltip("How many duels this group can have going at once (each is its own ring). Wizards who run into one of its " +
+                 "monsters join a fight of the group's nearby with a free seat, or start another at the nearest free ring.")]
+        [Range(1, 4)] public int maxFights = 2;
 
         public char Symbol { get { return string.IsNullOrEmpty(ringSymbol) ? '\0' : ringSymbol[0]; } }
         public char PatrolSymbol { get { char d = Symbol; return d >= '1' && d <= '9' ? (char)('a' + (d - '1')) : '\0'; } }

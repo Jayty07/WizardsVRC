@@ -126,8 +126,20 @@ namespace WizardsVRC
         [Tooltip("Zone encounters: places the duel ring may appear (shared by every monster group in the street). A fight " +
                  "forms at the free spot nearest the wizard who touched the monster. Empty = the ring stays where it was built.")]
         public Transform[] ringSpots;
-        [Tooltip("The street's other monster groups: a spot one of them is fighting on isn't free.")]
+        [Tooltip("Every fight lane in the street (all monster groups): a spot one of them is fighting on isn't free.")]
         public BattleManager[] peers;
+        [Tooltip("This monster group's fight lanes (this one included): a patrol monster in one lane's fight can't start another.")]
+        public BattleManager[] groupLanes;
+
+        /// <summary>Patrol monster w is in (or waiting to respawn from) a fight on any of the group's lanes.</summary>
+        public bool WandererHiddenAnyLane(int w)
+        {
+            if (WandererHidden(w)) return true;
+            if (groupLanes == null) return false;
+            for (int k = 0; k < groupLanes.Length; k++)
+                if (groupLanes[k] != null && groupLanes[k] != this && groupLanes[k].WandererHidden(w)) return true;
+            return false;
+        }
         /// <summary>Index into ringSpots of the current fight's ring.</summary>
         [UdonSynced] public int ringSpot;
 
@@ -597,10 +609,12 @@ namespace WizardsVRC
             if (!Networking.IsOwner(gameObject) || !wanderMode || playerId <= 0) return;
             if (phase == PHASE_IDLE)
             {
-                if (WandererHidden(wanderer)) return;
+                if (wanderer >= 0 && WandererHiddenAnyLane(wanderer)) return;
+                int spot = NearestRingSpot(playerId);
+                if (spot < 0) return;   // every ring nearby is in use
                 for (int i = 0; i < queueIds.Length; i++) queueIds[i] = 0;
                 queueIds[0] = playerId;
-                ringSpot = NearestRingSpot(playerId);
+                ringSpot = spot;
                 // Even fights start with just the monster that was touched.
                 _startWanderer = wanderer;
                 StartBattle();
@@ -625,15 +639,22 @@ namespace WizardsVRC
                     locked[s] = 1;
                     _joinRound[s] = round;
                 }
+                // The patrol monster they ran into comes with them into the fight (it leaves its patrol); in an even fight
+                // only while a wizard is unmatched, otherwise whenever a monster seat is free.
+                bool touched = wanderer >= 0 && wanderer < 31 && wanderer < wandererMonsters.Length && !WandererHiddenAnyLane(wanderer);
                 if (evenFight)
                 {
-                    // The patrol monster they touched comes with them; otherwise one joins when it reaches the circle.
-                    if (wanderer >= 0 && wanderer < 31 && wanderer < wandererMonsters.Length && (wandererGone & (1 << wanderer)) == 0)
+                    if (touched)
                     {
                         wandererGone |= 1 << wanderer;
                         if (EvenMonsterCount() < EvenWizardCount()) AddMonster(wandererMonsters[wanderer]);
                     }
                     if (EvenMonsterCount() < EvenWizardCount() && !AnyWandererLeft()) AddMonster(NextRosterMonster());
+                }
+                else if (touched && MonsterCount() < SIDE)
+                {
+                    wandererGone |= 1 << wanderer;
+                    AddMonster(wandererMonsters[wanderer]);
                 }
                 Publish();
                 return;
@@ -690,8 +711,8 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// The free ring spot closest to the player (one no other monster group in the street is fighting on), or the
-        /// closest of all if every spot is taken; 0 when there are no spots or the player is unknown.
+        /// The free ring spot closest to the player (one no other fight in the street is using); -1 if every spot is taken,
+        /// 0 when there are no spots or the player is unknown.
         /// </summary>
         public int NearestRingSpot(int playerId)
         {
@@ -699,18 +720,17 @@ namespace WizardsVRC
             VRCPlayerApi p = VRCPlayerApi.GetPlayerById(playerId);
             if (!Utilities.IsValid(p)) return 0;
             Vector3 pos = p.GetPosition();
-            int best = -1, any = 0;
-            float bestD = float.MaxValue, anyD = float.MaxValue;
+            int best = -1;
+            float bestD = float.MaxValue;
             for (int i = 0; i < ringSpots.Length; i++)
             {
                 if (ringSpots[i] == null) continue;
                 Vector3 v = ringSpots[i].position - pos;
                 // Height counts extra: a ring on the terrace above isn't "near".
                 float d = v.x * v.x + v.z * v.z + v.y * v.y * 9f;
-                if (d < anyD) { anyD = d; any = i; }
                 if (d < bestD && !SpotTaken(ringSpots[i])) { bestD = d; best = i; }
             }
-            return best >= 0 ? best : any;
+            return best;
         }
 
         /// <summary>Another monster group in the street has a fight on at this spot.</summary>
