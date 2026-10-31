@@ -265,6 +265,9 @@ namespace WizardsVRC
         private float _nextEngage;
         private int _clockActor = -1;
         private int _battleSeen;
+        [Tooltip("Street fights: the seated monsters appear this long after the ring forms (the patrol monster walks over first).")]
+        public float bodyRevealDelay = 1.8f;
+        private float _revealAt = -100f;
         private int _roundSeen;
         private int _phaseSeen;
         /// <summary>Health/mana were already written back to the character for this fight (victory, defeat or flee).</summary>
@@ -607,6 +610,11 @@ namespace WizardsVRC
             if ((phase == BattleManager.PHASE_ROAMING || phase == BattleManager.PHASE_JOINING) && manager.battleId != _battleSeen)
             {
                 _battleSeen = manager.battleId;
+                if (manager.wanderMode && manager.round == 0)
+                {
+                    _revealAt = Time.time + bodyRevealDelay;
+                    SendCustomEventDelayedSeconds(nameof(_RevealBodies), bodyRevealDelay + 0.05f);
+                }
                 _roundSeen = 0;
                 _clockActor = -1;
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
@@ -1480,9 +1488,16 @@ namespace WizardsVRC
                 int s = BattleManager.SIDE + m;
                 // Each monster seat's body is built from the encounter's roster (seat m = roster[m]), so it always
                 // shows the monster actually sitting there.
-                bool show = !Pvp() && phase >= BattleManager.PHASE_ROAMING && !manager.IsSummon(s) && KeepBody(s);
+                bool show = !Pvp() && phase >= BattleManager.PHASE_ROAMING && !manager.IsSummon(s) && KeepBody(s) &&
+                            !(manager.round == 0 && Time.time < _revealAt);
                 if (monsterBodies[m].activeSelf != show) monsterBodies[m].SetActive(show);
             }
+        }
+
+        /// <summary>The patrol monster has walked over to the ring: show the seated monsters.</summary>
+        public void _RevealBodies()
+        {
+            if (manager != null) RefreshBodies(manager.phase);
         }
 
         private bool KeepBody(int s)

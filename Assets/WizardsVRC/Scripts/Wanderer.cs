@@ -44,6 +44,9 @@ namespace WizardsVRC
         public float contactRadius = 10f;
         [Tooltip("Seconds it takes to fade away (shrinks and rises) when it leaves its patrol.")]
         public float fadeSeconds = 0.7f;
+        [Tooltip("When a fight forms it walks over to its seat in the ring at this speed (m/s), for at most walkSeconds.")]
+        public float walkSpeed = 7f;
+        public float walkSeconds = 1.7f;
 
         private float _nextTry;
         private float[] _cum;
@@ -57,6 +60,7 @@ namespace WizardsVRC
         private int _contactBattle = -1;
         private string _name = "";
         private bool _busyLabel;
+        private float _walkStart = -100f;
 
         private void Start()
         {
@@ -77,6 +81,31 @@ namespace WizardsVRC
             body.transform.localPosition = _bodyPos + Vector3.up * (tq * 0.8f);
             body.transform.localRotation = Quaternion.Euler(0f, tq * 540f, 0f);
             return true;
+        }
+
+        /// <summary>Walking to the ring after a fight formed. False once there (or out of time): it then hides.</summary>
+        private bool WalkToRing()
+        {
+            if (Time.time - _walkStart > walkSeconds || body == null || client == null) return false;
+            Transform to = SeatFor();
+            if (to == null) return false;
+            Vector3 d = to.position - transform.position;
+            d.y = 0f;
+            if (d.magnitude < 0.6f) { _walkStart = -100f; return false; }
+            if (!body.activeSelf) body.SetActive(true);
+            Vector3 step = Vector3.MoveTowards(transform.position, to.position, walkSpeed * Time.deltaTime);
+            transform.SetPositionAndRotation(step, Quaternion.LookRotation(d.normalized, Vector3.up));
+            return true;
+        }
+
+        /// <summary>The ring seat holding a monster like this one (the boss seat if none does yet).</summary>
+        private Transform SeatFor()
+        {
+            Transform[] seats = client.seats;
+            if (seats == null || seats.Length < BattleManager.SLOTS) return client.arenaCenter;
+            for (int s = BattleManager.SIDE; s < BattleManager.SLOTS; s++)
+                if (manager.slotIds[s] == monsterId && seats[s] != null) return seats[s];
+            return seats[BattleManager.BOSS_SLOT] != null ? seats[BattleManager.BOSS_SLOT] : client.arenaCenter;
         }
 
         private void BuildRoute()
@@ -101,8 +130,9 @@ namespace WizardsVRC
         {
             if (manager == null) return;
             bool hidden = manager.WandererHidden(wandererIndex);
-            // A patrol monster that just left (into the duel, or fading away) fades out where it stood.
-            if (hidden && !_wasHidden && manager.phase != BattleManager.PHASE_IDLE) _fadeStart = Time.time;
+            // A patrol monster that just left its patrol for a fight walks over to its seat in the ring (the ring forms at
+            // the free spot nearest the wizard), then steps out of sight as the seated monster appears.
+            if (hidden && !_wasHidden && manager.phase != BattleManager.PHASE_IDLE) { _walkStart = Time.time; _fadeStart = -100f; }
             if (!hidden && _wasHidden && body != null)
             {
                 body.transform.localScale = _bodyScale;
@@ -110,6 +140,11 @@ namespace WizardsVRC
                 body.transform.localRotation = Quaternion.identity;
             }
             _wasHidden = hidden;
+            if (hidden && WalkToRing())
+            {
+                if (label != null && label.gameObject.activeSelf) label.gameObject.SetActive(false);
+                return;
+            }
             if (hidden && AnimateFade())
             {
                 if (label != null && label.gameObject.activeSelf) label.gameObject.SetActive(false);
@@ -122,7 +157,9 @@ namespace WizardsVRC
                 return;
             }
 
-            float t = (Networking.GetServerTimeInMilliseconds() % 3600000) / 1000f;
+            // Server time in seconds (a double, always counting up). The millisecond clock is an int that wraps and is
+            // often negative in published instances, which froze every patrol at its first waypoint.
+            double t = Networking.GetServerTimeInSeconds();
             Vector3 pos;
             Vector3 facing;
             if (_length > 0.01f)
@@ -134,7 +171,10 @@ namespace WizardsVRC
             else
             {
                 if (center == null) return;
-                float ang = phaseOffset + t * speed / Mathf.Max(1f, radius);
+                double turn = Mathf.PI * 2f;
+                double a = (t * speed / Mathf.Max(1f, radius)) % turn;
+                if (a < 0) a += turn;
+                float ang = phaseOffset + (float)a;
                 Vector3 dir = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang));
                 pos = center.position + dir * radius;
                 facing = new Vector3(-dir.z, 0f, dir.x);
@@ -192,16 +232,15 @@ namespace WizardsVRC
         }
 
         /// <summary>Position and heading on the route at time t: loops wrap around, lines turn back at the ends.</summary>
-        private void PatrolPose(float t)
+        private void PatrolPose(double t)
         {
-            float dist = t * speed + phaseOffset;
+            // Wrap in double precision (t is large), then work in floats along the route.
+            double span = loop ? _length : _length * 2.0;
+            double wrapped = (t * speed + phaseOffset) % span;
+            if (wrapped < 0) wrapped += span;
+            float dist = (float)wrapped;
             bool back = false;
-            if (loop) dist = dist % _length;
-            else
-            {
-                dist = dist % (_length * 2f);
-                if (dist > _length) { dist = _length * 2f - dist; back = true; }
-            }
+            if (!loop && dist > _length) { dist = _length * 2f - dist; back = true; }
             int n = path.Length;
             int seg = 0;
             int segs = loop ? n : n - 1;

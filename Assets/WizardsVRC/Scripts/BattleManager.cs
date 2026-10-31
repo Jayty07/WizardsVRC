@@ -67,6 +67,8 @@ namespace WizardsVRC
         [Header("Timing (seconds)")]
         public int queueSeconds = 15;
         public int joinSeconds = 8;
+        [Tooltip("The first round never starts sooner than this after the ring forms, so everyone pulled in arrives together.")]
+        public float startGraceSeconds = 3f;
         public int roamSeconds = 300;
         public int planningSeconds = 30;
         public int endSeconds = 8;
@@ -121,9 +123,11 @@ namespace WizardsVRC
         public int critMultiplier = 200;
         [Tooltip("Critical chance % of boss monsters.")]
         public int bossCritPct = 5;
-        [Tooltip("Zone encounters: places the duel ring may appear. A fight forms at the spot nearest the wizard who " +
-                 "touched the monster (Wizard101 style). Empty = the ring stays where it was built.")]
+        [Tooltip("Zone encounters: places the duel ring may appear (shared by every monster group in the street). A fight " +
+                 "forms at the free spot nearest the wizard who touched the monster. Empty = the ring stays where it was built.")]
         public Transform[] ringSpots;
+        [Tooltip("The street's other monster groups: a spot one of them is fighting on isn't free.")]
+        public BattleManager[] peers;
         /// <summary>Index into ringSpots of the current fight's ring.</summary>
         [UdonSynced] public int ringSpot;
 
@@ -131,6 +135,8 @@ namespace WizardsVRC
         [UdonSynced] public int lastEndMs;
 
         [UdonSynced] public int phase;
+        /// <summary>Server time the current fight's ring formed (the start grace counts from it).</summary>
+        [UdonSynced] public int formedMs;
         [UdonSynced] public int phaseEndMs;
         [UdonSynced] public int battleId;
         [UdonSynced] public int round;
@@ -610,8 +616,15 @@ namespace WizardsVRC
             {
                 if (!SeatFree(s)) continue;
                 ResetSeat(s, playerId);
+                _joinRound[s] = -1;
                 if (phase == PHASE_JOINING) phaseEndMs = Mathf.Max(phaseEndMs, Now() + 4000);
-                else locked[s] = 1;
+                else
+                {
+                    // Joining a fight in progress: they sit this round out and can't be targeted until they're really in
+                    // (from the next round), like Wizard101.
+                    locked[s] = 1;
+                    _joinRound[s] = round;
+                }
                 if (evenFight)
                 {
                     // The patrol monster they touched comes with them; otherwise one joins when it reaches the circle.
@@ -676,22 +689,41 @@ namespace WizardsVRC
             if (phase == PHASE_PLANNING) locked[seat] = 1;
         }
 
-        /// <summary>The ring spot closest to the player (0 when there are no spots or the player is unknown).</summary>
+        /// <summary>
+        /// The free ring spot closest to the player (one no other monster group in the street is fighting on), or the
+        /// closest of all if every spot is taken; 0 when there are no spots or the player is unknown.
+        /// </summary>
         public int NearestRingSpot(int playerId)
         {
             if (ringSpots == null || ringSpots.Length == 0) return 0;
             VRCPlayerApi p = VRCPlayerApi.GetPlayerById(playerId);
             if (!Utilities.IsValid(p)) return 0;
             Vector3 pos = p.GetPosition();
-            int best = 0;
-            float bestD = float.MaxValue;
+            int best = -1, any = 0;
+            float bestD = float.MaxValue, anyD = float.MaxValue;
             for (int i = 0; i < ringSpots.Length; i++)
             {
                 if (ringSpots[i] == null) continue;
-                float d = (ringSpots[i].position - pos).sqrMagnitude;
-                if (d < bestD) { bestD = d; best = i; }
+                Vector3 v = ringSpots[i].position - pos;
+                // Height counts extra: a ring on the terrace above isn't "near".
+                float d = v.x * v.x + v.z * v.z + v.y * v.y * 9f;
+                if (d < anyD) { anyD = d; any = i; }
+                if (d < bestD && !SpotTaken(ringSpots[i])) { bestD = d; best = i; }
             }
-            return best;
+            return best >= 0 ? best : any;
+        }
+
+        /// <summary>Another monster group in the street has a fight on at this spot.</summary>
+        private bool SpotTaken(Transform spot)
+        {
+            if (peers == null) return false;
+            for (int k = 0; k < peers.Length; k++)
+            {
+                BattleManager m = peers[k];
+                if (m == null || m == this || m.phase == PHASE_IDLE) continue;
+                if (m.CurrentRingSpot() == spot) return true;
+            }
+            return false;
         }
 
         /// <summary>The current fight's ring spot, or null when this encounter has none.</summary>
@@ -715,6 +747,7 @@ namespace WizardsVRC
         public void NetEngage(int playerId)
         {
             if (!Networking.IsOwner(gameObject) || phase != PHASE_ROAMING || FindWizardSlot(playerId) < 0) return;
+            formedMs = Now();
             phase = PHASE_JOINING;
             phaseEndMs = Now() + joinSeconds * 1000;
             Publish();
@@ -778,7 +811,9 @@ namespace WizardsVRC
             }
             else if (phase == PHASE_JOINING)
             {
-                if (timeUp || AllJoined()) BeginRound();
+                // Everyone pulled in gets a moment to arrive and sit down before the first round.
+                bool graceOver = Now() - formedMs >= (int)(startGraceSeconds * 1000f);
+                if (timeUp || (AllJoined() && graceOver)) BeginRound();
             }
             else if (phase == PHASE_PLANNING)
             {
@@ -905,6 +940,7 @@ namespace WizardsVRC
             if (count == 0) { phase = PHASE_IDLE; Publish(); return; }
 
             battleId++;
+            formedMs = Now();
             round = 0;
             actCount = 0;
             fxLogCount = 0;
@@ -955,6 +991,7 @@ namespace WizardsVRC
             }
             winnerSide = -1;
             battleId++;
+            formedMs = Now();
             round = 0;
             actCount = 0;
             fxLogCount = 0;
@@ -1120,7 +1157,7 @@ namespace WizardsVRC
             for (int i = 0; i < SIDE; i++)
             {
                 int t = enemySide * SIDE + i;
-                if (Alive(t) && taunt[t] > 0) return t;
+                if (Targetable(t) && taunt[t] > 0) return t;
             }
             return RandomAlive(enemySide);
         }
@@ -1245,16 +1282,28 @@ namespace WizardsVRC
             AddAct(group, s, seat, cardId, KIND_SUMMON, power);
         }
 
+        /// <summary>
+        /// A wizard who walked into the fight this round isn't in it yet: they sit the round out and nothing can target
+        /// them (single-target or area spells) until the next round.
+        /// </summary>
+        private bool Entering(int s)
+        {
+            return s >= 0 && s < PlayerSeats() && !IsSummon(s) && round > 0 && _joinRound[s] == round;
+        }
+
+        /// <summary>Alive and in the fight (not still walking in).</summary>
+        private bool Targetable(int s) { return Alive(s) && !Entering(s); }
+
         private int RandomAlive(int side)
         {
             int count = 0;
-            for (int i = 0; i < SIDE; i++) if (Alive(side * SIDE + i)) count++;
+            for (int i = 0; i < SIDE; i++) if (Targetable(side * SIDE + i)) count++;
             if (count == 0) return -1;
             int k = Random.Range(0, count);
             for (int i = 0; i < SIDE; i++)
             {
                 int s = side * SIDE + i;
-                if (!Alive(s)) continue;
+                if (!Targetable(s)) continue;
                 if (k == 0) return s;
                 k--;
             }
@@ -1263,8 +1312,8 @@ namespace WizardsVRC
 
         private int ValidTarget(int target, int side)
         {
-            if (Alive(target) && SideOf(target) == side) return target;
-            for (int i = 0; i < SIDE; i++) if (Alive(side * SIDE + i)) return side * SIDE + i;
+            if (Targetable(target) && SideOf(target) == side) return target;
+            for (int i = 0; i < SIDE; i++) if (Targetable(side * SIDE + i)) return side * SIDE + i;
             return -1;
         }
 
@@ -1468,7 +1517,7 @@ namespace WizardsVRC
                 return 1;
             }
             int n = 0;
-            for (int i = 0; i < SIDE; i++) if (Alive(side * SIDE + i)) _targets[n++] = side * SIDE + i;
+            for (int i = 0; i < SIDE; i++) if (Targetable(side * SIDE + i)) _targets[n++] = side * SIDE + i;
             return n;
         }
 

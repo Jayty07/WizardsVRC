@@ -109,8 +109,10 @@ reached from S".
   quest items, NPCs and side quests in.
 - Give each encounter a **long patrol** that follows the street: a line down a lane and along the next one, or a loop
   round a block of houses or a whole square. About one patrol monster per 7-8 cells of route (up to 10).
-- Put **several ring spots** along each route (every 7-10 cells), in plazas or little 3x3 squares just off the lane, so a
-  duel forms near where you met the monster.
+- You don't need to paint many ring spots: the builder fills every street with as many duel ring spots as fit (open,
+  level ground with no NPC, quest point, landmark or entrance inside the ring, spaced so rings never overlap), so a
+  duel forms right where you met the monster. Painted digits are always spots too; plazas and little 3x3 squares just
+  off the lane make good ones.
 - Fill the lanes with several encounters rather than one huge one: each encounter fights one duel at a time, so more
   encounters means more fights can happen at once.
 - Put the boss in its own walled courtyard (`=` walls, a narrow gate) with an Explore point at the gate.
@@ -129,9 +131,13 @@ Each **Encounter** in the zone's list links a ring digit to a fight:
 | Scale With Party | spawn only the first monster plus one per wizard (bosses with adds) |
 | Even Fight | for new players' areas: the fight starts with **only the monster that was touched**. Each extra wizard who joins lets one more patrol monster join when it reaches the circle (or, with no patrol monster left, the next roster monster at once); any other patrol monster that reaches the circle **fades away** until it respawns. The rest keep patrolling during the fight. On in the castle practice ring and all of Sunpetal Gardens |
 
-When a wizard touches a patrolling monster, the fight forms at the **nearest ring spot** of that encounter, like
-Wizard101's duel circles. Only the monster that was touched leaves its patrol (it comes back *Respawn Seconds* after the
-fight); the rest keep walking. While their encounter is in a duel they can't start another one (their label says so) and
+Rings aren't tied to an encounter: the digit is the encounter's home (its patrol letter, and what it circles with no
+route), and every ring spot in the street is shared. When a monster comes within reach of a wizard, the fight forms at
+the **free ring spot nearest the wizard** (one no other encounter is fighting on; in a dungeon, a spot inside it), like
+Wizard101's duel circles: the monster walks over to its seat, nearby wizards are pulled in, and the first round waits
+about 3 seconds (`BattleManager.startGraceSeconds`) so everyone starts together. A wizard who walks into a fight later
+sits out the round they arrive in and can't be targeted until they're in. Only the monster that was touched leaves its
+patrol (it comes back *Respawn Seconds* after the fight); the rest keep walking. While their encounter is in a duel they can't start another one (their label says so) and
 they step out of sight as they walk through the circle. Other players can walk into the circle and fill free seats, even mid-fight. After a fight you
 stay where you are; defeated wizards go back to the zone's entrance.
 
@@ -424,7 +430,7 @@ them up. The guide arrow and HUD tracker work automatically from the step's targ
 Ring 1 Thistle Sprouts (line `a` past the sprout pen and along the south lawns), ring 2 Puddle Newts (loop `b` round the
 whole middle of the garden, 6 newts), ring 3 Mischief Moths (loop `c` round the walled moth garden), ring 4 Old Briarwick
 in the briar patch. Y = overgrown gazebo, X = Explore point, M = Gardener Moss, S = gate from the castle. Every digit is a
-spot a duel can form at: the one nearest the wizard who touched the monster.
+ring spot, along with all the others the builder fits in; a duel forms at the free one nearest the wizard.
 
 ## The default Lantern Row (Lv 4-6)
 

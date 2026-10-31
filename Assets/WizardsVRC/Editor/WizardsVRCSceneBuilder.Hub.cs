@@ -991,7 +991,11 @@ namespace WizardsVRC.EditorTools
             foreach (var p in z.points) if (p != null) BuildPoints(hub.root, g, p, qm, wb, glow, deadLamp, wood);
             foreach (var e in z.encounters)
                 if (e != null && ZoneGrid.IsRingDigit(e.Symbol))
-                    BuildZoneEncounter(hub.root, g, z, e, start, hub.spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb);
+                {
+                    var byCell = new Dictionary<Vector2Int, Transform>();
+                    BuildZoneEncounter(hub.root, g, z, e, hub.spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb,
+                        DigitRingSpots(hub.root, g, e, start, byCell), byCell);
+                }
             BuildDuelCircles(hub, systems, cardDb, itemDb, playerState, qm, encounters, wb);
             BuildHubOrbs(hub, playerState, wb);
         }

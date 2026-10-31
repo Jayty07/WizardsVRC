@@ -305,9 +305,43 @@ namespace WizardsVRC.EditorTools
             // ---- NPCs, points, encounters
             foreach (var npc in z.npcs) if (npc != null) BuildNpc(root, g, z, npc, qm, wb);
             foreach (var p in z.points) if (p != null) BuildPoints(root, g, p, qm, wb, glow, deadLamp, wood);
+            // Duel rings aren't tied to one monster group: the street is filled with as many ring spots as fit, and a fight
+            // forms at the free one nearest the wizard (the patrol monster walks over to it).
+            var ringCells = StreetRingCells(g, z, start);
+            var spotsRoot = Child(root, "RingSpots_" + z.zoneKey, Vector3.zero);
+            var ringByCell = new Dictionary<Vector2Int, Transform>();
+            var outsideSpots = new List<Transform>();
+            var dungeonSpots = new List<Transform>();
+            foreach (var c in ringCells)
+            {
+                Vector3 p = g.Local(c);
+                Vector3 away = p - g.Local(start);
+                away.y = 0f;
+                Transform t = Child(spotsRoot, "Spot_" + c.x + "_" + c.y, p);
+                t.localRotation = away.sqrMagnitude > 0.01f ? Quaternion.LookRotation(away) : Quaternion.identity;
+                ringByCell[c] = t;
+                (_dungeonCells != null && _dungeonCells.Contains(c) ? dungeonSpots : outsideSpots).Add(t);
+            }
+            var outsideGroups = new List<BattleClient>();
+            var dungeonGroups = new List<BattleClient>();
             foreach (var e in z.encounters)
                 if (e != null && ZoneGrid.IsRingDigit(e.Symbol))
-                    BuildZoneEncounter(root, g, z, e, start, spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb);
+                {
+                    var home = g.Find(e.Symbol);
+                    bool inDungeon = home.Count > 0 && _dungeonCells != null && _dungeonCells.Contains(home[0]);
+                    var c = BuildZoneEncounter(root, g, z, e, spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb,
+                        inDungeon ? dungeonSpots : outsideSpots, ringByCell);
+                    if (c != null) (inDungeon ? dungeonGroups : outsideGroups).Add(c);
+                }
+            foreach (var groups in new[] { outsideGroups, dungeonGroups })
+            {
+                var peers = new BattleManager[groups.Count];
+                for (int i = 0; i < groups.Count; i++) peers[i] = groups[i].manager;
+                foreach (var c in groups) c.manager.peers = peers;
+            }
+            if (ringCells.Count > 0)
+                Debug.Log("[WizardsVRC World] " + z.displayName + ": " + outsideSpots.Count + " duel ring spots" +
+                          (dungeonSpots.Count > 0 ? " (+" + dungeonSpots.Count + " in the dungeon)" : "") + ".");
 
             // Culling: small props drop out with distance; the whole zone is off for anyone not in it.
             AddDistanceCulling(root, z.detailDistance);
@@ -731,14 +765,78 @@ namespace WizardsVRC.EditorTools
 
         // ------------------------------------------------------------------ encounters
 
-        private static void BuildZoneEncounter(Transform root, ZoneGrid g, ZoneDefinition z, ZoneEncounter e, Vector2Int start, Transform spawn,
-            Transform systems, CardDatabase cardDb, ItemDatabase itemDb, PlayerState playerState, QuestManager qm, List<BattleClient> encounters, WorldBuild wb)
+        /// <summary>
+        /// Every cell a duel ring can sit on: the painted ring digits, then as many more as fit across the street (open,
+        /// level ground with no NPC, quest point, landmark or the entrance inside the ring, spaced so rings never overlap).
+        /// </summary>
+        private static List<Vector2Int> StreetRingCells(ZoneGrid g, ZoneDefinition z, Vector2Int start)
+        {
+            var placed = new List<Vector2Int>();
+            float spacing = DuelCircleRadius * 2f + 2f;
+            bool FarEnough(Vector2Int c)
+            {
+                Vector3 p = g.Local(c);
+                foreach (var o in placed)
+                {
+                    Vector3 q = g.Local(o);
+                    if (new Vector2(p.x - q.x, p.z - q.z).magnitude < spacing) return false;
+                }
+                return true;
+            }
+            foreach (var e in z.encounters)
+                if (e != null && ZoneGrid.IsRingDigit(e.Symbol))
+                    foreach (var c in g.Find(e.Symbol))
+                        if (!placed.Contains(c)) placed.Add(c);
+
+            var reach = g.Reachable();
+            int r = Mathf.CeilToInt(ZoneGrid.RingClearance / g.cell) + 1;
+            for (int y = 0; y < g.height; y++)
+                for (int x = 0; x < g.width; x++)
+                {
+                    var c = new Vector2Int(x, y);
+                    if (!reach.Contains(c) || g.RingBlockers(c).Count > 0 || !FarEnough(c)) continue;
+                    bool clear = true;
+                    for (int yy = y - r; yy <= y + r && clear; yy++)
+                        for (int xx = x - r; xx <= x + r && clear; xx++)
+                        {
+                            if (new Vector2(xx - x, yy - y).magnitude * g.cell > ZoneGrid.RingClearance + g.cell * 0.5f) continue;
+                            char ch = g.At(xx, yy);
+                            if (ch == 'S' || g.IsCustom(ch)) clear = false;
+                            // A ring never straddles the dungeon's edge.
+                            if (_dungeonCells != null && _dungeonCells.Contains(c) != _dungeonCells.Contains(new Vector2Int(xx, yy)) && g.Walkable(xx, yy)) clear = false;
+                        }
+                    if (clear) placed.Add(c);
+                }
+            return placed;
+        }
+
+        /// <summary>Ring spots on one encounter's own painted digit cells only (the hub's practice encounters).</summary>
+        private static List<Transform> DigitRingSpots(Transform root, ZoneGrid g, ZoneEncounter e, Vector2Int start, Dictionary<Vector2Int, Transform> byCell)
+        {
+            var list = new List<Transform>();
+            Transform spotsRoot = Child(root, "RingSpots_" + e.key, Vector3.zero);
+            foreach (var c in g.Find(e.Symbol))
+            {
+                Vector3 p = g.Local(c);
+                Vector3 away = p - g.Local(start);
+                away.y = 0f;
+                Transform t = Child(spotsRoot, "Spot" + list.Count, p);
+                t.localRotation = away.sqrMagnitude > 0.01f ? Quaternion.LookRotation(away) : Quaternion.identity;
+                byCell[c] = t;
+                list.Add(t);
+            }
+            return list;
+        }
+
+        private static BattleClient BuildZoneEncounter(Transform root, ZoneGrid g, ZoneDefinition z, ZoneEncounter e, Transform spawn,
+            Transform systems, CardDatabase cardDb, ItemDatabase itemDb, PlayerState playerState, QuestManager qm, List<BattleClient> encounters, WorldBuild wb,
+            List<Transform> streetSpots, Dictionary<Vector2Int, Transform> ringByCell)
         {
             var spots = g.Find(e.Symbol);
-            if (spots.Count == 0 || e.roster == null || e.roster.Count == 0) return;
+            if (spots.Count == 0 || e.roster == null || e.roster.Count == 0 || streetSpots.Count == 0) return null;
             var roster = new List<int>();
             foreach (int id in e.roster) if (id > 0 && roster.Count < BattleManager.SIDE) roster.Add(id);
-            if (roster.Count == 0) return;
+            if (roster.Count == 0) return null;
             string name = z.zoneKey + "_" + e.key;
 
             var client = MakeEncounter(systems, name, cardDb, itemDb, playerState, spawn, roster.ToArray(), true, encounters);
@@ -750,24 +848,18 @@ namespace WizardsVRC.EditorTools
             for (int w = 0; w < e.wanderers; w++) client.manager.wandererMonsters[w] = roster[w % roster.Count];
             client.manager.respawnSeconds = Mathf.Max(5, e.respawnSeconds);
 
-            // Ring spots: the fight forms at the one nearest the wizard who touched a monster. Monsters take the side away
-            // from the street entrance, so wizards face deeper into the street.
-            Transform spotsRoot = Child(root, "RingSpots_" + e.key, Vector3.zero);
-            var ringSpots = new Transform[spots.Count];
-            for (int i = 0; i < spots.Count; i++)
-            {
-                Vector3 p = g.Local(spots[i]);
-                Vector3 away = p - g.Local(start);
-                away.y = 0f;
-                Transform t = Child(spotsRoot, "Spot" + i, p);
-                t.localRotation = away.sqrMagnitude > 0.01f ? Quaternion.LookRotation(away) : Quaternion.identity;
-                ringSpots[i] = t;
-            }
+            // Ring spots: every spot in the street (or, for a group inside a dungeon, in the dungeon). The fight forms at
+            // the free one nearest the wizard who touched a monster; monsters take the side away from the entrance.
+            var ringSpots = streetSpots.ToArray();
             client.manager.ringSpots = ringSpots;
+            Transform home;
+            if (!ringByCell.TryGetValue(spots[0], out home) || home == null) home = ringSpots[0];
+            client.manager.ringSpot = System.Array.IndexOf(ringSpots, home);
+            if (client.manager.ringSpot < 0) client.manager.ringSpot = 0;
 
-            BuildEncounter(root, ringSpots[0].localPosition, name, client, 0);
+            BuildEncounter(root, home.localPosition, name, client, 0);
             Transform encRoot = root.Find("Encounter" + name);
-            if (encRoot != null) encRoot.localRotation = ringSpots[0].localRotation;
+            if (encRoot != null) encRoot.localRotation = home.localRotation;
             client.encounterRoot = encRoot;
             // Like Wizard101, you stay where you are after a fight; defeat sends you back to the entrance.
             client.hubReturn = null;
@@ -776,7 +868,7 @@ namespace WizardsVRC.EditorTools
             if (_dungeonStart != null && _dungeonCells != null && _dungeonCells.Contains(spots[0])) client.defeatReturn = _dungeonStart;
 
             // Patrol: walkers follow the route of the matching letter, spread evenly along it.
-            Transform guideTarget = ringSpots[0];
+            Transform guideTarget = home;
             if (e.wanderers > 0)
             {
                 bool loop, ok;
@@ -814,7 +906,8 @@ namespace WizardsVRC.EditorTools
                         var wd = MakeWanderer(patrol, client, cardDb, roster[w % roster.Count], "Wanderer" + w);
                         wd.wandererIndex = w;
                         wd.contactRadius = DuelCircleRadius + 8f;
-                        wd.center = client.arenaCenter;
+                        // Circles its home spot (the painted ring digit), not the ring, which moves to wherever a fight forms.
+                        wd.center = home;
                         wd.radius = DuelCircleRadius + 3f;
                         wd.speed = Mathf.Max(0.2f, e.patrolSpeed);
                         wd.phaseOffset = w * Mathf.PI * 2f / e.wanderers;
@@ -823,6 +916,7 @@ namespace WizardsVRC.EditorTools
                 }
             }
             foreach (int id in roster) if (!wb.monsterTargets.ContainsKey(id)) wb.monsterTargets[id] = guideTarget;
+            return client;
         }
 
         private static Wanderer MakeWanderer(Transform parent, BattleClient client, CardDatabase db, int monsterId, string name)
