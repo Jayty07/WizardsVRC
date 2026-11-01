@@ -208,6 +208,15 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Pips:** each round every combatant gains one pip (max 7). From level `powerPipLevel` (10) there is a
   `basePowerPipChance` (40%) that it is a **power pip**, plus any Power Pip % from gear at any level. A power pip is
   worth 2 pips for spells of your own school and 1 for anything else; on-school spells spend power pips first.
+- **Casting:** the caster traces their school's symbol in the air in front of them, stroke by stroke, with a glowing pen
+  tip trailing that school's sparks, then a seal ring round it (a flame, a snowflake, a lightning bolt, a flower, a skull,
+  an open book, scales; a star for General spells). Each school's energy looks its own: fire flickers, ice glints, storm
+  crackles and jitters, life breathes, death crawls with wisps, myth shimmers gold, balance pulses evenly. It flares when
+  the spell is released. The symbols are drawn by `Tools/make_glyph_draw.py` (data maps in `Textures/CastDraw` and the
+  pen paths in `Editor/GlyphPenData.cs`) and shown by the `WizardsVRC/GlyphDraw` shader.
+- **A fizzle** plays the cast as normal for its first 2 seconds (`BattleManager.fizzleCutSeconds`), then the cast sound
+  cuts off, the fizzle sound plays (`Audio/Cast/FX_Fizzle.wav`, `Tools/make_fizzle_sound.py`), and the symbol sputters,
+  greys and sags away in a puff of smoke.
 - **Fizzles** keep your pips, and the card isn't lost: it goes back into your deck at a random spot (Wizard101 rule), or to
   the end of your hand if `BattleClient.fizzleReturnsToHand` is on. Spells cost **1 mana per pip**, charged when cast, even on a fizzle;
   cards you don't have the mana for are greyed out.

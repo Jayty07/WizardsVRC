@@ -43,8 +43,35 @@ namespace WizardsVRC
         public Transform castRing;
         public Renderer castRingRenderer;
         public Renderer castGlyph;
-        [Tooltip("Indexed by School; the last entry is for General spells.")]
+        [Tooltip("Old badge glyphs (unused: casters now draw their symbol, see Glyph Draw Tex).")]
         public Material[] castGlyphMats;
+
+        [Header("Drawn symbol: the caster traces their school's symbol in the air in front of them")]
+        [Tooltip("Data maps from Tools/make_glyph_draw.py (WizardsVRC/GlyphDraw shader), indexed by School; the last is General.")]
+        public Texture2D[] glyphDrawTex;
+        [Tooltip("Energy colour and pen-tip colour per symbol (same order).")]
+        public Color[] glyphColors;
+        public Color[] glyphEdgeColors;
+        [Tooltip("Pen path per symbol (Editor/GlyphPenData.cs): glyphPenSamples points each, in texture coordinates.")]
+        public float[] glyphPenU;
+        public float[] glyphPenV;
+        public int[] glyphPenJump;
+        public int glyphPenSamples = 64;
+        [Tooltip("The glowing pen tip, and each symbol's sparks trailing off it (same order).")]
+        public Transform penTip;
+        public Renderer penTipRenderer;
+        public ParticleSystem[] glyphTrails;
+        [Tooltip("Seconds to draw the symbol (at most about half the wind-up).")]
+        public float glyphDrawSeconds = 1.6f;
+        [Tooltip("Symbol size (m), how far in front of the caster and how high it's drawn (scaled with big monsters).")]
+        public float glyphSize = 1.35f;
+        public float glyphForward = 1.15f;
+        public float glyphHeight = 1.55f;
+
+        [Header("Fizzle")]
+        public AudioClip fizzleSound;
+        [Tooltip("Grey puff of smoke where the symbol was when a spell fizzles.")]
+        public ParticleSystem fizzlePuff;
         public Transform impactBurst;
         public Renderer impactRenderer;
         public AudioSource castAudio;
@@ -298,6 +325,13 @@ namespace WizardsVRC
         private bool _casting;
         private bool _impacting;
         private bool _burstDone;
+        private float _burstAt = -100f;
+        private bool _fizzling;
+        private float _fizzleStart;
+        private Material _glyphMat;
+        private int _glyphIndex;
+        private float _drawLen = 1.6f;
+        private bool _penOn;
         private int _castSchool;
         private float _castLen;
         private float _castPeak;
@@ -1115,6 +1149,18 @@ namespace WizardsVRC
             while (_playIndex < manager.actCount && manager.actGroup[_playIndex] == group) _playIndex++;
             _stepEnd = _playIndex;
 
+            // A fizzle starts like any cast (the symbol being drawn, the cast sound), then sputters out part-way.
+            if (kind == BattleManager.KIND_FIZZLE && card > 0)
+            {
+                int fs = cardDatabase.GetSchool(card);
+                SetBanner(manager.SlotName(actor) + " casts " + cardDatabase.GetName(card) + "...");
+                RefreshLabels();
+                StartCast(actor, actor, fs);
+                _burstDone = true;   // no release burst: it never gets that far
+                SendCustomEventDelayedSeconds(nameof(_FizzleStep), manager.FizzleCut(fs));
+                return;
+            }
+
             if (!manager.IsCastAct(_stepStart))
             {
                 if (kind == BattleManager.KIND_SUMMON && firstTargetSlot >= 0) StartSummon(firstTargetSlot);
@@ -1147,6 +1193,34 @@ namespace WizardsVRC
             StartImpact();
             ApplyStep();
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.impactSeconds);
+        }
+
+        /// <summary>The fizzle: the cast sound cuts off, the fizzle sound plays, the symbol sputters out in a puff of smoke.</summary>
+        public void _FizzleStep()
+        {
+            if (manager.phase != BattleManager.PHASE_PLAYBACK) { FinishPlayback(); return; }
+            if (castAudio != null)
+            {
+                castAudio.Stop();
+                if (fizzleSound != null)
+                {
+                    castAudio.clip = fizzleSound;
+                    castAudio.Play();
+                }
+            }
+            if (_casting)
+            {
+                _fizzling = true;
+                _fizzleStart = Time.time;
+                SetPen(false);
+                if (fizzlePuff != null && castGlyph != null)
+                {
+                    fizzlePuff.transform.position = castGlyph.transform.position;
+                    fizzlePuff.Play();
+                }
+            }
+            ApplyStep();
+            SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.fizzleAfterSeconds);
         }
 
         private void FinishPlayback()
@@ -1270,10 +1344,14 @@ namespace WizardsVRC
             _orbStart = Time.time;
             _castLen = manager.CastSeconds(school);
             _castPeak = manager.CastPeakSeconds(school);
+            _fizzling = false;
+            _burstAt = -100f;
             int mi = fxMats == null || fxMats.Length == 0 ? -1 : (school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1);
             float scale = SeatScale(from);
             _ringBase = seats[from].position + Vector3.up * 0.15f;
-            _glyphBase = seats[from].position + Vector3.up * (2.6f * scale);
+            // The symbol is drawn in the air in front of the caster (seats face the middle of the ring), at chest height.
+            _glyphBase = seats[from].position + seats[from].forward * (glyphForward * scale) + Vector3.up * (glyphHeight * scale);
+            _drawLen = Mathf.Min(glyphDrawSeconds, _castLen * 0.55f);
             _orbFrom = seats[from].position + Vector3.up * (1.3f * scale);
             _orbTo = seats[to].position + Vector3.up * (1.1f * SeatScale(to));
             if (castRing != null)
@@ -1293,13 +1371,24 @@ namespace WizardsVRC
                 castRing.position = _ringBase;
                 castRing.gameObject.SetActive(true);
             }
-            if (castGlyph != null && castGlyphMats != null && castGlyphMats.Length > 0)
+            if (castGlyph != null && glyphDrawTex != null && glyphDrawTex.Length > 0)
             {
-                int gi = school >= 0 && school < castGlyphMats.Length - 1 ? school : castGlyphMats.Length - 1;
-                castGlyph.sharedMaterial = castGlyphMats[gi];
+                int gi = school >= 0 && school < glyphDrawTex.Length - 1 ? school : glyphDrawTex.Length - 1;
+                _glyphIndex = gi;
+                if (_glyphMat == null) _glyphMat = castGlyph.material;
+                _glyphMat.SetTexture("_MainTex", glyphDrawTex[gi]);
+                if (glyphColors != null && gi < glyphColors.Length) _glyphMat.SetColor("_Color", glyphColors[gi]);
+                if (glyphEdgeColors != null && gi < glyphEdgeColors.Length) _glyphMat.SetColor("_EdgeColor", glyphEdgeColors[gi]);
+                // Styles: 0 = General, 1-7 = the schools (see the GlyphDraw shader).
+                _glyphMat.SetFloat("_Style", gi == glyphDrawTex.Length - 1 ? 0f : gi + 1f);
+                _glyphMat.SetFloat("_Reveal", 0f);
+                _glyphMat.SetFloat("_Fade", 1f);
+                _glyphMat.SetFloat("_Flare", 0f);
                 castGlyph.transform.position = _glyphBase;
-                castGlyph.transform.localScale = Vector3.zero;
+                castGlyph.transform.localScale = Vector3.one * (glyphSize * scale);
                 castGlyph.gameObject.SetActive(true);
+                if (penTipRenderer != null && mi >= 0) penTipRenderer.sharedMaterial = fxMats[mi];
+                SetPen(true);
             }
             if (mi >= 0)
             {
@@ -1330,12 +1419,33 @@ namespace WizardsVRC
             _impactStart = Time.time;
             if (castRing != null) castRing.gameObject.SetActive(false);
             if (castGlyph != null) castGlyph.gameObject.SetActive(false);
+            SetPen(false);
+        }
+
+        private void SetPen(bool on)
+        {
+            _penOn = on;
+            if (penTip != null && penTip.gameObject.activeSelf != on) penTip.gameObject.SetActive(on);
+        }
+
+        /// <summary>Where the pen is (texture coordinates) when 'r' of the symbol has been drawn; it hops between strokes.</summary>
+        private Vector2 PenUV(float r)
+        {
+            int n = glyphPenSamples;
+            int b = _glyphIndex * n;
+            if (glyphPenU == null || glyphPenV == null || n < 2 || b + n > glyphPenU.Length || b + n > glyphPenV.Length) return new Vector2(0.5f, 0.5f);
+            float f = Mathf.Clamp01(r) * (n - 1);
+            int i = Mathf.Min(n - 2, (int)f);
+            float a = f - i;
+            if (glyphPenJump != null && b + i < glyphPenJump.Length && glyphPenJump[b + i] != 0) a = a < 0.5f ? 0f : 1f;
+            return new Vector2(Mathf.Lerp(glyphPenU[b + i], glyphPenU[b + i + 1], a), Mathf.Lerp(glyphPenV[b + i], glyphPenV[b + i + 1], a));
         }
 
         /// <summary>School-coloured particle explosion off the caster.</summary>
         private void CastBurst()
         {
             _burstDone = true;
+            _burstAt = Time.time;
             if (castBursts == null || castBursts.Length == 0) return;
             int i = _castSchool >= 0 && _castSchool < castBursts.Length - 1 ? _castSchool : castBursts.Length - 1;
             ParticleSystem ps = castBursts[i];
@@ -1349,6 +1459,8 @@ namespace WizardsVRC
         {
             _casting = false;
             _impacting = false;
+            _fizzling = false;
+            SetPen(false);
             if (orb != null) orb.gameObject.SetActive(false);
             if (castRing != null) castRing.gameObject.SetActive(false);
             if (castGlyph != null) castGlyph.gameObject.SetActive(false);
@@ -1367,22 +1479,65 @@ namespace WizardsVRC
             {
                 castRing.position = _ringBase + Vector3.up * (w * 1.6f);
                 float rs = 1.9f + Mathf.Min(1f, w * 2f) * 1.2f;
+                // A fizzle: the casting ring collapses.
+                if (_fizzling) rs *= Mathf.Max(0f, 1f - (Time.time - _fizzleStart) / 0.5f);
                 castRing.localScale = new Vector3(rs, rs, 1f);
                 castRing.rotation = Quaternion.Euler(90f, Time.time * 160f, 0f);
             }
-            if (castGlyph != null)
+            if (castGlyph != null && _glyphMat != null && castGlyph.gameObject.activeSelf) AnimateGlyph(elapsed, w);
+        }
+
+        /// <summary>
+        /// The symbol: traced stroke by stroke by a glowing pen tip trailing the school's sparks, then held glowing; it
+        /// flares when the spell is released and fades as it lands. A fizzle makes it sputter, grey and sag away instead.
+        /// It always faces the viewer, staying upright.
+        /// </summary>
+        private void AnimateGlyph(float elapsed, float w)
+        {
+            Transform gt = castGlyph.transform;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            Vector3 eye = Utilities.IsValid(me) ? me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position : gt.position - Vector3.forward;
+            if (_fizzling)
             {
-                // Pop in with a little overshoot, hold, and shrink away just before the effect lands.
-                float pop = Mathf.Min(0.35f, _castLen * 0.2f);
-                float size = elapsed < pop ? Mathf.Lerp(0f, 1.25f, elapsed / pop)
-                    : (elapsed < pop * 1.5f ? Mathf.Lerp(1.25f, 1f, (elapsed - pop) / (pop * 0.5f))
-                    : (w < 0.9f ? 1f : Mathf.Lerp(1f, 0f, (w - 0.9f) / 0.1f)));
-                Transform gt = castGlyph.transform;
-                gt.position = _glyphBase + Vector3.up * (w * 0.4f);
-                gt.localScale = Vector3.one * (size * 1.1f);
-                VRCPlayerApi me = Networking.LocalPlayer;
-                Vector3 eye = Utilities.IsValid(me) ? me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position : gt.position - Vector3.forward;
+                float ft = (Time.time - _fizzleStart) / 0.6f;
+                if (ft >= 1f)
+                {
+                    castGlyph.gameObject.SetActive(false);
+                    if (castRing != null) castRing.gameObject.SetActive(false);
+                    return;
+                }
+                bool on = Random.value > 0.3f + ft * 0.4f;
+                _glyphMat.SetFloat("_Fade", on ? (1f - ft) : 0.08f);
+                Color c = glyphColors != null && _glyphIndex < glyphColors.Length ? glyphColors[_glyphIndex] : Color.white;
+                _glyphMat.SetColor("_Color", Color.Lerp(c, new Color(0.3f, 0.3f, 0.32f), ft));
+                _glyphMat.SetColor("_EdgeColor", Color.Lerp(c, new Color(0.35f, 0.35f, 0.38f), ft));
+                gt.position = _glyphBase - Vector3.up * (ft * ft * 0.5f);
                 gt.rotation = Upright(gt.position - eye, gt.rotation);
+                return;
+            }
+
+            float reveal = Mathf.Clamp01(elapsed / Mathf.Max(0.1f, _drawLen));
+            float fade = w < 0.9f ? 1f : Mathf.Lerp(1f, 0f, (w - 0.9f) / 0.1f);
+            float flare = Mathf.Max(0f, 2.2f - (Time.time - _burstAt) * 6f);
+            _glyphMat.SetFloat("_Reveal", reveal < 1f ? reveal : 1.05f);
+            _glyphMat.SetFloat("_Fade", fade);
+            _glyphMat.SetFloat("_Flare", flare);
+            // A slight swell as it's released.
+            float swell = 1f + Mathf.Min(0.12f, flare * 0.06f);
+            gt.position = _glyphBase;
+            gt.localScale = Vector3.one * (glyphSize * SeatScale(_castFrom) * swell);
+            gt.rotation = Upright(gt.position - eye, gt.rotation);
+
+            if (reveal >= 1f) { if (_penOn) SetPen(false); return; }
+            Vector2 uv = PenUV(reveal);
+            // Just in front of the symbol (toward the viewer), so the tip and its sparks aren't hidden in the strokes.
+            Vector3 p = gt.TransformPoint(new Vector3(uv.x - 0.5f, uv.y - 0.5f, -0.02f));
+            if (penTip != null) penTip.position = p;
+            if (glyphTrails != null && _glyphIndex < glyphTrails.Length && glyphTrails[_glyphIndex] != null)
+            {
+                ParticleSystem tr = glyphTrails[_glyphIndex];
+                tr.transform.position = p;
+                tr.Emit(2);
             }
         }
 

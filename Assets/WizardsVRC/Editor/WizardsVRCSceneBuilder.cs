@@ -1338,14 +1338,24 @@ namespace WizardsVRC.EditorTools
             glyphR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             glyph.SetActive(false);
             client.castGlyph = glyphR;
-            client.castGlyphMats = new Material[SchoolLabels.Length + 1];
-            for (int k = 0; k <= SchoolLabels.Length; k++)
+            // The caster draws their school's symbol in the air in front of them (WizardsVRC/GlyphDraw; the data maps and
+            // pen paths come from Tools/make_glyph_draw.py). BattleClient copies the material per ring and drives it.
+            Material drawMat = GlyphDrawMat();
+            if (drawMat != null) glyphR.sharedMaterial = drawMat;
+            client.castGlyphMats = new Material[0];
+            int symbols = GlyphPenData.Labels.Length;
+            client.glyphDrawTex = new Texture2D[symbols];
+            for (int k = 0; k < symbols; k++)
             {
-                string label = k < SchoolLabels.Length ? SchoolLabels[k] : "General";
-                Texture2D gt = PixelTexture(TexturesDir + "/CastGlyph" + label + ".png");
-                // The glyph PNGs are painted in school colours, so the material stays untinted and just glows.
-                client.castGlyphMats[k] = CutoutMat("CastGlyph" + label, gt, Color.white, Color.white * 0.9f);
+                client.glyphDrawTex[k] = DataTexture(TexturesDir + "/CastDraw/GlyphDraw" + GlyphPenData.Labels[k] + ".png");
+                if (client.glyphDrawTex[k] == null) Debug.LogWarning("[WizardsVRC] Missing drawn symbol " + GlyphPenData.Labels[k] + " (run Tools/make_glyph_draw.py).");
             }
+            client.glyphColors = (Color[])GlyphColors.Clone();
+            client.glyphEdgeColors = (Color[])GlyphEdgeColors.Clone();
+            client.glyphPenU = (float[])GlyphPenData.U.Clone();
+            client.glyphPenV = (float[])GlyphPenData.V.Clone();
+            client.glyphPenJump = (int[])GlyphPenData.Jump.Clone();
+            client.glyphPenSamples = GlyphPenData.Samples;
             var burst = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             burst.name = "ImpactBurst";
             burst.transform.SetParent(ring.transform, false);
@@ -1416,6 +1426,25 @@ namespace WizardsVRC.EditorTools
                 pr.renderMode = ParticleSystemRenderMode.Billboard;
                 client.castBursts[k] = ps;
             }
+
+            // The pen tip drawing the symbol, and each school's sparks trailing off it.
+            var tip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            tip.name = "GlyphPenTip";
+            tip.transform.SetParent(ring.transform, false);
+            tip.transform.localScale = Vector3.one * 0.11f;
+            Object.DestroyImmediate(tip.GetComponent<Collider>());
+            tip.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            tip.SetActive(false);
+            client.penTip = tip.transform;
+            client.penTipRenderer = tip.GetComponent<Renderer>();
+            client.glyphTrails = new ParticleSystem[SchoolLabels.Length + 1];
+            for (int k = 0; k <= SchoolLabels.Length; k++)
+                client.glyphTrails[k] = GlyphTrail(ring.transform, k, client.fxMats[k]);
+
+            // A fizzle's puff of grey smoke, and its sound (Tools/make_fizzle_sound.py).
+            client.fizzlePuff = FizzlePuff(ring.transform);
+            client.fizzleSound = AssetDatabase.LoadAssetAtPath<AudioClip>(CastSoundDir + "/FX_Fizzle.wav");
+            if (client.fizzleSound == null) Debug.LogWarning("[WizardsVRC] Missing fizzle sound " + CastSoundDir + "/FX_Fizzle.wav (run Tools/make_fizzle_sound.py).");
 
             // Breaking shields / blades / traps, floating combat text and hit / heal / defeat sounds.
             BuildCombatFeedback(ring.transform, client);
@@ -1845,6 +1874,138 @@ namespace WizardsVRC.EditorTools
             go.transform.localPosition = localPos;
             go.transform.localScale = scale;
             go.GetComponent<Renderer>().sharedMaterial = mat;
+        }
+
+        // Drawn symbols: energy colour and pen-tip colour per school (then General), as GlyphPenData.Labels.
+        private static readonly Color[] GlyphColors =
+        {
+            new Color(1f, 0.42f, 0.1f), new Color(0.45f, 0.8f, 1f), new Color(0.66f, 0.42f, 1f), new Color(0.35f, 0.95f, 0.4f),
+            new Color(0.5f, 0.32f, 0.68f), new Color(1f, 0.76f, 0.22f), new Color(0.92f, 0.66f, 0.4f), new Color(0.72f, 0.82f, 1f),
+        };
+        private static readonly Color[] GlyphEdgeColors =
+        {
+            new Color(1f, 0.92f, 0.55f), new Color(0.92f, 1f, 1f), new Color(0.95f, 0.92f, 1f), new Color(0.88f, 1f, 0.72f),
+            new Color(0.72f, 1f, 0.82f), new Color(1f, 1f, 0.82f), new Color(1f, 0.96f, 0.82f), new Color(1f, 1f, 1f),
+        };
+
+        /// <summary>The drawn symbol's material (WizardsVRC/GlyphDraw); null if the shader is missing.</summary>
+        private static Material GlyphDrawMat()
+        {
+            var shader = Shader.Find("WizardsVRC/GlyphDraw");
+            if (shader == null)
+            {
+                Debug.LogError("[WizardsVRC] Shader WizardsVRC/GlyphDraw is missing; casters' symbols won't show.");
+                return null;
+            }
+            Directory.CreateDirectory(MaterialsDir);
+            string path = MaterialsDir + "/CastGlyphDraw.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.shader = shader;
+            mat.SetFloat("_Reveal", 1f);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        /// <summary>A texture read as data, not colour: point-filtered, linear (no sRGB), uncompressed, no mipmaps.</summary>
+        private static Texture2D DataTexture(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer != null && (importer.filterMode != FilterMode.Point || importer.sRGBTexture || importer.mipmapEnabled ||
+                                     importer.textureCompression != TextureImporterCompression.Uncompressed || importer.alphaIsTransparency))
+            {
+                importer.filterMode = FilterMode.Point;
+                importer.sRGBTexture = false;
+                importer.alphaIsTransparency = false;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.mipmapEnabled = false;
+                importer.npotScale = TextureImporterNPOTScale.None;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        /// <summary>
+        /// Sparks trailing off the pen tip while a symbol is drawn (BattleClient emits them as the tip moves), each school
+        /// its own: fire embers rise, frost drifts down, storm sparks spit out, life motes float, death wisps creep up
+        /// slow and big, myth glitter, balance dust settles; General is plain arcane sparkle.
+        /// </summary>
+        private static ParticleSystem GlyphTrail(Transform parent, int k, Material mat)
+        {
+            string label = k < SchoolLabels.Length ? SchoolLabels[k] : "General";
+            // lifetime min/max, speed min/max, size min/max, gravity
+            float[][] look =
+            {
+                new[] { 0.45f, 0.9f, 0.2f, 0.7f, 0.05f, 0.13f, -0.25f },   // Fire
+                new[] { 0.8f, 1.4f, 0.05f, 0.2f, 0.03f, 0.08f, 0.06f },    // Ice
+                new[] { 0.12f, 0.3f, 1.5f, 3.2f, 0.03f, 0.07f, 0f },       // Storm
+                new[] { 1f, 1.6f, 0.08f, 0.3f, 0.05f, 0.1f, -0.03f },      // Life
+                new[] { 0.9f, 1.5f, 0.05f, 0.2f, 0.09f, 0.18f, -0.08f },   // Death
+                new[] { 0.6f, 1f, 0.2f, 0.5f, 0.03f, 0.07f, -0.05f },      // Myth
+                new[] { 0.7f, 1.1f, 0.1f, 0.3f, 0.04f, 0.08f, 0.1f },      // Balance
+                new[] { 0.5f, 0.9f, 0.2f, 0.4f, 0.04f, 0.08f, 0f },        // General
+            };
+            float[] v = look[Mathf.Clamp(k, 0, look.Length - 1)];
+            var go = Child(parent, "GlyphTrail" + label, Vector3.zero).gameObject;
+            var ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = ps.main;
+            main.playOnAwake = false;
+            main.loop = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(v[0], v[1]);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(v[2], v[3]);
+            main.startSize = new ParticleSystem.MinMaxCurve(v[4], v[5]);
+            main.gravityModifier = v[6];
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 400;
+            var emission = ps.emission;
+            emission.rateOverTime = 0f;
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.03f;
+            var sizeLife = ps.sizeOverLifetime;
+            sizeLife.enabled = true;
+            sizeLife.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
+            var pr = go.GetComponent<ParticleSystemRenderer>();
+            pr.sharedMaterial = mat;
+            pr.renderMode = ParticleSystemRenderMode.Billboard;
+            return ps;
+        }
+
+        /// <summary>The grey puff of smoke a fizzled spell leaves where its symbol was.</summary>
+        private static ParticleSystem FizzlePuff(Transform parent)
+        {
+            var go = Child(parent, "FizzlePuff", Vector3.zero).gameObject;
+            var ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = ps.main;
+            main.playOnAwake = false;
+            main.loop = false;
+            main.duration = 0.4f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1.3f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.3f, 1.1f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.2f, 0.45f);
+            main.gravityModifier = -0.12f;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 80;
+            var emission = ps.emission;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 30), new ParticleSystem.Burst(0.1f, 14) });
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.45f;
+            var sizeLife = ps.sizeOverLifetime;
+            sizeLife.enabled = true;
+            sizeLife.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.6f, 1f, 1.4f));
+            var pr = go.GetComponent<ParticleSystemRenderer>();
+            pr.sharedMaterial = Mat("FizzleSmoke", new Color(0.42f, 0.42f, 0.45f));
+            pr.renderMode = ParticleSystemRenderMode.Billboard;
+            return ps;
         }
 
         /// <summary>The seat health gauge (WizardsVRC/PSXGauge); BattleClient copies it per seat and sets fill and colours.</summary>

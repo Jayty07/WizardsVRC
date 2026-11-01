@@ -83,6 +83,10 @@ namespace WizardsVRC
         public float generalCastPeakSeconds = 0.72f;
         [Tooltip("Orb flight + impact after the wind-up, before the next caster.")]
         public float impactSeconds = 1.0f;
+        [Tooltip("A fizzle plays the cast's wind-up this long, then cuts off (the fizzle sound and puff of smoke).")]
+        public float fizzleCutSeconds = 2.0f;
+        [Tooltip("After a fizzle cuts off, this long before the next caster.")]
+        public float fizzleAfterSeconds = 1.2f;
 
         [Header("Encounter")]
         [Tooltip("Monster ids (CardDatabase monster table) in this fight; roster[0] takes the boss seat.")]
@@ -253,8 +257,15 @@ namespace WizardsVRC
         /// <summary>Playback time for the cast starting at act index i (same on every client).</summary>
         public float StepSeconds(int i)
         {
+            if (actKind[i] == KIND_FIZZLE && actCard[i] > 0) return FizzleCut(cardDatabase.GetSchool(actCard[i])) + fizzleAfterSeconds;
             if (!IsCastAct(i)) return actionSeconds;
             return CastSeconds(cardDatabase.GetSchool(actCard[i])) + impactSeconds;
+        }
+
+        /// <summary>How far into the wind-up a fizzle cuts off (never past the cast's own length).</summary>
+        public float FizzleCut(int school)
+        {
+            return Mathf.Min(fizzleCutSeconds, CastSeconds(school) * 0.9f);
         }
 
         public int SecondsLeft()
