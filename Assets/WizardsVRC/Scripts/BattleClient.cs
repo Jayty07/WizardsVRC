@@ -282,6 +282,14 @@ namespace WizardsVRC
         public Text partyLabel;
         public GameObject[] targetButtons;
         public Text[] targetLabels;
+        [Header("Seat targeting: with a spell picked, the seats you can cast it at glow (green allies, red enemies); click one")]
+        [Tooltip("Per seat: a click box (EventRelay sending Target<n>), on only while that seat can be picked.")]
+        public GameObject[] seatPickers;
+        [Tooltip("Per seat: the glow ring on the floor.")]
+        public Renderer[] seatGlows;
+        public Material seatGlowAllyMat;
+        public Material seatGlowEnemyMat;
+        private bool _glowsOn;
         public Image discardImage;
 
         [Header("Rewards")]
@@ -2227,8 +2235,37 @@ namespace WizardsVRC
             if (clockLabel != null) clockLabel.text = label;
         }
 
+        /// <summary>The target glows turn slowly and breathe; all off once you're out of the fight.</summary>
+        private void AnimateSeatGlows()
+        {
+            if (seatGlows == null) return;
+            if (!_inBattle && _glowsOn)
+            {
+                _glowsOn = false;
+                for (int t = 0; t < seatGlows.Length; t++)
+                {
+                    if (seatGlows[t] != null && seatGlows[t].gameObject.activeSelf) seatGlows[t].gameObject.SetActive(false);
+                    if (seatPickers != null && t < seatPickers.Length && seatPickers[t] != null && seatPickers[t].activeSelf) seatPickers[t].SetActive(false);
+                }
+                return;
+            }
+            if (!_glowsOn) return;
+            float pulse = 1f + 0.08f * Mathf.Sin(Time.time * 5f);
+            Quaternion spin = Quaternion.Euler(90f, Time.time * 40f, 0f);
+            for (int t = 0; t < seatGlows.Length; t++)
+            {
+                Renderer g = seatGlows[t];
+                if (g == null || !g.gameObject.activeSelf) continue;
+                Transform gt = g.transform;
+                gt.localRotation = spin;
+                float s = 2.6f * SeatScale(t) * pulse;
+                gt.localScale = new Vector3(s, s, 1f);
+            }
+        }
+
         private void Update()
         {
+            AnimateSeatGlows();
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); AnimateCircle(); AnimatePips(); AnimateGauges(); }
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) FaceViewer();
             AnimateFlash();
@@ -2396,10 +2433,19 @@ namespace WizardsVRC
 
             bool picking = CanAct() && _selHand >= 0 && _selHand < _handCount;
             bool allies = picking && cardDatabase.TargetsAllies(_hand[_selHand]);
+            _glowsOn = false;
             for (int t = 0; t < BattleManager.SLOTS; t++)
             {
-                if (targetButtons == null || t >= targetButtons.Length || targetButtons[t] == null) continue;
                 bool show = picking && manager.Alive(t) && (manager.SideOf(t) == MySide()) == allies;
+                // The seat itself glows and can be clicked (your own seat glows too; pick yourself from the hand).
+                if (seatGlows != null && t < seatGlows.Length && seatGlows[t] != null)
+                {
+                    if (show) seatGlows[t].sharedMaterial = allies ? seatGlowAllyMat : seatGlowEnemyMat;
+                    if (seatGlows[t].gameObject.activeSelf != show) seatGlows[t].gameObject.SetActive(show);
+                }
+                if (seatPickers != null && t < seatPickers.Length && seatPickers[t] != null && seatPickers[t].activeSelf != show) seatPickers[t].SetActive(show);
+                if (show) _glowsOn = true;
+                if (targetButtons == null || t >= targetButtons.Length || targetButtons[t] == null) continue;
                 targetButtons[t].SetActive(show);
                 if (show) targetLabels[t].text = manager.SlotName(t) + "\n" + _shownHp[t].ToString() + " / " + manager.maxHp[t].ToString();
             }

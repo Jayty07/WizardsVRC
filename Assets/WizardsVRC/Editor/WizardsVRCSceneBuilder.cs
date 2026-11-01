@@ -1201,6 +1201,50 @@ namespace WizardsVRC.EditorTools
             return mat;
         }
 
+        /// <summary>
+        /// Per seat: a glow ring on the floor (BattleClient picks the ally / enemy material and spins it) and a click box
+        /// round the combatant that sends Target&lt;n&gt;, both off until a spell that can go there is picked.
+        /// </summary>
+        private static void BuildSeatTargets(BattleClient client)
+        {
+            int slots = BattleManager.SLOTS;
+            client.seatGlows = new Renderer[slots];
+            client.seatPickers = new GameObject[slots];
+            Texture2D ally = PixelTexture(TexturesDir + "/UI/SeatGlowAlly.png");
+            Texture2D enemy = PixelTexture(TexturesDir + "/UI/SeatGlowEnemy.png");
+            client.seatGlowAllyMat = CutoutMat("SeatGlowAlly", ally, Color.white, new Color(0.4f, 1f, 0.45f) * 1.6f);
+            client.seatGlowEnemyMat = CutoutMat("SeatGlowEnemy", enemy, Color.white, new Color(1f, 0.3f, 0.25f) * 1.6f);
+            UdonSharpBehaviour target = client;
+            for (int s = 0; s < slots; s++)
+            {
+                Transform seat = client.seats[s];
+                float sc = client.seatScales != null && s < client.seatScales.Length ? Mathf.Max(1f, client.seatScales[s]) : 1f;
+                GameObject glow = FlatDecal(seat, "TargetGlow", new Vector3(0, 0.04f, 0), 2.6f * sc, client.seatGlowEnemyMat);
+                glow.isStatic = false;
+                glow.SetActive(false);
+                client.seatGlows[s] = glow.GetComponent<Renderer>();
+
+                var pick = new GameObject("TargetPick");
+                pick.transform.SetParent(seat, false);
+                var box = pick.AddComponent<BoxCollider>();
+                box.isTrigger = true;
+                box.center = new Vector3(0, 1.2f * sc, 0);
+                box.size = new Vector3(1.8f * sc, 2.6f * sc, 1.8f * sc);
+                var relay = UdonSharpUndo.AddComponent<EventRelay>(pick);
+                relay.target = target;
+                relay.eventName = "Target" + s;
+                UdonBehaviour backing = UdonSharpEditorUtility.GetBackingUdonBehaviour(relay);
+                if (backing != null)
+                {
+                    backing.interactText = "Cast here";
+                    backing.proximity = 40f;   // click any seat from your own, right across the ring
+                }
+                UdonSharpEditorUtility.CopyProxyToUdon(relay);
+                pick.SetActive(false);
+                client.seatPickers[s] = pick;
+            }
+        }
+
         /// <summary>A flat textured quad lying on the ground (texture top = +Z).</summary>
         private static GameObject FlatDecal(Transform parent, string name, Vector3 localPos, float size, Material mat)
         {
@@ -1440,6 +1484,8 @@ namespace WizardsVRC.EditorTools
 
             // Pips in front of every seat, with swirling motes.
             BuildSeatPips(ring.transform, client);
+            // With a spell picked, the seats it can go to glow (green allies, red enemies) and can be clicked.
+            BuildSeatTargets(client);
 
             // The round / cast / result banner: big, high over the middle of the ring, readable from every seat.
             client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 6.4f, 0), Quaternion.identity, new Vector2(1800, 480), 0.008f, "", 64);
