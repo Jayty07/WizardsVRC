@@ -186,6 +186,8 @@ namespace WizardsVRC.EditorTools
                         Shape(root, "ShoreRock", BlobMesh(), new Vector3(p.x, -6f, p.y), new Vector3(R(5, 9), R(3, 6), R(5, 9)), cliff, false, Quaternion.Euler(0, R(0, 360), 0));
                     }
                 }
+                // Out at sea: islets, a lighthouse, boats and buoys (WizardsVRCSceneBuilder.Backdrop.cs).
+                HubBackdrop(root, round ? Mathf.Min(W, H) / 2f + m : Mathf.Max(hw, hh), -6.2f, cliff, leaves, trunk, z.accentColor);
             }
             else Block(root, "Ground", new Vector3(0, baseY - GroundDrop - 0.25f, 0), new Vector3(W, 0.5f, H), ground);
 

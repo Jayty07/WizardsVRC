@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 18;
+        public const int CurrentVersion = 19;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -181,6 +181,45 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 16) UpgradeTo16();
             if (from < 17) UpgradeTo17();
             if (from < 18) UpgradeTo18();
+            if (from < 19) UpgradeTo19();
+        }
+
+        /// <summary>
+        /// v19: Lantern Row remade as a street that flows (a lamplit avenue up three terraces, two cross streets, the Market
+        /// square, the canal walk) with a height map. Only if its map is still the v14 default; its encounters keep your
+        /// settings (patrols are never made smaller).
+        /// </summary>
+        private static void UpgradeTo19()
+        {
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || z.zoneKey != "LanternRow") continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                WorldDefaults.FillLanternRow(fresh);
+                bool current = Normalize(z.map) == Normalize(fresh.map);
+                if (!current && MapHash(z.map) != 0x00296E15u)
+                {
+                    Debug.Log("[WizardsVRC] Lantern Row's map has been edited, so the remade street (v19) wasn't applied. See WorldDefaults.FillLanternRow.");
+                    Object.DestroyImmediate(fresh);
+                    continue;
+                }
+                z.map = fresh.map;
+                z.heightMap = fresh.heightMap;
+                z.heightStep = fresh.heightStep;
+                z.cornerRadius = fresh.cornerRadius;
+                z.railings = fresh.railings;
+                if (z.lampDensity < fresh.lampDensity) z.lampDensity = fresh.lampDensity;
+                foreach (var fe in fresh.encounters)
+                {
+                    ZoneEncounter mine = null;
+                    foreach (var e in z.encounters) if (e != null && e.ringSymbol == fe.ringSymbol) mine = e;
+                    if (mine == null) z.encounters.Add(fe);
+                    else if (mine.wanderers < fe.wanderers) mine.wanderers = fe.wanderers;
+                }
+                Object.DestroyImmediate(fresh);
+                EditorUtility.SetDirty(z);
+                Debug.Log("[WizardsVRC] Upgraded world data (v19): Lantern Row remade as a terraced street.");
+            }
         }
 
         /// <summary>

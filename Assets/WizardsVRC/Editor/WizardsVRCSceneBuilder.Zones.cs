@@ -207,6 +207,8 @@ namespace WizardsVRC.EditorTools
             HubGate gate = null;
             if (hub != null) hub.gates.TryGetValue(k, out gate);
             Vector3 mouth = g.Local(start) - openDir * (cs * 0.5f);
+            // Past the map's edge: the street's island, the sea and its neighbourhood (WizardsVRCSceneBuilder.Backdrop.cs).
+            BuildStreetBackdrop(root, g, z, W, H, baseY, mouth, bld, roof, leaves, trunk, glow);
             var gaps = new List<UnityEngine.Rect>();
             UnityEngine.Rect tunnelRect = new UnityEngine.Rect();
             if (gate != null)
