@@ -695,7 +695,9 @@ namespace WizardsVRC
                     }
                     if (EvenMonsterCount() < EvenWizardCount() && !AnyWandererLeft()) AddMonster(NextRosterMonster());
                 }
-                else if (touched && MonsterSeatFree())
+                // A boss fight: each wizard who joins brings in one more of the boss's followers (up to its roster).
+                if (!evenFight && IsBossFight() && FollowerCount() < WizardCount() && MonsterSeatFree()) AddMonster(NextRosterMonster());
+                if (!evenFight && touched && MonsterSeatFree())
                 {
                     wandererGone |= 1 << wanderer;
                     AddMonster(wandererMonsters[wanderer]);
@@ -703,6 +705,27 @@ namespace WizardsVRC
                 Publish();
                 return;
             }
+        }
+
+        /// <summary>The encounter's first monster is a boss (its followers come one per wizard).</summary>
+        private bool IsBossFight()
+        {
+            return roster != null && roster.Length > 0 && cardDatabase != null && cardDatabase.IsBossMonster(roster[0]);
+        }
+
+        private int WizardCount()
+        {
+            int n = 0;
+            for (int s = 0; s < SIDE; s++) if (Occupied(s) && !IsSummon(s)) n++;
+            return n;
+        }
+
+        /// <summary>Monsters seated (the boss and its followers, not summons).</summary>
+        private int FollowerCount()
+        {
+            int n = 0;
+            for (int s = SIDE; s < SLOTS; s++) if (Occupied(s) && !IsSummon(s)) n++;
+            return n;
         }
 
         /// <summary>
@@ -1002,8 +1025,10 @@ namespace WizardsVRC
             // The patrol monster that was touched leaves its route for the fight (the rest of the patrol keeps walking).
             if (_startWanderer >= 0 && _startWanderer < 31) wandererGone |= 1 << _startWanderer;
             int count = roster == null ? 0 : Mathf.Min(roster.Length, SIDE);
-            if (scaleRosterWithParty) count = Mathf.Min(count, 1 + n);
-            bool bossFight = roster != null && roster.Length > 0 && cardDatabase.IsBossMonster(roster[0]);
+            bool bossFight = IsBossFight();
+            // Bosses: a solo wizard faces the boss alone; each extra wizard brings one of its followers (up to its roster).
+            if (bossFight) count = Mathf.Min(count, n);
+            else if (scaleRosterWithParty) count = Mathf.Min(count, 1 + n);
             if (wanderMode && !bossFight && count > 0)
             {
                 // Street fights start with just the monster that was run into (more join as they're run into or wander

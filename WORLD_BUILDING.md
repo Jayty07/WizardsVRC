@@ -141,8 +141,10 @@ sits out the round they arrive in and can't be targeted until they're in. **A fi
 into** (run into two at once and both come). Only it leaves its patrol (it comes back *Respawn Seconds* after the fight);
 the rest keep walking. A patrol monster that wanders into the circle during the fight takes a free monster seat and joins
 from the start of the next round; the fight never holds more monsters than the encounter's roster (four at most). With
-no seat free it walks on through, out of sight. Boss fights are the exception: the boss comes with its followers (one
-per wizard with *Scale With Party*). Running into one of them
+no seat free it walks on through, out of sight. **Boss fights** (the encounter's first monster is a boss) go by party
+size instead: a solo wizard fights the boss alone, two wizards fight the boss and one follower, and so on, up to the
+encounter's roster; a wizard who walks in mid-fight brings one more follower. This holds everywhere there's a boss: the
+streets, the boss towers' top floors, the Kraken and the boss arena. Running into one of them
 while the group is fighting pulls you into the group's fight if its ring is close (about 30 m) and has a free seat, and
 the monster you ran into joins that fight with you (if a monster seat is free; in an even fight, if a wizard is
 unmatched). Otherwise you start a new duel with it at the nearest free ring, up to *Max Fights* at once. Other players
@@ -310,7 +312,8 @@ tower automatically, like Wizard101's Golem Tower. Nothing to paint:
   hostile rim). Step into the ring to fight; everyone in it when the 6 second countdown ends takes part. Win and you're
   taken up to the next floor; flee and you stay on the floor to try again; lose and you're back out by the sigil.
 - **The waves** are the street's own monsters, weakest first, then its elites; the top floor is the boss with its
-  strongest followers. Waves scale with the party (two monsters solo, one more per extra wizard).
+  strongest followers. Waves scale with the party (two monsters solo, one more per extra wizard); the boss fights a solo
+  wizard alone and brings one follower per extra wizard.
 - **The top**: beat the boss and you come out on the roof (a chest, a view over the clouds, a veil home). Your wizard
   is marked as having cleared that tower (the *Tower Climber* title) and gets Starshards (double the first time).
   Every floor has a veil to give up and leave.
