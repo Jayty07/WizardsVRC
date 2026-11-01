@@ -108,6 +108,47 @@ namespace WizardsVRC.EditorTools.WorldData
                 new ZoneEncounter { ringSymbol = "6", key = "Selwyn", roster = new List<int> { 23 }, wanderers = 1, patrolSpeed = 0.7f, respawnSeconds = 30 },
                 new ZoneEncounter { ringSymbol = "7", key = "QuayThugs", roster = new List<int> { 14, 13 }, wanderers = 2, patrolSpeed = 1.2f, respawnSeconds = 20 },
             };
+            z.secretBoss = KrakenSecret();
+        }
+
+        /// <summary>The Kraken beneath Tidewatch Docks: the diving bell opens with quest 40 (Fenwick, level 8).</summary>
+        public static ZoneSecretBoss KrakenSecret()
+        {
+            return new ZoneSecretBoss
+            {
+                enabled = true, displayName = "The Kraken", entranceLabel = "Diving Bell", questId = 40,
+                lockedHint = "Chained shut. Net-mender Fenwick might know why.",
+                roster = new List<int> { 26, 27, 27, 27 },
+                greeting = "Little light from the world above... you have come a long way down to drown. The deep keeps everything. It will keep you.",
+                clearBit = 30,
+            };
+        }
+
+        /// <summary>The Kraken (26) and its tentacles (27).</summary>
+        public static List<MonsterEntry> KrakenMonsters()
+        {
+            return new List<MonsterEntry>
+            {
+                R(M(26, "The Kraken", School.Storm, 10, 2600, true, 900, new[] { 124, 127, 128, 130 }, 520, 110, 190, 0, 0, 2.2f, new Color(0.24f, 0.18f, 0.34f),
+                    "Secret boss beneath Tidewatch Docks, on the sunken platform (quest 40, level 8; diving bell at the water's edge)."), 4, "Kraken", false),
+                R(M(27, "Kraken Tentacle", School.Storm, 9, 520, false, 0, new[] { 124, 126 }, 55, 8, 16, 0, 0, 1.2f, new Color(0.36f, 0.24f, 0.42f),
+                    "The Kraken's arms, rising round the sunken platform."), 2, "Tentacle", false),
+            };
+        }
+
+        /// <summary>Quest 40, offered by Fenwick from level 8: go down in the old diving bell and beat the Kraken.</summary>
+        public static QuestEntry KrakenQuest()
+        {
+            return Offered(Q(40, "Something in the Deep", 17, 8, 520, 150, 0,
+                    "Something huge has been dragging boats under off Tidewatch's far pier. Net-mender Fenwick has unchained the old diving bell at the water's edge.",
+                    Fight(QuestStepKind.Boss, 26, 1, "Go down in the diving bell at the water's edge and defeat the Kraken", "Diving Bell"),
+                    Talk("Fenwick", "Tell Net-mender Fenwick what you found down there", "Net-mender Fenwick",
+                        "You came back up! And the water's gone still for the first time in a month.",
+                        "A kraken, under my pier, all these years. Nobody will believe me. Here, you've earned every coin of this.")),
+                "Fenwick",
+                "You've grown strong, I can see it. Strong enough, maybe, for what's under my pier.",
+                "Something huge has been pulling boats under off the far end. Forty years I've watched these waters and never seen the like.",
+                "There's an old diving bell at the water's edge. I've taken the chains off. Go down, if you dare, and see what's lurking.");
         }
 
         /// <summary>Kiln Street (Lv 8-10): the smoky forge quarter, Cole's yard and back forge, slag heaps and the sealed furnace hall.</summary>
@@ -483,6 +524,7 @@ namespace WizardsVRC.EditorTools.WorldData
                     "Fenwick",
                     "Those crabs tangled my good nets and dragged them off along the quay.",
                     "Three of them. Bring them back and I'll see you right."),
+                KrakenQuest(),
             };
         }
 

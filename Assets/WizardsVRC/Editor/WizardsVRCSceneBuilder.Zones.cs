@@ -134,6 +134,9 @@ namespace WizardsVRC.EditorTools
                 foreach (var col in model.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
                 return model;
             }
+            // The Kraken and its tentacles have their own shapes (WizardsVRCSceneBuilder.Secret.cs).
+            var creature = CreatureBody(parent, db, entry, name, scale);
+            if (creature != null) return creature;
             var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             body.name = name;
             body.transform.SetParent(parent, false);
@@ -350,6 +353,8 @@ namespace WizardsVRC.EditorTools
             }
             // The street's boss tower: a four-pad sigil out here, the tower itself far away (WizardsVRCSceneBuilder.Towers.cs).
             BuildZoneTower(root, g, z, start, ringCells, systems, cardDb, itemDb, playerState, qm, encounters, wb);
+            // A secret boss reached from here (the Kraken under Tidewatch Docks; WizardsVRCSceneBuilder.Secret.cs).
+            BuildSecretBoss(root, g, z, start, ringCells, systems, cardDb, itemDb, playerState, qm, encounters, wb);
             if (ringCells.Count > 0)
                 Debug.Log("[WizardsVRC World] " + z.displayName + ": " + outsideSpots.Count + " duel ring spots" +
                           (dungeonSpots.Count > 0 ? " (+" + dungeonSpots.Count + " in the dungeon)" : "") + ".");

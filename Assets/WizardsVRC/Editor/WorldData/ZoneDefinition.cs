@@ -203,6 +203,9 @@ namespace WizardsVRC.EditorTools.WorldData
         public List<ZonePoint> points = new List<ZonePoint>();
         public List<ZoneEncounter> encounters = new List<ZoneEncounter>();
         public List<ZoneLandmark> landmarks = new List<ZoneLandmark>();
+        [Tooltip("A secret boss reached from this street (e.g. the Kraken under Tidewatch Docks): a way down by the water " +
+                 "that opens with a side quest, leading to its own arena.")]
+        public ZoneSecretBoss secretBoss = new ZoneSecretBoss();
 
         /// <summary>Map rows, padded to the same width with '#'.</summary>
         public string[] Rows()
@@ -301,6 +304,25 @@ namespace WizardsVRC.EditorTools.WorldData
         [Min(0.25f)] public float triggerSizeCells = 1f;
 
         public char Symbol { get { return string.IsNullOrEmpty(symbol) ? '\0' : symbol[0]; } }
+    }
+
+    [Serializable]
+    public class ZoneSecretBoss
+    {
+        public bool enabled;
+        [Tooltip("Its name (titles, signs, the notice when you beat it).")]
+        public string displayName = "The Kraken";
+        [Tooltip("The way down, placed automatically at the water's edge as far along the street as it can be.")]
+        public string entranceLabel = "Diving Bell";
+        [Tooltip("Side quest (save id) that opens the way down: open while it's started, and for good once it's done.")]
+        public int questId = -1;
+        [Tooltip("Shown on the way down while it's shut.")]
+        public string lockedHint = "Chained shut. Someone on the docks might know why.";
+        [Tooltip("The fight: the first monster is the boss.")]
+        public List<int> roster = new List<int>();
+        [TextArea(1, 3)] public string greeting = "";
+        [Tooltip("Bit of CharacterData.towersCleared set when it's beaten (titles; 30 = the Kraken).")]
+        [Range(1, 30)] public int clearBit = 30;
     }
 
     [Serializable]

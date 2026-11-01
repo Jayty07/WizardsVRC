@@ -50,6 +50,7 @@ namespace WizardsVRC.EditorTools.WorldData
             };
             foreach (var m in cat.monsters) ApplyDefaultRank(m);
             cat.monsters.AddRange(World1Monsters());
+            cat.monsters.AddRange(KrakenMonsters());
         }
 
         /// <summary>

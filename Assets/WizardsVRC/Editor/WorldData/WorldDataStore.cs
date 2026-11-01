@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 17;
+        public const int CurrentVersion = 18;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -180,6 +180,46 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 15) UpgradeTo15();
             if (from < 16) UpgradeTo16();
             if (from < 17) UpgradeTo17();
+            if (from < 18) UpgradeTo18();
+        }
+
+        /// <summary>
+        /// v18: the Kraken, Tidewatch Docks' secret boss: monsters 26-27, the diving bell on the docks (secret boss
+        /// settings, if not set) and Fenwick's side quest 40 in Smugglers' Tide.
+        /// </summary>
+        private static void UpgradeTo18()
+        {
+            var report = new List<string>();
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            if (cat != null)
+            {
+                int added = 0;
+                foreach (var m in WorldDefaults.KrakenMonsters())
+                    if (cat.Find(m.id) == null) { cat.monsters.Add(m); added++; }
+                if (added > 0) { EditorUtility.SetDirty(cat); report.Add(added + " monsters (the Kraken)"); }
+            }
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || z.zoneKey != "TidewatchDocks" || (z.secretBoss != null && z.secretBoss.enabled)) continue;
+                z.secretBoss = WorldDefaults.KrakenSecret();
+                EditorUtility.SetDirty(z);
+                report.Add("Tidewatch Docks' diving bell");
+            }
+            bool haveQuest = false;
+            var questlines = FindAll<Questline>();
+            foreach (var ql in questlines) foreach (var q in ql.quests) haveQuest |= q != null && q.saveId == 40;
+            if (!haveQuest)
+                foreach (var ql in questlines)
+                {
+                    bool has17 = false;
+                    foreach (var q in ql.quests) has17 |= q != null && q.saveId == 17;
+                    if (!has17) continue;
+                    ql.quests.Add(WorldDefaults.KrakenQuest());
+                    EditorUtility.SetDirty(ql);
+                    report.Add("quest 40, Something in the Deep");
+                    break;
+                }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (v18): " + string.Join(", ", report) + ".");
         }
 
         private class ZoneDefault { public string file, key; public System.Action<ZoneDefinition> fill; }

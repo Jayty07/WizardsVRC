@@ -313,6 +313,18 @@ tower automatically, like Wizard101's Golem Tower. Nothing to paint:
 
 Towers are built far from everything (`TowerOrigin` in `WizardsVRCSceneBuilder.Towers.cs`), each its own culled area.
 
+### Secret bosses
+
+A street's **Secret Boss** settings (on the zone asset) add a hidden boss reached from it. Tidewatch Docks has one:
+**the Kraken**. A diving bell hangs from a crane at the water's edge (placed automatically: the walkable spot beside
+the water farthest along the street from its start, clear of the duel rings). It stays chained shut until you've
+started its side quest (*Something in the Deep*, quest 40: Net-mender Fenwick offers it from level 8); click it to go
+down to a sunken platform beneath the waves (sea floor, kelp, coral, a wreck, rising bubbles). The Kraken lurks at the
+platform's edge and speaks as you arrive; step into the ring to face it and its tentacles (they scale with the party).
+Beat it for the *Krakenbane* title (bit 30 of the tower record) and Starshards; a bubble of air takes you back up.
+Lose and you're back on the dock. Settings: the entrance's name, the quest that opens it, the locked hint, the roster
+(first = the boss), the greeting and the record bit.
+
 ### Dungeons
 
 Like Wizard101, part of a street can be a **dungeon** that one party has to itself. Add these landmarks:
