@@ -105,6 +105,54 @@ namespace WizardsVRC
         public void Filter1() { SetFilter(1); }
         public void Filter2() { SetFilter(2); }
 
+        public ItemTooltip tooltip;
+        public void HoverDeck0() { HoverDeck(0); }
+        public void HoverDeck1() { HoverDeck(1); }
+        public void HoverDeck2() { HoverDeck(2); }
+        public void HoverDeck3() { HoverDeck(3); }
+        public void HoverDeck4() { HoverDeck(4); }
+        public void HoverDeck5() { HoverDeck(5); }
+        public void HoverDeck6() { HoverDeck(6); }
+        public void HoverDeck7() { HoverDeck(7); }
+        public void HoverDeck8() { HoverDeck(8); }
+        public void HoverDeck9() { HoverDeck(9); }
+        public void HoverDeck10() { HoverDeck(10); }
+        public void HoverDeck11() { HoverDeck(11); }
+        public void HoverDeck12() { HoverDeck(12); }
+        public void HoverDeck13() { HoverDeck(13); }
+        public void HoverDeck14() { HoverDeck(14); }
+        public void HoverDeck15() { HoverDeck(15); }
+        public void HoverDeck16() { HoverDeck(16); }
+        public void HoverDeck17() { HoverDeck(17); }
+        public void HoverDeck18() { HoverDeck(18); }
+        public void HoverDeck19() { HoverDeck(19); }
+        public void HoverBook0() { HoverBook(0); }
+        public void HoverBook1() { HoverBook(1); }
+        public void HoverBook2() { HoverBook(2); }
+        public void HoverBook3() { HoverBook(3); }
+        public void HoverBook4() { HoverBook(4); }
+        public void HoverBook5() { HoverBook(5); }
+        public void HoverBook6() { HoverBook(6); }
+        public void HoverBook7() { HoverBook(7); }
+        public void HoverBook8() { HoverBook(8); }
+        public void HoverBook9() { HoverBook(9); }
+        public void HoverBook10() { HoverBook(10); }
+        public void HoverBook11() { HoverBook(11); }
+        public void Unhover() { if (tooltip != null) tooltip.Hide(); }
+
+        private void HoverDeck(int cell)
+        {
+            if (tooltip == null || cell >= _deckUniqueCount || deckCellRoots == null) return;
+            tooltip.ShowSpell(_deckUnique[cell], deckCellRoots[cell].transform);
+        }
+
+        private void HoverBook(int cell)
+        {
+            int i = _page * BOOK_CELLS + cell;
+            if (tooltip == null || i >= _knownCount || bookCellRoots == null) return;
+            tooltip.ShowSpell(_known[i], bookCellRoots[cell].transform);
+        }
+
         public void DeckCell0() { SelectDeckCell(0); }
         public void DeckCell1() { SelectDeckCell(1); }
         public void DeckCell2() { SelectDeckCell(2); }

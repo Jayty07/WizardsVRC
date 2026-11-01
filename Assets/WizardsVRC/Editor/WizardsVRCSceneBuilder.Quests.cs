@@ -75,9 +75,18 @@ namespace WizardsVRC.EditorTools
 
             Material glow = PMat("QuestGuide", new Color(1f, 0.85f, 0.3f), 1f, new Color(1f, 0.75f, 0.2f));
 
+            // A flat gold arrow sprite (Textures/UI/QuestArrow.png) lying in front of you, tipped up a little towards your
+            // eyes; the guide turns its holder to point the way.
             Transform arrow = Child(systems, "QuestArrow", Vector3.zero);
-            GuidePiece(arrow, "Shaft", new Vector3(0, 0, -0.03f), Quaternion.identity, new Vector3(0.025f, 0.025f, 0.14f), glow);
-            GuidePiece(arrow, "Head", new Vector3(0, 0, 0.05f), Quaternion.Euler(0, 45f, 0), new Vector3(0.08f, 0.025f, 0.08f), glow);
+            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quad.name = "ArrowSprite";
+            Object.DestroyImmediate(quad.GetComponent<Collider>());
+            quad.transform.SetParent(arrow, false);
+            quad.transform.localRotation = Quaternion.Euler(65f, 0f, 0f);
+            quad.transform.localScale = new Vector3(0.16f, 0.16f, 1f);
+            var arrowRenderer = quad.GetComponent<Renderer>();
+            arrowRenderer.sharedMaterial = SpriteQuadMat("QuestArrowSprite", "QuestArrow");
+            arrowRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             guide.arrow = arrow;
 
             Transform labelRoot = Child(systems, "QuestArrowLabel", Vector3.zero);

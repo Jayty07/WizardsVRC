@@ -38,7 +38,7 @@ namespace WizardsVRC
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 9;
+        public const int FORMAT_VERSION = 10;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -125,6 +125,30 @@ namespace WizardsVRC
         public int trainingPoints;
         public byte[] learnedSpells = new byte[LEARNED_BYTES];
 
+        [Header("Extras (v10): premium currency, titles, auras, spell skins, records")]
+        [Tooltip("Starshards: the rare currency for the Starshard Shop (earned from bosses, towers and quests).")]
+        public int starshards;
+        [Tooltip("Bit n = title n unlocked (see CosmeticsDatabase).")]
+        public int titleBits;
+        [Tooltip("Shown above your head: title index + 1 (0 = none).")]
+        public int equippedTitle;
+        public int auraBits;
+        [Tooltip("Aura index + 1 (0 = none).")]
+        public int equippedAura;
+        public int skinBits;
+        [Tooltip("Spell skin index + 1 (0 = the school's own look).")]
+        public int equippedSkin;
+        public int battlesWon;
+        public int monstersDefeated;
+        public int bossesDefeated;
+        [Tooltip("Bit n = tower n cleared to the top.")]
+        public int towersCleared;
+        [Tooltip("Highest level whose 'new spells at your professor' notice has been shown.")]
+        public int spellNoticeLevel;
+        public const int ELIXIRS = 6;
+        [Tooltip("Seconds of play left on each elixir (see CosmeticsDatabase).")]
+        public int[] elixirSeconds = new int[ELIXIRS];
+
         [HideInInspector] public string lastError = "";
 
         private byte[] _buf;
@@ -156,6 +180,7 @@ namespace WizardsVRC
             for (int i = 0; i < LEARNED_BYTES; i++) learnedSpells[i] = 0;
             trainingPoints = 0;
             trackedQuest = 0;
+            ClearExtras();
 
             // Starter kit (see ItemDatabase): staff + robe equipped; potions, hat and boots in the backpack.
             equipped[EQUIP_WEAPON] = 1;
@@ -177,6 +202,16 @@ namespace WizardsVRC
 
             lastError = "";
         }
+
+        private void ClearExtras()
+        {
+            starshards = 0; titleBits = 0; equippedTitle = 0; auraBits = 0; equippedAura = 0; skinBits = 0; equippedSkin = 0;
+            battlesWon = 0; monstersDefeated = 0; bossesDefeated = 0; towersCleared = 0; spellNoticeLevel = 1;
+            if (elixirSeconds == null || elixirSeconds.Length != ELIXIRS) elixirSeconds = new int[ELIXIRS];
+            for (int i = 0; i < ELIXIRS; i++) elixirSeconds[i] = 0;
+        }
+
+        public bool HasBit(int bits, int n) { return n >= 0 && n < 31 && (bits & (1 << n)) != 0; }
 
         public int GetStarterHealth(School s)
         {
@@ -219,6 +254,13 @@ namespace WizardsVRC
             System.Array.Copy(other.learnedSpells, learnedSpells, LEARNED_BYTES);
             trainingPoints = other.trainingPoints;
             trackedQuest = other.trackedQuest;
+            starshards = other.starshards; titleBits = other.titleBits; equippedTitle = other.equippedTitle;
+            auraBits = other.auraBits; equippedAura = other.equippedAura; skinBits = other.skinBits; equippedSkin = other.equippedSkin;
+            battlesWon = other.battlesWon; monstersDefeated = other.monstersDefeated; bossesDefeated = other.bossesDefeated;
+            towersCleared = other.towersCleared; spellNoticeLevel = other.spellNoticeLevel;
+            if (elixirSeconds == null || elixirSeconds.Length != ELIXIRS) elixirSeconds = new int[ELIXIRS];
+            if (other.elixirSeconds != null)
+                for (int i = 0; i < ELIXIRS && i < other.elixirSeconds.Length; i++) elixirSeconds[i] = other.elixirSeconds[i];
         }
 
         public void EnsureArrays()
@@ -565,6 +607,20 @@ namespace WizardsVRC
             // v9: the creator's colour choices
             WriteU8(Mathf.Clamp(signatureColor, 0, COLOR_CHOICES - 1));
             WriteU8(Mathf.Clamp(auraColor, 0, COLOR_CHOICES - 1));
+            // v10: starshards, titles, auras, skins, records
+            WriteU32(starshards);
+            WriteU32(titleBits);
+            WriteU8(Mathf.Clamp(equippedTitle, 0, 255));
+            WriteU32(auraBits);
+            WriteU8(Mathf.Clamp(equippedAura, 0, 255));
+            WriteU32(skinBits);
+            WriteU8(Mathf.Clamp(equippedSkin, 0, 255));
+            WriteU16(Mathf.Clamp(battlesWon, 0, 65535));
+            WriteU32(monstersDefeated);
+            WriteU16(Mathf.Clamp(bossesDefeated, 0, 65535));
+            WriteU32(towersCleared);
+            WriteU8(Mathf.Clamp(spellNoticeLevel, 0, 255));
+            for (int i = 0; i < ELIXIRS; i++) WriteU16(Mathf.Clamp(elixirSeconds != null && i < elixirSeconds.Length ? elixirSeconds[i] : 0, 0, 65535));
 
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
@@ -629,6 +685,7 @@ namespace WizardsVRC
             EnsureArrays();
             signatureColor = 0;
             auraColor = 0;
+            ClearExtras();
 
             if (!Need(1)) return false;
             int nameLen = ReadU8();
@@ -749,6 +806,25 @@ namespace WizardsVRC
                 signatureColor = Mathf.Clamp(ReadU8(), 0, COLOR_CHOICES - 1);
                 auraColor = Mathf.Clamp(ReadU8(), 0, COLOR_CHOICES - 1);
             }
+            if (version >= 10)
+            {
+                if (!Need(4 + 4 + 1 + 4 + 1 + 4 + 1 + 2 + 4 + 2 + 4 + 1)) return false;
+                starshards = ReadU32();
+                titleBits = ReadU32();
+                equippedTitle = ReadU8();
+                auraBits = ReadU32();
+                equippedAura = ReadU8();
+                skinBits = ReadU32();
+                equippedSkin = ReadU8();
+                battlesWon = ReadU16();
+                monstersDefeated = ReadU32();
+                bossesDefeated = ReadU16();
+                towersCleared = ReadU32();
+                spellNoticeLevel = ReadU8();
+                if (!Need(ELIXIRS * 2)) return false;
+                for (int i = 0; i < ELIXIRS; i++) elixirSeconds[i] = ReadU16();
+            }
+            else spellNoticeLevel = level;   // older saves: don't announce spells they've already had the chance to learn
             MigrateDecks(version);
             return true;
         }

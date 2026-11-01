@@ -15,6 +15,10 @@ namespace WizardsVRC
         public const int HAND_SIZE = 7;
 
         public BattleManager manager;
+        [Tooltip("The book's notifications (new gear).")]
+        public NotificationCenter notifications;
+        [Tooltip("Elixir bonuses and spell skins.")]
+        public CosmeticsDatabase cosmetics;
         public PlayerState playerState;
         public ItemDatabase itemDatabase;
         public CardDatabase cardDatabase;
@@ -299,6 +303,8 @@ namespace WizardsVRC
 
         /// <summary>This encounter is a wizard-against-wizard duel (no monsters, rewards or defeat penalties).</summary>
         private bool Pvp() { return manager != null && manager.pvpMode; }
+
+        private int Elixir(int stat, bool pvp) { return cosmetics != null ? cosmetics.ElixirBonus(stat, pvp) : 0; }
 
         /// <summary>Our half of the circle (0 = the wizards' / Blue team's, 1 = the monsters' / Red team's).</summary>
         private int MySide() { return _slot >= 0 && manager != null ? manager.SideOf(_slot) : 0; }
@@ -876,17 +882,19 @@ namespace WizardsVRC
             // Duels start everyone at full health.
             int curHealth = Pvp() ? maxHealth : Mathf.Max(1, playerState.GetHealth());
             playerState.combatHealth = -1;
+            // Elixirs from the Starshard Shop add on top (never in PvP duels).
+            bool pvp = Pvp();
             int statsA = manager.PackStats(
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_DAMAGE) + Trait(schoolDamage, sc, 0),
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_RESIST) + Trait(schoolResist, sc, 0),
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_ACCURACY) + Trait(schoolAccuracy, sc, 0) + 128, 0);
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_DAMAGE) + Trait(schoolDamage, sc, 0) + Elixir(ItemDatabase.STAT_DAMAGE, pvp),
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_RESIST) + Trait(schoolResist, sc, 0) + Elixir(ItemDatabase.STAT_RESIST, pvp),
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_ACCURACY) + Trait(schoolAccuracy, sc, 0) + Elixir(ItemDatabase.STAT_ACCURACY, pvp) + 128, 0);
             int statsB = manager.PackStats(
-                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_CRITICAL),
+                itemDatabase.GetTotalStat(c, ItemDatabase.STAT_CRITICAL) + Elixir(ItemDatabase.STAT_CRITICAL, pvp),
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_BLOCK),
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_PIERCE),
                 itemDatabase.GetTotalStat(c, ItemDatabase.STAT_POWERPIP));
             // The creator colours ride above the level: level | signature << 8 | aura << 16.
-            int look = Mathf.Clamp(c.signatureColor, 0, 255) | (Mathf.Clamp(c.auraColor, 0, 255) << 8);
+            int look = Mathf.Clamp(c.signatureColor, 0, 255) | (Mathf.Clamp(c.auraColor, 0, 255) << 8) | (Mathf.Clamp(c.equippedSkin, 0, 15) << 16);
             manager.RequestJoin(maxHealth, curHealth, sc, Mathf.Clamp(c.level, 1, 255) | (look << 8), statsA, statsB);
         }
 
@@ -1006,8 +1014,22 @@ namespace WizardsVRC
                     drops += "\nLoot: " + itemDatabase.GetName(item);
             }
             if (xp == 0) { xp = 60 + 25 * manager.MonsterCount(); gold = Random.Range(30, 61); }
+            xp += xp * Elixir(CosmeticsDatabase.ELIXIR_XP, Pvp()) / 100;
             c.gold += gold;
-            string msg = "+" + xp.ToString() + " XP   +" + gold.ToString() + " gold" + drops;
+            // Records for the book's Stats page, and Starshards (the rare currency) from bosses and elites.
+            int shards = 0;
+            c.battlesWon++;
+            for (int s = BattleManager.SIDE; s < BattleManager.SLOTS; s++)
+            {
+                int id = manager.MonsterAt(s);
+                if (id == 0 || cardDatabase == null) continue;
+                c.monstersDefeated++;
+                if (cardDatabase.IsBossMonster(id)) { c.bossesDefeated++; shards += 3; }
+                else if (cardDatabase.IsEliteMonster(id)) shards += 1;
+            }
+            c.starshards += shards;
+            string msg = "+" + xp.ToString() + " XP   +" + gold.ToString() + " gold" + (shards > 0 ? "   +" + shards.ToString() + " Starshards" : "") + drops;
+            if (notifications != null && drops.Length > 0) notifications.Post(NotificationCenter.KIND_GEAR, "New loot", drops.Trim(), 0);
             int levels = c.AddXp(xp);
             if (questManager != null) questManager.OnBattleWon(manager);
             if (levels > 0)
@@ -1018,7 +1040,11 @@ namespace WizardsVRC
             if (drops.Length == 0 && lootTable.Length > 0 && Random.value < 0.3f)
             {
                 int itemId = lootTable[Random.Range(0, lootTable.Length)];
-                if (c.AddItem(itemId, 1)) msg += "\nLoot: " + itemDatabase.GetName(itemId);
+                if (c.AddItem(itemId, 1))
+                {
+                    msg += "\nLoot: " + itemDatabase.GetName(itemId);
+                    if (notifications != null) notifications.Post(NotificationCenter.KIND_GEAR, "New loot", itemDatabase.GetName(itemId), itemId);
+                }
             }
             playerState.MarkDirty();
             playerState.SaveNow();
@@ -1528,6 +1554,14 @@ namespace WizardsVRC
                 if (glyphEdgeColors != null && gi < glyphEdgeColors.Length) _glyphMat.SetColor("_EdgeColor", glyphEdgeColors[gi]);
                 // Styles: 0 = General, 1-7 = the schools (see the GlyphDraw shader).
                 _glyphMat.SetFloat("_Style", gi == glyphDrawTex.Length - 1 ? 0f : gi + 1f);
+                // A spell skin from the Starshard Shop draws the symbol in its colour (same school style).
+                int skin = SkinIndex(from);
+                if (skin > 0 && cosmetics != null)
+                {
+                    Color sc = cosmetics.SkinColor(skin);
+                    _glyphMat.SetColor("_Color", sc);
+                    _glyphMat.SetColor("_EdgeColor", Color.Lerp(sc, Color.white, 0.55f));
+                }
                 _glyphMat.SetFloat("_Reveal", 0f);
                 _glyphMat.SetFloat("_Fade", 1f);
                 _glyphMat.SetFloat("_Flare", 0f);
@@ -2072,6 +2106,13 @@ namespace WizardsVRC
         {
             if (manager == null || !manager.IsPlayerSeat(s) || manager.slotIds[s] <= 0 || manager.look == null || s >= manager.look.Length) return 0;
             return manager.look[s] & 0xFF;
+        }
+
+        /// <summary>A wizard seat's spell skin (index + 1; 0 = their school's own look).</summary>
+        private int SkinIndex(int s)
+        {
+            if (manager == null || !manager.IsPlayerSeat(s) || manager.slotIds[s] <= 0 || manager.look == null || s >= manager.look.Length) return 0;
+            return (manager.look[s] >> 16) & 0xF;
         }
 
         private int AuraIndex(int s)

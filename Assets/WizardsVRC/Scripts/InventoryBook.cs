@@ -22,6 +22,11 @@ namespace WizardsVRC
         public const int VIEW_DECK = 1;
         public const int VIEW_QUESTS = 2;
         public const int VIEW_SETTINGS = 3;
+        public const int VIEW_STATS = 4;
+        public const int VIEW_NOTICES = 5;
+        public const int VIEW_WARDROBE = 6;
+        public const int VIEW_SHOP = 7;
+        public const int FIRST_EXTRA_VIEW = 4;
 
         [Header("Systems")]
         public PlayerState playerState;
@@ -41,6 +46,17 @@ namespace WizardsVRC
         public Image questTabImage;
         public GameObject settingsView;
         public Image settingsTabImage;
+        [Tooltip("Views past Settings, in order: Stats, Notices, Wardrobe, Starshard Shop.")]
+        public GameObject[] extraViews;
+        public Image[] extraTabImages;
+        [Tooltip("Sent 'Open' when their view is shown (null for the Stats page, which the book draws itself).")]
+        public UdonSharpBehaviour[] extraPages;
+        public NotificationCenter notifications;
+        public QuestManager questManager;
+        [Header("Stats page")]
+        public Text statsOverview;
+        public Text statsCombat;
+        public Text statsRecords;
 
         [Header("Settings page")]
         public PlayerHUD hud;
@@ -148,6 +164,82 @@ namespace WizardsVRC
             _confirmUntil = 0f;
             ApplyView();
             RefreshSettings("");
+        }
+
+        public void ShowStats() { ShowExtra(VIEW_STATS); }
+        public void ShowNotices() { ShowExtra(VIEW_NOTICES); }
+        public void ShowWardrobe() { ShowExtra(VIEW_WARDROBE); }
+        public void ShowShop() { ShowExtra(VIEW_SHOP); }
+
+        private void ShowExtra(int view)
+        {
+            _view = view;
+            ApplyView();
+            OpenExtra();
+        }
+
+        private void OpenExtra()
+        {
+            if (_view == VIEW_STATS) DrawStats();
+            if (_view == VIEW_NOTICES && notifications != null) notifications.MarkAllRead();
+            int k = _view - FIRST_EXTRA_VIEW;
+            if (k >= 0 && extraPages != null && k < extraPages.Length && extraPages[k] != null) extraPages[k].SendCustomEvent("Open");
+        }
+
+        // ------------------------------------------------------------------ stats page
+
+        private string Row(string label, string value) { return label + "  <b>" + value + "</b>\n"; }
+
+        private string Pct(int stat)
+        {
+            int v = itemDatabase.GetTotalStat(playerState.current, stat);
+            return (v >= 0 ? "+" : "") + v.ToString() + "%";
+        }
+
+        /// <summary>Your wizard as a whole: who you are, your totals with gear, and your records.</summary>
+        public void DrawStats()
+        {
+            if (!HasCharacter() || itemDatabase == null) return;
+            CharacterData c = playerState.current;
+            int learned = 0;
+            for (int i = 0; i < c.learnedSpells.Length; i++)
+            {
+                int b = c.learnedSpells[i];
+                while (b != 0) { learned += b & 1; b >>= 1; }
+            }
+            int quests = 0;
+            if (questManager != null)
+                for (int q = 0; q < questManager.QuestCount(); q++) if (questManager.IsComplete(q)) quests++;
+            if (statsOverview != null)
+                statsOverview.text =
+                    "<size=44><b>" + c.characterName + "</b></size>\n" +
+                    "Level " + c.level.ToString() + " " + itemDatabase.SchoolName((int)c.school) + " Wizard\n\n" +
+                    Row("Experience", c.level >= CharacterData.MAX_LEVEL ? "MAX" : c.xp.ToString() + " / " + c.XpToNextLevel().ToString()) +
+                    Row("Health", playerState.GetHealth().ToString() + " / " + playerState.MaxHealth().ToString()) +
+                    Row("Mana", playerState.GetMana().ToString() + " / " + playerState.MaxMana().ToString()) +
+                    Row("Gold", c.gold.ToString()) +
+                    Row("Starshards", c.starshards.ToString()) +
+                    Row("Training Points", c.trainingPoints.ToString()) +
+                    Row("Spells learned", learned.ToString());
+            if (statsCombat != null)
+                statsCombat.text =
+                    "<size=36><b>With your gear</b></size>\n\n" +
+                    Row("Damage", Pct(ItemDatabase.STAT_DAMAGE)) +
+                    Row("Resist", Pct(ItemDatabase.STAT_RESIST)) +
+                    Row("Accuracy", Pct(ItemDatabase.STAT_ACCURACY)) +
+                    Row("Critical", itemDatabase.GetTotalStat(c, ItemDatabase.STAT_CRITICAL).ToString() + "%") +
+                    Row("Block", itemDatabase.GetTotalStat(c, ItemDatabase.STAT_BLOCK).ToString() + "%") +
+                    Row("Pierce", itemDatabase.GetTotalStat(c, ItemDatabase.STAT_PIERCE).ToString() + "%") +
+                    Row("Power Pip chance", Pct(ItemDatabase.STAT_POWERPIP)) +
+                    Row("Bonus health", "+" + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_HEALTH).ToString()) +
+                    Row("Bonus mana", "+" + itemDatabase.GetTotalStat(c, ItemDatabase.STAT_MANA).ToString());
+            if (statsRecords != null)
+                statsRecords.text =
+                    "<size=36><b>Records</b></size>\n\n" +
+                    Row("Battles won", c.battlesWon.ToString()) +
+                    Row("Monsters defeated", c.monstersDefeated.ToString()) +
+                    Row("Bosses defeated", c.bossesDefeated.ToString()) +
+                    Row("Quests completed", quests.ToString());
         }
 
         // ------------------------------------------------------------------ settings
@@ -278,6 +370,12 @@ namespace WizardsVRC
             if (backpackTabImage != null) backpackTabImage.color = pack ? _tabOn : _tabOff;
             if (deckTabImage != null) deckTabImage.color = _view == VIEW_DECK ? _tabOn : _tabOff;
             if (questTabImage != null) questTabImage.color = _view == VIEW_QUESTS ? _tabOn : _tabOff;
+            if (extraViews != null)
+                for (int k = 0; k < extraViews.Length; k++)
+                    if (extraViews[k] != null && extraViews[k].activeSelf != (_view == FIRST_EXTRA_VIEW + k)) extraViews[k].SetActive(_view == FIRST_EXTRA_VIEW + k);
+            if (extraTabImages != null)
+                for (int k = 0; k < extraTabImages.Length; k++)
+                    if (extraTabImages[k] != null) extraTabImages[k].color = _view == FIRST_EXTRA_VIEW + k ? _tabOn : _tabOff;
             if (_open)
             {
                 if (pack) UpdatePortraitCamera();
@@ -342,12 +440,14 @@ namespace WizardsVRC
             if (_view == VIEW_DECK && deckPages != null) deckPages.Open();
             else if (_view == VIEW_QUESTS && questPages != null) questPages.Open();
             else if (_view == VIEW_SETTINGS) RefreshSettings("");
+            else if (_view >= FIRST_EXTRA_VIEW) OpenExtra();
             else Refresh();
         }
 
         public void CloseBook()
         {
             _open = false;
+            if (tooltip != null) tooltip.Hide();
             if (bookRoot != null) bookRoot.SetActive(false);
             SetPortraitActive(false);
             if (playerState != null && playerState.IsDirty()) playerState.SaveNow();
@@ -378,6 +478,44 @@ namespace WizardsVRC
         public void Cell9() { SelectCell(9); }
         public void Cell10() { SelectCell(10); }
         public void Cell11() { SelectCell(11); }
+
+        public ItemTooltip tooltip;
+        public void HoverCell0() { HoverCell(0); }
+        public void HoverCell1() { HoverCell(1); }
+        public void HoverCell2() { HoverCell(2); }
+        public void HoverCell3() { HoverCell(3); }
+        public void HoverCell4() { HoverCell(4); }
+        public void HoverCell5() { HoverCell(5); }
+        public void HoverCell6() { HoverCell(6); }
+        public void HoverCell7() { HoverCell(7); }
+        public void HoverCell8() { HoverCell(8); }
+        public void HoverCell9() { HoverCell(9); }
+        public void HoverCell10() { HoverCell(10); }
+        public void HoverCell11() { HoverCell(11); }
+        public void HoverSlot0() { HoverSlot(0); }
+        public void HoverSlot1() { HoverSlot(1); }
+        public void HoverSlot2() { HoverSlot(2); }
+        public void HoverSlot3() { HoverSlot(3); }
+        public void HoverSlot4() { HoverSlot(4); }
+        public void HoverSlot5() { HoverSlot(5); }
+        public void HoverSlot6() { HoverSlot(6); }
+        public void HoverSlot7() { HoverSlot(7); }
+        public void Unhover() { if (tooltip != null) tooltip.Hide(); }
+
+        private void HoverCell(int cell)
+        {
+            int i = _page * CELLS_PER_PAGE + cell;
+            if (tooltip == null || !HasCharacter() || i >= _visibleCount || cellRoots == null) return;
+            tooltip.ShowItem(playerState.current.inventoryItemIds[_visible[i]], cellRoots[cell].transform);
+        }
+
+        private void HoverSlot(int slot)
+        {
+            if (tooltip == null || !HasCharacter() || slotIcons == null) return;
+            int id = playerState.current.equipped[slot];
+            if (id == 0) { tooltip.Hide(); return; }
+            tooltip.ShowItem(id, slotIcons[slot].transform);
+        }
 
         public void Slot0() { SelectSlot(0); }
         public void Slot1() { SelectSlot(1); }

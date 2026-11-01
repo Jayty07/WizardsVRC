@@ -18,6 +18,13 @@ namespace WizardsVRC
         public UiAudio uiAudio;
         public GameObject screenRoot;
         public Text speakerLabel;
+        [Header("Speaker portrait: a medallion whose rim says who they are to you")]
+        public Image portraitRing;
+        [Tooltip("Ally (blue), neutral (yellow), hostile (red) rims.")]
+        public Sprite[] portraitRings;
+        [Tooltip("The speaker's initial in the medallion.")]
+        public Text portraitInitial;
+        public Color[] stanceColors;
         public Text subtitleLabel;
         public GameObject skipButton;
         public AudioSource voiceSource;
@@ -85,6 +92,15 @@ namespace WizardsVRC
             string speaker = _current.SpeakerAt(_line);
             string text = _current.LineAt(_line);
             if (speakerLabel != null) speakerLabel.text = speaker;
+            int stance = Mathf.Clamp(_current.StanceAt(_line), 0, 2);
+            if (portraitRing != null && portraitRings != null && stance < portraitRings.Length) portraitRing.sprite = portraitRings[stance];
+            if (portraitInitial != null)
+            {
+                string name = speaker.StartsWith("Professor ") ? speaker.Substring(10) : (speaker.StartsWith("Headmaster ") ? speaker.Substring(11) : speaker);
+                portraitInitial.text = name.Length > 0 ? name.Substring(0, 1).ToUpper() : "?";
+                if (stanceColors != null && stance < stanceColors.Length) portraitInitial.color = stanceColors[stance];
+            }
+            if (speakerLabel != null && stanceColors != null && stance < stanceColors.Length) speakerLabel.color = stanceColors[stance];
             if (subtitleLabel != null) subtitleLabel.text = text;
 
             _shot = _current.ShotAt(_line);

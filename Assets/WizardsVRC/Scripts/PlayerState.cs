@@ -1,5 +1,6 @@
 using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
 
 namespace WizardsVRC
 {
@@ -36,6 +37,35 @@ namespace WizardsVRC
         public float autosaveInterval = 120f;
 
         [HideInInspector] public int activeSlot = -1;
+
+        [Header("Movement (VRChat's defaults are walk 2, run 4, strafe 2; these are 20% faster)")]
+        public float walkSpeed = 2.4f;
+        public float runSpeed = 4.8f;
+        public float strafeSpeed = 2.4f;
+        /// <summary>Extra speed from a potion or similar (1 = none). Set with SetSpeedMultiplier.</summary>
+        [HideInInspector] public float speedMultiplier = 1f;
+
+        public override void OnPlayerJoined(VRCPlayerApi player)
+        {
+            if (player != null && player.isLocal) ApplySpeed();
+        }
+
+        /// <summary>Sets the local player's walk / run / strafe speeds (call again after anything changes them).</summary>
+        public void ApplySpeed()
+        {
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me)) return;
+            float m = Mathf.Max(0.1f, speedMultiplier);
+            me.SetWalkSpeed(walkSpeed * m);
+            me.SetRunSpeed(runSpeed * m);
+            me.SetStrafeSpeed(strafeSpeed * m);
+        }
+
+        public void SetSpeedMultiplier(float m)
+        {
+            speedMultiplier = m;
+            ApplySpeed();
+        }
 
         private bool _dirty;
         private bool _autosaveScheduled;

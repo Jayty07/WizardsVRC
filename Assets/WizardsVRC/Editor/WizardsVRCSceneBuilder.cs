@@ -107,6 +107,7 @@ namespace WizardsVRC.EditorTools
 
             ConfigureProject();
             if (!EnsureProgramAssets()) return;
+            ResetExtras();
             BackUpMyChanges();
 
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -270,12 +271,14 @@ namespace WizardsVRC.EditorTools
             homeTeleport.hideZones = wb.zoneRoots.ToArray();
             book.homeTeleport = homeTeleport;
             streets.Add(homeTeleport);
+            // Notices, tooltips, titles and auras, elixirs, the Starshard Shop and the gold shops (WizardsVRCSceneBuilder.Cosmetics.cs).
+            WireExtras(systems.transform, playerState, itemDb, cardDb, book, hud, deckPages, questManager, null, encounters);
             // Pop-up panels stay clickable when they open inside an NPC's or door's click box.
             var muter = UdonSharpUndo.AddComponent<InteractMuter>(Child(systems.transform, "InteractMuter", Vector3.zero).gameObject);
             muter.panels = new[]
             {
                 ((CutscenePlayer)cutscenes[0]).screenRoot, interactionMenu.menuRoot, trainer.panelRoot,
-                trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot,
+                trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot, GoldShopPanel,
             };
             streets.Add(muter);
             // Pop-ups, menus, dialogue, the HUD, the quest arrow's words and the duel hand draw over everything, so they're
@@ -285,7 +288,7 @@ namespace WizardsVRC.EditorTools
             {
                 foreach (var go in new GameObject[] { ((CutscenePlayer)cutscenes[0]).screenRoot, interactionMenu.menuRoot, trainer.panelRoot,
                              trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot, hud.hudRoot,
-                             questGuide.labelRoot != null ? questGuide.labelRoot.gameObject : null })
+                             questGuide.labelRoot != null ? questGuide.labelRoot.gameObject : null, GoldShopPanel, TooltipRoot })
                     OverlayUI(go, overlay);
                 foreach (var ec in encounters) { OverlayUI(ec.handRoot, overlay); OverlayUI(ec.fleeConfirmRoot, overlay); }
             }
@@ -322,6 +325,11 @@ namespace WizardsVRC.EditorTools
             foreach (var orb in hubPlan.orbBehaviours) orb.uiAudio = uiAudio;
             foreach (var orb in wb.orbs) orb.uiAudio = uiAudio;
             book.uiAudio = uiAudio;
+            foreach (var b in ExtraBehaviours)
+            {
+                var f = b.GetType().GetField("uiAudio");
+                if (f != null && f.FieldType == typeof(UiAudio)) f.SetValue(b, uiAudio);
+            }
             ((CutscenePlayer)cutscenes[0]).uiAudio = uiAudio;
             Debug.Log("[WizardsVRC] Interface sounds on " + WireUiSounds(scene, uiAudio) + " buttons.");
             streets.Add(uiAudio);
@@ -336,12 +344,15 @@ namespace WizardsVRC.EditorTools
             toSync.AddRange(streets);
             foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, pedestal, cardDb, deckPages, queuePad, questPages, questGuide }) toSync.Add(b);
             foreach (var ec in encounters) { toSync.Add(ec.manager); toSync.Add(ec); foreach (var w in ec.GetComponentsInChildren<Wanderer>(true)) toSync.Add(w); }
+            foreach (var b in ExtraBehaviours) if (b != null && !toSync.Contains(b)) toSync.Add(b);
             foreach (var b in toSync)
             {
                 UdonSharpEditorUtility.CopyProxyToUdon(b);
                 EditorUtility.SetDirty(b);
             }
 
+            // Every plain menu panel and button in the PS1 look (WizardsVRCSceneBuilder.UiStyle.cs).
+            Debug.Log("[WizardsVRC] Styled " + StyleWorldUi(scene.GetRootGameObjects()) + " menu panels and buttons.");
             RestoreMyChanges(scene);
 
             Directory.CreateDirectory("Assets/Scenes");
@@ -449,7 +460,7 @@ namespace WizardsVRC.EditorTools
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             AssetDatabase.DeleteAsset(ProgramsDir + "/LootChest.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -636,18 +647,29 @@ namespace WizardsVRC.EditorTools
             BuildSettingsPages(root, book);
             Panel(root, "Spine", Vector2.zero, new Vector2(30, 1060), new Color(0.22f, 0.12f, 0.06f));
 
-            GameObject packTab = Button(root, "BackpackTab", new Vector2(935, 380), new Vector2(80, 130), "Pack", new Color(0.85f, 0.65f, 0.3f), target, "ShowBackpack");
-            packTab.GetComponentInChildren<Text>().fontSize = 22;
-            book.backpackTabImage = packTab.GetComponent<Image>();
-            GameObject deckTab = Button(root, "DeckTab", new Vector2(935, 235), new Vector2(80, 130), "Deck", new Color(0.45f, 0.3f, 0.18f), target, "ShowDeck");
-            deckTab.GetComponentInChildren<Text>().fontSize = 22;
-            book.deckTabImage = deckTab.GetComponent<Image>();
-            GameObject questTab = Button(root, "QuestTab", new Vector2(935, 90), new Vector2(80, 130), "Quests", new Color(0.45f, 0.3f, 0.18f), target, "ShowQuests");
-            questTab.GetComponentInChildren<Text>().fontSize = 18;
-            book.questTabImage = questTab.GetComponent<Image>();
-            GameObject settingsTab = Button(root, "SettingsTab", new Vector2(935, -55), new Vector2(80, 130), "Set-\ntings", new Color(0.45f, 0.3f, 0.18f), target, nameof(InventoryBook.ShowSettings));
-            settingsTab.GetComponentInChildren<Text>().fontSize = 18;
-            book.settingsTabImage = settingsTab.GetComponent<Image>();
+            // Bookmark tabs down the right edge: Pack, Deck, Quests, Stats, Notices, Wardrobe, Shop, Settings.
+            float TabY(int i) => 437f - i * 125f;
+            GameObject Tab(int i, string name, string text, int size, string ev, UdonBehaviour to)
+            {
+                GameObject b = Button(root, name, new Vector2(935, TabY(i)), new Vector2(80, 115), text, new Color(0.45f, 0.3f, 0.18f), to, ev);
+                b.GetComponentInChildren<Text>().fontSize = size;
+                return b;
+            }
+            book.backpackTabImage = Tab(0, "BackpackTab", "Pack", 22, "ShowBackpack", target).GetComponent<Image>();
+            book.deckTabImage = Tab(1, "DeckTab", "Deck", 22, "ShowDeck", target).GetComponent<Image>();
+            book.questTabImage = Tab(2, "QuestTab", "Quests", 18, "ShowQuests", target).GetComponent<Image>();
+            var extraTabs = new List<Image>();
+            extraTabs.Add(Tab(3, "StatsTab", "Stats", 20, nameof(InventoryBook.ShowStats), target).GetComponent<Image>());
+            GameObject noticeTab = Tab(4, "NoticesTab", "No-\ntices", 18, nameof(InventoryBook.ShowNotices), target);
+            extraTabs.Add(noticeTab.GetComponent<Image>());
+            extraTabs.Add(Tab(5, "WardrobeTab", "Ward-\nrobe", 18, nameof(InventoryBook.ShowWardrobe), target).GetComponent<Image>());
+            extraTabs.Add(Tab(6, "ShopTab", "Shop", 20, nameof(InventoryBook.ShowShop), target).GetComponent<Image>());
+            book.extraTabImages = extraTabs.ToArray();
+            book.settingsTabImage = Tab(7, "SettingsTab", "Set-\ntings", 18, nameof(InventoryBook.ShowSettings), target).GetComponent<Image>();
+            BookTabBadge = noticeTab.transform;
+            book.extraViews = new[] { BuildStatsPages(root, book), BuildNoticesPages(root, book), BuildWardrobePages(root, book), BuildShopPages(root, book) };
+            book.extraPages = new UdonSharpBehaviour[] { null, null, BookWardrobe, BookShop };
+            canvasGo.transform.Find("Spine")?.SetAsLastSibling();
 
             // ---- left page: character, paper-doll slots, stats
             book.nameLabel = InkLabel(left, "Name", new Vector2(0, 450), new Vector2(800, 60), "Name", 44, TextAnchor.MiddleCenter);
@@ -901,52 +923,6 @@ namespace WizardsVRC.EditorTools
             Text t = Label(parent, name, pos, size, text, fontSize, anchor);
             t.color = Ink;
             return t;
-        }
-
-        private static void BuildHud(PlayerHUD hud)
-        {
-            var canvasGo = new GameObject("HudCanvas", typeof(RectTransform));
-            canvasGo.transform.SetParent(hud.transform, false);
-            var canvas = canvasGo.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvasGo.AddComponent<CanvasScaler>().dynamicPixelsPerUnit = 2f;
-            var rt = (RectTransform)canvasGo.transform;
-            rt.sizeDelta = new Vector2(420, 340);
-            rt.localScale = Vector3.one * 0.0005f;
-            hud.hudRoot = canvasGo;
-
-            Panel(rt, "Background", new Vector2(0, 58), new Vector2(420, 224), new Color(0.08f, 0.07f, 0.12f, 0.7f));
-            hud.questLabel = Label(rt, "Quest", new Vector2(0, -122), new Vector2(400, 120), "", 22, TextAnchor.UpperLeft);
-            hud.questLabel.color = new Color(1f, 0.95f, 0.7f);
-            hud.nameLabel = Label(rt, "Name", new Vector2(0, 135), new Vector2(400, 45), "", 28, TextAnchor.MiddleLeft);
-            hud.healthLabel = Label(rt, "Health", new Vector2(0, 90), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
-            hud.healthLabel.color = new Color(1f, 0.55f, 0.55f);
-            hud.manaLabel = Label(rt, "Mana", new Vector2(0, 48), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
-            hud.manaLabel.color = new Color(0.55f, 0.75f, 1f);
-            hud.goldLabel = Label(rt, "Gold", new Vector2(0, 6), new Vector2(400, 40), "", 26, TextAnchor.MiddleLeft);
-            hud.goldLabel.color = new Color(1f, 0.85f, 0.35f);
-
-            // XP bar: dark track, left-pivoted fill (PlayerHUD scales its X), segment ticks on top, text over it all.
-            const int xpSegments = 20;
-            const float barW = 396f, barH = 22f, inner = 2f;
-            RectTransform track = Panel(rt, "XpBar", new Vector2(0, -30), new Vector2(barW, barH), new Color(0.02f, 0.015f, 0.05f, 0.95f));
-            RectTransform fill = Panel(track, "XpFill", Vector2.zero, new Vector2(barW - inner * 2, barH - inner * 2), hud.xpColor);
-            fill.anchorMin = fill.anchorMax = new Vector2(0f, 0.5f);
-            fill.pivot = new Vector2(0f, 0.5f);
-            fill.anchoredPosition = new Vector2(inner, 0f);
-            fill.localScale = new Vector3(0f, 1f, 1f);
-            hud.xpFill = fill;
-            hud.xpFillImage = fill.GetComponent<Image>();
-            hud.xpSegments = xpSegments;
-            for (int k = 1; k < xpSegments; k++)
-                Panel(track, "Tick" + k, new Vector2(-barW / 2f + inner + (barW - inner * 2) * k / xpSegments, 0f), new Vector2(2f, barH - inner * 2),
-                    new Color(0.02f, 0.015f, 0.05f, 0.95f));
-            // A lighter top row on the fill area for a little PSX bevel.
-            Panel(track, "Shine", new Vector2(0f, barH / 2f - inner - 2f), new Vector2(barW - inner * 2, 2f), new Color(1f, 1f, 1f, 0.18f));
-            hud.xpLabel = Label(track, "XpText", Vector2.zero, new Vector2(barW, barH), "", 16, TextAnchor.MiddleCenter);
-            var xpOutline = hud.xpLabel.gameObject.AddComponent<Outline>();
-            xpOutline.effectColor = Color.black;
-            canvasGo.SetActive(false);
         }
 
         /// <summary>Show the castle's testing fixtures (notice board panel, Backpack pedestal, arena teleporter pad).</summary>
@@ -1892,9 +1868,19 @@ namespace WizardsVRC.EditorTools
             filmImage.texture = rt;
             filmImage.raycastTarget = false;
             Panel(root, "SubtitleBand", new Vector2(0, -250), new Vector2(1560, 200), new Color(0, 0, 0, 0.7f));
-            player.speakerLabel = Label(root, "Speaker", new Vector2(0, -180), new Vector2(1500, 50), "", 34, TextAnchor.MiddleLeft);
+            // Who's speaking: a medallion with their initial, its rim blue (ally), yellow (neutral) or red (hostile),
+            // and their name in the same colour (WizardsVRCSceneBuilder.UiStyle.cs has the art).
+            UiImage(root, "PortraitBack", new Vector2(-660, -250), new Vector2(170, 170), "PortraitBack", Color.white, 2.6f).preserveAspect = true;
+            player.portraitRing = UiImage(root, "PortraitRing", new Vector2(-660, -250), new Vector2(170, 170), "PortraitNeutral", Color.white, 2.6f);
+            player.portraitRing.preserveAspect = true;
+            player.portraitRings = new[] { UiSprite("PortraitAlly"), UiSprite("PortraitNeutral"), UiSprite("PortraitHostile") };
+            player.portraitInitial = Label(root, "PortraitInitial", new Vector2(-660, -250), new Vector2(170, 170), "", 84, TextAnchor.MiddleCenter);
+            player.portraitInitial.gameObject.AddComponent<Outline>().effectColor = Color.black;
+            player.stanceColors = new[] { new Color(0.5f, 0.75f, 1f), new Color(1f, 0.85f, 0.35f), new Color(1f, 0.45f, 0.4f) };
+            player.speakerLabel = Label(root, "Speaker", new Vector2(90, -180), new Vector2(1320, 50), "", 34, TextAnchor.MiddleLeft);
             player.speakerLabel.color = new Color(1f, 0.85f, 0.4f);
-            player.subtitleLabel = Label(root, "Subtitle", new Vector2(0, -270), new Vector2(1500, 130), "", 32, TextAnchor.UpperLeft);
+            player.subtitleLabel = Label(root, "Subtitle", new Vector2(90, -270), new Vector2(1320, 130), "", 32, TextAnchor.UpperLeft);
+            ApplyCombatFont(player.portraitInitial.transform);
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(player);
             Button(root, "Next", new Vector2(-170, -475), new Vector2(280, 80), "Next (Space)", new Color(0.3f, 0.35f, 0.55f), target, "Next");
             player.skipButton = Button(root, "Skip", new Vector2(170, -475), new Vector2(280, 80), "Skip", new Color(0.5f, 0.25f, 0.25f), target, "Skip");

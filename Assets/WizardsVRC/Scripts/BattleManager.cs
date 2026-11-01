@@ -814,7 +814,7 @@ namespace WizardsVRC
             school[s] = Mathf.Clamp(playerSchool, 0, 6);
             // playerLevel carries the creator colours above the level (see BattleClient's join): level | look << 8.
             level[s] = Mathf.Clamp(playerLevel & 0xFF, 1, 255);
-            look[s] = (playerLevel >> 8) & 0xFFFF;
+            look[s] = (playerLevel >> 8) & 0xFFFFFF;   // signature | aura << 8 | spell skin << 16
             dmgPct[s] = Mathf.Clamp(Unpack(statsA, 0), 0, 200);
             resistPct[s] = Mathf.Clamp(Unpack(statsA, 1), 0, 80);
             accPct[s] = Mathf.Clamp(Unpack(statsA, 2) - 128, -50, 100);

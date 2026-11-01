@@ -24,6 +24,23 @@ namespace WizardsVRC
         public QuestManager questManager;
         public Text questLabel;
 
+        [Header("Health and mana bars (left-pivoted fills; their X scale is the share left)")]
+        public RectTransform healthFill;
+        public RectTransform manaFill;
+        [Tooltip("Shows how much was just lost (a pale trail that catches up).")]
+        public RectTransform healthTrail;
+        public Text levelLabel;
+        public Text pointsLabel;
+
+        [Header("Level up")]
+        public ParticleSystem levelUpBurst;
+        public ParticleSystem levelUpRise;
+        public AudioSource levelUpAudio;
+        [Tooltip("'LEVEL UP!' banner on the HUD (shown for a few seconds).")]
+        public GameObject levelUpBanner;
+        public Text levelUpText;
+        public float levelUpSeconds = 3.5f;
+
         [Header("XP bar")]
         [Tooltip("Left-pivoted fill inside the bar; its X scale is the share of XP towards the next level.")]
         public RectTransform xpFill;
@@ -50,6 +67,10 @@ namespace WizardsVRC
         private bool _wasShown;
         private Quaternion _rot = Quaternion.identity;
         private bool _hasRot;
+        private int _knownLevel;
+        private int _knownSlot = -1;
+        private float _bannerUntil;
+        private float _hpShown = -1f, _hpTrail = -1f, _mpShown = -1f;
 
         public void ToggleHud()
         {
@@ -82,6 +103,61 @@ namespace WizardsVRC
                 Refresh();
             }
             UpdateXpBar();
+            UpdateBars();
+            CheckLevelUp();
+        }
+
+        /// <summary>The health and mana fills glide to their value; a pale trail shows health just lost.</summary>
+        private void UpdateBars()
+        {
+            int maxHp = Mathf.Max(1, playerState.MaxHealth()), maxMp = Mathf.Max(1, playerState.MaxMana());
+            float hp = Mathf.Clamp01((float)playerState.DisplayHealth() / maxHp);
+            float mp = Mathf.Clamp01((float)playerState.GetMana() / maxMp);
+            float k = Mathf.Clamp01(Time.deltaTime * 6f);
+            _hpShown = _hpShown < 0f ? hp : Mathf.Lerp(_hpShown, hp, k);
+            _mpShown = _mpShown < 0f ? mp : Mathf.Lerp(_mpShown, mp, k);
+            _hpTrail = _hpTrail < 0f || hp > _hpTrail ? hp : Mathf.MoveTowards(_hpTrail, hp, Time.deltaTime * 0.25f);
+            if (healthFill != null) healthFill.localScale = new Vector3(_hpShown, 1f, 1f);
+            if (manaFill != null) manaFill.localScale = new Vector3(_mpShown, 1f, 1f);
+            if (healthTrail != null) healthTrail.localScale = new Vector3(_hpTrail, 1f, 1f);
+        }
+
+        /// <summary>A level gained on this character: sparkle burst and rising light round you, the fanfare, a banner.</summary>
+        private void CheckLevelUp()
+        {
+            CharacterData c = playerState.current;
+            if (_knownSlot != playerState.activeSlot) { _knownSlot = playerState.activeSlot; _knownLevel = c.level; }
+            if (c.level > _knownLevel && _knownLevel > 0)
+            {
+                _knownLevel = c.level;
+                PlayLevelUp(c.level);
+            }
+            else if (c.level < _knownLevel) _knownLevel = c.level;
+            if (levelUpBanner != null && levelUpBanner.activeSelf && Time.time > _bannerUntil) levelUpBanner.SetActive(false);
+        }
+
+        public void PlayLevelUp(int level)
+        {
+            VRCPlayerApi me = Networking.LocalPlayer;
+            Vector3 feet = Utilities.IsValid(me) ? me.GetPosition() : transform.position;
+            if (levelUpBurst != null)
+            {
+                levelUpBurst.transform.position = feet + Vector3.up * 1.1f;
+                levelUpBurst.Emit(70);
+            }
+            if (levelUpRise != null)
+            {
+                levelUpRise.transform.position = feet;
+                levelUpRise.Play();
+            }
+            if (levelUpAudio != null)
+            {
+                levelUpAudio.transform.position = feet;
+                levelUpAudio.Play();
+            }
+            if (levelUpText != null) levelUpText.text = "LEVEL UP!\nLevel " + level.ToString();
+            if (levelUpBanner != null) levelUpBanner.SetActive(true);
+            _bannerUntil = Time.time + levelUpSeconds;
         }
 
         /// <summary>
@@ -134,12 +210,14 @@ namespace WizardsVRC
             CharacterData c = playerState.current;
             if (nameLabel != null)
             {
-                nameLabel.text = c.characterName + "  Lv " + c.level.ToString();
+                nameLabel.text = c.characterName;
                 nameLabel.color = c.signatureColor > 0 && lookPalette != null && c.signatureColor < lookPalette.Length ? lookPalette[c.signatureColor] : Color.white;
             }
-            if (healthLabel != null) healthLabel.text = "Health " + playerState.DisplayHealth().ToString() + " / " + playerState.MaxHealth().ToString();
-            if (manaLabel != null) manaLabel.text = "Mana " + playerState.GetMana().ToString() + " / " + playerState.MaxMana().ToString();
-            if (goldLabel != null) goldLabel.text = "Gold " + c.gold.ToString() + "    Training Points " + c.trainingPoints.ToString();
+            if (levelLabel != null) levelLabel.text = c.level.ToString();
+            if (healthLabel != null) healthLabel.text = playerState.DisplayHealth().ToString() + " / " + playerState.MaxHealth().ToString();
+            if (manaLabel != null) manaLabel.text = playerState.GetMana().ToString() + " / " + playerState.MaxMana().ToString();
+            if (goldLabel != null) goldLabel.text = c.gold.ToString();
+            if (pointsLabel != null) pointsLabel.text = c.trainingPoints.ToString() + " TP";
             if (xpLabel != null)
                 xpLabel.text = c.level >= CharacterData.MAX_LEVEL ? "XP  MAX"
                     : "XP " + c.xp.ToString() + " / " + c.XpToNextLevel().ToString();
