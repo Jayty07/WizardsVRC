@@ -280,14 +280,31 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   dream). Tracks crossfade; the hub and creation tracks carry on where they left off. The book's Settings page has
   **Music: Full / Medium / Quiet / Off** (remembered). Tracks are `Audio/Music/Music_Hub_Temp.mp3` (a placeholder),
   `Music_Combat_World1.mp3` and `Music_CharacterCreation.mp3`; replace a file with one of the same name to change it.
-- **Monster AI:** monsters heal an ally under 45% health, sometimes put a blade or shield on themselves first, and
-  otherwise cast their biggest affordable attack (occasionally saving pips).
+- **Monster AI:** monsters heal an ally under 45% health (a monster that heals itself waits 2 rounds before healing
+  again), sometimes put a blade or shield on themselves first, and otherwise cast their biggest affordable attack
+  (occasionally saving pips).
 
 - **Spell design:** each school has a 12-spell tree on the Wizard101 milestones (L1 low-pip attack, L5 secondary
   attack/utility, L10 blade, L12 trap, L16 low-rank AoE or early minion, L22 shield/dispel, L26 mid attack, L28 minion,
   L33 buff utility / high-impact trap, L35 quest spell, L42 big hit, L48 7-pip AoE) and plays to its role: Storm glass
   cannon, Fire DoT + detonate, Ice tank, Life healer, Death drain, Myth minions + counter-play (shatter, dispel, stun,
   pierce), Balance universal support. See the remarks on `CardDatabase`.
+- **Shields, blades and traps** circle each combatant as small 3D models in their school's colour (shields at the chest
+  facing out, swords twirling over the head, spiked traps turning at the feet). When one is used it springs into action
+  first (a sword lunges at the target, a shield swings in front of its owner facing the attacker, a trap leaps up and
+  snaps) and the hit lands half a second later (`BattleClient.fxUseSeconds`). School shields block 80%; General Empower
+  is +15% to any attack.
+- **Stuns** (Myth's Stone Basilisk, Riddle of Iron and Fabled Hydra): a stunned combatant loses its next turn and gains
+  a **stun shield** that blocks the next stun, so stuns can't chain.
+- **Special spells:** Ice's Permafrost Bulwark (two any-school shields on one wizard) and Winter's Bastion (Ice damage
+  plus a shield on yourself); Storm's Gale Mark (damage plus a Storm trap on the target); Fire's Wildfire Oath (damage
+  plus a Fire blade on yourself); Death's Dread Mark (+70% trap on an enemy, but a +30% trap on yourself); Myth's
+  Chimera's Roar (damage to all enemies); Balance's Elemental / Spirit Tri-Shield and Tri-Trap; Life's Wellspring Charm
+  (your next heal heals 35% more), taught by Gardener Moss in a Life-only side quest (Moss's Tonic, quest 39); and
+  Second Wind, a General spell every wizard has from level 5 that heals you for 420.
+- **School-only spells:** a school's blades and traps (and Dread Mark and Wellspring Charm) can only be learned by
+  wizards of that school; other schools training there skip them in the tree.
+- **Training points:** one every 4 levels up to level 19 (4, 8, 12, 16), then one every 5 levels from 20.
 
 All numbers are public fields on `BattleManager`, `BattleClient`, `PlayerState` and the databases, so they can be tuned
 in the Inspector. **After pulling these changes run WizardsVRC > Rebuild MainWorld Scene** so the new Potion/Flee

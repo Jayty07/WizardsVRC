@@ -26,6 +26,9 @@ namespace WizardsVRC
 
         private bool _used;
 
+        /// <summary>Already clicked this visit (the quest guide points at the nearest one that isn't).</summary>
+        public bool IsUsed() { return _used; }
+
         private void Start()
         {
             // A walk-in spot isn't clicked, so don't let it light up (or catch the pointer) like a button.

@@ -14,7 +14,7 @@ namespace WizardsVRC
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SpellTrainer : UdonSharpBehaviour
     {
-        public const int ROWS = 12;
+        public const int ROWS = 16;
 
         public PlayerState playerState;
         public CardDatabase cardDatabase;
@@ -79,6 +79,10 @@ namespace WizardsVRC
         public void Row9() { Select(9); }
         public void Row10() { Select(10); }
         public void Row11() { Select(11); }
+        public void Row12() { Select(12); }
+        public void Row13() { Select(13); }
+        public void Row14() { Select(14); }
+        public void Row15() { Select(15); }
 
         private void Start()
         {
@@ -144,12 +148,14 @@ namespace WizardsVRC
             CharacterData c = playerState.current;
             int id = _selected;
             if (c.HasLearned(id)) { SetStatus("You already know that spell."); return; }
-            if (cardDatabase.IsQuestSpell(id)) { SetStatus("This spell is earned from the " + NameAt(schoolNames, _school) + " trial quest, not taught here."); return; }
+            if (cardDatabase.IsTrialSpell(id)) { SetStatus("This spell is earned from the " + NameAt(schoolNames, _school) + " trial quest, not taught here."); return; }
+            if (cardDatabase.IsQuestSpell(id)) { SetStatus("This spell is earned from a " + NameAt(schoolNames, _school) + " side quest, not taught here."); return; }
+            if (!cardDatabase.SchoolAllows(c, id)) { SetStatus("Only " + NameAt(schoolNames, _school) + " wizards can learn that spell."); return; }
             if (c.level < cardDatabase.GetLevelReq(id)) { SetStatus("You must be level " + cardDatabase.GetLevelReq(id).ToString() + " to learn that."); return; }
-            int pre = cardDatabase.GetPrereq(id);
+            int pre = cardDatabase.PrereqFor(c, id);
             if (pre > 0 && !c.HasLearned(pre)) { SetStatus("You must learn " + cardDatabase.GetName(pre) + " first."); return; }
             int cost = cardDatabase.LearnCost(c, id);
-            if (c.trainingPoints < cost) { SetStatus("You need a Training Point. You earn one each level."); return; }
+            if (c.trainingPoints < cost) { SetStatus("You need a Training Point. You earn one every 4 levels (every 5 from level 20)."); return; }
             if (!c.Learn(id)) return;
             c.trainingPoints -= cost;
             playerState.MarkDirty();
@@ -189,7 +195,7 @@ namespace WizardsVRC
             detailName.text = cardDatabase.GetName(_selected);
             detailBody.text = cardDatabase.GetDetails(_selected);
             cardDatabase.FillCard(_selected, detailFrame, detailCardName, detailPips, detailArt, detailAccuracy, detailInfo, detailSchool, false);
-            bool canTry = !c.HasLearned(_selected) && !cardDatabase.IsQuestSpell(_selected);
+            bool canTry = !c.HasLearned(_selected) && !cardDatabase.IsQuestSpell(_selected) && cardDatabase.SchoolAllows(c, _selected);
             if (learnButton != null) learnButton.SetActive(canTry);
             if (learnLabel != null)
                 learnLabel.text = cardDatabase.LearnCost(c, _selected) == 0 ? "Learn (free)" : "Learn (1 point)";
@@ -198,8 +204,8 @@ namespace WizardsVRC
         /// <summary>Could be learned right now (level, previous spell and training points all OK).</summary>
         private bool CanLearnNow(CharacterData c, int id)
         {
-            if (cardDatabase.IsQuestSpell(id) || c.level < cardDatabase.GetLevelReq(id)) return false;
-            int pre = cardDatabase.GetPrereq(id);
+            if (cardDatabase.IsQuestSpell(id) || !cardDatabase.SchoolAllows(c, id) || c.level < cardDatabase.GetLevelReq(id)) return false;
+            int pre = cardDatabase.PrereqFor(c, id);
             if (pre > 0 && !c.HasLearned(pre)) return false;
             return c.trainingPoints >= cardDatabase.LearnCost(c, id);
         }
@@ -208,9 +214,11 @@ namespace WizardsVRC
         {
             if (c.HasLearned(id)) return "Learned";
             int req = cardDatabase.GetLevelReq(id);
-            if (cardDatabase.IsQuestSpell(id)) return "Lv " + req.ToString() + " - Trial quest reward";
+            if (cardDatabase.IsTrialSpell(id)) return "Lv " + req.ToString() + " - Trial quest reward";
+            if (cardDatabase.IsQuestSpell(id)) return "Lv " + req.ToString() + " - Side quest reward";
+            if (!cardDatabase.SchoolAllows(c, id)) return NameAt(schoolNames, _school) + " wizards only";
             if (c.level < req) return "Requires level " + req.ToString();
-            int pre = cardDatabase.GetPrereq(id);
+            int pre = cardDatabase.PrereqFor(c, id);
             if (pre > 0 && !c.HasLearned(pre)) return "Needs " + cardDatabase.GetName(pre);
             return cardDatabase.LearnCost(c, id) == 0 ? "Lv " + req.ToString() + " - Free" : "Lv " + req.ToString() + " - 1 Training Point";
         }

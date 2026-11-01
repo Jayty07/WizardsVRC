@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 16;
+        public const int CurrentVersion = 17;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -179,6 +179,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 14) UpgradeTo14();
             if (from < 15) UpgradeTo15();
             if (from < 16) UpgradeTo16();
+            if (from < 17) UpgradeTo17();
         }
 
         private class ZoneDefault { public string file, key; public System.Action<ZoneDefinition> fill; }
@@ -324,6 +325,23 @@ namespace WizardsVRC.EditorTools.WorldData
             }
             if (seeded > 0) report.Add("the Dominion seeded into " + seeded + " built quest steps");
             if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (World 1): " + string.Join(", ", report) + ".");
+        }
+
+        /// <summary>v17: Moss's Tonic (quest 39, Life wizards only), added to the storyline holding quest 15 if id 39 is free.</summary>
+        private static void UpgradeTo17()
+        {
+            var questlines = FindAll<Questline>();
+            foreach (var ql in questlines) foreach (var q in ql.quests) if (q != null && q.saveId == 39) return;
+            foreach (var ql in questlines)
+            {
+                bool has15 = false;
+                foreach (var q in ql.quests) has15 |= q != null && q.saveId == 15;
+                if (!has15) continue;
+                ql.quests.Add(WorldDefaults.LifeCharmQuest());
+                EditorUtility.SetDirty(ql);
+                Debug.Log("[WizardsVRC] Upgraded world data: " + ql.StorylineName() + " gained Moss's Tonic (a Life side quest teaching Wellspring Charm).");
+                return;
+            }
         }
 
         // v14: the streets whose patrols and duel ring spots were redrawn, the hash of each one's old default map, and its defaults.

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UdonSharp;
 using UdonSharp.Compiler;
@@ -227,6 +228,19 @@ namespace WizardsVRC.EditorTools
             Transform hubRoot = hubSpawn.parent;
             var pedestal = BuildBackpackPedestal(hubRoot, hubPlan.pedestalPos, book);
             var queuePad = BuildQueuePad(hubRoot, hubPlan.padPos, battleClient);
+            if (!HubTestProps)
+            {
+                // The old testing fixtures in the castle (the notice board's Change Character / Backpack panel, the
+                // Backpack pedestal and the boss arena teleporter pad) stay out of sight: the book (B) does both jobs, and
+                // the arena is only for the school trial, at level 35. Their parts are kept, switched off, so nothing that
+                // refers to them breaks.
+                hubCanvas.gameObject.SetActive(false);
+                foreach (string n in new[] { "BackpackPedestal", "BackpackBook", "BackpackLabel", "ArenaTeleporterPad", "ArenaQueueTrigger", "ArenaPadLabel" })
+                {
+                    Transform tr = hubRoot.Find(n);
+                    if (tr != null) tr.gameObject.SetActive(false);
+                }
+            }
             battleClient.queueRequiredQuest = hubPlan.padRequiredQuest;
             if (!string.IsNullOrEmpty(hubPlan.padLockedHint)) battleClient.queueLockedText = "Boss Arena Teleporter\n(locked: " + hubPlan.padLockedHint + ")";
             BuildArena(battleClient, new[] { laneA, laneB });
@@ -263,6 +277,17 @@ namespace WizardsVRC.EditorTools
                 trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot,
             };
             streets.Add(muter);
+            // Pop-ups, menus, dialogue, the HUD, the quest arrow's words and the duel hand draw over everything, so they're
+            // never lost inside a wall, an NPC or a monster.
+            var overlay = UIOverlayMat();
+            if (overlay != null)
+            {
+                foreach (var go in new GameObject[] { ((CutscenePlayer)cutscenes[0]).screenRoot, interactionMenu.menuRoot, trainer.panelRoot,
+                             trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot, hud.hudRoot,
+                             questGuide.labelRoot != null ? questGuide.labelRoot.gameObject : null })
+                    OverlayUI(go, overlay);
+                foreach (var ec in encounters) { OverlayUI(ec.handRoot, overlay); OverlayUI(ec.fleeConfirmRoot, overlay); }
+            }
             questPages.questGuide = questGuide;
 
             // Local area culling: the hub, the boss arena and each zone are off for a player who isn't in them.
@@ -277,6 +302,10 @@ namespace WizardsVRC.EditorTools
             cullAreas.AddRange(wb.cullRoots);
             cullBounds.AddRange(wb.cullBounds);
             var areaCuller = BuildAreaCuller(systems.transform, cullAreas, cullBounds, scene, encounters);
+            // The quest guide points at the nearest unused one of a step's quest objects.
+            var allTargets = new System.Collections.Generic.List<QuestTarget>();
+            foreach (var go in scene.GetRootGameObjects()) allTargets.AddRange(go.GetComponentsInChildren<QuestTarget>(true));
+            questManager.questTargets = allTargets.ToArray();
             streets.Add(areaCuller);
             BuildSkies(LayOutWorld(hubPlan, hubRoot, wb), areaCuller, RenderSettings.skybox);
 
@@ -741,7 +770,7 @@ namespace WizardsVRC.EditorTools
             GameObject guideBtn = Button(left, "GuideToggle", new Vector2(0, 150), new Vector2(560, 85), "Quest arrow: On", brown, target, nameof(InventoryBook.SettingToggleGuide));
             book.guideSettingLabel = guideBtn.GetComponentInChildren<Text>();
             // PS1 wobble: the vertex snap and texture swim (some players find it uncomfortable in VR).
-            GameObject warpBtn = Button(left, "WarpToggle", new Vector2(0, 40), new Vector2(560, 85), "PS1 wobble: On", brown, target, nameof(InventoryBook.SettingToggleWarp));
+            GameObject warpBtn = Button(left, "WarpToggle", new Vector2(0, 40), new Vector2(560, 85), "PS1 wobble: Off", brown, target, nameof(InventoryBook.SettingToggleWarp));
             book.warpSettingLabel = warpBtn.GetComponentInChildren<Text>();
             Button(left, "SaveNow", new Vector2(0, -70), new Vector2(560, 85), "Save Now", new Color(0.25f, 0.45f, 0.3f), target, nameof(InventoryBook.SettingSaveNow));
             Button(left, "GoHome", new Vector2(0, -180), new Vector2(560, 85), "Return to Starfall Castle", new Color(0.3f, 0.35f, 0.55f), target, nameof(InventoryBook.SettingGoHome));
@@ -912,6 +941,9 @@ namespace WizardsVRC.EditorTools
             canvasGo.SetActive(false);
         }
 
+        /// <summary>Show the castle's testing fixtures (notice board panel, Backpack pedestal, arena teleporter pad).</summary>
+        private const bool HubTestProps = false;
+
         private static EventRelay BuildBackpackPedestal(Transform hubRoot, Vector3 at, InventoryBook book)
         {
             Block(hubRoot, "BackpackPedestal", at + new Vector3(0, 0.5f, 0), new Vector3(0.6f, 1f, 0.6f), Mat("Pedestal", new Color(0.5f, 0.5f, 0.55f)));
@@ -1018,6 +1050,132 @@ namespace WizardsVRC.EditorTools
         // Shields at chest height, blades overhead, traps low (icons stand upright, so not on the ground).
         private static readonly float[] FxHeights = { 1.1f, 2.2f, 0.45f };
         private static readonly float[] FxIconSizes = { 0.5f, 0.42f, 0.42f };
+        /// <summary>Scale of the 3D shield, blade and trap models (each about a metre across at scale 1).</summary>
+        private static readonly float[] Fx3DSizes = { 0.62f, 0.75f, 0.6f };
+
+        // ------------------------------------------------------------------ 3D shields, blades and traps
+
+        /// <summary>Saves a mesh from triangles that are already wound outward (no re-winding), flat-shaded.</summary>
+        private static Mesh SaveFxMesh(string name, List<Vector3> tris)
+        {
+            Directory.CreateDirectory(MeshesDir);
+            string path = MeshesDir + "/" + name + ".asset";
+            var existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (existing != null) return existing;
+            var verts = new List<Vector3>();
+            var idx = new List<int>();
+            for (int i = 0; i + 2 < tris.Count; i += 3)
+                for (int j = 0; j < 3; j++) { idx.Add(verts.Count); verts.Add(tris[i + j]); }
+            var mesh = new Mesh { name = name };
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(idx, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            AssetDatabase.CreateAsset(mesh, path);
+            return mesh;
+        }
+
+        /// <summary>A triangle wound to face away from 'inside'.</summary>
+        private static void FxTri(List<Vector3> t, Vector3 a, Vector3 b, Vector3 c, Vector3 inside)
+        {
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a), (a + b + c) / 3f - inside) < 0f) { var x = b; b = c; c = x; }
+            t.Add(a); t.Add(b); t.Add(c);
+        }
+
+        /// <summary>A box (centre, half sizes), each face wound outward.</summary>
+        private static void FxBox(List<Vector3> t, Vector3 c, Vector3 h)
+        {
+            Vector3 P(float x, float y, float z) => c + new Vector3(x * h.x, y * h.y, z * h.z);
+            int[,] faces = { { 0, 1, 3, 2 }, { 4, 6, 7, 5 }, { 0, 4, 5, 1 }, { 2, 3, 7, 6 }, { 0, 2, 6, 4 }, { 1, 5, 7, 3 } };
+            var v = new Vector3[8];
+            for (int i = 0; i < 8; i++) v[i] = P((i & 4) != 0 ? 1 : -1, (i & 2) != 0 ? 1 : -1, (i & 1) != 0 ? 1 : -1);
+            for (int f = 0; f < 6; f++)
+            {
+                FxTri(t, v[faces[f, 0]], v[faces[f, 1]], v[faces[f, 2]], c);
+                FxTri(t, v[faces[f, 0]], v[faces[f, 2]], v[faces[f, 3]], c);
+            }
+        }
+
+        /// <summary>A flat polygon (XY, convex about 'mid') extruded from z0 to z1, faces wound outward.</summary>
+        private static void FxSlab(List<Vector3> t, Vector2[] poly, Vector2 mid, float z0, float z1)
+        {
+            Vector3 inside = new Vector3(mid.x, mid.y, (z0 + z1) / 2f);
+            for (int i = 0; i < poly.Length; i++)
+            {
+                Vector2 a = poly[i], b = poly[(i + 1) % poly.Length];
+                FxTri(t, new Vector3(mid.x, mid.y, z1), new Vector3(a.x, a.y, z1), new Vector3(b.x, b.y, z1), inside);
+                FxTri(t, new Vector3(mid.x, mid.y, z0), new Vector3(a.x, a.y, z0), new Vector3(b.x, b.y, z0), inside);
+                Vector3 a0 = new Vector3(a.x, a.y, z0), a1 = new Vector3(a.x, a.y, z1), b0 = new Vector3(b.x, b.y, z0), b1 = new Vector3(b.x, b.y, z1);
+                FxTri(t, a0, b0, b1, inside);
+                FxTri(t, a0, b1, a1, inside);
+            }
+        }
+
+        /// <summary>A heater shield facing +Z (pointed at the bottom, flat top) with a raised boss.</summary>
+        private static Mesh FxShieldMesh()
+        {
+            var t = new List<Vector3>();
+            var poly = new[] { new Vector2(-0.42f, 0.46f), new Vector2(0.42f, 0.46f), new Vector2(0.42f, 0.06f), new Vector2(0.26f, -0.3f),
+                               new Vector2(0f, -0.52f), new Vector2(-0.26f, -0.3f), new Vector2(-0.42f, 0.06f) };
+            FxSlab(t, poly, new Vector2(0f, 0.05f), -0.05f, 0.05f);
+            // Boss: a low four-sided pyramid on the front.
+            Vector3 apex = new Vector3(0f, 0.08f, 0.17f), centre = new Vector3(0f, 0.08f, 0.05f);
+            var b = new[] { new Vector3(-0.13f, -0.05f, 0.05f), new Vector3(0.13f, -0.05f, 0.05f), new Vector3(0.13f, 0.21f, 0.05f), new Vector3(-0.13f, 0.21f, 0.05f) };
+            for (int i = 0; i < 4; i++) FxTri(t, b[i], b[(i + 1) % 4], apex, centre);
+            // Rim along the top edge.
+            FxBox(t, new Vector3(0f, 0.46f, 0.02f), new Vector3(0.44f, 0.035f, 0.07f));
+            return SaveFxMesh("PSX_FxShield", t);
+        }
+
+        /// <summary>A sword pointing up: a diamond-section blade with a point, crossguard, grip and pommel.</summary>
+        private static Mesh FxBladeMesh()
+        {
+            var t = new List<Vector3>();
+            // Blade: diamond cross-section from the guard up, tapering to a point.
+            float y0 = -0.05f, y1 = 0.5f, tip = 0.66f;
+            var d0 = new[] { new Vector3(-0.07f, y0, 0f), new Vector3(0f, y0, 0.018f), new Vector3(0.07f, y0, 0f), new Vector3(0f, y0, -0.018f) };
+            var d1 = new[] { new Vector3(-0.065f, y1, 0f), new Vector3(0f, y1, 0.016f), new Vector3(0.065f, y1, 0f), new Vector3(0f, y1, -0.016f) };
+            Vector3 inside = new Vector3(0f, (y0 + tip) / 2f, 0f);
+            Vector3 point = new Vector3(0f, tip, 0f);
+            for (int i = 0; i < 4; i++)
+            {
+                int j = (i + 1) % 4;
+                FxTri(t, d0[i], d0[j], d1[j], inside);
+                FxTri(t, d0[i], d1[j], d1[i], inside);
+                FxTri(t, d1[i], d1[j], point, inside);
+            }
+            FxBox(t, new Vector3(0f, -0.08f, 0f), new Vector3(0.19f, 0.03f, 0.04f));     // crossguard
+            FxBox(t, new Vector3(0f, -0.22f, 0f), new Vector3(0.03f, 0.11f, 0.03f));     // grip
+            FxBox(t, new Vector3(0f, -0.36f, 0f), new Vector3(0.055f, 0.035f, 0.055f));  // pommel
+            return SaveFxMesh("PSX_FxBlade", t);
+        }
+
+        /// <summary>A spiked trap lying flat: an octagonal iron band with eight teeth pointing up.</summary>
+        private static Mesh FxTrapMesh()
+        {
+            var t = new List<Vector3>();
+            const int n = 8;
+            float ro = 0.44f, ri = 0.33f, h = 0.07f;
+            for (int i = 0; i < n; i++)
+            {
+                float a0 = i * Mathf.PI * 2f / n, a1 = (i + 1) * Mathf.PI * 2f / n, am = (a0 + a1) / 2f;
+                Vector3 o0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)), o1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
+                Vector3 mid = new Vector3(Mathf.Cos(am), 0f, Mathf.Sin(am)) * ((ro + ri) / 2f) + Vector3.up * (h / 2f);
+                Vector3 up = Vector3.up * h;
+                // Band segment (outer, inner, top and bottom faces).
+                FxTri(t, o0 * ro, o1 * ro, o1 * ro + up, mid); FxTri(t, o0 * ro, o1 * ro + up, o0 * ro + up, mid);
+                FxTri(t, o0 * ri, o1 * ri + up, o1 * ri, mid); FxTri(t, o0 * ri, o0 * ri + up, o1 * ri + up, mid);
+                FxTri(t, o0 * ri + up, o1 * ro + up, o1 * ri + up, mid); FxTri(t, o0 * ri + up, o0 * ro + up, o1 * ro + up, mid);
+                FxTri(t, o0 * ri, o1 * ri, o1 * ro, mid); FxTri(t, o0 * ri, o1 * ro, o0 * ro, mid);
+                // A tooth: a three-sided spike standing on the band.
+                Vector3 c = mid + Vector3.up * (h / 2f);
+                Vector3 side = new Vector3(-Mathf.Sin(am), 0f, Mathf.Cos(am)) * 0.06f, radial = new Vector3(Mathf.Cos(am), 0f, Mathf.Sin(am)) * 0.04f;
+                Vector3 p0 = c - side - radial, p1 = c + side - radial, p2 = c + radial, top = c + Vector3.up * 0.2f;
+                Vector3 inside = (p0 + p1 + p2) / 3f + Vector3.up * 0.04f;
+                FxTri(t, p0, p1, top, inside); FxTri(t, p1, p2, top, inside); FxTri(t, p2, p0, top, inside);
+            }
+            return SaveFxMesh("PSX_FxTrap", t);
+        }
         private const string FxIconDir = TexturesDir + "/FxIcons";
         // Seats fill in index order (BattleManager takes the first free one), so index 0 is each side's right-most seat
         // as seen by whoever sits on that side (facing the centre), then leftwards. Wizards sit on the south half
@@ -1281,15 +1439,15 @@ namespace WizardsVRC.EditorTools
                     client.fxOrbits[s * 3 + kind] = orbit;
                     for (int k = 0; k < fxMax; k++)
                     {
-                        // Upright icon, turned to face each viewer by BattleClient.
-                        var icon = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                        icon.name = FxKindNames[kind] + k;
+                        // A little 3D shield, sword or spiked trap in the school's glowing colour, circling the combatant
+                        // (BattleClient turns and animates it).
+                        var icon = new GameObject(FxKindNames[kind] + k);
                         icon.transform.SetParent(orbit, false);
-                        icon.transform.localScale = new Vector3(FxIconSizes[kind], FxIconSizes[kind], 1f);
-                        var ir = icon.GetComponent<Renderer>();
-                        ir.sharedMaterial = client.fxIconMats[kind * 8 + SchoolLabels.Length] ?? client.fxMats[SchoolLabels.Length];
+                        icon.transform.localScale = Vector3.one * Fx3DSizes[kind];
+                        icon.AddComponent<MeshFilter>().sharedMesh = kind == 0 ? FxShieldMesh() : kind == 1 ? FxBladeMesh() : FxTrapMesh();
+                        var ir = icon.AddComponent<MeshRenderer>();
+                        ir.sharedMaterial = client.fxMats[SchoolLabels.Length];
                         ir.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                        Object.DestroyImmediate(icon.GetComponent<Collider>());
                         icon.SetActive(false);
                         client.fxIcons[(s * 3 + kind) * fxMax + k] = ir;
                     }
@@ -1499,7 +1657,7 @@ namespace WizardsVRC.EditorTools
                 Transform wt = Child(root, "Wanderer" + w, Vector3.zero);
                 var wanderer = UdonSharpUndo.AddComponent<Wanderer>(wt.gameObject);
                 wanderer.body = MonsterBody(wt, client.cardDatabase, monsterId, "Body");
-                wanderer.label = WorldText(wt, "Label", new Vector3(0, ms * 2f + 0.6f, 0), Quaternion.identity, new Vector2(500, 140), 0.004f, "", 34);
+                wanderer.label = WanderLabel(wt, ms);
                 wanderer.manager = client.manager;
                 wanderer.client = client;
                 wanderer.cardDatabase = client.cardDatabase;
@@ -2006,6 +2164,40 @@ namespace WizardsVRC.EditorTools
             pr.sharedMaterial = Mat("FizzleSmoke", new Color(0.42f, 0.42f, 0.45f));
             pr.renderMode = ParticleSystemRenderMode.Billboard;
             return ps;
+        }
+
+        /// <summary>The always-on-top UI material (WizardsVRC/UIOverlay); null if the shader is missing.</summary>
+        private static Material UIOverlayMat()
+        {
+            var shader = Shader.Find("WizardsVRC/UIOverlay");
+            if (shader == null)
+            {
+                Debug.LogError("[WizardsVRC] Shader WizardsVRC/UIOverlay is missing; menus can be hidden behind things.");
+                return null;
+            }
+            Directory.CreateDirectory(MaterialsDir);
+            string path = MaterialsDir + "/UIOverlay.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.shader = shader;
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        /// <summary>Every image and text under root draws on top of the world (it keeps its own texture or font).</summary>
+        private static void OverlayUI(GameObject root, Material mat)
+        {
+            if (root == null || mat == null) return;
+            foreach (var gfx in root.GetComponentsInChildren<Graphic>(true))
+            {
+                // Keep special materials (gauges, glyphs): only swap the default UI one.
+                if (gfx.material != null && gfx.material != gfx.defaultMaterial && gfx.material.shader.name != "UI/Default") continue;
+                gfx.material = mat;
+            }
         }
 
         /// <summary>The seat health gauge (WizardsVRC/PSXGauge); BattleClient copies it per seat and sets fill and colours.</summary>

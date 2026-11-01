@@ -13,7 +13,9 @@ namespace WizardsVRC.EditorTools
     // When the hub map has a hall for every school, only the office is built and the professors stand outdoors.
     public static partial class WizardsVRCSceneBuilder
     {
-        private static readonly Vector3 InteriorOrigin = new Vector3(0f, 200f, 0f);
+        // Far off to the side (well past the draw distance), so the Headmaster's office and the portal room never show
+        // floating in the sky over the castle. Its height band (200 m) still tells the quest guide you're inside.
+        private static readonly Vector3 InteriorOrigin = new Vector3(2400f, 200f, -2400f);
 
         private class Interior
         {
@@ -471,6 +473,7 @@ namespace WizardsVRC.EditorTools
             qm.questSpells = new[] { 0, QuestManager.SPELL_OWN_SCHOOL_QUEST };
             qm.questPrereqs = new[] { -1, 0 };
             qm.questMinLevels = new[] { 1, QuestManager.TRIAL_LEVEL };
+            qm.questSchools = new[] { -1, -1 };
             qm.questAutoStart = new[] { 1, 1 };
             qm.questGivers = new[] { QuestManager.NPC_HEADMASTER, QuestManager.NPC_OWN_PROFESSOR };
             qm.questStepCounts = new[] { 2, 3 };

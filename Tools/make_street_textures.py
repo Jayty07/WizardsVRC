@@ -329,9 +329,43 @@ def bark():
     return finish(v, WOOD)
 
 
+# ------------------------------------------------------------------ mountains
+
+ROCK = [(0.0, (0.16, 0.15, 0.19)), (0.35, (0.42, 0.39, 0.40)), (0.7, (0.66, 0.61, 0.58)), (1.0, (0.90, 0.86, 0.80))]
+SNOW = [(0.0, (0.52, 0.60, 0.78)), (0.45, (0.80, 0.86, 0.96)), (1.0, (1.00, 1.00, 1.00))]
+
+
+def mountain_rock():
+    """Craggy mountain rock: tilted strata ledges, broad faceted faces and broken dark fissures, lit from the top left."""
+    f1, f2, ids = voronoi(3, 0.45, 151)
+    facet = rng(152).random(64)[ids % 64]
+    crack = f2 - f1
+    warp = fbm(153)
+    # Ledges: tilted bands, each lit on top and shadowed underneath.
+    band = ((YY + XX * 0.25 + warp * 14) % 16) / 16.0   # XX * 0.25: 16 px per tile width, so it tiles
+    ledge = np.where(band < 0.12, -0.28, np.where(band < 0.22, 0.18, 0.0))
+    height = facet * 2 + band * 1.5 + warp * 3
+    v = 0.48 + 0.18 * (facet - 0.5) + ledge + 0.2 * (fbm(154) - 0.5)
+    v += 0.35 * bevel(height, 0.9)
+    broken = value_noise(8, 156) > 0.38
+    v = np.where((crack < 1.1) & broken, 0.08, v)
+    pits = value_noise(16, 155) > 0.84
+    v = np.where(pits, v - 0.1, v)
+    return finish(v, ROCK)
+
+
+def mountain_snow():
+    """Wind-packed snow: soft drifts with blue shadows and the odd glint."""
+    drift = fbm(161, ((4, 0.6), (8, 0.3), (16, 0.1)))
+    v = 0.55 + 0.4 * (drift - 0.5) + 0.25 * bevel(drift * 6, 0.8)
+    glint = rng(162).random((N, N)) > 0.985
+    v = np.where(glint, 1.0, v)
+    return finish(v, SNOW)
+
+
 TERRAIN = {
     'Cobble': cobble, 'Flagstone': flagstone, 'Grass': grass, 'ForestFloor': forest_floor, 'Dirt': dirt,
-    'StoneWall': stone_wall, 'Brick': brick, 'WoodPlanks': planks,
+    'StoneWall': stone_wall, 'Brick': brick, 'WoodPlanks': planks, 'MountainRock': mountain_rock, 'MountainSnow': mountain_snow,
 }
 STREET = {
     'Plaster': plaster, 'Boards': boards, 'RoofTiles': roof_tiles, 'Leaves': leaves, 'Hedge': hedge, 'Bark': bark,

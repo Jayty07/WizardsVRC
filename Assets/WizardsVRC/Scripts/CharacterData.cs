@@ -327,18 +327,39 @@ namespace WizardsVRC
             return level * 100 + level * level * 10;
         }
 
-        /// <summary>Adds XP and applies level-ups (+health, +1 training point each). Returns the number of levels gained.</summary>
+        /// <summary>
+        /// Whether reaching this level gives a training point: every 4th level up to 19 (4, 8, 12, 16), then every 5th
+        /// from 20 (20, 25, 30...).
+        /// </summary>
+        public bool GivesTrainingPoint(int lv)
+        {
+            return lv < 20 ? lv % 4 == 0 : lv % 5 == 0;
+        }
+
+        /// <summary>Training points a character has earned by this level.</summary>
+        public int TrainingPointsAtLevel(int lv)
+        {
+            int n = 0;
+            for (int l = 2; l <= lv; l++) if (GivesTrainingPoint(l)) n++;
+            return n;
+        }
+
+        /// <summary>Training points from the last AddXp call's level-ups.</summary>
+        [System.NonSerialized] public int lastPointsGained;
+
+        /// <summary>Adds XP and applies level-ups (+health, +mana, training points at GivesTrainingPoint levels). Returns the number of levels gained.</summary>
         public int AddXp(int amount)
         {
             xp += amount;
             int gained = 0;
+            lastPointsGained = 0;
             while (level < MAX_LEVEL && xp >= XpToNextLevel())
             {
                 xp -= XpToNextLevel();
                 level++;
                 maxHealth += HEALTH_PER_LEVEL;
                 maxMana += MANA_PER_LEVEL;
-                trainingPoints++;
+                if (GivesTrainingPoint(level)) { trainingPoints++; lastPointsGained++; }
                 // Levelling up refills health and mana, as in Wizard101.
                 currentHealth = FULL;
                 currentMana = FULL;
@@ -375,7 +396,7 @@ namespace WizardsVRC
             int[] tierLevels = new int[] { 1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48 };
             for (int k = 0; k < SPELL_TIERS; k++)
                 if (k != SPELL_QUEST_TIER && level >= tierLevels[k]) Learn(LEARNED_BASE_ID + (int)school * SPELL_TIERS + k);
-            trainingPoints = level - 1;
+            trainingPoints = TrainingPointsAtLevel(level);
             for (int i = 0; i < deckCards.Length; i++) deckCards[i] = 0;
             for (int d = 0; d < DECK_COUNT; d++) deckLengths[d] = 0;
             ushort basicSpell = (ushort)(LEARNED_BASE_ID + (int)school * SPELL_TIERS);

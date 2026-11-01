@@ -213,7 +213,25 @@ namespace WizardsVRC
         private int _walkSlot = -1;
         private float _walkStart;
 
+        [Header("Shields, blades and traps")]
+        [Tooltip("They're 3D models (shield, sword, spiked trap) in their school's colour, not flat icons.")]
+        public bool fx3D = true;
+        [Tooltip("When a shield, blade or trap is used, it springs into action for this long before the hit lands.")]
+        public float fxUseSeconds = 0.5f;
+        // Effects springing into action before a hit (index into fxIcons; one entry per piece).
+        private const int MAX_FX_USE = 16;
+        private int[] _useIdx = new int[MAX_FX_USE];
+        private int[] _useKind = new int[MAX_FX_USE];
+        private Vector3[] _useFrom = new Vector3[MAX_FX_USE];
+        private Vector3[] _useTo = new Vector3[MAX_FX_USE];
+        private Vector3[] _useAim = new Vector3[MAX_FX_USE];
+        private int _useCount;
+        private float _useStart = -100f;
+        private bool[] _fxUsing;
+
         private float[] _fxRadius = { 0.75f, 0.45f, 0.9f };
+        /// <summary>Each kind's model scale as built (read from the first piece of each kind at start).</summary>
+        private float[] _fxBaseScale = { 0.62f, 0.75f, 0.6f };
         private float[] _fxSpin = { 70f, -110f, 45f };
         /// <summary>Degrees between stacked effects of one kind: each new one sits right next to the last.</summary>
         private float[] _fxStackDeg = { 42f, 30f, 38f };
@@ -546,6 +564,12 @@ namespace WizardsVRC
         private void Start()
         {
             CacheCardLayout();
+            if (fxIcons != null)
+                for (int kind = 0; kind < 3; kind++)
+                {
+                    int i = kind * BattleManager.FX_MAX;
+                    if (i < fxIcons.Length && fxIcons[i] != null) _fxBaseScale[kind] = fxIcons[i].transform.localScale.x;
+                }
             if (handRoot != null) handRoot.SetActive(false);
             _popStart = new float[breakPops != null ? breakPops.Length : 0];
             for (int i = 0; i < _popStart.Length; i++) _popStart[i] = -100f;
@@ -986,7 +1010,11 @@ namespace WizardsVRC
             string msg = "+" + xp.ToString() + " XP   +" + gold.ToString() + " gold" + drops;
             int levels = c.AddXp(xp);
             if (questManager != null) questManager.OnBattleWon(manager);
-            if (levels > 0) msg += "\nLevel up! You are now level " + c.level.ToString() + ". +" + levels.ToString() + " Training Point" + (levels > 1 ? "s" : "") + ".";
+            if (levels > 0)
+            {
+                msg += "\nLevel up! You are now level " + c.level.ToString() + ".";
+                if (c.lastPointsGained > 0) msg += " +" + c.lastPointsGained.ToString() + " Training Point" + (c.lastPointsGained > 1 ? "s" : "") + ".";
+            }
             if (drops.Length == 0 && lootTable.Length > 0 && Random.value < 0.3f)
             {
                 int itemId = lootTable[Random.Range(0, lootTable.Length)];
@@ -1079,6 +1107,12 @@ namespace WizardsVRC
             {
                 RemoveFromHand(i);
                 Submit(card, -1, "Casting " + cardDatabase.GetName(card) + ".");
+                return;
+            }
+            if (cardDatabase.SelfOnly(card))
+            {
+                RemoveFromHand(i);
+                Submit(card, _slot, "Casting " + cardDatabase.GetName(card) + " on yourself.");
                 return;
             }
             _selHand = i;
@@ -1191,8 +1225,112 @@ namespace WizardsVRC
         {
             if (manager.phase != BattleManager.PHASE_PLAYBACK) { FinishPlayback(); return; }
             StartImpact();
-            ApplyStep();
+            // Blades, traps and shields this hit uses spring into action first; the hit lands a moment later.
+            if (StartFxUse()) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), Mathf.Min(fxUseSeconds, manager.impactSeconds * 0.8f));
+            else ApplyStep();
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.impactSeconds);
+        }
+
+        /// <summary>The hit lands after its shields / blades / traps have moved in (they break as it lands).</summary>
+        public void _ApplyLanded()
+        {
+            EndFxUse();
+            if (manager.phase == BattleManager.PHASE_PLAYBACK) ApplyStep();
+        }
+
+        /// <summary>
+        /// Every shield, blade and trap logged against this step's hits moves into place: a blade lunges from its owner
+        /// toward the target, a shield swings in front of its owner facing the attacker, a trap leaps up over its owner's
+        /// head. Returns false when the step uses none.
+        /// </summary>
+        private bool StartFxUse()
+        {
+            _useCount = 0;
+            if (!fx3D || fxIcons == null || seats == null) return false;
+            if (_fxUsing == null || _fxUsing.Length != fxIcons.Length) _fxUsing = new bool[fxIcons.Length];
+            int max = BattleManager.FX_MAX;
+            for (int j = 0; j < manager.fxLogCount && j < BattleManager.MAX_FX_LOG && _useCount < MAX_FX_USE; j++)
+            {
+                int act = manager.fxLogAct[j];
+                if (act < _stepStart || act >= _stepEnd) continue;
+                int slot = manager.fxLogSlot[j], kind = manager.fxLogKind[j], v = manager.fxLogValue[j];
+                if (slot < 0 || slot >= BattleManager.SLOTS || kind < 0 || kind > 2) continue;
+                int[] arr = kind == BattleManager.FX_SHIELD ? _fxSh : (kind == BattleManager.FX_BLADE ? _fxBl : _fxTr);
+                int k = -1;
+                for (int q = 0; q < max; q++)
+                {
+                    int ix = (slot * 3 + kind) * max + q;
+                    if (arr[slot * max + q] == v && ix < _fxUsing.Length && !_fxUsing[ix]) { k = q; break; }
+                }
+                if (k < 0) continue;
+                int idx = (slot * 3 + kind) * max + k;
+                if (idx >= fxIcons.Length || fxIcons[idx] == null || !fxIcons[idx].gameObject.activeInHierarchy) continue;
+                int caster = manager.actActor[act], target = manager.actTarget[act];
+                int other = kind == BattleManager.FX_BLADE ? target : caster;
+                if (other < 0 || other >= seats.Length || other == slot) other = -1;
+                Vector3 home = seats[slot].position;
+                Vector3 dir = other >= 0 ? seats[other].position - home : seats[slot].forward;
+                dir.y = 0f;
+                dir = dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.forward;
+                float sc = SeatScale(slot);
+                Vector3 to;
+                if (kind == BattleManager.FX_BLADE) to = home + Vector3.up * (1.4f * sc) + dir * (0.9f * sc);
+                else if (kind == BattleManager.FX_SHIELD) to = home + Vector3.up * (1.2f * sc) + dir * (0.8f * sc);
+                else to = home + Vector3.up * (2.4f * sc);
+                _fxUsing[idx] = true;
+                _useIdx[_useCount] = idx;
+                _useKind[_useCount] = kind;
+                _useFrom[_useCount] = fxIcons[idx].transform.position;
+                _useTo[_useCount] = to;
+                _useAim[_useCount] = dir;
+                _useCount++;
+            }
+            _useStart = Time.time;
+            return _useCount > 0;
+        }
+
+        private void EndFxUse()
+        {
+            if (_fxUsing != null)
+                for (int u = 0; u < _useCount; u++)
+                    if (_useIdx[u] < _fxUsing.Length) _fxUsing[_useIdx[u]] = false;
+            _useCount = 0;
+        }
+
+        private void AnimateFxUse()
+        {
+            if (_useCount == 0 || fxIcons == null) return;
+            float t = Mathf.Clamp01((Time.time - _useStart) / Mathf.Max(0.1f, fxUseSeconds));
+            float e = 1f - (1f - t) * (1f - t);
+            for (int u = 0; u < _useCount; u++)
+            {
+                Renderer r = fxIcons[_useIdx[u]];
+                if (r == null) continue;
+                Transform tr = r.transform;
+                Vector3 aim = _useAim[u];
+                if (_useKind[u] == BattleManager.FX_BLADE)
+                {
+                    // The sword swings round to point at its target and lunges.
+                    tr.position = Vector3.Lerp(_useFrom[u], _useTo[u], e);
+                    tr.rotation = Quaternion.FromToRotation(Vector3.up, Vector3.Lerp(Vector3.up, aim, e));
+                }
+                else if (_useKind[u] == BattleManager.FX_SHIELD)
+                {
+                    // The shield swings in front of its owner, facing the attacker, and flares up.
+                    tr.position = Vector3.Lerp(_useFrom[u], _useTo[u], e);
+                    tr.rotation = Quaternion.LookRotation(aim, Vector3.up);
+                }
+                else
+                {
+                    // The trap leaps up over its owner, spinning, and snaps shut.
+                    Vector3 p = Vector3.Lerp(_useFrom[u], _useTo[u], e);
+                    tr.position = p + Vector3.up * Mathf.Sin(t * Mathf.PI) * 0.3f;
+                    tr.rotation = Quaternion.Euler(0f, Time.time * 720f, 0f);
+                }
+                float grow = 1f + 0.5f * Mathf.Sin(t * Mathf.PI * 0.5f);
+                if (_useKind[u] == BattleManager.FX_TRAP && t > 0.8f) grow *= 1f - (t - 0.8f) * 2.5f;
+                tr.localScale = Vector3.one * (_fxBaseScale[_useKind[u]] * grow);
+            }
         }
 
         /// <summary>The fizzle: the cast sound cuts off, the fizzle sound plays, the symbol sputters out in a puff of smoke.</summary>
@@ -1226,6 +1364,7 @@ namespace WizardsVRC
         private void FinishPlayback()
         {
             _playing = false;
+            EndFxUse();
             for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
             SyncShownState();
             UpdateFx();
@@ -1272,6 +1411,8 @@ namespace WizardsVRC
             if ((f & BattleManager.FLAG_BLOCKED) != 0) t += "  (critical blocked)";
             if ((f & BattleManager.FLAG_WEAK) != 0) t += "  (weak to it!)";
             if ((f & BattleManager.FLAG_RESIST) != 0) t += "  (resisted)";
+            if ((f & BattleManager.FLAG_STUNNED) != 0) t += "  STUNNED!";
+            if ((f & BattleManager.FLAG_STUNBLOCK) != 0) t += "  (stun blocked)";
             return t;
         }
 
@@ -1292,6 +1433,8 @@ namespace WizardsVRC
             if (e == CardDatabase.EFFECT_DOT) return " is set ablaze (" + v.ToString() + " burn damage over " + CardDatabase.DOT_ROUNDS.ToString() + " rounds)";
             if (e == CardDatabase.EFFECT_DISPEL) return " loses every shield and blade";
             if (e == CardDatabase.EFFECT_TAUNT) return " taunts the monsters and gains a " + v.ToString() + "% shield";
+            if (e == CardDatabase.EFFECT_CURSE || e == CardDatabase.EFFECT_TRITRAP) return " is trapped (+" + v.ToString() + "%)";
+            if (e == CardDatabase.EFFECT_STRIKEFX && cardDatabase.GetAux(card) / 1000 == 2) return " is trapped (+" + v.ToString() + "%)";
             return " gains " + BuffName(card) + " (" + v.ToString() + "%)";
         }
 
@@ -1302,6 +1445,10 @@ namespace WizardsVRC
             if (e == CardDatabase.EFFECT_EMPOWER) return "a blade";
             if (e == CardDatabase.EFFECT_TRIBLADE) return "3 blades";
             if (e == CardDatabase.EFFECT_TRAP) return "a trap";
+            if (e == CardDatabase.EFFECT_MULTIWARD) return Mathf.Clamp(cardDatabase.GetAux(card), 1, 3).ToString() + " shields";
+            if (e == CardDatabase.EFFECT_TRISHIELD) return "3 shields";
+            if (e == CardDatabase.EFFECT_HEALBLADE) return "a healing charm";
+            if (e == CardDatabase.EFFECT_STRIKEFX) return cardDatabase.GetAux(card) / 1000 == 0 ? "a shield" : "a blade";
             return "Focus";
         }
 
@@ -1587,11 +1734,12 @@ namespace WizardsVRC
                         bool on = k < n;
                         if (r.gameObject.activeSelf != on) r.gameObject.SetActive(on);
                         if (!on) continue;
+                        if (_fxUsing != null && idx < _fxUsing.Length && _fxUsing[idx]) continue;
                         int f = manager.FxSchool(arr[s * max + k]);
-                        int mi = f < 0 || f >= fxMats.Length - 1 ? fxMats.Length - 1 : f;
-                        Material want = IconMat(fxIconMats, kind, f);
-                        if (want == null) want = fxMats[mi];
+                        Material want = fx3D ? FxMat(f) : IconMat(fxIconMats, kind, f);
+                        if (want == null) want = FxMat(f);
                         if (r.sharedMaterial != want) r.sharedMaterial = want;
+                        if (fx3D) r.transform.localScale = Vector3.one * _fxBaseScale[kind];
                         // Stacked effects sit side by side (the newest next to the last), and the group circles the combatant.
                         float ang = (k - (n - 1) * 0.5f) * _fxStackDeg[kind];
                         Quaternion around = Quaternion.Euler(0f, ang, 0f);
@@ -1606,8 +1754,32 @@ namespace WizardsVRC
             if (fxOrbits == null) return;
             for (int i = 0; i < fxOrbits.Length; i++)
                 if (fxOrbits[i] != null) fxOrbits[i].localRotation = Quaternion.Euler(0f, Time.time * _fxSpin[i % 3], 0f);
-            // The icons circle the combatant but always face whoever is watching (like Wizard101's).
             if (fxIcons == null) return;
+            AnimateFxUse();
+            if (fx3D)
+            {
+                // 3D: shields face outward as they circle, swords stand point-up and twirl, traps lie flat and turn.
+                for (int i = 0; i < fxIcons.Length; i++)
+                {
+                    Renderer r = fxIcons[i];
+                    if (r == null || !r.gameObject.activeSelf || (_fxUsing != null && i < _fxUsing.Length && _fxUsing[i])) continue;
+                    Transform tr = r.transform;
+                    int kind = (i / BattleManager.FX_MAX) % 3;
+                    float bob = Mathf.Sin(Time.time * 2.4f + i) * 0.05f;
+                    Vector3 lp = tr.localPosition;
+                    lp.y = bob;
+                    tr.localPosition = lp;
+                    if (kind == BattleManager.FX_SHIELD)
+                    {
+                        Vector3 outward = new Vector3(lp.x, 0f, lp.z);
+                        tr.localRotation = outward.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(outward) * Quaternion.Euler(0f, Mathf.Sin(Time.time * 1.7f + i) * 12f, 0f) : Quaternion.identity;
+                    }
+                    else if (kind == BattleManager.FX_BLADE) tr.localRotation = Quaternion.Euler(0f, Time.time * 160f + i * 40f, 0f);
+                    else tr.localRotation = Quaternion.Euler(0f, Time.time * 60f + i * 25f, 0f);
+                }
+                return;
+            }
+            // Flat icons circle the combatant but always face whoever is watching (like Wizard101's).
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
             Vector3 head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
@@ -1628,6 +1800,7 @@ namespace WizardsVRC
 
         private int FxIconIndex(int kind, int school)
         {
+            if (school == CardDatabase.HEAL_SCHOOL) school = 3;   // a healing charm looks like a Life blade
             return kind * 8 + (school >= 0 && school < 7 ? school : 7);
         }
 
@@ -2128,6 +2301,7 @@ namespace WizardsVRC
             if (tr > 0) line += "  Traps " + tr.ToString();
             if (manager.dotLeft[s] > 0) line += "  Burning " + manager.dotLeft[s].ToString();
             if (manager.stunned[s] != 0) line += "  Stunned";
+            if (manager.stunBlock[s] > 0) line += "  Stun Shield";
             if (manager.taunt[s] > 0) line += "  Taunting";
             if (manager.IsPlayerSeat(s) && !manager.IsSummon(s) && manager.phase == BattleManager.PHASE_PLANNING && manager.Alive(s)) line += manager.locked[s] != 0 ? "  (ready)" : "  (choosing)";
             if (_shownHp[s] <= 0) line += "  (defeated)";
@@ -2267,10 +2441,34 @@ namespace WizardsVRC
             int t = manager.actTarget[i];
             int v = manager.actValue[i];
             int e = cardDatabase.GetEffect(card);
+            int sc = cardDatabase.GetSchool(card);
             if (e == CardDatabase.EFFECT_WARD) AddShown(_fxSh, t, manager.PackFx(card, cardDatabase.ShieldSchool(card), v));
             else if (e == CardDatabase.EFFECT_TAUNT) AddShown(_fxSh, t, manager.PackFx(card, CardDatabase.ANY_SCHOOL, v));
+            else if (e == CardDatabase.EFFECT_MULTIWARD)
+            {
+                for (int j = 0; j < Mathf.Clamp(cardDatabase.GetAux(card), 1, 3); j++) AddShown(_fxSh, t, manager.PackFx(card, cardDatabase.ShieldSchool(card), v));
+            }
+            else if (e == CardDatabase.EFFECT_TRISHIELD)
+            {
+                int first = cardDatabase.TriBladeFirstSchool(card);
+                for (int j = 0; j < 3; j++) AddShown(_fxSh, t, manager.PackFx(card, first + j, v));
+            }
             else if (e == CardDatabase.EFFECT_EMPOWER) AddShown(_fxBl, t, manager.PackFx(card, cardDatabase.BladeSchool(card), v));
+            else if (e == CardDatabase.EFFECT_HEALBLADE) AddShown(_fxBl, t, manager.PackFx(card, CardDatabase.HEAL_SCHOOL, v));
             else if (e == CardDatabase.EFFECT_TRAP) AddShown(_fxTr, t, manager.PackFx(card, cardDatabase.TrapSchool(card), v));
+            else if (e == CardDatabase.EFFECT_CURSE) AddShown(_fxTr, t, manager.PackFx(card, CardDatabase.ANY_SCHOOL, v));
+            else if (e == CardDatabase.EFFECT_TRITRAP)
+            {
+                int first = cardDatabase.TriBladeFirstSchool(card);
+                for (int j = 0; j < 3; j++) AddShown(_fxTr, t, manager.PackFx(card, first + j, v));
+            }
+            else if (e == CardDatabase.EFFECT_STRIKEFX)
+            {
+                int fk = cardDatabase.GetAux(card) / 1000;
+                if (fk == 0) AddShown(_fxSh, t, manager.PackFx(card, CardDatabase.ANY_SCHOOL, v));
+                else if (fk == 1) AddShown(_fxBl, t, manager.PackFx(card, sc, v));
+                else AddShown(_fxTr, t, manager.PackFx(card, sc, v));
+            }
             else if (e == CardDatabase.EFFECT_TRIBLADE)
             {
                 int first = cardDatabase.TriBladeFirstSchool(card);
@@ -2311,6 +2509,7 @@ namespace WizardsVRC
         private Material FxMat(int school)
         {
             if (fxMats == null || fxMats.Length == 0) return null;
+            if (school == CardDatabase.HEAL_SCHOOL) school = 3;
             return fxMats[school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1];
         }
 
@@ -2511,6 +2710,8 @@ namespace WizardsVRC
             {
                 bool crit = (f & BattleManager.FLAG_CRIT) != 0;
                 Float(t, (crit ? "CRITICAL!\n" : "") + "-" + v.ToString(), crit ? new Color(1f, 0.9f, 0.2f) : SchoolTextColor(sc), sc);
+                if ((f & BattleManager.FLAG_STUNNED) != 0) Float(t, "Stunned!", new Color(1f, 0.95f, 0.4f), -2);
+                if ((f & BattleManager.FLAG_STUNBLOCK) != 0) Float(t, "Stun blocked!", new Color(0.75f, 0.85f, 1f), -2);
             }
             else if (k == BattleManager.KIND_HEAL) { if (v > 0) Float(t, "+" + v.ToString(), new Color(0.45f, 1f, 0.45f), sc); }
             else if (k == BattleManager.KIND_POTION) { if (v > 0) Float(a, "+" + v.ToString(), new Color(0.45f, 1f, 0.45f), -2); }
@@ -2523,11 +2724,18 @@ namespace WizardsVRC
                 if (b.Length == 0) return;
                 int e = cardDatabase.GetEffect(card);
                 Texture fx = null;
-                if (e == CardDatabase.EFFECT_WARD) fx = FxTexture(BattleManager.FX_SHIELD, cardDatabase.ShieldSchool(card));
-                else if (e == CardDatabase.EFFECT_TAUNT) fx = FxTexture(BattleManager.FX_SHIELD, CardDatabase.ANY_SCHOOL);
+                if (e == CardDatabase.EFFECT_WARD || e == CardDatabase.EFFECT_MULTIWARD) fx = FxTexture(BattleManager.FX_SHIELD, cardDatabase.ShieldSchool(card));
+                else if (e == CardDatabase.EFFECT_TAUNT || e == CardDatabase.EFFECT_TRISHIELD) fx = FxTexture(BattleManager.FX_SHIELD, CardDatabase.ANY_SCHOOL);
                 else if (e == CardDatabase.EFFECT_EMPOWER) fx = FxTexture(BattleManager.FX_BLADE, cardDatabase.BladeSchool(card));
+                else if (e == CardDatabase.EFFECT_HEALBLADE) fx = FxTexture(BattleManager.FX_BLADE, CardDatabase.HEAL_SCHOOL);
                 else if (e == CardDatabase.EFFECT_TRIBLADE) fx = FxTexture(BattleManager.FX_BLADE, CardDatabase.ANY_SCHOOL);
                 else if (e == CardDatabase.EFFECT_TRAP) fx = FxTexture(BattleManager.FX_TRAP, cardDatabase.TrapSchool(card));
+                else if (e == CardDatabase.EFFECT_TRITRAP || e == CardDatabase.EFFECT_CURSE) fx = FxTexture(BattleManager.FX_TRAP, CardDatabase.ANY_SCHOOL);
+                else if (e == CardDatabase.EFFECT_STRIKEFX)
+                {
+                    int fk = cardDatabase.GetAux(card) / 1000;
+                    fx = FxTexture(fk == 0 ? BattleManager.FX_SHIELD : fk == 1 ? BattleManager.FX_BLADE : BattleManager.FX_TRAP, fk == 0 ? CardDatabase.ANY_SCHOOL : sc);
+                }
                 if (fx != null) FloatTex(t, b, SchoolTextColor(sc), fx);
                 else Float(t, b, SchoolTextColor(sc), sc);
             }
@@ -2544,6 +2752,16 @@ namespace WizardsVRC
             if (e == CardDatabase.EFFECT_DISPEL) return "Dispelled!";
             if (e == CardDatabase.EFFECT_TAUNT) return "Taunt!";
             if (e == CardDatabase.EFFECT_FOCUS) return "Focus +" + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_MULTIWARD) return Mathf.Clamp(cardDatabase.GetAux(card), 1, 3).ToString() + " Shields " + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_TRISHIELD) return "3 Shields " + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_TRITRAP) return "3 Traps +" + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_CURSE) return "Trap +" + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_HEALBLADE) return "Healing +" + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_STRIKEFX)
+            {
+                int fk = cardDatabase.GetAux(card) / 1000;
+                return fk == 0 ? "Shield " + v.ToString() + "%" : fk == 1 ? "Blade +" + v.ToString() + "%" : "Trap +" + v.ToString() + "%";
+            }
             return "";
         }
 

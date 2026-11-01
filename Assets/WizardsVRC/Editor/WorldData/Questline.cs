@@ -71,6 +71,9 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("More quests that must all be finished first (save ids). A world's finale gets every storyline added automatically.")]
         public List<int> alsoRequires = new List<int>();
         [Range(1, 100)] public int minLevel = 1;
+        [Tooltip("Only offered to wizards of one school (e.g. a side quest that teaches a spell only that school can use).")]
+        public bool onlyForSchool;
+        public School school = School.Life;
 
         [Header("Rewards")]
         public int xp = 50;

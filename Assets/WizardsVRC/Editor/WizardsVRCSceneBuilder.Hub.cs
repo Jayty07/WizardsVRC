@@ -341,7 +341,8 @@ namespace WizardsVRC.EditorTools
                         case LandmarkKind.BackpackPedestal: if (hub != null) hub.pedestalPos = p; break;
                         case LandmarkKind.NoticeBoard:
                         {
-                            if (hub == null) break;
+                            // The board only carried the testing panel (Change Character / Backpack), which is hidden now.
+                            if (hub == null || !HubTestProps) break;
                             Quaternion rot = Quaternion.LookRotation(open);
                             Vector3 side = Vector3.Cross(Vector3.up, open);
                             foreach (float sx in new[] { -1.3f, 1.3f })
@@ -952,9 +953,12 @@ namespace WizardsVRC.EditorTools
             hub.behaviours.Add(gate);
 
             bool round = z.castleStyle && z.roundCastle;
-            e.mountainCentre = Mountains(root, z.zoneKey + "_" + key, e, round ? 4.4f : 0f, mouth.y + 7.5f, 1f, tm[5], tm[6]);
+            // Big peaks round the castle (the streets' own are smaller).
+            e.mountainCentre = Mountains(root, z.zoneKey + "_" + key, e, round ? 4.4f : 0f, mouth.y + 7.5f, HubMountainScale, tm[5], tm[6]);
             hub.gates[key] = new HubGate { landmark = l, tunnel = e, gate = gate, front = e.front };
         }
+
+        private const float HubMountainScale = 1.8f;
 
         /// <summary>Tunnel and mountain materials: stone, floor, dark, lantern glow, iron, rock, snow.</summary>
         private static Material[] TunnelMats(ZoneDefinition z)
@@ -971,8 +975,9 @@ namespace WizardsVRC.EditorTools
                 PMat("TunnelDark", new Color(0.04f, 0.04f, 0.06f), 1f),
                 PMat("TunnelLantern", new Color(1f, 0.75f, 0.4f), 1f, new Color(1f, 0.6f, 0.2f)),
                 PMat("RailingIron", new Color(0.17f, 0.16f, 0.21f), 1f),
-                PsxTexMat("MountainRock", new Color(0.56f, 0.5f, 0.52f), wallTex, 6f),
-                PMat("MountainSnow", new Color(0.95f, 0.96f, 1f), 1f, new Color(0.12f, 0.12f, 0.16f)),
+                // The mountains have their own craggy rock and packed snow (Tools/make_street_textures.py), not the walls' bricks.
+                PsxTexMat("MountainRock", new Color(0.8f, 0.76f, 0.74f), TileTexture(TerrainTexDir + "/MountainRock.png"), 6f),
+                PsxTexMat("MountainSnow", new Color(1f, 1f, 1f), TileTexture(TerrainTexDir + "/MountainSnow.png"), 6f),
             };
         }
 
@@ -1002,6 +1007,7 @@ namespace WizardsVRC.EditorTools
                         DigitRingSpots(hub.root, g, e, start, byCell), byCell);
                 }
             BuildDuelCircles(hub, systems, cardDb, itemDb, playerState, qm, encounters, wb);
+            ClearTunnelPaths(hub.root);
             BuildWanderingOrbs(hub.root, g, z.zoneKey, hub.orbs, 0, playerState, hub.orbBehaviours, wb);
         }
 

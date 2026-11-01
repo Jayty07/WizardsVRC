@@ -321,7 +321,8 @@ namespace WizardsVRC.EditorTools
             }
             Shape(t, "Log", CylMesh(), hb + new Vector3(0, 0.15f, 0), new Vector3(0.3f, 1f, 0.3f), darkWood, false, TFacing(hearthA) * Quaternion.Euler(0, 0, 90f));
             PointLight(t, hb - hearthOut * 1.5f + new Vector3(0, 1.4f, 0), new Color(1f, 0.55f, 0.2f), 14f, 2f);
-            Shape(t, "HearthRug", CylMesh(), TPolar(c, R - 5.2f, hearthA, 0.12f), new Vector3(5.5f, 0.02f, 5.5f), cloth, false, Quaternion.identity);
+            // Its top was level with the floor (they flickered through each other): it now sits clear on top of the boards.
+            Shape(t, "HearthRug", CylMesh(), TPolar(c, R - 5.2f, hearthA, TavernFloorY + 0.035f), new Vector3(5.5f, 0.02f, 5.5f), cloth, false, Quaternion.identity);
             foreach (float a in new[] { 210f, 217.5f, 225f, 232.5f, 240f })
             {
                 Vector3 sp = TPolar(c, R - 5.5f, a, 0f);

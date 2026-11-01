@@ -1,5 +1,6 @@
 using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
 
 namespace WizardsVRC
 {
@@ -73,6 +74,8 @@ namespace WizardsVRC
         /// <summary>Quest that must be complete first (-1 = none).</summary>
         public int[] questPrereqs;
         public int[] questMinLevels;
+        [Tooltip("School a quest is only offered to (-1 = everyone), per quest.")]
+        public int[] questSchools;
         /// <summary>1 = starts by itself once available; 0 = starts when you talk to questGivers[q].</summary>
         public int[] questAutoStart;
         public int[] questGivers;
@@ -337,6 +340,7 @@ namespace WizardsVRC
                 for (int k = 0; k < n && a + k < requireIds.Length; k++)
                     if (requireIds[a + k] >= 0 && !IsComplete(requireIds[a + k])) return false;
             }
+            if (questSchools != null && questId < questSchools.Length && questSchools[questId] >= 0 && questSchools[questId] != (int)playerState.current.school) return false;
             return playerState.current.level >= questMinLevels[questId];
         }
 
@@ -356,10 +360,44 @@ namespace WizardsVRC
         }
 
         /// <summary>Where the current step happens (used by the guide arrow); null if there is no place to go.</summary>
+        [Tooltip("Every quest object in the world (the builder fills this): for 'use several of these' steps the guide " +
+                 "points at the nearest one that hasn't been used yet.")]
+        public QuestTarget[] questTargets;
+        private int _nearestFor = -1;
+        private Transform _nearest;
+        private float _nearestAt = -10f;
+
+        /// <summary>The nearest unused quest object with this id in the area you're in (null if none is around).</summary>
+        private Transform NearestOpenTarget(int targetId)
+        {
+            if (questTargets == null) return null;
+            if (targetId == _nearestFor && Time.time - _nearestAt < 0.4f) return _nearest;
+            _nearestFor = targetId;
+            _nearestAt = Time.time;
+            _nearest = null;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me)) return null;
+            Vector3 pos = me.GetPosition();
+            float best = float.MaxValue;
+            for (int k = 0; k < questTargets.Length; k++)
+            {
+                QuestTarget t = questTargets[k];
+                if (t == null || t.targetId != targetId || t.IsUsed() || !t.gameObject.activeInHierarchy) continue;
+                float d = (t.transform.position - pos).sqrMagnitude;
+                if (d < best) { best = d; _nearest = t.transform; }
+            }
+            return _nearest;
+        }
+
         public Transform GetObjectiveTarget(int questId)
         {
             if (!IsActive(questId)) return null;
             int i = StepIndex(questId);
+            if (stepTypes[i] == STEP_INTERACT || stepTypes[i] == STEP_EXPLORE)
+            {
+                Transform open = NearestOpenTarget(stepParams[i]);
+                if (open != null) return open;
+            }
             if (stepTypes[i] == STEP_TALK)
             {
                 int npc = stepParams[i];

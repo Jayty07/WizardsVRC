@@ -97,6 +97,45 @@ namespace WizardsVRC.EditorTools
             return e;
         }
 
+        /// <summary>
+        /// Makes sure nothing solid stands in a tunnel's way: the walk from just outside each tunnel mouth in this area to
+        /// the tunnel's middle (where it swaps you to the other end) is tested with physics boxes from knee to head height,
+        /// and any wall, railing, edge or prop collider found there (not the tunnel's own walls or its portcullis) is
+        /// removed. Merged terrain colliders can't be cut, so those are reported instead. Run while the area is active.
+        /// </summary>
+        private static void ClearTunnelPaths(Transform area)
+        {
+            if (area == null) return;
+            Physics.SyncTransforms();
+            float hw = TunW / 2f - 0.25f;
+            var removed = new List<string>();
+            foreach (var t in area.GetComponentsInChildren<Transform>(true))
+            {
+                if (!t.name.StartsWith("Gate_Tunnel_")) continue;
+                // (local centre, half size): the mouth stretch from 4 m outside, then the middle stretch to the trigger.
+                var boxes = new[]
+                {
+                    new KeyValuePair<Vector3, Vector3>(new Vector3(0f, 1.35f, (TunL1 - 4f) / 2f), new Vector3(hw, 0.85f, (TunL1 + 4f) / 2f)),
+                    new KeyValuePair<Vector3, Vector3>(new Vector3(TunL2 / 2f, 1.35f, TunL1), new Vector3(TunL2 / 2f + hw, 0.85f, hw)),
+                };
+                foreach (var b in boxes)
+                    foreach (var col in Physics.OverlapBox(t.TransformPoint(b.Key), b.Value, t.rotation, ~0, QueryTriggerInteraction.Ignore))
+                    {
+                        if (col == null || col.transform.IsChildOf(t)) continue;
+                        if (col is MeshCollider)
+                        {
+                            Debug.LogWarning("[WizardsVRC] Something solid (" + col.name + ") is in the way of the tunnel " + t.name + " in " + area.name +
+                                             " (merged terrain, so it couldn't be cleared automatically).");
+                            continue;
+                        }
+                        removed.Add(col.name);
+                        Object.DestroyImmediate(col);
+                    }
+            }
+            if (removed.Count > 0)
+                Debug.Log("[WizardsVRC] Cleared " + removed.Count + " collider(s) out of the tunnel ways in " + area.name + ": " + string.Join(", ", removed) + ".");
+        }
+
         /// <summary>Stone pillars and a lintel round a tunnel mouth, with a sign over it readable from outside.</summary>
         private static Text TunnelFacade(TunnelEnd e, Material stone, Material gold, string text, Color color)
         {

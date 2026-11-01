@@ -310,7 +310,8 @@ namespace WizardsVRC.EditorTools
             foreach (var p in z.points) if (p != null) BuildPoints(root, g, p, qm, wb, glow, deadLamp, wood);
             // Duel rings aren't tied to one monster group: the street is filled with as many ring spots as fit, and a fight
             // forms at the free one nearest the wizard (the patrol monster walks over to it).
-            var ringCells = StreetRingCells(g, z, start);
+            var ringHome = new Dictionary<Vector2Int, Vector2Int>();
+            var ringCells = StreetRingCells(g, z, start, ringHome);
             var spotsRoot = Child(root, "RingSpots_" + z.zoneKey, Vector3.zero);
             var ringByCell = new Dictionary<Vector2Int, Transform>();
             var outsideSpots = new List<Transform>();
@@ -325,6 +326,9 @@ namespace WizardsVRC.EditorTools
                 ringByCell[c] = t;
                 (_dungeonCells != null && _dungeonCells.Contains(c) ? dungeonSpots : outsideSpots).Add(t);
             }
+            // Painted digits that moved (or share a spot) look up the spot standing for them.
+            foreach (var kv in ringHome)
+                if (kv.Key != kv.Value && ringByCell.ContainsKey(kv.Value)) ringByCell[kv.Key] = ringByCell[kv.Value];
             var outsideGroups = new List<BattleClient>();
             var dungeonGroups = new List<BattleClient>();
             foreach (var e in z.encounters)
@@ -353,6 +357,7 @@ namespace WizardsVRC.EditorTools
 
             // Culling: small props drop out with distance; the whole zone is off for anyone not in it.
             AddDistanceCulling(root, z.detailDistance);
+            ClearTunnelPaths(root);
             wb.cullRoots.Add(root.gameObject);
             wb.cullBounds.Add(ZoneCullBounds(root.position, W, H));
             root.gameObject.SetActive(false);
@@ -774,46 +779,88 @@ namespace WizardsVRC.EditorTools
         // ------------------------------------------------------------------ encounters
 
         /// <summary>
-        /// Every cell a duel ring can sit on: the painted ring digits, then as many more as fit across the street (open,
-        /// level ground with no NPC, quest point, landmark or the entrance inside the ring, spaced so rings never overlap).
+        /// Every cell a duel ring can sit on: the painted ring digits (moved to the nearest cell where the ring fits if it
+        /// doesn't fit where it was painted), then as many more as fit across the street. A ring fits where the whole
+        /// circle lies on open, level ground inside the map (ZoneGrid.RingFits) with no NPC, quest point, landmark or the
+        /// entrance under it and without straddling a dungeon's edge; rings are spaced so they never overlap.
+        /// 'home' maps each digit cell to the spot that stands for it.
         /// </summary>
-        private static List<Vector2Int> StreetRingCells(ZoneGrid g, ZoneDefinition z, Vector2Int start)
+        private static List<Vector2Int> StreetRingCells(ZoneGrid g, ZoneDefinition z, Vector2Int start, Dictionary<Vector2Int, Vector2Int> home)
         {
             var placed = new List<Vector2Int>();
             float spacing = DuelCircleRadius * 2f + 2f;
+            var reach = g.Reachable();
+            Vector2 Flat(Vector2Int c) { Vector3 p = g.Local(c); return new Vector2(p.x, p.z); }
             bool FarEnough(Vector2Int c)
             {
-                Vector3 p = g.Local(c);
-                foreach (var o in placed)
-                {
-                    Vector3 q = g.Local(o);
-                    if (new Vector2(p.x - q.x, p.z - q.z).magnitude < spacing) return false;
-                }
+                foreach (var o in placed) if ((Flat(c) - Flat(o)).magnitude < spacing) return false;
                 return true;
             }
-            foreach (var e in z.encounters)
-                if (e != null && ZoneGrid.IsRingDigit(e.Symbol))
-                    foreach (var c in g.Find(e.Symbol))
-                        if (!placed.Contains(c)) placed.Add(c);
+            bool Fits(Vector2Int c)
+            {
+                if (!reach.Contains(c) || !g.RingFits(c, DuelCircleRadius)) return false;
+                int r = Mathf.CeilToInt(DuelCircleRadius / g.cell) + 1;
+                float half = g.cell * 0.5f;
+                for (int yy = c.y - r; yy <= c.y + r; yy++)
+                    for (int xx = c.x - r; xx <= c.x + r; xx++)
+                    {
+                        float dx = Mathf.Max(0f, Mathf.Abs(xx - c.x) * g.cell - half), dy = Mathf.Max(0f, Mathf.Abs(yy - c.y) * g.cell - half);
+                        if (dx * dx + dy * dy >= DuelCircleRadius * DuelCircleRadius) continue;
+                        char ch = g.At(xx, yy);
+                        if (ch == 'S' || g.IsCustom(ch)) return false;
+                        if (_dungeonCells != null && _dungeonCells.Contains(c) != _dungeonCells.Contains(new Vector2Int(xx, yy))) return false;
+                    }
+                return true;
+            }
+            Vector2Int Nearest(Vector2Int c, List<Vector2Int> among)
+            {
+                Vector2Int best = among[0];
+                foreach (var o in among) if ((Flat(o) - Flat(c)).sqrMagnitude < (Flat(best) - Flat(c)).sqrMagnitude) best = o;
+                return best;
+            }
 
-            var reach = g.Reachable();
-            int r = Mathf.CeilToInt(ZoneGrid.RingClearance / g.cell) + 1;
+            // Painted digits first; one that doesn't fit moves to the nearest cell (up to 4 cells away) where it does.
+            foreach (var e in z.encounters)
+            {
+                if (e == null || !ZoneGrid.IsRingDigit(e.Symbol)) continue;
+                foreach (var c in g.Find(e.Symbol))
+                {
+                    Vector2Int at = c;
+                    bool ok = Fits(c);
+                    if (!ok)
+                    {
+                        float bestD = float.MaxValue;
+                        for (int y = c.y - 4; y <= c.y + 4; y++)
+                            for (int x = c.x - 4; x <= c.x + 4; x++)
+                            {
+                                var n = new Vector2Int(x, y);
+                                if (g.Level(n) != g.Level(c) || !Fits(n)) continue;
+                                float d = (Flat(n) - Flat(c)).sqrMagnitude;
+                                if (d < bestD) { bestD = d; at = n; ok = true; }
+                            }
+                    }
+                    if (!ok)
+                    {
+                        // Nowhere nearby has room: keep the painted spot (its group still needs somewhere to fight).
+                        Debug.LogWarning("[WizardsVRC World] " + z.displayName + ": no room for a whole duel ring near the ring " + e.Symbol + " at column " + c.x +
+                                         ", row " + c.y + " (a ring needs the 3x3 cells round it open and level); it may poke into the walls there.");
+                    }
+                    if (at != c)
+                        Debug.Log("[WizardsVRC World] " + z.displayName + ": ring " + e.Symbol + " at column " + c.x + ", row " + c.y +
+                                  " stuck out over a wall or edge; moved to column " + at.x + ", row " + at.y + ".");
+                    if (placed.Contains(at)) { home[c] = at; continue; }
+                    if (!FarEnough(at)) { home[c] = Nearest(at, placed); continue; }
+                    placed.Add(at);
+                    home[c] = at;
+                }
+            }
+
+            // Then as many more as fit.
             for (int y = 0; y < g.height; y++)
                 for (int x = 0; x < g.width; x++)
                 {
                     var c = new Vector2Int(x, y);
-                    if (!reach.Contains(c) || g.RingBlockers(c).Count > 0 || !FarEnough(c)) continue;
-                    bool clear = true;
-                    for (int yy = y - r; yy <= y + r && clear; yy++)
-                        for (int xx = x - r; xx <= x + r && clear; xx++)
-                        {
-                            if (new Vector2(xx - x, yy - y).magnitude * g.cell > ZoneGrid.RingClearance + g.cell * 0.5f) continue;
-                            char ch = g.At(xx, yy);
-                            if (ch == 'S' || g.IsCustom(ch)) clear = false;
-                            // A ring never straddles the dungeon's edge.
-                            if (_dungeonCells != null && _dungeonCells.Contains(c) != _dungeonCells.Contains(new Vector2Int(xx, yy)) && g.Walkable(xx, yy)) clear = false;
-                        }
-                    if (clear) placed.Add(c);
+                    if (FarEnough(c) && Fits(c)) placed.Add(c);
                 }
             return placed;
         }
@@ -852,7 +899,11 @@ namespace WizardsVRC.EditorTools
             // the free one nearest the wizard who touched a monster; monsters take the side away from the entrance.
             var ringSpots = streetSpots.ToArray();
             Transform home;
-            if (!ringByCell.TryGetValue(spots[0], out home) || home == null) home = ringSpots[0];
+            if (!ringByCell.TryGetValue(spots[0], out home) || home == null)
+            {
+                // No ring fits at the group's painted spot: it still circles / is guided to there; fights form elsewhere.
+                home = Child(root, "Home_" + e.key, g.Local(spots[0]));
+            }
 
             // Fight lanes: each is one duel the group can have going at once (its own referee and ring), so wizards who
             // run into the group's monsters elsewhere get their own fight instead of waiting.
@@ -949,13 +1000,25 @@ namespace WizardsVRC.EditorTools
             return lanes;
         }
 
+        /// <summary>
+        /// The name tag over a wandering monster: its name, level and rank with its school's icon (and Elite / Boss), in
+        /// the combat pixel font, tinted its school's colour (Wanderer fills it in), big enough to read from a way off.
+        /// </summary>
+        private static Text WanderLabel(Transform wt, float bodyScale)
+        {
+            var label = WorldText(wt, "Label", new Vector3(0, bodyScale * 2f + 0.9f, 0), Quaternion.identity, new Vector2(900, 260), 0.0065f, "", 44);
+            label.supportRichText = true;
+            ApplyCombatFont(label.transform.parent);
+            return label;
+        }
+
         private static Wanderer MakeWanderer(Transform parent, BattleClient client, CardDatabase db, int monsterId, string name)
         {
             float ms = db.MonsterBodyScale(monsterId);
             Transform wt = Child(parent, name, Vector3.zero);
             var wanderer = UdonSharpUndo.AddComponent<Wanderer>(wt.gameObject);
             wanderer.body = MonsterBody(wt, db, monsterId, "Body");
-            wanderer.label = WorldText(wt, "Label", new Vector3(0, ms * 2f + 0.6f, 0), Quaternion.identity, new Vector2(500, 140), 0.004f, "", 34);
+            wanderer.label = WanderLabel(wt, ms);
             wanderer.manager = client.manager;
             wanderer.client = client;
             wanderer.cardDatabase = db;
@@ -1006,6 +1069,7 @@ namespace WizardsVRC.EditorTools
                 qm.questSpells[id] = q.rewardSpell;
                 qm.questPrereqs[id] = q.prerequisite;
                 qm.questMinLevels[id] = Mathf.Max(1, q.minLevel);
+                qm.questSchools[id] = q.onlyForSchool ? (int)q.school : -1;
                 qm.questAutoStart[id] = q.startsAutomatically ? 1 : 0;
                 qm.questGivers[id] = q.startsAutomatically ? -1 : NpcId(q.giverNpc, wb);
                 qm.questStepCounts[id] = 0;
@@ -1179,6 +1243,7 @@ namespace WizardsVRC.EditorTools
             qm.questSpells = Grow(qm.questSpells, 0);
             qm.questPrereqs = Grow(qm.questPrereqs, -1);
             qm.questMinLevels = Grow(qm.questMinLevels, CharacterData.MAX_LEVEL + 1);
+            qm.questSchools = Grow(qm.questSchools, -1);
             qm.questAutoStart = Grow(qm.questAutoStart, 0);
             qm.questGivers = Grow(qm.questGivers, -1);
             qm.questStepCounts = Grow(qm.questStepCounts, 0);

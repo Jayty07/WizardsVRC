@@ -73,13 +73,14 @@ namespace WizardsVRC.EditorTools
             trainer.rowInfo = new Text[rows];
             trainer.rowPips = new Text[rows];
             trainer.rowArts = new RawImage[rows];
+            // Up to 16 (Balance has its tri-shields and tri-traps besides its 12-spell tree): four rows of four.
             for (int r = 0; r < rows; r++)
             {
                 int col = r % 4, row = r / 4;
-                Vector2 at = new Vector2(-600 + col * 152, 210 - row * 225);
-                var rowCard = CardFace(tr, "Row" + r, at, 0.64f, true, tTarget, "Row" + r);
+                Vector2 at = new Vector2(-610 + col * 128, 235 - row * 182);
+                var rowCard = CardFace(tr, "Row" + r, at, 0.52f, true, tTarget, "Row" + r);
                 // The status sits under the card, as part of it (so it hides with the card).
-                Text info = Label(rowCard.root.transform, "Info", new Vector2(0, -172), new Vector2(230, 56), "", 26, TextAnchor.UpperCenter);
+                Text info = Label(rowCard.root.transform, "Info", new Vector2(0, -172), new Vector2(250, 64), "", 32, TextAnchor.UpperCenter);
                 info.raycastTarget = false;
                 trainer.rowRoots[r] = rowCard.root;
                 trainer.rowIcons[r] = rowCard.frame;

@@ -60,6 +60,10 @@ namespace WizardsVRC
         public const int FLAG_WEAK = 2;
         public const int FLAG_RESIST = 4;
         public const int FLAG_BLOCKED = 8;
+        /// <summary>This hit stunned the target (it loses its next turn, and gains a stun shield).</summary>
+        public const int FLAG_STUNNED = 16;
+        /// <summary>This hit's stun was stopped by the target's stun shield.</summary>
+        public const int FLAG_STUNBLOCK = 32;
 
         public CardDatabase cardDatabase;
         public BattleClient client;
@@ -194,6 +198,8 @@ namespace WizardsVRC
         [UdonSynced] public int[] stunned = new int[SLOTS];
         /// <summary>Rounds left in which monsters must attack this slot.</summary>
         [UdonSynced] public int[] taunt = new int[SLOTS];
+        /// <summary>Stun shields: each blocks one stun. A slot gains one whenever it's stunned, so stuns can't chain.</summary>
+        [UdonSynced] public int[] stunBlock = new int[SLOTS];
 
         /// <summary>Last round's results, played back by every client. Entries sharing a group are one cast.</summary>
         [UdonSynced] public int actCount;
@@ -225,6 +231,8 @@ namespace WizardsVRC
         private int _startWanderer = -1;
         /// <summary>Round in which a monster joined mid-fight (it sits that round out); -1 = from the start.</summary>
         private int[] _joinRound = new int[SLOTS];
+        /// <summary>Monsters: the first round they may heal again (a monster that heals itself waits 2 rounds).</summary>
+        private int[] _healReady = new int[SLOTS];
         // Effects used since the last act entry; attached to the next one (the hit they belong to).
         private int _pendFx;
         private int[] _pendSlot = new int[MAX_FX_LOG];
@@ -513,7 +521,7 @@ namespace WizardsVRC
             slotIds[s] = 0;
             locked[s] = 0;
             pips[s] = 0; powerPips[s] = 0;
-            focus[s] = 0; dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0;
+            focus[s] = 0; dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0; stunBlock[s] = 0;
             ClearFx(shields, s); ClearFx(blades, s); ClearFx(traps, s);
         }
 
@@ -545,9 +553,10 @@ namespace WizardsVRC
             pips[s] = 0; powerPips[s] = 0; powerPipPct[s] = 0; critPct[s] = 0; blockPct[s] = 0; piercePct[s] = 0;
             school[s] = 0; level[s] = 1; look[s] = 0;
             dmgPct[s] = 0; resistPct[s] = 0; accPct[s] = 0; focus[s] = 0; locked[s] = 0;
-            dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0;
+            dotLeft[s] = 0; dotTurns[s] = 0; stunned[s] = 0; taunt[s] = 0; stunBlock[s] = 0;
             ClearFx(shields, s); ClearFx(blades, s); ClearFx(traps, s);
             _joined[s] = id < 0;
+            _healReady[s] = 0;
         }
 
         public void RequestPick(int cardId, int target)
@@ -1158,9 +1167,10 @@ namespace WizardsVRC
                 affordable++;
                 int e = cardDatabase.GetEffect(spell);
                 if (e == CardDatabase.EFFECT_HEAL) { if (heal == 0 || cardDatabase.GetPower(spell) > cardDatabase.GetPower(heal)) heal = spell; }
-                else if (e == CardDatabase.EFFECT_EMPOWER || e == CardDatabase.EFFECT_WARD || e == CardDatabase.EFFECT_TRIBLADE)
+                else if (e == CardDatabase.EFFECT_EMPOWER || e == CardDatabase.EFFECT_WARD || e == CardDatabase.EFFECT_TRIBLADE ||
+                         e == CardDatabase.EFFECT_TRISHIELD || e == CardDatabase.EFFECT_MULTIWARD)
                 {
-                    int[] arr = e == CardDatabase.EFFECT_WARD ? shields : blades;
+                    int[] arr = e == CardDatabase.EFFECT_WARD || e == CardDatabase.EFFECT_TRISHIELD || e == CardDatabase.EFFECT_MULTIWARD ? shields : blades;
                     if (FxCount(arr, s) == 0) buff = spell;
                 }
                 else if (!cardDatabase.TargetsAllies(spell) && (attack == 0 || cardDatabase.GetPipCost(spell) > cardDatabase.GetPipCost(attack))) attack = spell;
@@ -1172,7 +1182,14 @@ namespace WizardsVRC
                 int a = mySide * SIDE + i;
                 if (Alive(a) && hp[a] * 100 < maxHp[a] * 45 && (hurt < 0 || hp[a] * 1000 / maxHp[a] < hp[hurt] * 1000 / maxHp[hurt])) hurt = a;
             }
-            if (heal != 0 && hurt >= 0) { _pickCard[s] = heal; _pickTarget[s] = hurt; return; }
+            // Healing grace: a monster that healed itself waits 2 rounds before it heals again.
+            if (heal != 0 && hurt >= 0 && round >= _healReady[s])
+            {
+                _pickCard[s] = heal;
+                _pickTarget[s] = hurt;
+                if (hurt == s) _healReady[s] = round + 3;
+                return;
+            }
             if (buff != 0 && Random.value < 0.4f) { _pickCard[s] = buff; _pickTarget[s] = s; return; }
 
             int best = attack;
@@ -1381,7 +1398,7 @@ namespace WizardsVRC
 
             int auxVal = cardDatabase.GetAux(cardId);
             if (effect == CardDatabase.EFFECT_DAMAGE || effect == CardDatabase.EFFECT_DRAIN || effect == CardDatabase.EFFECT_DOT ||
-                effect == CardDatabase.EFFECT_STUN || effect == CardDatabase.EFFECT_SHATTER)
+                effect == CardDatabase.EFFECT_STUN || effect == CardDatabase.EFFECT_SHATTER || effect == CardDatabase.EFFECT_STRIKEFX)
             {
                 int n = CollectTargets(aoe, target, 1 - mySide);
                 int spellSchool = cardDatabase.GetSchool(cardId);
@@ -1406,7 +1423,26 @@ namespace WizardsVRC
                         dotTurns[t] = CardDatabase.DOT_ROUNDS;
                         AddAct(group, s, t, cardId, KIND_BUFF, auxVal);
                     }
-                    if (effect == CardDatabase.EFFECT_STUN && hp[t] > 0) stunned[t] = 1;
+                    if (effect == CardDatabase.EFFECT_STUN && hp[t] > 0)
+                    {
+                        // A stun shield (gained from the last stun) stops it; otherwise the target is stunned and gains one.
+                        int flag;
+                        if (stunBlock[t] > 0) { stunBlock[t]--; flag = FLAG_STUNBLOCK; }
+                        else { stunned[t] = 1; stunBlock[t] = 1; flag = FLAG_STUNNED; }
+                        if (actCount > 0 && actTarget[actCount - 1] == t) actFlags[actCount - 1] |= flag;
+                    }
+                    if (effect == CardDatabase.EFFECT_STRIKEFX && auxVal / 1000 == 2 && hp[t] > 0)
+                    {
+                        AddFx(traps, t, PackFx(cardId, spellSchool, auxVal % 1000));
+                        AddAct(group, s, t, cardId, KIND_BUFF, auxVal % 1000);
+                    }
+                }
+                if (effect == CardDatabase.EFFECT_STRIKEFX && auxVal / 1000 != 2 && hp[s] > 0)
+                {
+                    // The caster's own reward for the strike: a shield (any school) or a blade of the spell's school.
+                    if (auxVal / 1000 == 0) AddFx(shields, s, PackFx(cardId, CardDatabase.ANY_SCHOOL, auxVal % 1000));
+                    else AddFx(blades, s, PackFx(cardId, spellSchool, auxVal % 1000));
+                    AddAct(group, s, s, cardId, KIND_BUFF, auxVal % 1000);
                 }
                 if (effect == CardDatabase.EFFECT_DRAIN && total > 0)
                 {
@@ -1450,26 +1486,42 @@ namespace WizardsVRC
                 return;
             }
 
-            if (effect == CardDatabase.EFFECT_TRAP)
+            if (effect == CardDatabase.EFFECT_TRAP || effect == CardDatabase.EFFECT_TRITRAP || effect == CardDatabase.EFFECT_CURSE)
             {
                 int tn = CollectTargets(aoe, target, 1 - mySide);
                 for (int k = 0; k < tn; k++)
                 {
-                    AddFx(traps, _targets[k], PackFx(cardId, cardDatabase.TrapSchool(cardId), power));
-                    AddAct(group, s, _targets[k], cardId, KIND_BUFF, power);
+                    int t = _targets[k];
+                    if (effect == CardDatabase.EFFECT_TRITRAP)
+                    {
+                        int first = cardDatabase.TriBladeFirstSchool(cardId);
+                        for (int j = 0; j < 3; j++) AddFx(traps, t, PackFx(cardId, first + j, power));
+                    }
+                    else AddFx(traps, t, PackFx(cardId, effect == CardDatabase.EFFECT_CURSE ? CardDatabase.ANY_SCHOOL : cardDatabase.TrapSchool(cardId), power));
+                    AddAct(group, s, t, cardId, KIND_BUFF, power);
+                }
+                // Dread Mark's price: the caster is trapped too.
+                if (effect == CardDatabase.EFFECT_CURSE && tn > 0)
+                {
+                    AddFx(traps, s, PackFx(cardId, CardDatabase.ANY_SCHOOL, auxVal));
+                    AddAct(group, s, s, cardId, KIND_BUFF, auxVal);
                 }
                 return;
             }
 
+            // Self-only heals (Second Wind) always land on the caster.
+            if (effect == CardDatabase.EFFECT_SELFHEAL) { target = s; aoe = false; }
             int count = CollectTargets(aoe, target < 0 ? s : target, mySide);
+            // A healing charm on the caster boosts this cast's heals (used once per cast).
+            int healMul = effect == CardDatabase.EFFECT_HEAL || effect == CardDatabase.EFFECT_SELFHEAL ? UseHealBlades(s) : 100;
             for (int k = 0; k < count; k++)
             {
                 int t = _targets[k];
-                if (effect == CardDatabase.EFFECT_HEAL)
+                if (effect == CardDatabase.EFFECT_HEAL || effect == CardDatabase.EFFECT_SELFHEAL)
                 {
                     // Heals can critical too (never blocked).
                     _nextFlags = 0;
-                    int amount = power;
+                    int amount = power * healMul / 100;
                     if (critPct[s] > 0 && Random.Range(0, 100) < critPct[s]) { amount = amount * critMultiplier / 100; _nextFlags = FLAG_CRIT; }
                     int heal = Mathf.Min(amount, maxHp[t] - hp[t]);
                     hp[t] += heal;
@@ -1478,7 +1530,17 @@ namespace WizardsVRC
                 else
                 {
                     if (effect == CardDatabase.EFFECT_WARD) AddFx(shields, t, PackFx(cardId, cardDatabase.ShieldSchool(cardId), power));
+                    else if (effect == CardDatabase.EFFECT_MULTIWARD)
+                    {
+                        for (int j = 0; j < Mathf.Clamp(auxVal, 1, 3); j++) AddFx(shields, t, PackFx(cardId, cardDatabase.ShieldSchool(cardId), power));
+                    }
+                    else if (effect == CardDatabase.EFFECT_TRISHIELD)
+                    {
+                        int first = cardDatabase.TriBladeFirstSchool(cardId);
+                        for (int j = 0; j < 3; j++) AddFx(shields, t, PackFx(cardId, first + j, power));
+                    }
                     else if (effect == CardDatabase.EFFECT_EMPOWER) AddFx(blades, t, PackFx(cardId, cardDatabase.BladeSchool(cardId), power));
+                    else if (effect == CardDatabase.EFFECT_HEALBLADE) AddFx(blades, t, PackFx(cardId, CardDatabase.HEAL_SCHOOL, power));
                     else if (effect == CardDatabase.EFFECT_TRIBLADE)
                     {
                         int first = cardDatabase.TriBladeFirstSchool(cardId);
@@ -1519,6 +1581,8 @@ namespace WizardsVRC
                 if (v == 0) continue;
                 int f = FxSchool(v);
                 if (f != CardDatabase.ANY_SCHOOL && f != spellSchool) continue;
+                // Healing charms (blade list) only ever boost heals (UseHealBlades).
+                if (f == CardDatabase.HEAL_SCHOOL) continue;
                 int src = FxCard(v);
                 bool dup = false;
                 for (int u = 0; u < used; u++) if (_usedSrc[u] == src) dup = true;
@@ -1534,6 +1598,35 @@ namespace WizardsVRC
                 int v = arr[b + k];
                 arr[b + k] = 0;
                 if (v != 0) arr[b + w++] = v;
+            }
+            return mul;
+        }
+
+        /// <summary>Uses the caster's healing charms (one per source spell); returns the heal multiplier in percent.</summary>
+        private int UseHealBlades(int s)
+        {
+            int b = s * FX_MAX;
+            int mul = 100;
+            int used = 0;
+            for (int k = 0; k < FX_MAX; k++)
+            {
+                int v = blades[b + k];
+                if (v == 0 || FxSchool(v) != CardDatabase.HEAL_SCHOOL) continue;
+                int src = FxCard(v);
+                bool dup = false;
+                for (int u = 0; u < used; u++) if (_usedSrc[u] == src) dup = true;
+                if (dup) continue;
+                _usedSrc[used++] = src;
+                mul = mul * (100 + FxPct(v)) / 100;
+                PendFx(s, FX_BLADE, v);
+                blades[b + k] = 0;
+            }
+            int w = 0;
+            for (int k = 0; k < FX_MAX; k++)
+            {
+                int v = blades[b + k];
+                blades[b + k] = 0;
+                if (v != 0) blades[b + w++] = v;
             }
             return mul;
         }

@@ -50,6 +50,26 @@ namespace WizardsVRC
         public const int EFFECT_MINION = 13;
         /// <summary>Removes every shield and blade on the target.</summary>
         public const int EFFECT_DISPEL = 14;
+        /// <summary>Three shields at once (power% each), one per school starting at <see cref="TriBladeFirstSchool"/>.</summary>
+        public const int EFFECT_TRISHIELD = 15;
+        /// <summary>Three traps on an enemy at once (power% each), one per school starting at <see cref="TriBladeFirstSchool"/>.</summary>
+        public const int EFFECT_TRITRAP = 16;
+        /// <summary>aux shields of power% on one ally (each blocks a separate hit; school per <see cref="ShieldSchool"/>).</summary>
+        public const int EFFECT_MULTIWARD = 17;
+        /// <summary>
+        /// Damage (power..powerMax), then an extra: aux = kind * 1000 + percent; kind 0 = a shield (any school) on the caster,
+        /// 1 = a blade of the spell's school on the caster, 2 = a trap of the spell's school on each target hit.
+        /// </summary>
+        public const int EFFECT_STRIKEFX = 18;
+        /// <summary>A power% trap (any school) on the enemy, and an aux% trap (any school) on the caster too.</summary>
+        public const int EFFECT_CURSE = 19;
+        /// <summary>Healing blade: the ally's next heal heals power% more.</summary>
+        public const int EFFECT_HEALBLADE = 20;
+        /// <summary>Heals the caster only, for power.</summary>
+        public const int EFFECT_SELFHEAL = 21;
+
+        /// <summary>The school code a healing blade carries in the blade list (only heals use it).</summary>
+        public const int HEAL_SCHOOL = 7;
 
         public const int TIERS = 12;
         /// <summary>Tier learned from the school's trial quest instead of a professor.</summary>
@@ -75,6 +95,7 @@ namespace WizardsVRC
             160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171,
             172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183,
             200, 201, 202, 203,
+            184, 185, 186, 187, 188, 204,
         };
         [HideInInspector] public int[] schools =
         {
@@ -86,6 +107,7 @@ namespace WizardsVRC
             5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
             6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
             -1, -1, -1, -1,
+            6, 6, 6, 6, 3, -1,
         };
         [HideInInspector] public int[] levelReqs =
         {
@@ -97,61 +119,67 @@ namespace WizardsVRC
             1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
             1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
             1, 2, 3, 4,
+            24, 30, 18, 20, 6, 5,
         };
         [HideInInspector] public int[] pipCosts =
         {
-            1, 2, 0, 0, 3, 0, 4, 4, 1, 0, 5, 7,
-            1, 1, 0, 0, 3, 0, 4, 4, 1, 2, 5, 7,
-            1, 2, 0, 0, 3, 0, 4, 4, 1, 0, 5, 7,
+            1, 2, 0, 0, 3, 0, 4, 4, 1, 3, 5, 7,
+            1, 1, 0, 0, 3, 0, 4, 4, 2, 3, 5, 7,
+            1, 2, 0, 0, 3, 0, 4, 4, 2, 0, 5, 7,
             1, 2, 0, 0, 3, 0, 4, 4, 3, 3, 5, 7,
             1, 2, 0, 0, 3, 0, 4, 4, 1, 4, 5, 7,
-            1, 2, 0, 0, 3, 1, 4, 4, 2, 3, 5, 7,
+            1, 2, 0, 0, 3, 3, 4, 4, 2, 3, 5, 7,
             1, 2, 0, 0, 3, 0, 4, 4, 1, 1, 5, 7,
             0, 1, 0, 0,
+            1, 1, 1, 1, 0, 2,
         };
         [HideInInspector] public int[] accuracies =
         {
-            75, 75, 100, 100, 75, 100, 75, 100, 75, 100, 75, 75,
-            80, 100, 100, 100, 80, 100, 80, 100, 100, 100, 80, 80,
-            70, 70, 100, 100, 70, 100, 70, 100, 100, 100, 70, 70,
+            75, 75, 100, 100, 75, 100, 75, 100, 75, 75, 75, 75,
+            80, 100, 100, 100, 80, 100, 80, 100, 100, 85, 80, 80,
+            70, 70, 100, 100, 70, 100, 70, 100, 75, 100, 70, 70,
             90, 90, 100, 100, 90, 100, 90, 100, 90, 90, 90, 90,
             85, 85, 100, 100, 85, 100, 85, 100, 100, 85, 85, 85,
-            80, 80, 100, 100, 100, 100, 80, 100, 100, 80, 80, 80,
+            80, 80, 100, 100, 100, 80, 80, 100, 100, 80, 80, 80,
             85, 85, 100, 100, 85, 100, 85, 100, 100, 100, 85, 85,
             100, 100, 100, 100,
+            100, 100, 100, 100, 100, 100,
         };
         [HideInInspector] public int[] powers =
         {
-            65, 0, 35, 30, 50, 50, 145, 400, 40, 60, 290, 335,
-            50, 25, 35, 30, 120, 30, 210, 700, 30, 60, 350, 385,
-            90, 175, 35, 30, 210, 50, 385, 300, 30, 70, 575, 625,
-            55, 250, 35, 30, 150, 50, 225, 500, 320, 900, 370, 415,
-            55, 110, 35, 30, 120, 50, 240, 450, 60, 400, 385, 415,
-            70, 130, 35, 30, 300, 0, 225, 650, 0, 95, 400, 480,
-            65, 130, 25, 25, 160, 50, 265, 500, 35, 35, 415, 450,
-            50, 100, 25, 15,
+            65, 0, 35, 30, 50, 80, 145, 400, 40, 300, 290, 335,
+            50, 25, 35, 30, 120, 30, 210, 700, 40, 260, 350, 385,
+            90, 175, 35, 30, 210, 80, 385, 300, 190, 70, 575, 625,
+            55, 250, 35, 30, 150, 80, 225, 500, 320, 900, 370, 415,
+            55, 110, 35, 30, 120, 80, 240, 450, 70, 400, 385, 415,
+            70, 130, 35, 30, 300, 170, 225, 650, 0, 95, 400, 480,
+            65, 130, 25, 25, 160, 80, 265, 500, 35, 35, 415, 450,
+            50, 100, 15, 15,
+            50, 50, 25, 25, 35, 420,
         };
         [HideInInspector] public int[] effects =
         {
-            0, 8, 3, 6, 8, 2, 8, 13, 9, 3, 8, 8,
-            0, 10, 3, 6, 0, 2, 0, 13, 2, 10, 0, 0,
-            0, 0, 3, 6, 0, 2, 0, 13, 6, 3, 0, 0,
+            0, 8, 3, 6, 8, 2, 8, 13, 9, 18, 8, 8,
+            0, 10, 3, 6, 0, 2, 0, 13, 17, 18, 0, 0,
+            0, 0, 3, 6, 0, 2, 0, 13, 18, 3, 0, 0,
             0, 1, 3, 6, 1, 2, 0, 13, 1, 1, 0, 0,
-            4, 4, 3, 6, 4, 2, 4, 13, 6, 4, 4, 4,
-            0, 12, 3, 6, 13, 14, 11, 13, 14, 11, 0, 0,
+            4, 4, 3, 6, 4, 2, 4, 13, 19, 4, 4, 4,
+            0, 12, 3, 6, 13, 0, 11, 13, 14, 11, 11, 0,
             0, 0, 3, 6, 0, 2, 0, 13, 7, 7, 0, 0,
             2, 1, 3, 5,
+            15, 15, 16, 16, 20, 21,
         };
         [HideInInspector] public int[] aoe =
         {
             0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
-            0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
-            0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
             0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1,
             0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
-            0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1,
+            0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1,
             0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
             0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
         };
         [HideInInspector] public string[] names =
         {
@@ -160,9 +188,10 @@ namespace WizardsVRC
             "Spark Sprite", "Thunder Hare", "Static Charge", "Thunder Snare", "Thunderclap", "Storm Aegis", "Skyfall Serpent", "Thunder Golem", "Gale Mark", "Overcharge", "Skyfall Leviathan", "Maelstrom Eye",
             "Thornling", "Verdant Bloom", "Thorn Edge", "Bramble Snare", "Rejuvenate", "Verdant Aegis", "Grove Stag", "Treant Warden", "Wellspring", "Bloom of Renewal", "Wildwood Stampede", "Verdant Titan",
             "Shade Wisp", "Grave Ghast", "Grave Edge", "Hex Snare", "Soul Swarm", "Veil of Dread", "Night Leech", "Bone Thrall", "Dread Mark", "Dark Tithe", "Bone Dragon", "Requiem of Ash",
-            "Mire Imp", "Mirage Lancer", "Fable Edge", "Mirage Snare", "Clay Golemling", "Unweave", "Stone Basilisk", "Stone Colossus", "Sundering Gaze", "Riddle of Iron", "Fabled Hydra", "Titan of Legends",
+            "Mire Imp", "Mirage Lancer", "Fable Edge", "Mirage Snare", "Clay Golemling", "Chimera's Roar", "Stone Basilisk", "Stone Colossus", "Sundering Gaze", "Riddle of Iron", "Fabled Hydra", "Titan of Legends",
             "Prism Spark", "Sand Djinn", "Accord Edge", "Sand Snare", "Sandstorm", "Balance Aegis", "Sphinx of Scales", "Sand Golem", "Elemental Tri-Blade", "Spirit Tri-Blade", "Sandstorm Sphinx", "Grand Convergence",
             "Tower Ward", "Mend", "Empower", "Steady Mind",
+            "Elemental Tri-Shield", "Spirit Tri-Shield", "Elemental Tri-Trap", "Spirit Tri-Trap", "Wellspring Charm", "Second Wind",
         };
         [HideInInspector] public int[] prereqs =
         {
@@ -174,32 +203,40 @@ namespace WizardsVRC
             0, 160, 161, 162, 163, 164, 165, 166, 167, 168, 168, 170,
             0, 172, 173, 174, 175, 176, 177, 178, 179, 180, 180, 182,
             0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
         };
         [HideInInspector] public int[] aux =
         {
-            0, 240, 0, 0, 150, 0, 240, 90, 0, 0, 300, 300,
-            0, 2, 0, 0, 0, 0, 0, 60, 0, 3, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 150, 0, 0, 0, 0,
+            0, 240, 0, 0, 150, 0, 240, 90, 0, 1040, 300, 300,
+            0, 2, 0, 0, 0, 0, 0, 60, 2, 50, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 150, 2040, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 120, 0, 0, 0, 0,
-            50, 50, 0, 0, 30, 0, 50, 90, 0, 100, 50, 30,
+            50, 50, 0, 0, 30, 0, 50, 90, 30, 100, 50, 30,
             10, 0, 0, 0, 80, 0, 20, 130, 0, 15, 30, 20,
             0, 0, 1, 1, 0, 0, 0, 100, 0, 0, 0, 0,
             0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
         };
         [HideInInspector] public int[] powerMax =
         {
-            95, 0, 0, 0, 70, 0, 215, 0, 0, 0, 430, 505,
-            80, 0, 0, 0, 180, 0, 310, 0, 0, 0, 530, 575,
-            130, 265, 0, 0, 310, 0, 575, 0, 0, 0, 865, 935,
+            95, 0, 0, 0, 70, 0, 215, 0, 0, 380, 430, 505,
+            80, 0, 0, 0, 180, 0, 310, 0, 0, 340, 530, 575,
+            130, 265, 0, 0, 310, 0, 575, 0, 260, 0, 865, 935,
             85, 0, 0, 0, 0, 0, 335, 0, 0, 0, 550, 625,
             85, 170, 0, 0, 180, 0, 360, 0, 0, 600, 575, 625,
-            100, 190, 0, 0, 0, 0, 335, 0, 0, 145, 600, 720,
+            100, 190, 0, 0, 0, 230, 335, 0, 0, 145, 600, 720,
             95, 200, 0, 0, 240, 0, 395, 0, 0, 0, 625, 670,
             0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
         };
 
-        [HideInInspector] public int[] triBladeIds = { 180, 181 };
-        [HideInInspector] public int[] triBladeFirstSchools = { 0, 3 };
+        // Tri-blades, tri-shields and tri-traps: Elemental = Fire, Ice, Storm; Spirit = Life, Death, Myth.
+        [HideInInspector] public int[] triBladeIds = { 180, 181, 184, 185, 186, 187 };
+        [HideInInspector] public int[] triBladeFirstSchools = { 0, 3, 0, 3, 0, 3 };
+        /// <summary>School spells outside the 12-tier trees (ids 184+): not taught in order, no prerequisites.</summary>
+        public const int FIRST_EXTRA_ID = 184;
+        /// <summary>Spells only ever earned from a quest (besides each school's trial spell): Life's Wellspring Charm.</summary>
+        [HideInInspector] public int[] questOnlyIds = { 188 };
 
         [HideInInspector] public string[] schoolNames = { "Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance" };
         [HideInInspector] public Color[] schoolColors =
@@ -269,8 +306,51 @@ namespace WizardsVRC
 
         public int GetAux(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : aux[i]; }
         public int BasicSpell(int school) { return 100 + school * TIERS; }
-        public int TierOf(int cardId) { return GetSchool(cardId) == GENERAL ? -1 : (cardId - 100) % TIERS; }
-        public bool IsQuestSpell(int cardId) { return GetSchool(cardId) != GENERAL && TierOf(cardId) == QUEST_TIER; }
+        public int TierOf(int cardId) { return GetSchool(cardId) == GENERAL || cardId >= FIRST_EXTRA_ID ? -1 : (cardId - 100) % TIERS; }
+
+        /// <summary>Learned from a quest rather than a professor: each school's trial spell, and a few side-quest spells.</summary>
+        public bool IsQuestSpell(int cardId)
+        {
+            if (GetSchool(cardId) == GENERAL) return false;
+            if (TierOf(cardId) == QUEST_TIER) return true;
+            for (int i = 0; i < questOnlyIds.Length; i++) if (questOnlyIds[i] == cardId) return true;
+            return false;
+        }
+
+        /// <summary>The trial spell (tier 9) rather than a side-quest one.</summary>
+        public bool IsTrialSpell(int cardId) { return GetSchool(cardId) != GENERAL && TierOf(cardId) == QUEST_TIER; }
+
+        /// <summary>
+        /// A school's blades and traps (and Life's healing charm) are only for wizards of that school: other schools can't
+        /// learn them with training points.
+        /// </summary>
+        public bool SchoolOnly(int cardId)
+        {
+            int e = GetEffect(cardId);
+            return GetSchool(cardId) != GENERAL && (e == EFFECT_EMPOWER || e == EFFECT_TRAP || e == EFFECT_TRIBLADE || e == EFFECT_TRITRAP ||
+                                                    e == EFFECT_CURSE || e == EFFECT_HEALBLADE);
+        }
+
+        /// <summary>This character may learn the spell at all (school-only spells need the same school).</summary>
+        public bool SchoolAllows(CharacterData c, int cardId)
+        {
+            return c != null && (!SchoolOnly(cardId) || GetSchool(cardId) == (int)c.school);
+        }
+
+        /// <summary>
+        /// The spell that must be learned first, for this character: a school-only spell they can't learn is skipped over
+        /// (another school's wizard goes from the tier before it straight to the tier after).
+        /// </summary>
+        public int PrereqFor(CharacterData c, int cardId)
+        {
+            int pre = GetPrereq(cardId);
+            int guard = 0;
+            while (pre > 0 && !SchoolAllows(c, pre) && guard++ < TIERS) pre = GetPrereq(pre);
+            return pre;
+        }
+
+        /// <summary>Heals that target the caster only (no picking).</summary>
+        public bool SelfOnly(int cardId) { return GetEffect(cardId) == EFFECT_SELFHEAL; }
         public int QuestSpell(int school) { return 100 + school * TIERS + QUEST_TIER; }
 
         public bool IsAoe(int cardId) { int i = IndexOf(cardId); return i >= 0 && aoe[i] != 0; }
@@ -280,7 +360,8 @@ namespace WizardsVRC
         {
             int e = GetEffect(cardId);
             return e == EFFECT_HEAL || e == EFFECT_WARD || e == EFFECT_EMPOWER || e == EFFECT_FOCUS || e == EFFECT_TRIBLADE ||
-                   e == EFFECT_TAUNT || e == EFFECT_MINION;
+                   e == EFFECT_TAUNT || e == EFFECT_MINION || e == EFFECT_TRISHIELD || e == EFFECT_MULTIWARD || e == EFFECT_HEALBLADE ||
+                   e == EFFECT_SELFHEAL;
         }
 
         /// <summary>Ice shields and General shields block every school; other shields block their own school.</summary>
@@ -345,11 +426,13 @@ namespace WizardsVRC
         {
             int e = GetEffect(cardId);
             int kind = -1, sc = GENERAL;
-            if (e == EFFECT_WARD) { kind = 0; sc = ShieldSchool(cardId); }
-            else if (e == EFFECT_TAUNT) { kind = 0; sc = ANY_SCHOOL; }
+            if (e == EFFECT_WARD || e == EFFECT_MULTIWARD) { kind = 0; sc = ShieldSchool(cardId); }
+            else if (e == EFFECT_TAUNT || e == EFFECT_TRISHIELD) { kind = 0; sc = ANY_SCHOOL; }
             else if (e == EFFECT_EMPOWER) { kind = 1; sc = BladeSchool(cardId); }
             else if (e == EFFECT_TRIBLADE) { kind = 1; sc = ANY_SCHOOL; }
+            else if (e == EFFECT_HEALBLADE) { kind = 1; sc = 3; }
             else if (e == EFFECT_TRAP) { kind = 2; sc = TrapSchool(cardId); }
+            else if (e == EFFECT_TRITRAP || e == EFFECT_CURSE) { kind = 2; sc = ANY_SCHOOL; }
             if (kind < 0 || effectIcons == null) return null;
             int i = kind * 8 + (sc >= 0 && sc < 7 ? sc : 7);
             return i < effectIcons.Length ? effectIcons[i] : null;
@@ -426,7 +509,8 @@ namespace WizardsVRC
                 case EFFECT_TAUNT:
                     return "Taunt: monsters must attack you for " + x.ToString() + " rounds, and you gain a " + p.ToString() + "% shield against every school.";
                 case EFFECT_STUN:
-                    return "Deals " + range + dmg + (x > 0 ? ", ignoring " + x.ToString() + "% of shields and resist" : "") + ". Targets hit lose their next turn.";
+                    return "Deals " + range + dmg + (x > 0 ? ", ignoring " + x.ToString() + "% of shields and resist" : "") +
+                           ". Targets hit lose their next turn. A stunned target gains a stun shield that blocks the next stun.";
                 case EFFECT_SHATTER: return "Breaks every shield on the target, then deals " + range + dmg + ".";
                 case EFFECT_DISPEL: return "Removes every shield and blade on " + (aoe[i] != 0 ? "all enemies." : "an enemy.");
                 case EFFECT_MINION:
@@ -450,6 +534,34 @@ namespace WizardsVRC
                 case EFFECT_DRAIN:
                     return "Deals " + range + dmg + " and heals you for " + (x > 0 ? x : 50).ToString() + "% of it.";
                 case EFFECT_FOCUS: return "Next spell gains +" + p.ToString() + "% accuracy.";
+                case EFFECT_TRISHIELD:
+                {
+                    int f = TriBladeFirstSchool(cardId);
+                    return "Puts 3 shields on a wizard: " + SchoolName(f) + ", " + SchoolName(f + 1) + " and " + SchoolName(f + 2) +
+                           " (each blocks " + p.ToString() + "% of the next spell of its school).";
+                }
+                case EFFECT_TRITRAP:
+                {
+                    int f = TriBladeFirstSchool(cardId);
+                    return "Puts 3 traps on an enemy: " + SchoolName(f) + ", " + SchoolName(f + 1) + " and " + SchoolName(f + 2) +
+                           " (+" + p.ToString() + "% to the next spell of each school that hits them).";
+                }
+                case EFFECT_MULTIWARD:
+                    return "Puts " + x.ToString() + " shields on a wizard, each blocking " + p.ToString() + "% of a " +
+                           SchoolPhrase(ShieldSchool(cardId), "spell from any school") + (ShieldSchool(cardId) == ANY_SCHOOL ? "" : " spell") + " that hits.";
+                case EFFECT_STRIKEFX:
+                {
+                    int kind = x / 1000, pct = x % 1000;
+                    string extra = kind == 0 ? ", and shields you: blocks " + pct.ToString() + "% of the next spell that hits you."
+                        : kind == 1 ? ", and your next " + SchoolName(schools[i]) + " attack deals +" + pct.ToString() + "%."
+                        : ", and traps them: the next " + SchoolName(schools[i]) + " spell that hits them deals +" + pct.ToString() + "%.";
+                    return "Deals " + range + dmg + extra;
+                }
+                case EFFECT_CURSE:
+                    return "Trap an enemy: the next spell that hits them deals +" + p.ToString() + "%. But you're trapped too: the next spell that hits you deals +" +
+                           x.ToString() + "%.";
+                case EFFECT_HEALBLADE: return "Healing charm: the wizard's next heal heals " + p.ToString() + "% more.";
+                case EFFECT_SELFHEAL: return "Heals you (only you) for " + p.ToString() + " health.";
                 default: return "";
             }
         }
@@ -463,7 +575,9 @@ namespace WizardsVRC
                    "Cost: " + pipCosts[i].ToString() + " pips    Accuracy: " + accuracies[i].ToString() + "%\n" +
                    SchoolName(schools[i]) + " spell, level " + levelReqs[i].ToString() +
                    (prereqs[i] > 0 ? "\nRequires: " + GetName(prereqs[i]) : "") +
-                   (IsQuestSpell(cardId) ? "\nLearned from the " + SchoolName(schools[i]) + " trial quest" : "");
+                   (IsTrialSpell(cardId) ? "\nLearned from the " + SchoolName(schools[i]) + " trial quest" :
+                    IsQuestSpell(cardId) ? "\nLearned from a " + SchoolName(schools[i]) + " side quest" : "") +
+                   (SchoolOnly(cardId) ? "\nOnly " + SchoolName(schools[i]) + " wizards can learn it" : "");
         }
 
         // ------------------------------------------------------------------ monsters

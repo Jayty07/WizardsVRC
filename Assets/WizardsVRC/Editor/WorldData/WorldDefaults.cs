@@ -1455,6 +1455,35 @@ namespace WizardsVRC.EditorTools.WorldData
                             "Mind yourself out there. Whatever woke Briarwick isn't finished yet."),
                     },
                 },
+                LifeCharmQuest(),
+            };
+        }
+
+        /// <summary>
+        /// Quest 39, for Life wizards only: Gardener Moss's tonic, which teaches Wellspring Charm (a healing charm: the
+        /// wizard's next heal heals more). Offered by Moss once the Briar Heart is done.
+        /// </summary>
+        public static QuestEntry LifeCharmQuest()
+        {
+            return new QuestEntry
+            {
+                saveId = 39, title = "Moss's Tonic", prerequisite = 15, minLevel = 6, xp = 160, gold = 40, rewardSpell = 188,
+                onlyForSchool = true, school = School.Life,
+                startsAutomatically = false, giverNpc = "Moss",
+                offerDialogue = new[]
+                {
+                    "You've a healer's hands, I can tell. The roses lean toward you when you pass.",
+                    "There's an old gardener's tonic that makes mending magic go further. It needs moth dust, fresh, and plenty of it.",
+                    "Bring me some from the Mischief Moths and I'll show you how it's done.",
+                },
+                description = "Gardener Moss knows an old tonic that makes a Life wizard's healing go further. It needs fresh moth dust from the Mischief Moths.",
+                steps = new List<QuestStepEntry>
+                {
+                    Fight(QuestStepKind.Collect, 10, 4, "Collect fresh moth dust from Mischief Moths", "Mischief Moths"),
+                    Talk("Moss", "Bring the moth dust to Gardener Moss", "Gardener Moss",
+                        "That's the stuff. Now, a pinch in the palm, a word to the roots, and... there.",
+                        "Charm yourself before you mend someone and the healing runs deeper. Use it well."),
+                },
             };
         }
 

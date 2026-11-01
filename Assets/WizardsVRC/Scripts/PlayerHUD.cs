@@ -38,7 +38,8 @@ namespace WizardsVRC
 
         [Tooltip("Offset from the head in head space (x right, y up, z forward), metres.")]
         public Vector3 headOffset = new Vector3(-0.28f, -0.22f, 0.7f);
-        public float followSpeed = 8f;
+        [Tooltip("How quickly it turns to follow your head (it always keeps up with walking and running).")]
+        public float followSpeed = 14f;
         public bool hudEnabled = true;
 
         private float _nextRefresh;
@@ -47,6 +48,8 @@ namespace WizardsVRC
         private float _xpScale = -1f;
         private float _xpFlashUntil;
         private bool _wasShown;
+        private Quaternion _rot = Quaternion.identity;
+        private bool _hasRot;
 
         public void ToggleHud()
         {
@@ -57,19 +60,21 @@ namespace WizardsVRC
         {
             bool show = hudEnabled && playerState != null && playerState.HasCharacter();
             if (hudRoot != null && hudRoot.activeSelf != show) hudRoot.SetActive(show);
-            if (!show) { _wasShown = false; return; }
+            if (!show) { _wasShown = false; _hasRot = false; return; }
             // Coming back (new character, HUD toggled): the bar snaps to the current XP instead of filling up.
             if (!_wasShown) { _wasShown = true; _xpLevel = 0; }
 
             VRCPlayerApi local = Networking.LocalPlayer;
             if (!Utilities.IsValid(local)) return;
             VRCPlayerApi.TrackingData head = local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
-            Vector3 targetPos = head.position + head.rotation * headOffset;
-            Quaternion targetRot = head.rotation;
-            float t = Mathf.Clamp01(Time.deltaTime * followSpeed);
+            // It moves with your head exactly (no lag when you walk or run, so it never falls behind you); only turning
+            // your head is eased a little, for comfort.
             Transform tr = hudRoot.transform;
-            tr.position = Vector3.Lerp(tr.position, targetPos, t);
-            tr.rotation = Quaternion.Slerp(tr.rotation, targetRot, t);
+            float t = Mathf.Clamp01(Time.deltaTime * followSpeed);
+            Quaternion rot = _hasRot ? Quaternion.Slerp(_rot, head.rotation, t) : head.rotation;
+            _rot = rot;
+            _hasRot = true;
+            tr.SetPositionAndRotation(head.position + rot * headOffset, rot);
 
             if (Time.time >= _nextRefresh)
             {

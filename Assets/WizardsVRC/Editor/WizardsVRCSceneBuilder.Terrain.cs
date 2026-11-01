@@ -701,6 +701,7 @@ namespace WizardsVRC.EditorTools
                 case "Leaves": return 1.7f;
                 case "Hedge": return 1.6f;
                 case "Bark": return 1.6f;
+                case "MountainRock": return 1.35f;
                 default: return 1f;
             }
         }

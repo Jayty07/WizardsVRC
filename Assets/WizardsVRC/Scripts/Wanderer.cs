@@ -71,7 +71,23 @@ namespace WizardsVRC
 
         private void Start()
         {
-            if (cardDatabase != null) _name = cardDatabase.MonsterName(monsterId) + "\nLevel " + cardDatabase.MonsterLevel(monsterId).ToString();
+            if (cardDatabase != null)
+            {
+                // Name, then level and rank with the school's icon (and Elite / Boss), like its line in a duel.
+                int sc = cardDatabase.MonsterSchool(monsterId);
+                string rank = "Lv " + cardDatabase.MonsterLevel(monsterId).ToString() + "  Rank " + cardDatabase.MonsterRank(monsterId).ToString();
+                string icon = cardDatabase.SchoolIcon(sc);
+                if (icon.Length > 0) rank += " " + icon;
+                if (cardDatabase.IsBossMonster(monsterId)) rank += " Boss";
+                else if (cardDatabase.IsEliteMonster(monsterId)) rank += " Elite";
+                _name = "<b>" + cardDatabase.MonsterName(monsterId) + "</b>\n<size=34>" + rank + "</size>";
+                if (label != null)
+                {
+                    // Tinted its school's colour, lifted so dark schools stay readable.
+                    Color c = sc >= 0 && cardDatabase.schoolColors != null && sc < cardDatabase.schoolColors.Length ? cardDatabase.schoolColors[sc] : Color.white;
+                    label.color = Color.Lerp(c, Color.white, 0.35f);
+                }
+            }
             if (label != null) label.text = _name;
             if (body != null) { _bodyScale = body.transform.localScale; _bodyPos = body.transform.localPosition; }
             if (laneManagers == null || laneManagers.Length == 0) { laneManagers = new BattleManager[] { manager }; laneClients = new BattleClient[] { client }; }

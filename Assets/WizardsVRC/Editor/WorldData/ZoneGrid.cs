@@ -248,6 +248,27 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>
+        /// True when a duel ring of this radius (m) centred on the cell lies wholly on open, level ground: every cell the
+        /// disc touches (not just the four neighbours) is walkable, inside the map and at the ring's height.
+        /// </summary>
+        public bool RingFits(Vector2Int ring, float radius)
+        {
+            int r = Mathf.CeilToInt(radius / cell) + 1;
+            float half = cell * 0.5f;
+            int lv = Level(ring);
+            for (int y = ring.y - r; y <= ring.y + r; y++)
+                for (int x = ring.x - r; x <= ring.x + r; x++)
+                {
+                    // Distance from the ring's centre to the nearest point of this cell's square.
+                    float dx = Mathf.Max(0f, Mathf.Abs(x - ring.x) * cell - half);
+                    float dy = Mathf.Max(0f, Mathf.Abs(y - ring.y) * cell - half);
+                    if (dx * dx + dy * dy >= radius * radius) continue;
+                    if (!Walkable(x, y) || IsVoid(x, y) || Level(x, y) != lv) return false;
+                }
+            return true;
+        }
+
+        /// <summary>
         /// Orders a patrol letter's cells into a route. Returns null when there are none. isLoop tells whether every cell
         /// has exactly two route neighbours; ok is false when the cells aren't a single line or loop (they're then
         /// chained nearest-first, which still works but may cut corners).

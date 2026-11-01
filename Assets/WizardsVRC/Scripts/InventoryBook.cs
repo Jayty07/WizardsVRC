@@ -167,20 +167,21 @@ namespace WizardsVRC
         }
 
         // PS1 wobble: the vertex snap and texture warp of every PSX shader, through a global shader value (local only).
-        private const string WarpKey = "wz_psx_warp_off";
-        private bool _warpOff;
+        // Off unless the player turns it on (remembered).
+        private const string WarpKey = "wz_psx_warp_on";
+        private bool _warpOn;
 
         public void SettingToggleWarp()
         {
-            _warpOff = !_warpOff;
+            _warpOn = !_warpOn;
             ApplyWarp();
-            PlayerData.SetBool(WarpKey, _warpOff);
+            PlayerData.SetBool(WarpKey, _warpOn);
             RefreshSettings("");
         }
 
         private void ApplyWarp()
         {
-            VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_Udon_PsxWarpOff"), _warpOff ? 1f : 0f);
+            VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_Udon_PsxWarpOn"), _warpOn ? 1f : 0f);
         }
 
         // Music volume: full, two thirds, one third, off (local only, remembered).
@@ -211,8 +212,8 @@ namespace WizardsVRC
         public override void OnPlayerRestored(VRCPlayerApi player)
         {
             if (!Utilities.IsValid(player) || !player.isLocal) return;
-            bool off;
-            if (PlayerData.TryGetBool(player, WarpKey, out off)) _warpOff = off;
+            bool on;
+            if (PlayerData.TryGetBool(player, WarpKey, out on)) _warpOn = on;
             ApplyWarp();
             int step;
             if (PlayerData.TryGetInt(player, MusicKey, out step)) _musicStep = Mathf.Clamp(step, 0, 3);
@@ -260,7 +261,7 @@ namespace WizardsVRC
             }
             if (hudSettingLabel != null) hudSettingLabel.text = "On-screen HUD: " + (hud != null && hud.hudEnabled ? "On" : "Off");
             if (guideSettingLabel != null) guideSettingLabel.text = "Quest arrow: " + (questGuide != null && questGuide.IsGuideEnabled() ? "On" : "Off");
-            if (warpSettingLabel != null) warpSettingLabel.text = "PS1 wobble: " + (_warpOff ? "Off" : "On");
+            if (warpSettingLabel != null) warpSettingLabel.text = "PS1 wobble: " + (_warpOn ? "On" : "Off");
             if (musicSettingLabel != null) musicSettingLabel.text = MusicText();
             if (changeCharacterLabel != null) changeCharacterLabel.text = Time.time <= _confirmUntil ? "Press again to confirm" : "Change Character";
             if (settingsStatus != null) settingsStatus.text = status;
