@@ -189,8 +189,10 @@ Bramwell (exploring the grounds), Quartermaster Pell (backpack, gear, potions), 
 decks) and Duel Master Holloway (a practice duel against training dummies that never attack). Only then does the
 **Sunpetal Gardens** tunnel open (Lv 1-3 weeds, newts and moths, boss Old Briarwick, who only heals with Mend so new wizards can beat him). Fights there (and on the practice
 ring) are **even fights**: one monster per wizard, starting with the one you touched; a second wizard brings in the next
-patrol monster to reach the circle, and other patrol monsters that wander into the circle fade away. Finishing the gardens opens the
-**Lantern Row** tunnel (now Lv 4-6) and the boss arena pad. The locks are the Street Gates' *Required Quest* in the hub map.
+patrol monster to reach the circle, and other patrol monsters that wander into the circle fade away. Everywhere else a
+street fight also starts with only the monster(s) you ran into, and patrol monsters that wander into the circle take a
+free seat (up to the encounter's roster size) and join from the next round. Finishing the gardens opens the
+**Lantern Row** tunnel (now Lv 4-6: rank 1 wisps and snatchers, never more than two to a fight) and the boss arena pad. The locks are the Street Gates' *Required Quest* in the hub map.
 
 After Lantern Row the rest of **World 1 (Starfall Isle)** opens street by street, each through its own tunnel:
 **Tidewatch Docks** (Lv 7-9, smugglers and a spy in the castle), **Kiln Street** (Lv 8-10, the forge and the first

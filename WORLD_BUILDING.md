@@ -137,8 +137,12 @@ route), and every ring spot in the street is shared. When a monster comes within
 the **free ring spot nearest the wizard** (one no other encounter is fighting on; in a dungeon, a spot inside it), like
 Wizard101's duel circles: the monster walks over to its seat, nearby wizards are pulled in, and the first round waits
 about 3 seconds (`BattleManager.startGraceSeconds`) so everyone starts together. A wizard who walks into a fight later
-sits out the round they arrive in and can't be targeted until they're in. Only the monster that was touched leaves its
-patrol (it comes back *Respawn Seconds* after the fight); the rest keep walking, and step out of sight as they walk through one of the group's rings. Running into one of them
+sits out the round they arrive in and can't be targeted until they're in. **A fight starts with only the monster you ran
+into** (run into two at once and both come). Only it leaves its patrol (it comes back *Respawn Seconds* after the fight);
+the rest keep walking. A patrol monster that wanders into the circle during the fight takes a free monster seat and joins
+from the start of the next round; the fight never holds more monsters than the encounter's roster (four at most). With
+no seat free it walks on through, out of sight. Boss fights are the exception: the boss comes with its followers (one
+per wizard with *Scale With Party*). Running into one of them
 while the group is fighting pulls you into the group's fight if its ring is close (about 30 m) and has a free seat, and
 the monster you ran into joins that fight with you (if a monster seat is free; in an even fight, if a wizard is
 unmatched). Otherwise you start a new duel with it at the nearest free ring, up to *Max Fights* at once. Other players

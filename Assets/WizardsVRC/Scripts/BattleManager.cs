@@ -606,7 +606,7 @@ namespace WizardsVRC
             SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetEngageWander), local.playerId, wanderer);
         }
 
-        /// <summary>Even fights: patrol monster w reached the circle during the fight (sent by the fighting wizards' clients).</summary>
+        /// <summary>Patrol monster w reached the circle during the fight (sent by the fighting wizards' clients).</summary>
         public void RequestWandererContact(int wanderer)
         {
             SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetWandererContact), wanderer);
@@ -615,11 +615,21 @@ namespace WizardsVRC
         [NetworkCallable]
         public void NetWandererContact(int w)
         {
-            if (!Networking.IsOwner(gameObject) || !evenFight || w < 0 || w >= 31 || w >= wandererMonsters.Length) return;
+            if (!Networking.IsOwner(gameObject) || !wanderMode || w < 0 || w >= 31 || w >= wandererMonsters.Length) return;
             if (phase < PHASE_JOINING || phase > PHASE_PLAYBACK || (wandererGone & (1 << w)) != 0) return;
-            // It either joins (a wizard is still unmatched) or fades away; either way it's gone until the respawn.
+            if (evenFight)
+            {
+                // Even fights: it joins while a wizard is still unmatched, or fades away; either way it's gone until the respawn.
+                wandererGone |= 1 << w;
+                if (EvenMonsterCount() < EvenWizardCount()) AddMonster(wandererMonsters[w]);
+                Publish();
+                return;
+            }
+            // Like Wizard101: a monster that wanders into the circle takes a free seat and fights from the next round.
+            // With no seat free it just walks on through.
+            if (!MonsterSeatFree()) return;
             wandererGone |= 1 << w;
-            if (EvenMonsterCount() < EvenWizardCount()) AddMonster(wandererMonsters[w]);
+            AddMonster(wandererMonsters[w]);
             Publish();
         }
 
@@ -644,8 +654,22 @@ namespace WizardsVRC
                 Publish();
                 return;
             }
+            if (phase < PHASE_ROAMING || phase > PHASE_PLAYBACK) return;
+            if (FindWizardSlot(playerId) >= 0)
+            {
+                // Already in this fight and ran into another of the group's monsters (two at once): it comes too, if a
+                // seat is free.
+                if (wanderer >= 0 && wanderer < 31 && wanderer < wandererMonsters.Length && (wandererGone & (1 << wanderer)) == 0 &&
+                    !WandererHiddenAnyLane(wanderer) && !evenFight && MonsterSeatFree())
+                {
+                    wandererGone |= 1 << wanderer;
+                    AddMonster(wandererMonsters[wanderer]);
+                    Publish();
+                }
+                return;
+            }
             // Like Wizard101, anyone can walk into a circle with a free seat, even mid-fight; they act from the next round.
-            if (phase < PHASE_JOINING || phase > PHASE_PLAYBACK || FindWizardSlot(playerId) >= 0) return;
+            if (phase < PHASE_JOINING) return;
             for (int s = 0; s < SIDE; s++)
             {
                 if (!SeatFree(s)) continue;
@@ -671,7 +695,7 @@ namespace WizardsVRC
                     }
                     if (EvenMonsterCount() < EvenWizardCount() && !AnyWandererLeft()) AddMonster(NextRosterMonster());
                 }
-                else if (touched && MonsterCount() < SIDE)
+                else if (touched && MonsterSeatFree())
                 {
                     wandererGone |= 1 << wanderer;
                     AddMonster(wandererMonsters[wanderer]);
@@ -679,6 +703,23 @@ namespace WizardsVRC
                 Publish();
                 return;
             }
+        }
+
+        /// <summary>
+        /// A monster seat is free for one more of the group's monsters: the fight holds at most as many monsters as the
+        /// encounter's roster (its own followers and summons aside), and never more than the four seats.
+        /// </summary>
+        private bool MonsterSeatFree()
+        {
+            int cap = roster == null || roster.Length == 0 ? SIDE : Mathf.Min(roster.Length, SIDE);
+            int n = 0;
+            bool free = false;
+            for (int s = SIDE; s < SLOTS; s++)
+            {
+                if (!Occupied(s)) { free = true; continue; }
+                if (!IsSummon(s)) n++;
+            }
+            return free && n < cap;
         }
 
         // ------------------------------------------------------------------ even fights
@@ -959,7 +1000,19 @@ namespace WizardsVRC
             if (_startWanderer >= 0 && _startWanderer < 31) wandererGone |= 1 << _startWanderer;
             int count = roster == null ? 0 : Mathf.Min(roster.Length, SIDE);
             if (scaleRosterWithParty) count = Mathf.Min(count, 1 + n);
-            if (evenFight && count > 0)
+            bool bossFight = roster != null && roster.Length > 0 && cardDatabase.IsBossMonster(roster[0]);
+            if (wanderMode && !bossFight && count > 0)
+            {
+                // Street fights start with just the monster that was run into (more join as they're run into or wander
+                // into the circle, while a seat is free). Bosses still come with their followers.
+                int w = _startWanderer;
+                int first = w >= 0 && w < wandererMonsters.Length && w < 31 ? wandererMonsters[w] : roster[0];
+                if (w >= 0 && w < 31) wandererGone |= 1 << w;
+                AddMonster(first);
+                if (MonsterCount() == 0) AddMonster(roster[0]);
+                count = MonsterCount();
+            }
+            else if (evenFight && count > 0)
             {
                 // One monster per wizard: the patrol monster that was touched (it leaves its patrol).
                 int w = _startWanderer;

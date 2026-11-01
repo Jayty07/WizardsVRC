@@ -33,8 +33,8 @@ namespace WizardsVRC.EditorTools.WorldData
                 M(2, "Bone Thrall", School.Myth, 3, 320, false, 0, new[] { 160, 161, 162 }, 45, 10, 25, 10, 25, 1f, new Color(0.8f, 0.78f, 0.7f), "Training Yard."),
                 M(3, "Marsh Sprite", School.Life, 2, 240, false, 0, new[] { 136, 137 }, 35, 8, 18, 11, 25, 0.8f, new Color(0.4f, 0.75f, 0.45f), "Training Yard lane; heals its friends."),
                 M(4, "Courtyard Rat", School.Storm, 1, 180, false, 0, new[] { 124, 125 }, 25, 5, 12, 10, 20, 0.7f, new Color(0.5f, 0.45f, 0.4f), "Training Yard lane."),
-                M(5, "Gloom Wisp", School.Death, 4, 300, false, 0, new[] { 148 }, 45, 8, 16, 10, 20, 0.6f, new Color(0.35f, 0.4f, 0.55f), "Lantern Row. Hovers in pairs."),
-                M(6, "Lantern Snatcher", School.Myth, 5, 400, false, 0, new[] { 160, 161 }, 60, 10, 22, 11, 25, 0.9f, new Color(0.45f, 0.35f, 0.25f),
+                M(5, "Gloom Wisp", School.Death, 4, 240, false, 0, new[] { 148 }, 45, 8, 16, 10, 20, 0.6f, new Color(0.35f, 0.4f, 0.55f), "Lantern Row. Hovers in pairs."),
+                M(6, "Lantern Snatcher", School.Myth, 5, 300, false, 0, new[] { 160, 161 }, 60, 10, 22, 11, 25, 0.9f, new Color(0.45f, 0.35f, 0.25f),
                   "Lantern Row. Goblin-like thieves carrying stolen lamp-flames."),
                 M(7, "Ashwick the Snuffer", School.Death, 6, 1200, true, 500, new[] { 148, 149, 150, 154 }, 220, 60, 110, 62, 40, 1.6f, new Color(0.2f, 0.22f, 0.3f),
                   "Lantern Row boss in the Snuffer's Tower. Drops the Ironbound Deck."),
@@ -99,7 +99,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         // Rank and creature type of the default monsters, by id (index 0 unused).
-        private static readonly int[] DefaultRanks = { 0, 3, 2, 1, 1, 2, 2, 3, 1, 1, 1, 2, 1 };
+        private static readonly int[] DefaultRanks = { 0, 3, 2, 1, 1, 1, 1, 3, 1, 1, 1, 2, 1 };
         private static readonly string[] DefaultTypes =
         {
             "", "Undead", "Undead", "Spirit", "Beast", "Spirit", "Goblin", "Spirit", "Beast", "Plant", "Insect", "Plant", "Construct",
@@ -296,10 +296,10 @@ namespace WizardsVRC.EditorTools.WorldData
             z.encounters = new List<ZoneEncounter>
             {
                 new ZoneEncounter { ringSymbol = "1", key = "Wisps", roster = new List<int> { 5, 5 }, wanderers = 4, patrolSpeed = 1.3f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "2", key = "Snatchers", roster = new List<int> { 6, 5, 6 }, wanderers = 3, patrolSpeed = 1.5f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "2", key = "Snatchers", roster = new List<int> { 6, 5 }, wanderers = 3, patrolSpeed = 1.5f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "3", key = "SnatcherGang", roster = new List<int> { 6, 6 }, wanderers = 3, patrolSpeed = 1.5f, respawnSeconds = 20 },
-                new ZoneEncounter { ringSymbol = "4", key = "Snuffer", roster = new List<int> { 7, 5, 5 }, wanderers = 1, patrolSpeed = 0.8f, respawnSeconds = 30, scaleWithParty = true },
-                new ZoneEncounter { ringSymbol = "5", key = "WispPack", roster = new List<int> { 5, 5, 5 }, wanderers = 3, patrolSpeed = 1.2f, respawnSeconds = 20 },
+                new ZoneEncounter { ringSymbol = "4", key = "Snuffer", roster = new List<int> { 7, 5 }, wanderers = 1, patrolSpeed = 0.8f, respawnSeconds = 30, scaleWithParty = true },
+                new ZoneEncounter { ringSymbol = "5", key = "WispPack", roster = new List<int> { 5, 5 }, wanderers = 3, patrolSpeed = 1.2f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "6", key = "LampLighters", roster = new List<int> { 6, 5 }, wanderers = 5, patrolSpeed = 1.4f, respawnSeconds = 20 },
                 new ZoneEncounter { ringSymbol = "7", key = "AlleyWisps", roster = new List<int> { 5, 5 }, wanderers = 3, patrolSpeed = 1.3f, respawnSeconds = 20 },
             };

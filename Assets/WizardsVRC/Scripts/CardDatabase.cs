@@ -690,7 +690,7 @@ namespace WizardsVRC
         [HideInInspector] public string[] monsterNames = { "Gloomfang the Warden", "Bone Thrall", "Marsh Sprite", "Courtyard Rat", "Gloom Wisp", "Lantern Snatcher", "Ashwick the Snuffer" };
         [HideInInspector] public int[] monsterSchools = { 4, 5, 3, 2, 4, 4, 4 };
         [HideInInspector] public int[] monsterLevels = { 5, 3, 2, 1, 1, 2, 4 };
-        [HideInInspector] public int[] monsterRanks = { 3, 2, 1, 1, 2, 2, 3 };
+        [HideInInspector] public int[] monsterRanks = { 3, 2, 1, 1, 1, 1, 3 };
         [HideInInspector] public string[] monsterTypes = { "Undead", "Undead", "Spirit", "Beast", "Spirit", "Goblin", "Spirit" };
         [HideInInspector] public int[] monsterHps = { 900, 320, 240, 180, 180, 260, 900 };
         /// <summary>MONSTER_SPELLS entries per monster, 0 = none. Monsters use heals on hurt allies and blades/shields on

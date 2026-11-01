@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 19;
+        public const int CurrentVersion = 20;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -182,6 +182,35 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 17) UpgradeTo17();
             if (from < 18) UpgradeTo18();
             if (from < 19) UpgradeTo19();
+            if (from < 20) UpgradeTo20();
+        }
+
+        /// <summary>
+        /// v20: an easier Lantern Row. Gloom Wisps and Lantern Snatchers are rank 1 with less health (where still the old
+        /// defaults), and no Lantern Row encounter has more than two monsters.
+        /// </summary>
+        private static void UpgradeTo20()
+        {
+            var report = new List<string>();
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            if (cat != null)
+            {
+                var m5 = cat.Find(5);
+                var m6 = cat.Find(6);
+                bool dirty = false;
+                if (m5 != null) { if (m5.rank == 2) { m5.rank = 1; dirty = true; } if (m5.health == 300) { m5.health = 240; dirty = true; } }
+                if (m6 != null) { if (m6.rank == 2) { m6.rank = 1; dirty = true; } if (m6.health == 400) { m6.health = 300; dirty = true; } }
+                if (dirty) { EditorUtility.SetDirty(cat); report.Add("Gloom Wisp and Lantern Snatcher are rank 1"); }
+            }
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || z.zoneKey != "LanternRow") continue;
+                int trimmed = 0;
+                foreach (var e in z.encounters)
+                    if (e != null && e.roster != null && e.roster.Count > 2) { e.roster.RemoveRange(2, e.roster.Count - 2); trimmed++; }
+                if (trimmed > 0) { EditorUtility.SetDirty(z); report.Add(trimmed + " Lantern Row encounters down to two monsters"); }
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (v20): " + string.Join(", ", report) + ".");
         }
 
         /// <summary>

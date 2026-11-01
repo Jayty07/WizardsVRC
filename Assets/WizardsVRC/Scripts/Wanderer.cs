@@ -264,7 +264,7 @@ namespace WizardsVRC
                 if (m == null || c == null || c.arenaCenter == null || m.phase == BattleManager.PHASE_IDLE) continue;
                 float dist = FlatDistance(pos, c.arenaCenter.position);
                 if (!m.evenFight && dist <= contactRadius) inCircle = true;
-                if (m.evenFight && Fighting(m) && c.IsInBattle() && _contactBattle[l] != m.battleId && dist <= contactRadius)
+                if (Fighting(m) && c.IsInBattle() && _contactBattle[l] != m.battleId && dist <= contactRadius)
                 {
                     _contactBattle[l] = m.battleId;
                     m.RequestWandererContact(wandererIndex);

@@ -340,11 +340,12 @@ namespace WizardsVRC.EditorTools.WorldData
         public float patrolSpeed = 1.4f;
         [Tooltip("Seconds after a fight before the patrol comes back.")]
         public int respawnSeconds = 20;
-        [Tooltip("Spawn only the first monster plus one per wizard (good for bosses with adds).")]
+        [Tooltip("Boss fights (first monster a boss): the boss plus one follower per wizard. (Other street fights start with " +
+                 "only the monster that was run into; more join as they're run into or wander into the circle, up to the " +
+                 "roster's size.)")]
         public bool scaleWithParty;
-        [Tooltip("Even fight, for new players' areas: the fight starts with only the monster that was touched. Each extra " +
-                 "wizard lets one more patrol monster join when it reaches the circle; other patrol monsters that reach the " +
-                 "circle fade away. (Overrides Scale With Party.)")]
+        [Tooltip("Even fight, for new players' areas: at most one monster per wizard. Patrol monsters that reach the circle " +
+                 "join only while a wizard is unmatched; others fade away. (Overrides Scale With Party.)")]
         public bool evenFight;
         [Tooltip("How many duels this group can have going at once (each is its own ring). Wizards who run into one of its " +
                  "monsters join a fight of the group's nearby with a free seat, or start another at the nearest free ring.")]

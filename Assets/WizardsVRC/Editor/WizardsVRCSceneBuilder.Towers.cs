@@ -138,6 +138,12 @@ namespace WizardsVRC.EditorTools
                 new[] { elite, hi, mid, hi },
                 new[] { boss, elite, hi, mid },
             };
+            // No wave bigger than the street's biggest encounter (Lantern Row: two).
+            int most = 1;
+            foreach (var e in z.encounters) if (e != null && e.roster != null) most = Mathf.Max(most, e.roster.Count);
+            most = Mathf.Clamp(most, 2, BattleManager.SIDE);
+            for (int r = 0; r < rosters.Count; r++)
+                if (rosters[r].Length > most) { var cut = new int[most]; System.Array.Copy(rosters[r], cut, most); rosters[r] = cut; }
             var lines = new[]
             {
                 "Another little wizard comes knocking at " + towerName + "? Turn back while you still can!",
