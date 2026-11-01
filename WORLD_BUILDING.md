@@ -140,10 +140,11 @@ about 3 seconds (`BattleManager.startGraceSeconds`) so everyone starts together.
 sits out the round they arrive in and can't be targeted until they're in. **A fight starts with only the monster you ran
 into** (run into two at once and both come). Only it leaves its patrol (it comes back *Respawn Seconds* after the fight);
 the rest keep walking. A patrol monster that wanders into the circle during the fight takes a free monster seat and joins
-from the start of the next round; the fight never holds more monsters than the encounter's roster (four at most). With
+from the start of the next round. The fight's limit is the encounter's roster size **plus one for every extra wizard**
+(four seats at most): Lantern Row's two-monster groups can grow to three monsters for two wizards, four for three. With
 no seat free it walks on through, out of sight. **Boss fights** (the encounter's first monster is a boss) go by party
-size instead: a solo wizard fights the boss alone, two wizards fight the boss and one follower, and so on, up to the
-encounter's roster; a wizard who walks in mid-fight brings one more follower. This holds everywhere there's a boss: the
+size instead: a solo wizard fights the boss alone, two wizards fight the boss and one follower, and so on (followers
+repeat if the roster runs out, never a second boss); a wizard who walks in mid-fight brings one more follower. This holds everywhere there's a boss: the
 streets, the boss towers' top floors, the Kraken and the boss arena. Running into one of them
 while the group is fighting pulls you into the group's fight if its ring is close (about 30 m) and has a free seat, and
 the monster you ran into joins that fight with you (if a monster seat is free; in an even fight, if a wizard is

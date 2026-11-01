@@ -95,6 +95,9 @@ namespace WizardsVRC
         [Header("Encounter")]
         [Tooltip("Monster ids (CardDatabase monster table) in this fight; roster[0] takes the boss seat.")]
         public int[] roster = { 1, 2, 2, 2 };
+        [Tooltip("How many monsters the encounter has for a solo wizard (the roster may be padded out to four seats with more " +
+                 "of its followers). The fight's limit is this plus one per extra wizard, never more than four. 0 = the roster's length.")]
+        public int rosterSize;
         [Tooltip("Spawn roster[0] plus one more monster per wizard (the Training Yard boss fight) instead of the whole roster.")]
         public bool scaleRosterWithParty = true;
         [Tooltip("Wandering-monster lane: fights start when a wizard touches a monster and the party sits down at once.")]
@@ -696,7 +699,11 @@ namespace WizardsVRC
                     if (EvenMonsterCount() < EvenWizardCount() && !AnyWandererLeft()) AddMonster(NextRosterMonster());
                 }
                 // A boss fight: each wizard who joins brings in one more of the boss's followers (up to its roster).
-                if (!evenFight && IsBossFight() && FollowerCount() < WizardCount() && MonsterSeatFree()) AddMonster(NextRosterMonster());
+                if (!evenFight && IsBossFight() && FollowerCount() < WizardCount() && MonsterSeatFree())
+                {
+                    int follower = NextRosterMonster();
+                    if (follower != roster[0]) AddMonster(follower);   // never a second boss
+                }
                 if (!evenFight && touched && MonsterSeatFree())
                 {
                     wandererGone |= 1 << wanderer;
@@ -728,13 +735,26 @@ namespace WizardsVRC
             return n;
         }
 
+        /// <summary>The encounter's size for a solo wizard (rosterSize, or the roster's length).</summary>
+        private int BaseSize()
+        {
+            int len = roster == null ? 0 : roster.Length;
+            return Mathf.Max(1, rosterSize > 0 ? Mathf.Min(rosterSize, len > 0 ? len : rosterSize) : len);
+        }
+
+        /// <summary>The most monsters this fight may hold now: the encounter's size plus one per extra wizard, at most four.</summary>
+        private int MonsterCap()
+        {
+            return Mathf.Min(SIDE, BaseSize() + Mathf.Max(0, WizardCount() - 1));
+        }
+
         /// <summary>
-        /// A monster seat is free for one more of the group's monsters: the fight holds at most as many monsters as the
-        /// encounter's roster (its own followers and summons aside), and never more than the four seats.
+        /// A monster seat is free for one more of the group's monsters: the fight holds at most the encounter's size plus
+        /// one per extra wizard (summons aside), and never more than the four seats.
         /// </summary>
         private bool MonsterSeatFree()
         {
-            int cap = roster == null || roster.Length == 0 ? SIDE : Mathf.Min(roster.Length, SIDE);
+            int cap = MonsterCap();
             int n = 0;
             bool free = false;
             for (int s = SIDE; s < SLOTS; s++)
@@ -1026,7 +1046,9 @@ namespace WizardsVRC
             if (_startWanderer >= 0 && _startWanderer < 31) wandererGone |= 1 << _startWanderer;
             int count = roster == null ? 0 : Mathf.Min(roster.Length, SIDE);
             bool bossFight = IsBossFight();
-            // Bosses: a solo wizard faces the boss alone; each extra wizard brings one of its followers (up to its roster).
+            // The limit grows by one per extra wizard: the encounter's size plus (wizards - 1), at most the four seats.
+            count = Mathf.Min(count, BaseSize() + n - 1);
+            // Bosses: a solo wizard faces the boss alone; each extra wizard brings one of its followers.
             if (bossFight) count = Mathf.Min(count, n);
             else if (scaleRosterWithParty) count = Mathf.Min(count, 1 + n);
             if (wanderMode && !bossFight && count > 0)

@@ -1298,7 +1298,10 @@ namespace WizardsVRC.EditorTools
             var client = UdonSharpUndo.AddComponent<BattleClient>(Child(holder, "BattleClient", Vector3.zero).gameObject);
             manager.cardDatabase = cardDb;
             manager.client = client;
-            manager.roster = roster;
+            // The roster is padded out to all four monster seats with more of its followers (every seat then has a body to
+            // show), and rosterSize keeps the encounter's own size: the fight's limit is that plus one per extra wizard.
+            manager.rosterSize = roster != null ? roster.Length : 0;
+            manager.roster = PadRoster(roster, cardDb);
             manager.wanderMode = wander;
             manager.scaleRosterWithParty = !wander;
             client.manager = manager;
@@ -1308,6 +1311,22 @@ namespace WizardsVRC.EditorTools
             client.hubReturn = hubReturn;
             all.Add(client);
             return client;
+        }
+
+        /// <summary>
+        /// The roster filled out to four entries by repeating its followers (everything after a boss; everything for a
+        /// plain group). A boss alone has nothing to repeat and stays as it is.
+        /// </summary>
+        private static int[] PadRoster(int[] roster, CardDatabase db)
+        {
+            if (roster == null || roster.Length == 0 || roster.Length >= BattleManager.SIDE) return roster;
+            bool boss = db != null && db.IsBossMonster(roster[0]);
+            int from = boss ? 1 : 0;
+            if (roster.Length - from <= 0) return roster;
+            var padded = new int[BattleManager.SIDE];
+            for (int i = 0; i < padded.Length; i++)
+                padded[i] = i < roster.Length ? roster[i] : roster[from + (i - roster.Length) % (roster.Length - from)];
+            return padded;
         }
 
         private static void BuildArena(BattleClient client, BattleClient[] lanes)
