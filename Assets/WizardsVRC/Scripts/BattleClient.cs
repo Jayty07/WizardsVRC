@@ -2347,7 +2347,7 @@ namespace WizardsVRC
                 if (cardFaces != null && i < cardFaces.Length && cardFaces[i] != null)
                     cardFaces[i].color = usable || _discardMode ? _faceOn : _faceOff;
                 cardNames[i].text = cardDatabase.GetName(card);
-                cardInfos[i].text = cardDatabase.GetEffectText(card);
+                cardInfos[i].text = cardDatabase.GetCardText(card);
                 if (cardPips != null && i < cardPips.Length && cardPips[i] != null) cardPips[i].text = cardDatabase.GetPipCost(card).ToString();
                 if (cardAccuracies != null && i < cardAccuracies.Length && cardAccuracies[i] != null) cardAccuracies[i].text = cardDatabase.GetAccuracy(card).ToString() + "%";
                 if (cardSchools != null && i < cardSchools.Length && cardSchools[i] != null) cardSchools[i].text = cardDatabase.SchoolName(cardDatabase.GetSchool(card));

@@ -19,7 +19,9 @@ def read_glyphs():
     glyphs, cur, rows = {}, None, []
     for raw in open(SRC, encoding='utf-8').read().splitlines():
         line = raw.rstrip('\r \t')
-        if cur is None and line.startswith('#'):
+        # Comments start with '#' and have a space in them (glyph rows are only '#' and '.'), so they may sit
+        # between glyphs too.
+        if line.startswith('#') and (cur is None or ' ' in line):
             continue
         if len(line) == 2 and line[0] == ':':
             if cur is not None:

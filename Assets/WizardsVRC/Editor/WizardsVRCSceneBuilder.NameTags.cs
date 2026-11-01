@@ -138,7 +138,7 @@ namespace WizardsVRC.EditorTools
             foreach (string raw in File.ReadAllLines(NameFontPath))
             {
                 string line = raw.TrimEnd('\r', ' ', '\t');
-                if (cur == '\0' && line.StartsWith("#")) continue; // header comments (glyph rows also start with '#')
+                if (line.StartsWith("#") && (cur == '\0' || line.IndexOf(' ') >= 0)) continue; // comments (glyph rows are only # and ., no spaces)
                 if (line.Length == 2 && line[0] == ':')
                 {
                     if (cur != '\0') AddGlyph(cur, rows);

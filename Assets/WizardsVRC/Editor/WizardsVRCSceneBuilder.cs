@@ -1767,10 +1767,14 @@ namespace WizardsVRC.EditorTools
                 client.cardArts[i] = art;
                 client.cardAccuracies[i] = CardText(brt, "Accuracy", new Vector2(-60, -21), new Vector2(54, 26), 13, TextAnchor.MiddleCenter, ink);
                 client.cardAccuracies[i].fontStyle = FontStyle.Bold;
-                Text info = CardText(brt, "Info", new Vector2(0, -66), new Vector2(150, 64), 13, TextAnchor.UpperCenter, ink);
+                // Short text with icons (CardDatabase.GetCardText). Truncate, not overflow, so best fit really shrinks it
+                // to the parchment (with overflow on, Unity lets it run off the card instead).
+                Text info = CardText(brt, "Info", new Vector2(0, -66), new Vector2(156, 56), 14, TextAnchor.MiddleCenter, ink);
                 info.resizeTextForBestFit = true;
-                info.resizeTextMinSize = 9;
-                info.resizeTextMaxSize = 13;
+                info.resizeTextMinSize = 8;
+                info.resizeTextMaxSize = 14;
+                info.verticalOverflow = VerticalWrapMode.Truncate;
+                info.lineSpacing = 0.9f;
                 client.cardInfos[i] = info;
                 client.cardSchools[i] = CardText(brt, "School", new Vector2(0, -106), new Vector2(140, 20), 12, TextAnchor.MiddleCenter, new Color(0.62f, 0.52f, 0.36f));
                 AddHoverEvents(b, target, "HoverCard" + i, "UnhoverCard" + i);

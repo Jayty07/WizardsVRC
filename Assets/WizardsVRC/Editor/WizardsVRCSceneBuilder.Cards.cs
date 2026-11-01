@@ -76,11 +76,30 @@ namespace WizardsVRC.EditorTools
             {
                 p.accuracy = CardText(rt, "Accuracy", new Vector2(-60, -21), new Vector2(54, 26), 13, TextAnchor.MiddleCenter, ink);
                 p.accuracy.fontStyle = FontStyle.Bold;
-                p.info = CardText(rt, "Info", new Vector2(0, -66), new Vector2(150, 64), 13, TextAnchor.UpperCenter, ink);
+                // Short text with icons (CardDatabase.GetCardText). Truncate, not overflow, so best fit really shrinks it
+                // to the parchment (with overflow on, Unity lets it run off the card instead).
+                p.info = CardText(rt, "Info", new Vector2(0, -66), new Vector2(156, 56), 14, TextAnchor.MiddleCenter, ink);
                 p.info.resizeTextForBestFit = true;
                 p.info.resizeTextMinSize = 8;
-                p.info.resizeTextMaxSize = 13;
+                p.info.resizeTextMaxSize = 14;
+                p.info.verticalOverflow = VerticalWrapMode.Truncate;
+                p.info.lineSpacing = 0.9f;
                 p.school = CardText(rt, "School", new Vector2(0, -106), new Vector2(140, 20), 12, TextAnchor.MiddleCenter, new Color(0.62f, 0.52f, 0.36f));
+            }
+            // The same pixel font as the cards in your hand (it has the school and effect icons the card text uses), drawn
+            // crisply by the canvas the card sits on.
+            Font pixel = PixelFont();
+            if (pixel != null)
+            {
+                foreach (var t in go.GetComponentsInChildren<Text>(true)) t.font = pixel;
+                Canvas canvas = parent.GetComponentInParent<Canvas>(true);
+                if (canvas != null)
+                {
+                    Canvas top = canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
+                    var scaler = top.renderMode == RenderMode.WorldSpace ? top.GetComponent<CanvasScaler>() : null;
+                    if (top.renderMode == RenderMode.WorldSpace && scaler == null) scaler = top.gameObject.AddComponent<CanvasScaler>();
+                    if (scaler != null) scaler.dynamicPixelsPerUnit = Mathf.Max(scaler.dynamicPixelsPerUnit, PixelFontDensity);
+                }
             }
             return p;
         }

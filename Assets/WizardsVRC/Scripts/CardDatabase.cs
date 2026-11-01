@@ -464,7 +464,7 @@ namespace WizardsVRC
                 if (art.gameObject.activeSelf != (t != null)) art.gameObject.SetActive(t != null);
             }
             if (accuracy != null) accuracy.text = GetAccuracy(cardId).ToString() + "%";
-            if (info != null) info.text = GetEffectText(cardId);
+            if (info != null) info.text = GetCardText(cardId);
             if (school != null) school.text = SchoolName(GetSchool(cardId));
         }
 
@@ -487,6 +487,104 @@ namespace WizardsVRC
         public int LearnCost(CharacterData c, int cardId)
         {
             return c != null && GetSchool(cardId) == (int)c.school ? 0 : 1;
+        }
+
+        // ------------------------------------------------------------------ card text with icons
+        // Glyphs U+E010-U+E01B in the combat pixel font (Fonts/PsxNameFont.txt): damage, shield, blade, trap, heal,
+        // stun, over time, accuracy, minion, break, any school, pips. On the cards they're coloured dark enough to read
+        // on the parchment; school icons there use deeper copies of the school colours for the same reason.
+        public const int ICON_DAMAGE = 0;
+        public const int ICON_SHIELD = 1;
+        public const int ICON_BLADE = 2;
+        public const int ICON_TRAP = 3;
+        public const int ICON_HEAL = 4;
+        public const int ICON_STUN = 5;
+        public const int ICON_DOT = 6;
+        public const int ICON_ACCURACY = 7;
+        public const int ICON_MINION = 8;
+        public const int ICON_BREAK = 9;
+        public const int ICON_ANY = 10;
+        public const int ICON_PIP = 11;
+        private string[] _iconGlyphs = { "\uE010", "\uE011", "\uE012", "\uE013", "\uE014", "\uE015", "\uE016", "\uE017", "\uE018", "\uE019", "\uE01A", "\uE01B" };
+        private string[] _iconHex = { "#B3261E", "#1F6FC2", "#C47A00", "#7B3BA8", "#2A8A3A", "#C99700", "#C2560F", "#3A4A5C", "#6B4A2E", "#5A5A5A", "#A07818", "#2D7FB0" };
+        private string[] _cardSchoolHex = { "#D2401A", "#2585BF", "#7438C8", "#2E9638", "#5B4F72", "#B88A0A", "#9E6234" };
+
+        /// <summary>An effect icon as rich text (its glyph in its card colour).</summary>
+        public string Icon(int icon)
+        {
+            if (icon < 0 || icon >= _iconGlyphs.Length) return "";
+            return "<color=" + _iconHex[icon] + ">" + _iconGlyphs[icon] + "</color>";
+        }
+
+        /// <summary>A school's icon for card text (deeper colour, for the parchment); any school shows a sparkle.</summary>
+        public string CardSchoolIcon(int school)
+        {
+            if (school < 0 || school >= _schoolIconGlyphs.Length) return Icon(ICON_ANY);
+            return "<color=" + _cardSchoolHex[school] + ">" + _schoolIconGlyphs[school] + "</color>";
+        }
+
+        private string Num(string n) { return "<b>" + n + "</b>"; }
+
+        /// <summary>
+        /// The short text on a card's face, Wizard101 style: numbers with school and effect icons, a few words at most,
+        /// so it always fits the parchment (the details box keeps the full sentence, GetEffectText).
+        /// </summary>
+        public string GetCardText(int cardId)
+        {
+            int i = IndexOf(cardId);
+            if (i < 0) return "";
+            int p = powers[i];
+            int x = aux[i];
+            int sc = schools[i];
+            string range = Num(powerMax[i] > p ? p.ToString() + "-" + powerMax[i].ToString() : p.ToString());
+            string all = aoe[i] != 0 ? " all" : "";
+            string hit = range + " " + CardSchoolIcon(sc) + Icon(ICON_DAMAGE) + all;
+            string pierce = x > 0 ? "\nIgnores " + Num(x.ToString() + "%") + " " + Icon(ICON_SHIELD) : "";
+            switch (effects[i])
+            {
+                case EFFECT_DAMAGE: return hit + pierce;
+                case EFFECT_DOT:
+                    return (p > 0 ? hit + "\n+ " : "") + Num(x.ToString()) + " " + CardSchoolIcon(sc) + Icon(ICON_DOT) + all + " over " + DOT_ROUNDS.ToString() + " rounds";
+                case EFFECT_DETONATE: return "Set off " + Icon(ICON_DOT) + " burns\n" + Num("+" + p.ToString() + "%") + " " + Icon(ICON_DAMAGE);
+                case EFFECT_TAUNT:
+                    return "Taunt " + Num(x.ToString()) + " rounds\n" + Num("-" + p.ToString() + "%") + " " + Icon(ICON_ANY) + Icon(ICON_SHIELD);
+                case EFFECT_STUN: return hit + "\n" + Icon(ICON_STUN) + " Stun" + (x > 0 ? ", ignores " + Num(x.ToString() + "%") + " " + Icon(ICON_SHIELD) : "");
+                case EFFECT_SHATTER: return Icon(ICON_BREAK) + " all " + Icon(ICON_SHIELD) + "\nthen " + hit;
+                case EFFECT_DISPEL: return Icon(ICON_BREAK) + " all " + Icon(ICON_SHIELD) + Icon(ICON_BLADE) + (aoe[i] != 0 ? " on all" : "");
+                case EFFECT_MINION:
+                    return Icon(ICON_MINION) + " " + CardSchoolIcon(sc) + " minion\n" + Num(p.ToString()) + " " + Icon(ICON_HEAL) + "  " + Num(x.ToString()) + " " + Icon(ICON_DAMAGE);
+                case EFFECT_HEAL: return Num(p.ToString()) + " " + Icon(ICON_HEAL) + (aoe[i] != 0 ? " all allies" : "");
+                case EFFECT_SELFHEAL: return Num(p.ToString()) + " " + Icon(ICON_HEAL) + " self";
+                case EFFECT_WARD: return Num("-" + p.ToString() + "%") + " " + CardSchoolIcon(ShieldSchool(cardId)) + Icon(ICON_SHIELD);
+                case EFFECT_MULTIWARD:
+                    return Num(x.ToString()) + " x " + Num("-" + p.ToString() + "%") + " " + CardSchoolIcon(ShieldSchool(cardId)) + Icon(ICON_SHIELD);
+                case EFFECT_EMPOWER: return Num("+" + p.ToString() + "%") + " " + CardSchoolIcon(BladeSchool(cardId)) + Icon(ICON_BLADE);
+                case EFFECT_TRAP: return Num("+" + p.ToString() + "%") + " " + CardSchoolIcon(TrapSchool(cardId)) + Icon(ICON_TRAP);
+                case EFFECT_TRIBLADE:
+                case EFFECT_TRISHIELD:
+                case EFFECT_TRITRAP:
+                {
+                    int f = TriBladeFirstSchool(cardId);
+                    int e = effects[i];
+                    string three = CardSchoolIcon(f) + CardSchoolIcon(f + 1) + CardSchoolIcon(f + 2);
+                    if (e == EFFECT_TRISHIELD) return Num("-" + p.ToString() + "%") + " " + three + Icon(ICON_SHIELD);
+                    if (e == EFFECT_TRITRAP) return Num("+" + p.ToString() + "%") + " " + three + Icon(ICON_TRAP);
+                    return Num("+" + p.ToString() + "%") + " " + three + Icon(ICON_BLADE);
+                }
+                case EFFECT_DRAIN: return hit + "\n" + Num((x > 0 ? x : 50).ToString() + "%") + " " + Icon(ICON_HEAL) + " to you";
+                case EFFECT_FOCUS: return Num("+" + p.ToString() + "%") + " " + Icon(ICON_ACCURACY) + " next spell";
+                case EFFECT_STRIKEFX:
+                {
+                    int kind = x / 1000, pct = x % 1000;
+                    if (kind == 0) return hit + "\n" + Num("-" + pct.ToString() + "%") + " " + Icon(ICON_ANY) + Icon(ICON_SHIELD) + " on you";
+                    if (kind == 1) return hit + "\n" + Num("+" + pct.ToString() + "%") + " " + CardSchoolIcon(sc) + Icon(ICON_BLADE) + " on you";
+                    return hit + "\n" + Num("+" + pct.ToString() + "%") + " " + CardSchoolIcon(sc) + Icon(ICON_TRAP) + " on them";
+                }
+                case EFFECT_CURSE:
+                    return Num("+" + p.ToString() + "%") + " " + Icon(ICON_ANY) + Icon(ICON_TRAP) + " on them\n" + Num("+" + x.ToString() + "%") + " " + Icon(ICON_ANY) + Icon(ICON_TRAP) + " on you";
+                case EFFECT_HEALBLADE: return Num("+" + p.ToString() + "%") + " " + Icon(ICON_HEAL) + Icon(ICON_BLADE) + " next heal";
+                default: return "";
+            }
         }
 
         private const string StackNote = "Copies of the same spell don't stack; different ones do.";
