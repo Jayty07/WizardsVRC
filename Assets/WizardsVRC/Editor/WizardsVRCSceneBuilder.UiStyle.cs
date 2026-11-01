@@ -97,6 +97,45 @@ namespace WizardsVRC.EditorTools
             return fill_rt;
         }
 
+        // ================================================================== flourishes
+
+        /// <summary>A title on a carved gold-rimmed board (SignBoard, 9-sliced), tinted; the text in gold with an outline.</summary>
+        private static Text TitlePlate(Transform parent, string name, Vector2 pos, Vector2 size, string text, Color tint, int fontSize)
+        {
+            Image board = UiImage(parent, name, pos, size, "SignBoard", tint, 2f);
+            board.raycastTarget = false;
+            Text t = Label(board.transform, "Text", new Vector2(0, 2), size, text, fontSize, TextAnchor.MiddleCenter);
+            t.color = new Color(1f, 0.9f, 0.55f);
+            t.gameObject.AddComponent<Outline>().effectColor = new Color(0.1f, 0.06f, 0.04f, 0.95f);
+            return t;
+        }
+
+        /// <summary>A thin gold rule with a gem in the middle and one at each end, to split a panel into parts.</summary>
+        private static void GoldRule(Transform parent, string name, Vector2 pos, float width)
+        {
+            Color gold = new Color(0.95f, 0.75f, 0.3f);
+            Panel(parent, name, pos, new Vector2(width, 4f), gold).GetComponent<Image>().raycastTarget = false;
+            Panel(parent, name + "Shade", pos + new Vector2(0, -3f), new Vector2(width, 2f), new Color(0.25f, 0.15f, 0.08f, 0.9f)).GetComponent<Image>().raycastTarget = false;
+            foreach (float x in new[] { -width / 2f, 0f, width / 2f })
+            {
+                RectTransform gem = Panel(parent, name + "Gem", pos + new Vector2(x, 0), new Vector2(x == 0f ? 16f : 10f, x == 0f ? 16f : 10f), gold);
+                gem.localRotation = Quaternion.Euler(0, 0, 45f);
+                gem.GetComponent<Image>().raycastTarget = false;
+            }
+        }
+
+        /// <summary>
+        /// A panel's backing as an image right behind the existing children (sibling index 'index'), so it can be added
+        /// after the parts it sits behind.
+        /// </summary>
+        private static Image BackPanel(Transform parent, string name, Vector2 pos, Vector2 size, string sprite, Color tint, float pixelScale, int index)
+        {
+            Image img = UiImage(parent, name, pos, size, sprite, tint, pixelScale);
+            img.raycastTarget = false;
+            img.transform.SetSiblingIndex(index);
+            return img;
+        }
+
         // ================================================================== player HUD
 
         private static void BuildHud(PlayerHUD hud)

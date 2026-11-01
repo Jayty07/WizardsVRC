@@ -30,7 +30,8 @@ namespace WizardsVRC.EditorTools
             RectTransform pr = (RectTransform)popupGo.transform;
             UdonBehaviour popupTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(popup);
             Panel(pr, "Background", Vector2.zero, new Vector2(900, 700), new Color(0.12f, 0.09f, 0.2f, 0.96f));
-            Label(pr, "Header", new Vector2(0, 300), new Vector2(860, 70), "NEW SPELL!", 52, TextAnchor.MiddleCenter).color = new Color(1f, 0.85f, 0.35f);
+            TitlePlate(pr, "Header", new Vector2(0, 295), new Vector2(560, 96), "NEW SPELL!", Color.white, 52);
+            GoldRule(pr, "HeaderRule", new Vector2(0, 228), 780f);
             // The new spell as a card, with the same art as in battle.
             var card = CardFace(pr, "Card", new Vector2(-220, -10), 1.7f, false, null, null);
             popup.cardFrame = card.frame;
@@ -42,6 +43,7 @@ namespace WizardsVRC.EditorTools
             popup.cardEffect = card.info;
             popup.congratsLabel = Label(pr, "Congrats", new Vector2(190, 40), new Vector2(440, 300), "", 30, TextAnchor.MiddleLeft);
             Button(pr, "OK", new Vector2(190, -220), new Vector2(240, 80), "OK", TrainerButton, popupTarget, nameof(NewSpellPopup.Hide));
+            ApplyCombatFont(pr);
             popupGo.SetActive(false);
             list.Add(popup);
 
@@ -60,9 +62,13 @@ namespace WizardsVRC.EditorTools
             RectTransform tr = (RectTransform)tGo.transform;
             UdonBehaviour tTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(trainer);
             Panel(tr, "Background", Vector2.zero, new Vector2(1400, 1000), TrainerBg);
-            trainer.titleLabel = Label(tr, "Title", new Vector2(0, 430), new Vector2(1300, 110), "", 40, TextAnchor.MiddleCenter);
-            trainer.titleLabel.color = new Color(1f, 0.85f, 0.4f);
-            trainer.pointsLabel = Label(tr, "Points", new Vector2(0, 350), new Vector2(1300, 45), "", 28, TextAnchor.MiddleCenter);
+            // The professor's name on a carved board, the training points under it, a gold rule, then the spells on a
+            // parchment shelf (left) and the chosen spell on a framed plate (right).
+            trainer.titleLabel = TitlePlate(tr, "Title", new Vector2(0, 432), new Vector2(1000, 104), "", Color.white, 38);
+            trainer.pointsLabel = Label(tr, "Points", new Vector2(0, 358), new Vector2(1300, 45), "", 28, TextAnchor.MiddleCenter);
+            trainer.pointsLabel.color = new Color(0.75f, 0.9f, 1f);
+            GoldRule(tr, "TitleRule", new Vector2(0, 322), 1280f);
+            BackPanel(tr, "SpellShelf", new Vector2(-418, -40), new Vector2(570, 690), "PanelParchment", new Color(0.92f, 0.86f, 0.74f), 3f, 1);
 
             // The school's spells as cards (the same art as in battle), four to a row, each with its status under it:
             // greyed out until you can learn it, highlighted when picked.
@@ -109,6 +115,7 @@ namespace WizardsVRC.EditorTools
             trainer.statusLabel = Label(tr, "Status", new Vector2(345, -320), new Vector2(620, 60), "", 26, TextAnchor.MiddleCenter);
             trainer.statusLabel.color = new Color(1f, 0.6f, 0.5f);
             Button(tr, "Close", new Vector2(345, -420), new Vector2(240, 75), "Close", new Color(0.45f, 0.25f, 0.2f), tTarget, nameof(SpellTrainer.Close));
+            ApplyCombatFont(tr);
             tGo.SetActive(false);
             list.Add(trainer);
 
@@ -121,8 +128,7 @@ namespace WizardsVRC.EditorTools
             RectTransform mr = (RectTransform)mGo.transform;
             UdonBehaviour mTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(menu);
             Panel(mr, "Background", Vector2.zero, new Vector2(600, 520), TrainerBg);
-            menu.titleLabel = Label(mr, "Title", new Vector2(0, 205), new Vector2(560, 90), "", 30, TextAnchor.MiddleCenter);
-            menu.titleLabel.color = new Color(1f, 0.85f, 0.4f);
+            menu.titleLabel = TitlePlate(mr, "Title", new Vector2(0, 205), new Vector2(520, 90), "", Color.white, 30);
             int n = InteractionMenu.MAX_OPTIONS;
             menu.optionButtons = new GameObject[n];
             menu.optionLabels = new Text[n];
@@ -133,6 +139,7 @@ namespace WizardsVRC.EditorTools
                 menu.optionLabels[i] = b.GetComponentInChildren<Text>();
             }
             Button(mr, "Leave", new Vector2(0, -215), new Vector2(300, 60), "Leave", new Color(0.45f, 0.25f, 0.2f), mTarget, nameof(InteractionMenu.Close));
+            ApplyCombatFont(mr);
             mGo.SetActive(false);
             list.Add(menu);
             return list;

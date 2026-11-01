@@ -90,6 +90,10 @@ namespace WizardsVRC
         public float engageRadius = 14f;
         public Transform clockHand;
         public Text clockLabel;
+        [Tooltip("The clock dial set into the ring (DuelClock shader): its rim of segments shows the time left to choose.")]
+        public Renderer clockFace;
+        private Material _clockMat;
+        private float _clockShown = -1f;
         [Tooltip("One glowing ring per seat, coloured by the school of whoever sits there.")]
         public Renderer[] seatRings;
         [Tooltip("Indexed by School.")]
@@ -2230,6 +2234,16 @@ namespace WizardsVRC
                 target = 0f;
                 label = phase == BattleManager.PHASE_JOINING ? "Battle!" : "";
             }
+            // The dial's rim: full while the turn plays out, draining as the planning time runs down, dark when idle.
+            float remaining = phase == BattleManager.PHASE_PLANNING
+                ? Mathf.Clamp01((manager.phaseEndMs - manager.Now()) / (manager.planningSeconds * 1000f))
+                : 1f;
+            if (clockFace != null && Mathf.Abs(remaining - _clockShown) > 0.002f)
+            {
+                if (_clockMat == null) _clockMat = clockFace.material;   // this client's own copy
+                _clockMat.SetFloat("_Remaining", remaining);
+                _clockShown = remaining;
+            }
             Quaternion want = Quaternion.Euler(0f, target, 0f);
             clockHand.localRotation = phase == BattleManager.PHASE_PLANNING ? want : Quaternion.RotateTowards(clockHand.localRotation, want, 540f * Time.deltaTime);
             if (clockLabel != null) clockLabel.text = label;
@@ -2267,6 +2281,7 @@ namespace WizardsVRC
         {
             AnimateSeatGlows();
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); AnimateCircle(); AnimatePips(); AnimateGauges(); }
+            else if (_clockMat != null && _clockShown != 1f) { _clockMat.SetFloat("_Remaining", 1f); _clockShown = 1f; }   // idle ring: the dial at rest, full
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) FaceViewer();
             AnimateFlash();
             AnimateDefeats();
@@ -2449,7 +2464,7 @@ namespace WizardsVRC
                 targetButtons[t].SetActive(show);
                 if (show) targetLabels[t].text = manager.SlotName(t) + "\n" + _shownHp[t].ToString() + " / " + manager.maxHp[t].ToString();
             }
-            if (potionLabel != null) potionLabel.text = "Potion (" + CountPotions().ToString() + ")";
+            if (potionLabel != null) potionLabel.text = "\uE014 Potion (" + CountPotions().ToString() + ")";
             if (discardImage != null) discardImage.color = _discardMode ? new Color(0.8f, 0.55f, 0.2f) : new Color(0.4f, 0.3f, 0.25f);
             if (statusLabel != null) statusLabel.text = StatusText();
         }

@@ -1210,10 +1210,9 @@ namespace WizardsVRC.EditorTools
             int slots = BattleManager.SLOTS;
             client.seatGlows = new Renderer[slots];
             client.seatPickers = new GameObject[slots];
-            Texture2D ally = PixelTexture(TexturesDir + "/UI/SeatGlowAlly.png");
-            Texture2D enemy = PixelTexture(TexturesDir + "/UI/SeatGlowEnemy.png");
-            client.seatGlowAllyMat = CutoutMat("SeatGlowAlly", ally, Color.white, new Color(0.4f, 1f, 0.45f) * 1.6f);
-            client.seatGlowEnemyMat = CutoutMat("SeatGlowEnemy", enemy, Color.white, new Color(1f, 0.3f, 0.25f) * 1.6f);
+            // Unlit and additive: they glow over the ring's art whatever the light.
+            client.seatGlowAllyMat = SpriteQuadMat("SeatGlowAlly", "SeatGlowAlly", true);
+            client.seatGlowEnemyMat = SpriteQuadMat("SeatGlowEnemy", "SeatGlowEnemy", true);
             UdonSharpBehaviour target = client;
             for (int s = 0; s < slots; s++)
             {
@@ -1243,6 +1242,35 @@ namespace WizardsVRC.EditorTools
                 pick.SetActive(false);
                 client.seatPickers[s] = pick;
             }
+        }
+
+        /// <summary>The duel clock's dial material (each client makes its own copy at runtime to set the time left on).</summary>
+        private static Material DuelClockMat()
+        {
+            string path = MaterialsDir + "/DuelClock.mat";
+            Shader sh = Shader.Find("WizardsVRC/DuelClock");
+            if (sh == null) sh = Shader.Find("Unlit/Transparent Cutout");
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null) { mat = new Material(sh); AssetDatabase.CreateAsset(mat, path); }
+            mat.shader = sh;
+            mat.mainTexture = PixelTexture(TexturesDir + "/DuelClock.png");
+            if (mat.HasProperty("_Cutoff")) mat.SetFloat("_Cutoff", 0.5f);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        /// <summary>An unlit cut-out material for a texture (flat art on the ground that shouldn't take the light).</summary>
+        private static Material UnlitCutoutMat(string name, Texture2D tex)
+        {
+            string path = MaterialsDir + "/" + name + ".mat";
+            Shader sh = Shader.Find("Unlit/Transparent Cutout");
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null) { mat = new Material(sh); AssetDatabase.CreateAsset(mat, path); }
+            mat.shader = sh;
+            mat.mainTexture = tex;
+            mat.SetFloat("_Cutoff", 0.5f);
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         /// <summary>A flat textured quad lying on the ground (texture top = +Z).</summary>
@@ -1344,32 +1372,15 @@ namespace WizardsVRC.EditorTools
             client.arenaCenter = clock;
             clock.localScale = Vector3.one * 1.5f;
             client.engageRadius = DuelCircleRadius + 5f;
-            var face = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            face.name = "Face";
-            face.transform.SetParent(clock, false);
-            face.transform.localPosition = new Vector3(0, 0.03f, 0);
-            face.transform.localScale = new Vector3(1.6f, 0.03f, 1.6f);
-            face.GetComponent<Renderer>().sharedMaterial = Mat("ClockFace", new Color(0.15f, 0.13f, 0.22f));
-            Object.DestroyImmediate(face.GetComponent<Collider>());
-            for (int k = 0; k < 12; k++)
-            {
-                var tick = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                tick.name = "Tick" + k;
-                tick.transform.SetParent(clock, false);
-                tick.transform.localRotation = Quaternion.Euler(0, k * 30f, 0);
-                tick.transform.localPosition = tick.transform.localRotation * new Vector3(0, 0.07f, 0.68f);
-                tick.transform.localScale = new Vector3(0.04f, 0.03f, k % 3 == 0 ? 0.16f : 0.08f);
-                tick.GetComponent<Renderer>().sharedMaterial = ringMat;
-                Object.DestroyImmediate(tick.GetComponent<Collider>());
-            }
-            var hand = Child(clock, "Hand", new Vector3(0, 0.09f, 0));
-            var needle = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            needle.name = "Needle";
-            needle.transform.SetParent(hand, false);
-            needle.transform.localPosition = new Vector3(0, 0, 0.3f);
-            needle.transform.localScale = new Vector3(0.07f, 0.04f, 0.6f);
-            needle.GetComponent<Renderer>().sharedMaterial = ringMat;
-            Object.DestroyImmediate(needle.GetComponent<Collider>());
+            // The clock is set into the floor art: a dial whose rim of rune segments goes dark as the planning time runs
+            // out (gold, then red and pulsing near the end; WizardsVRC/DuelClock shader), and a gold hand that sweeps the
+            // timer, then points at each caster in turn.
+            var dialMat = DuelClockMat();
+            GameObject dial = FlatDecal(clock, "ClockDial", new Vector3(0, 0.02f, 0), 2.6f, dialMat);
+            dial.isStatic = false;
+            client.clockFace = dial.GetComponent<Renderer>();
+            var hand = Child(clock, "Hand", new Vector3(0, 0.035f, 0));
+            FlatDecal(hand, "HandSprite", Vector3.zero, 2.6f, UnlitCutoutMat("DuelClockHand", PixelTexture(TexturesDir + "/DuelClockHand.png"))).isStatic = false;
             client.clockHand = hand;
             client.clockLabel = WorldText(ring.transform, "ClockLabel", new Vector3(0, 1.1f, 0), Quaternion.identity, new Vector2(700, 160), 0.004f, "", 44);
 
@@ -1714,6 +1725,7 @@ namespace WizardsVRC.EditorTools
             // See-through backing so the duel stays visible behind the cards.
             Panel(root, "Background", Vector2.zero, new Vector2(1600, 960), new Color(0.06f, 0.05f, 0.1f, 0.38f));
             Panel(root, "TopBar", new Vector2(0, 385), new Vector2(1560, 160), new Color(0.12f, 0.1f, 0.2f, 0.55f));
+            GoldRule(root, "TopRule", new Vector2(0, 300), 1480f);
             client.partyLabel = Label(root, "Party", new Vector2(-470, 385), new Vector2(600, 150), "", 18, TextAnchor.MiddleLeft);
             client.statusLabel = Label(root, "Status", new Vector2(320, 385), new Vector2(900, 150), "", 24, TextAnchor.MiddleLeft);
 
@@ -1721,8 +1733,9 @@ namespace WizardsVRC.EditorTools
             int slots = BattleManager.SLOTS;
             client.targetButtons = new GameObject[slots];
             client.targetLabels = new Text[slots];
-            Label(root, "EnemiesTitle", new Vector2(-690, 240), new Vector2(160, 40), "Enemies", 20, TextAnchor.MiddleLeft).color = new Color(1f, 0.6f, 0.55f);
-            Label(root, "AlliesTitle", new Vector2(-690, 140), new Vector2(160, 40), "Allies", 20, TextAnchor.MiddleLeft).color = new Color(0.6f, 0.8f, 1f);
+            // Row titles on carved boards: red for the enemies' row, blue for your side.
+            TitlePlate(root, "EnemiesTitle", new Vector2(-690, 240), new Vector2(170, 56), "Enemies", new Color(1f, 0.55f, 0.5f), 20);
+            TitlePlate(root, "AlliesTitle", new Vector2(-690, 140), new Vector2(170, 56), "Allies", new Color(0.55f, 0.75f, 1f), 20);
             for (int t = 0; t < slots; t++)
             {
                 bool enemy = t >= BattleManager.SIDE;
@@ -1804,13 +1817,15 @@ namespace WizardsVRC.EditorTools
                 b.SetActive(false);
             }
 
-            // ---- actions
-            Button(root, "Pass", new Vector2(-480, -415), new Vector2(280, 64), "Pass", new Color(0.3f, 0.35f, 0.5f), target, "Pass");
-            GameObject discard = Button(root, "Discard", new Vector2(-160, -415), new Vector2(280, 64), "Discard", new Color(0.4f, 0.3f, 0.25f), target, "ToggleDiscard");
+            // ---- actions, on an ornate tray with a gold rule over it; each button has its icon (pixel font glyphs)
+            BackPanel(root, "ActionTray", new Vector2(0, -415), new Vector2(1340, 104), "PanelOrnate", new Color(1f, 1f, 1f, 0.92f), 2f, 1);
+            GoldRule(root, "ActionRule", new Vector2(0, -355), 1200f);
+            Button(root, "Pass", new Vector2(-480, -415), new Vector2(280, 64), "\uE016 Pass", new Color(0.3f, 0.35f, 0.5f), target, "Pass");
+            GameObject discard = Button(root, "Discard", new Vector2(-160, -415), new Vector2(280, 64), "\uE019 Discard", new Color(0.4f, 0.3f, 0.25f), target, "ToggleDiscard");
             client.discardImage = discard.GetComponent<Image>();
             GameObject potion = Button(root, "Potion", new Vector2(160, -415), new Vector2(280, 64), "Potion", new Color(0.55f, 0.2f, 0.3f), target, "Potion");
             client.potionLabel = potion.GetComponentInChildren<Text>();
-            Button(root, "Flee", new Vector2(480, -415), new Vector2(280, 64), "Flee", new Color(0.35f, 0.3f, 0.3f), target, "Flee");
+            Button(root, "Flee", new Vector2(480, -415), new Vector2(280, 64), "< Flee", new Color(0.35f, 0.3f, 0.3f), target, "Flee");
 
             // ---- flee confirmation: a dimmer over the whole hand (blocks clicks on the cards) and a box with Flee / Stay
             RectTransform confirm = Panel(root, "FleeConfirm", Vector2.zero, new Vector2(1600, 960), new Color(0f, 0f, 0.02f, 0.6f));

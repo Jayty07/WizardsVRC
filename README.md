@@ -216,6 +216,11 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   crackles and jitters, life breathes, death crawls with wisps, myth shimmers gold, balance pulses evenly. It flares when
   the spell is released. The symbols are drawn by `Tools/make_glyph_draw.py` (data maps in `Textures/CastDraw` and the
   pen paths in `Editor/GlyphPenData.cs`) and shown by the `WizardsVRC/GlyphDraw` shader.
+- **The turn clock** is set into the middle of the duel circle: a dial whose rim of 40 rune segments goes dark
+  clockwise as the time to choose runs out (gold, then red and pulsing near the end), and a gold hand that sweeps the
+  timer, then points at each caster in turn (`Shaders/DuelClock.shader`, art by `Tools/make_duel_clock.py`).
+- **Picking a target:** with a spell picked, the seats it can go to glow on the floor (green for allies, red for
+  enemies); click the combatant (or their button on the hand) to cast there.
 - **A fizzle** plays the cast as normal for its first 2 seconds (`BattleManager.fizzleCutSeconds`), then the cast sound
   cuts off, the fizzle sound plays (`Audio/Cast/FX_Fizzle.wav`, `Tools/make_fizzle_sound.py`), and the symbol sputters,
   greys and sags away in a puff of smoke.
