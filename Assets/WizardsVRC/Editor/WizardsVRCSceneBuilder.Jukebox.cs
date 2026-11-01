@@ -35,17 +35,27 @@ namespace WizardsVRC.EditorTools
         {
             var centre = Child(t, "JukeboxCentre", c);
 
-            // ---- the screen: a dark-framed 16:9 panel high on the wall over the curtains
+            // ---- the screen: a dark-framed 16:9 panel high on the wall over the curtains. It hangs on a rig the jukebox
+            // can move: the Big Screen button brings it down in front of the curtains at a little over twice the size.
             Quaternion wallRot = TFacing(screenA);
             Vector3 screenPos = TPolar(c, R - 0.9f, screenA, 7.6f);
-            Block(t, "ScreenFrame", TPolar(c, R - 0.84f, screenA, 7.6f), new Vector3(4.3f, 2.55f, 0.08f), frameMat, wallRot);
+            var rig = Child(t, "JukeboxScreenRig", screenPos);
+            rig.localRotation = wallRot;
+            Block(rig, "ScreenFrame", new Vector3(0f, 0f, 0.06f), new Vector3(4.3f, 2.55f, 0.08f), frameMat);
+            // A gold edge round the frame, so it reads as a proper picture screen at either size.
+            foreach (float sy in new[] { -1f, 1f })
+                Block(rig, "ScreenTrim", new Vector3(0f, sy * 1.3f, 0.02f), new Vector3(4.42f, 0.07f, 0.06f), PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)));
+            foreach (float sx in new[] { -1f, 1f })
+                Block(rig, "ScreenTrim", new Vector3(sx * 2.18f, 0f, 0.02f), new Vector3(0.07f, 2.62f, 0.06f), PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)));
             var screen = GameObject.CreatePrimitive(PrimitiveType.Quad);
             screen.name = "JukeboxScreen";
-            screen.transform.SetParent(t, false);
-            screen.transform.localPosition = screenPos;
-            screen.transform.localRotation = wallRot; // a quad shows its -Z side: that faces into the room
+            screen.transform.SetParent(rig, false);
+            screen.transform.localPosition = Vector3.zero;
+            screen.transform.localRotation = Quaternion.identity; // a quad shows its -Z side: that faces into the room
             screen.transform.localScale = new Vector3(4f, 2.25f, 1f);
-            Object.DestroyImmediate(screen.GetComponent<Collider>());
+            // It moves, so it's not static, and it has no colliders (nothing to bump into on the stage).
+            foreach (var tr in rig.GetComponentsInChildren<Transform>(true)) tr.gameObject.isStatic = false;
+            foreach (var col in rig.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
             var screenR = screen.GetComponent<Renderer>();
             screenR.sharedMaterial = JukeboxScreenMat();
             screenR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -84,6 +94,11 @@ namespace WizardsVRC.EditorTools
             jukebox.center = centre;
             jukebox.radius = R - 0.8f;
             jukebox.height = wallH + roofRise;
+            jukebox.screenRig = rig;
+            jukebox.smallPosition = rig.localPosition;
+            // Big: centred lower and in front of the curtains (about 8.8 x 5 m, its foot just above the stage).
+            jukebox.bigPosition = TPolar(c, R - 1.6f, screenA, 5.3f);
+            jukebox.bigScale = 2.2f;
             behaviours.Add(jukebox);
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(jukebox);
 
@@ -117,9 +132,11 @@ namespace WizardsVRC.EditorTools
             jukebox.volumeLabel = Label(cr, "Volume", new Vector2(0, -95), new Vector2(290, 76), "Your volume: 45%", 24, TextAnchor.MiddleCenter);
             Button(cr, "VolUp", new Vector2(285, -95), new Vector2(270, 76), "Volume +", JukeboxButton, target, nameof(TavernJukebox.VolumeUp));
 
-            Label(cr, "Hint", new Vector2(0, -200), new Vector2(860, 90),
-                "Paste a YouTube link and press Play: it plays for everyone in the tavern. Mute and volume are just for you.",
-                20, TextAnchor.MiddleCenter).color = new Color(0.85f, 0.75f, 0.6f);
+            var size = Button(cr, "ScreenSize", new Vector2(0, -180), new Vector2(360, 66), "Big screen", new Color(0.3f, 0.3f, 0.55f), target, nameof(TavernJukebox.ToggleScreenSize));
+            jukebox.sizeLabel = size.GetComponentInChildren<Text>();
+            Label(cr, "Hint", new Vector2(0, -240), new Vector2(860, 56),
+                "Paste a YouTube link and press Play: it plays for everyone in the tavern. Big screen is for everyone; mute and volume are just for you.",
+                18, TextAnchor.MiddleCenter).color = new Color(0.85f, 0.75f, 0.6f);
             return jukebox;
         }
 

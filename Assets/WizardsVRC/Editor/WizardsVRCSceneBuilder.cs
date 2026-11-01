@@ -159,6 +159,7 @@ namespace WizardsVRC.EditorTools
             Transform selectSpawn = interior.officeSpawn;
             Canvas selectCanvas = interior.selectCanvas;
             Transform hubSpawn = BuildHub(out Canvas hubCanvas, hubPlan, interior, worldData);
+            AddFloaters(interior.root);   // the office's desk orb and the hall star hover too
 
             var descriptor = world.AddComponent<VRCSceneDescriptor>();
             descriptor.spawns = new[] { selectSpawn };
@@ -345,6 +346,13 @@ namespace WizardsVRC.EditorTools
 
             Directory.CreateDirectory("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
+            // Occlusion culling for the hub (its Occlusion Area is set up in BuildHubZone). Baked after the save so it's
+            // baked for the saved scene; WizardsVRC > Bake Hub Occlusion re-bakes it on its own.
+            if (BakeOcclusionOnRebuild && hubPlan.zone != null)
+            {
+                BakeHubOcclusion();
+                EditorSceneManager.SaveScene(scene, ScenePath);
+            }
             AddSceneToBuildSettings();
             AssetDatabase.SaveAssets();
             Debug.Log("[WizardsVRC] Generated " + ScenePath);
@@ -441,7 +449,7 @@ namespace WizardsVRC.EditorTools
             AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
             AssetDatabase.DeleteAsset(ProgramsDir + "/LootChest.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector" })
+            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker" })
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);

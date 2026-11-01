@@ -41,6 +41,18 @@ namespace WizardsVRC
         [Range(0f, 1f)] public float volume = 0.45f;
         public float fadeSeconds = 0.6f;
 
+        [Header("Big screen")]
+        [Tooltip("The screen and its frame: moved and scaled between the normal and the big (cinema) size.")]
+        public Transform screenRig;
+        public Vector3 smallPosition;
+        public Vector3 bigPosition;
+        public float bigScale = 2.2f;
+        public Text sizeLabel;
+        [Tooltip("Seconds the screen takes to grow or shrink.")]
+        public float resizeSeconds = 0.8f;
+        private float _sizeShown;
+
+        [UdonSynced] private bool _bigScreen;
         [UdonSynced] private VRCUrl _url;
         [UdonSynced] private int _version;
         [UdonSynced] private double _startTime;
@@ -107,6 +119,15 @@ namespace WizardsVRC
             }
             RequestSerialization();
             ApplyState();
+        }
+
+        /// <summary>The Big Screen button: the stage screen grows (and comes down in front of the curtains) for everyone, or goes back.</summary>
+        public void ToggleScreenSize()
+        {
+            TakeOwnership();
+            _bigScreen = !_bigScreen;
+            RequestSerialization();
+            UpdateLabels();
         }
 
         public void ToggleMute()
@@ -247,6 +268,18 @@ namespace WizardsVRC
                 float step = Time.deltaTime / Mathf.Max(0.05f, fadeSeconds);
                 speaker.volume = Mathf.MoveTowards(speaker.volume, target, step);
             }
+            // The screen eases between its normal and its big size.
+            if (screenRig != null)
+            {
+                float want = _bigScreen ? 1f : 0f;
+                if (_sizeShown != want)
+                {
+                    _sizeShown = Mathf.MoveTowards(_sizeShown, want, Time.deltaTime / Mathf.Max(0.05f, resizeSeconds));
+                    float e = _sizeShown * _sizeShown * (3f - 2f * _sizeShown);
+                    screenRig.localPosition = Vector3.Lerp(smallPosition, bigPosition, e);
+                    screenRig.localScale = Vector3.one * Mathf.Lerp(1f, bigScale, e);
+                }
+            }
             if (Time.time >= _nextResync)
             {
                 _nextResync = Time.time + 15f;
@@ -266,6 +299,7 @@ namespace WizardsVRC
             if (pauseLabel != null) pauseLabel.text = _paused ? "Resume" : "Pause";
             if (muteLabel != null) muteLabel.text = _muted ? "Unmute (you)" : "Mute (you)";
             if (volumeLabel != null) volumeLabel.text = "Your volume: " + Mathf.RoundToInt(volume * 100f) + "%";
+            if (sizeLabel != null) sizeLabel.text = _bigScreen ? "Normal screen" : "Big screen";
             if (statusLabel == null) return;
             if (_version == 0) statusLabel.text = "Nothing playing";
             else if (!_ready) return;

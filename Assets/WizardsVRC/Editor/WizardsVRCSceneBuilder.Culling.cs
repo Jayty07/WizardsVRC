@@ -75,11 +75,13 @@ namespace WizardsVRC.EditorTools
             for (Transform p = t; p != null && p != root; p = p.parent)
             {
                 // Behaviours, moving things (pickups) and mirrors never go into the static distance-culling groups.
-                if (p.GetComponent<UdonBehaviour>() != null || p.GetComponent<LODGroup>() != null || p.GetComponent<Rigidbody>() != null) return true;
+                if (p.GetComponent<UdonBehaviour>() != null || p.GetComponent<LODGroup>() != null || p.GetComponent<Rigidbody>() != null ||
+                    p.GetComponent<Animation>() != null) return true;
                 string n = p.name;
                 if (n.StartsWith("Encounter") || n.StartsWith("Patrol_") || n.StartsWith("RingSpots_") || n.StartsWith("Point_") ||
                     n.StartsWith("NPC_") || n.StartsWith("Classroom_") || n.StartsWith("Gate_") || n.StartsWith("LOD_") ||
-                    n.StartsWith("Mirror"))
+                    n.StartsWith("Mirror") || n.StartsWith("Float_") || n.StartsWith("HearthFire") || n.StartsWith("ClassroomMagic") ||
+                    n.StartsWith("JukeboxScreenRig"))
                     return true;
             }
             return false;

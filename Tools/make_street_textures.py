@@ -363,12 +363,20 @@ def mountain_snow():
     return finish(v, SNOW)
 
 
+def velvet():
+    """Stage curtain velvet: deep vertical folds (four across the tile), a soft sheen on each crest and a nap."""
+    fold = np.sin(XX / N * 4 * 2 * np.pi + 0.6 * np.sin(YY / N * 2 * np.pi))
+    v = 0.42 + 0.28 * fold + 0.18 * np.clip(fold - 0.6, 0, 1) * 2.5    # crests catch the light
+    v -= 0.22 * np.clip(-fold - 0.55, 0, 1) * 2.2                       # the deep troughs go nearly black
+    v += 0.06 * (value_noise(32, 141) - 0.5) + 0.05 * (value_noise(8, 142) - 0.5)
+    return finish(v, [(0.0, (0.10, 0.06, 0.08)), (0.5, (0.62, 0.55, 0.58)), (1.0, (1.00, 0.95, 0.96))])
+
 TERRAIN = {
     'Cobble': cobble, 'Flagstone': flagstone, 'Grass': grass, 'ForestFloor': forest_floor, 'Dirt': dirt,
     'StoneWall': stone_wall, 'Brick': brick, 'WoodPlanks': planks, 'MountainRock': mountain_rock, 'MountainSnow': mountain_snow,
 }
 STREET = {
-    'Plaster': plaster, 'Boards': boards, 'RoofTiles': roof_tiles, 'Leaves': leaves, 'Hedge': hedge, 'Bark': bark,
+    'Plaster': plaster, 'Boards': boards, 'RoofTiles': roof_tiles, 'Leaves': leaves, 'Hedge': hedge, 'Bark': bark, 'Velvet': velvet,
 }
 
 made = []

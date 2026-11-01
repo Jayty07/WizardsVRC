@@ -257,6 +257,8 @@ namespace WizardsVRC.EditorTools
             ClassroomBanners(room, s, W, D);
             PointLight(room, new Vector3(0, h - 1.2f, 0), Color.Lerp(col, Color.white, 0.4f), Mathf.Max(14f, Mathf.Max(W, D) * 0.9f), 1.6f);
             ThemeProps(room, s, W, D, h, col, bright, trim);
+            // Motes in the air and curios hovering over the desks (WizardsVRCSceneBuilder.Magic.cs).
+            ClassroomMagic(room, s, W, D, h, col);
 
             Color hat = Color.Lerp(col, Color.black, 0.35f);
             return Wizard(room, "Professor" + SchoolLabels[s], new Vector3(0, 0, back - 2.2f), 0f, col, hat, s == 1 || s == 6, ProfessorNames[s]);

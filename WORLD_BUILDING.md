@@ -281,6 +281,14 @@ Every zone is culled on each player's own client automatically, so you don't hav
   into 32 m chunks that stop drawing beyond the zone's **Detail Distance** (80 m by default, in the zone's *Performance*
   section). Big buildings, walls and trees stay until the fog. Anything scripts use (patrols, rings, NPCs, quest points,
   gates) is never grouped.
+- **What's hidden behind buildings isn't drawn (hub).** The rebuild sets an Occlusion Area over the hub and bakes Unity's
+  occlusion culling at the end (re-bake on its own with **WizardsVRC > Bake Hub Occlusion**; turn the automatic bake off
+  with `BakeOcclusionOnRebuild` in `WizardsVRCSceneBuilder.Magic.cs`). Only big solid pieces (walls, roofs, rocks) hide
+  things; glass, leaves, curtains and small props are occludees only. Classrooms, the tavern and everything behind a hall
+  stop drawing when they're out of view.
+- **Floating decorations cost no script time.** The hub's hovering crystals, gems and classroom curios run on Unity's
+  own Animation component (shared clips in `Animations/Float`), set to stop while off screen; classroom motes pause off
+  screen too, and the hearth fire only flickers while you're within 35 m of it.
 
 Tips: keep zones at least 100 m apart in height (the checks enforce it), lower Detail Distance for dense mazes, and
 lower `Lamp Density` if a zone has lots of lamps. The rebuild log says how many props were chunked per zone.

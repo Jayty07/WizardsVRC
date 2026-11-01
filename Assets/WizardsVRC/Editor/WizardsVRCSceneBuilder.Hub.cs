@@ -270,9 +270,14 @@ namespace WizardsVRC.EditorTools
                 hub.keepLabel = "Headmaster's Office (click door)";
             }
 
+            // Crystals, gems, wisps and classroom curios hover and turn (native animation, culled off screen).
+            int floaters = AddFloaters(root);
+            Debug.Log("[WizardsVRC] Hub: " + floaters + " floating pieces.");
             AddDistanceCulling(root, z.detailDistance);
             float span = 4f * cs + 80f;
             hub.cullBounds = new Bounds(new Vector3(0, 45f, 0), new Vector3(W + span, 210f, H + span));
+            // Occlusion culling: what's hidden behind the halls, walls and hills isn't drawn (baked at the end of the build).
+            SetupHubOcclusion(root, new Bounds(root.TransformPoint(hub.cullBounds.center), hub.cullBounds.size));
         }
 
         /// <summary>
@@ -780,6 +785,8 @@ namespace WizardsVRC.EditorTools
             Shape(root, "FountainStar", GemMesh(), c + new Vector3(0, 2.8f * f, 0), new Vector3(3f, 0.5f, 3f) * f, gold, false, Quaternion.identity);
             Shape(root, "StarfallCrystal", GemMesh(), c + new Vector3(0, 5f * f, 0), new Vector3(1.8f, 3.4f, 1.8f) * f,
                 PMat("Crystal_Starfall", new Color(0.35f, 0.6f, 1f), 1f, new Color(0.25f, 0.45f, 0.9f)), false, Quaternion.Euler(0, 15, 0));
+            // Shards circling the crystal (they and the crystal float: WizardsVRCSceneBuilder.Magic.cs).
+            CrystalHalo(root, c + new Vector3(0, 5f * f, 0), 2.2f * f, f, PMat("Crystal_9FD8FF", new Color(0.62f, 0.85f, 1f), 1f, new Color(0.62f, 0.85f, 1f) * 0.6f));
             for (int i = 0; i < 8; i++)
             {
                 float a = (i + 0.5f) / 8f * Mathf.PI * 2f;

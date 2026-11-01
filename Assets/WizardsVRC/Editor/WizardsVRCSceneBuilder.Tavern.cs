@@ -102,6 +102,7 @@ namespace WizardsVRC.EditorTools
             var ceiling = PsxTexMat("TavernCeiling", new Color(0.55f, 0.37f, 0.22f), TileTexture(TerrainTexDir + "/WoodPlanks.png"), 2.4f);
             var roofTex = PsxTexMat("TavernRoof", Color.Lerp(roofMat.color, new Color(0.7f, 0.25f, 0.2f), 0.5f), TileTexture(TerrainTexDir + "/StoneWall.png"), 1.6f);
             var cloth = PMat("TavernCurtain", new Color(0.62f, 0.1f, 0.14f), 1f);
+            var velvet = PsxTexMat("TavernVelvet", new Color(0.78f, 0.14f, 0.2f), TileTexture(StreetTexDir + "/Velvet.png"), 1f);
             var glow = PMat("TavernLantern", new Color(1f, 0.78f, 0.4f), 1f, new Color(1f, 0.65f, 0.25f));
             var flame = PMat("Flame", new Color(1f, 0.55f, 0.1f), 1f, new Color(1f, 0.4f, 0.05f));
 
@@ -285,8 +286,10 @@ namespace WizardsVRC.EditorTools
             for (int k = 0; k < 7; k++)
             {
                 float a = 108f + k * 8.5f;
-                Deco(t, PrimitiveType.Cube, "Curtain", TPolar(c, R - 1.0f, a, 3.4f), new Vector3(2.2f * R / 20f, 5.8f, 0.18f), cloth, TFacing(a) * Quaternion.Euler(0, (k % 2 == 0 ? 6f : -6f), 0), false);
+                Deco(t, PrimitiveType.Cube, "Curtain", TPolar(c, R - 1.0f, a, 3.4f), new Vector3(2.2f * R / 20f, 5.8f, 0.18f), velvet, TFacing(a) * Quaternion.Euler(0, (k % 2 == 0 ? 6f : -6f), 0), false);
             }
+            // The finished front: nosing, fascia, footlights, proscenium pillars and valance, backdrop (Magic.cs).
+            TavernStageFinish(t, c, R, 104f, 166f, planks, darkWood, gold, velvet, stone);
             Deco(t, PrimitiveType.Cube, "CurtainRod", TPolar(c, R - 1.05f, 135f, 6.4f), new Vector3(2f * (R - 1f) * Mathf.Sin(30f * Mathf.Deg2Rad), 0.12f, 0.12f), gold, TFacing(135f), false);
             Shape(t, "Drum", CylMesh(), TPolar(c, 15.8f, 125f, 0.85f), new Vector3(0.9f, 0.4f, 0.9f), cloth, true, Quaternion.identity);
             Shape(t, "DrumHead", CylMesh(), TPolar(c, 15.8f, 125f, 1.26f), new Vector3(0.92f, 0.02f, 0.92f), foam, false, Quaternion.identity);
@@ -314,13 +317,11 @@ namespace WizardsVRC.EditorTools
             Block(t, "HearthBack", hb + hearthOut * 0.6f + new Vector3(0, 1.4f, 0), new Vector3(2.6f, 2.8f, 0.3f), PMat("Soot", new Color(0.12f, 0.1f, 0.1f), 1f), TFacing(hearthA));
             Deco(t, PrimitiveType.Cube, "Mantel", hb - hearthOut * 0.15f + new Vector3(0, 3.75f, 0), new Vector3(5f, 0.3f, 1.9f), darkWood, TFacing(hearthA), false);
             Block(t, "Chimney", TPolar(c, R - 1.4f, hearthA, (3.9f + yr1 - 2f) / 2f), new Vector3(2.2f, yr1 - 2f - 3.9f, 1.4f), stone, TFacing(hearthA));
-            for (int k = 0; k < 3; k++)
-            {
-                Vector3 fp2 = hb + hearthSide * (k - 1) * 0.55f + new Vector3(0, 0.55f, 0);
-                Shape(t, "Fire", ConeMesh(), fp2, new Vector3(0.7f, 1.1f - (k == 1 ? 0f : 0.3f), 0.7f), flame, false, Quaternion.identity);
-            }
-            Shape(t, "Log", CylMesh(), hb + new Vector3(0, 0.15f, 0), new Vector3(0.3f, 1f, 0.3f), darkWood, false, TFacing(hearthA) * Quaternion.Euler(0, 0, 90f));
+            // A stylised fire: layered flame tongues over coals and crossed logs, embers, a flickering light (Magic.cs).
             PointLight(t, hb - hearthOut * 1.5f + new Vector3(0, 1.4f, 0), new Color(1f, 0.55f, 0.2f), 14f, 2f);
+            Light hearthLight = t.GetChild(t.childCount - 1).GetComponent<Light>();
+            hearthLight.gameObject.name = "HearthLight";
+            behaviours.Add(HearthFire(t, hb + new Vector3(0, TavernFloorY, 0), hearthSide, Quaternion.LookRotation(-hearthOut), hearthLight));
             // Its top was level with the floor (they flickered through each other): it now sits clear on top of the boards.
             Shape(t, "HearthRug", CylMesh(), TPolar(c, R - 5.2f, hearthA, TavernFloorY + 0.035f), new Vector3(5.5f, 0.02f, 5.5f), cloth, false, Quaternion.identity);
             foreach (float a in new[] { 210f, 217.5f, 225f, 232.5f, 240f })
