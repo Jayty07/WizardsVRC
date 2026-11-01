@@ -994,6 +994,9 @@ namespace WizardsVRC
             if (n == 0) { phase = PHASE_IDLE; Publish(); return; }
 
             for (int s = 0; s < SLOTS; s++) _joinRound[s] = -1;
+            // Round 0 before any monster is seated: AddMonster marks a seat as joining in the current round, and a stale
+            // round number from the last fight would make a starting monster sit out its first turn.
+            round = 0;
             // Patrol monsters from the last fight that haven't respawned yet stay gone.
             if (!(lastEndMs != 0 && Now() - lastEndMs < respawnSeconds * 1000)) wandererGone = 0;
             // The patrol monster that was touched leaves its route for the fight (the rest of the patrol keeps walking).
