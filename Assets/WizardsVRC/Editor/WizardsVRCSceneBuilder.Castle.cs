@@ -654,7 +654,86 @@ namespace WizardsVRC.EditorTools
             return go;
         }
 
+        /// <summary>
+        /// A PSX material. Plain ones for stone, wood, metal, cloth, sand and the like get a real PS1 texture (in world
+        /// space, so it keeps its size on any block) instead of the fine speckle; glowing ones keep the speckle.
+        /// </summary>
         private static Material PMat(string name, Color color, float tiling, Color emission = default(Color))
+        {
+            string texPath;
+            float metres;
+            if (emission.maxColorComponent <= 0f && AutoTexture(name, out texPath, out metres))
+            {
+                Texture2D tex = TileTexture(texPath);
+                if (tex != null)
+                {
+                    float gain = TexGain(tex.name);
+                    Material m = PMatBase(name, new Color(color.r * gain, color.g * gain, color.b * gain, color.a), 1f, emission);
+                    m.mainTexture = tex;
+                    m.mainTextureScale = Vector2.one;
+                    m.SetFloat("_WorldUV", metres);
+                    EditorUtility.SetDirty(m);
+                    return m;
+                }
+            }
+            Material plain = PMatBase(name, color, tiling, emission);
+            plain.SetFloat("_WorldUV", 0f);
+            return plain;
+        }
+
+        /// <summary>
+        /// Which PS1 texture a plain material of this name wears, and how big a tile is (metres). Only things that never
+        /// move are listed (the texture is laid out in world space): people, monsters, pickups, books, the cutscene sets and the portcullises (they
+        /// slide) keep the speckle.
+        /// </summary>
+        private static bool AutoTexture(string name, out string tex, out float metres)
+        {
+            tex = null;
+            metres = 2f;
+            switch (name)
+            {
+                case "Stone": case "StoneDark": case "HallTrim": case "PortalStone": case "HallWall": case "Soot":
+                    tex = TerrainTexDir + "/StoneWall.png"; metres = 2.4f; break;
+                case "Gravestone": case "Plinth": case "Cliff": case "WaterfallRock":
+                    tex = TerrainTexDir + "/MountainRock.png"; metres = 2.5f; break;
+                case "HallFloor": case "PortalFloor": case "FountainBed":
+                    tex = TerrainTexDir + "/Flagstone.png"; metres = 2.5f; break;
+                case "Wood": case "PlanterWood": case "Bookshelf": case "SignWood":
+                    tex = TerrainTexDir + "/WoodPlanks.png"; metres = 1.8f; break;
+                case "TimberBeam":
+                    tex = StreetTexDir + "/Bark.png"; metres = 1.2f; break;
+                case "Door":
+                    tex = StreetTexDir + "/Boards.png"; metres = 2.2f; break;
+                case "Iron": case "Copper": case "Brass":
+                    tex = StreetTexDir + "/Metal.png"; metres = 1.4f; break;
+                case "Dirt": case "SeaBed":
+                    tex = TerrainTexDir + "/Dirt.png"; metres = 2.5f; break;
+                case "Sand": case "SandPyramid":
+                    tex = StreetTexDir + "/Sand.png"; metres = 2.5f; break;
+                case "Snow":
+                    tex = TerrainTexDir + "/MountainSnow.png"; metres = 3f; break;
+                case "Grass":
+                    tex = TerrainTexDir + "/Grass.png"; metres = 2.5f; break;
+                case "Moss":
+                    tex = TerrainTexDir + "/ForestFloor.png"; metres = 2f; break;
+                case "Flagstone":
+                    tex = TerrainTexDir + "/Flagstone.png"; metres = 2.5f; break;
+                case "ShopWall":
+                    tex = StreetTexDir + "/Plaster.png"; metres = 4f; break;
+                case "ShopRoof": case "RoofPurple":
+                    tex = StreetTexDir + "/RoofTiles.png"; metres = 2.6f; break;
+                case "Carpet": case "OfficeRug": case "Canvas": case "AwningWhite": case "AwningStripe": case "BannerBlue":
+                    tex = StreetTexDir + "/Cloth.png"; metres = 1.6f; break;
+                case "TavernCurtain":
+                    tex = StreetTexDir + "/Velvet.png"; metres = 1.6f; break;
+                case "Chalkboard":
+                    tex = StreetTexDir + "/Chalkboard.png"; metres = 3f; break;
+            }
+            if (tex == null && name.StartsWith("Awning")) { tex = StreetTexDir + "/Cloth.png"; metres = 1.6f; }
+            return tex != null;
+        }
+
+        private static Material PMatBase(string name, Color color, float tiling, Color emission = default(Color))
         {
             Directory.CreateDirectory(MaterialsDir);
             string path = MaterialsDir + "/PSX_" + name + ".mat";

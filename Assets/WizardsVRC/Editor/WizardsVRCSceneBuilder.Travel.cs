@@ -148,6 +148,8 @@ namespace WizardsVRC.EditorTools
             // Read from outside, looking in (+Z): the canvas faces the way the reader looks.
             var label = WorldText(t, "TunnelSign", new Vector3(0f, TunH + 3f, -1.2f), Quaternion.identity, new Vector2(1500, 300), 0.005f, text, 56);
             label.color = color;
+            // A wide board: the gate swaps its text (locked hint / level range) at runtime, two lines at most.
+            DressSign(label, 1320f, 270f);
             return label;
         }
 

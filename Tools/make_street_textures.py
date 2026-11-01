@@ -371,12 +371,70 @@ def velvet():
     v += 0.06 * (value_noise(32, 141) - 0.5) + 0.05 * (value_noise(8, 142) - 0.5)
     return finish(v, [(0.0, (0.10, 0.06, 0.08)), (0.5, (0.62, 0.55, 0.58)), (1.0, (1.00, 0.95, 0.96))])
 
+def metal():
+    """Riveted iron plates: four plates with bevelled seams, a rivet in each corner, faint rust blotches."""
+    v = 0.55 + 0.1 * (fbm(151) - 0.5)
+    seam = ((XX % 32) < 2) | ((YY % 32) < 2)
+    plate = (XX // 32) + 2 * (YY // 32)
+    v += (rng(152).random(4)[plate] - 0.5) * 0.12
+    v = np.where(seam, 0.18, v)
+    v = np.where(((XX % 32) == 2) | ((YY % 32) == 2), v + 0.15, v)        # lit edge after each seam
+    for cx in (6, 26, 38, 58):
+        for cy in (6, 26, 38, 58):
+            d = np.hypot(XX - cx, YY - cy)
+            v = np.where(d < 2.2, 0.85 - 0.25 * ((XX - cx) + (YY - cy) > 0), v)
+    rust = np.clip(value_noise(8, 153) - 0.62, 0, 1) * 1.4
+    v -= rust * 0.35
+    return finish(v, [(0.0, (0.10, 0.10, 0.13)), (0.5, (0.50, 0.50, 0.55)), (1.0, (0.92, 0.92, 0.95))])
+
+
+def sand():
+    """Wind ripples in sand: wavy dark lines across, grains."""
+    ripple = np.sin((YY / N * 8 + 0.35 * np.sin(XX / N * 2 * np.pi * 2 + 1.3)) * 2 * np.pi)
+    v = 0.62 + 0.12 * ripple + 0.1 * (value_noise(32, 161) - 0.5) + 0.08 * (fbm(162) - 0.5)
+    grains = rng(163).random((N, N)) > 0.93
+    v = np.where(grains, v + 0.12, v)
+    return finish(v, EARTH)
+
+
+def cloth():
+    """Woven cloth: an over-under weave of threads, a darker border stripe near one edge, a little wear."""
+    warp = (XX % 4) < 2
+    weft = (YY % 4) < 2
+    over = warp ^ weft
+    v = 0.6 + np.where(over, 0.1, -0.08)
+    v += 0.06 * (value_noise(16, 171) - 0.5)
+    stripe = ((YY >= 52) & (YY < 58))
+    v = np.where(stripe, v - 0.22, v)
+    v = np.where((YY == 50) | (YY == 59), v + 0.15, v)
+    return finish(v, [(0.0, (0.16, 0.13, 0.14)), (0.5, (0.62, 0.58, 0.56)), (1.0, (0.99, 0.96, 0.92))])
+
+
+def chalkboard():
+    """A slate board with smudged chalk: faint swirls, a few lines of scribbled 'writing' and a sum."""
+    v = 0.25 + 0.06 * (fbm(181) - 0.5)
+    smudge = np.clip(value_noise(4, 182) - 0.55, 0, 1)
+    v += smudge * 0.25
+    r = rng(183)
+    for row in range(5):
+        y = 8 + row * 11
+        x = 4
+        while x < 58:
+            w = int(r.integers(3, 9))
+            for xx in range(x, min(x + w, 60)):
+                yy = y + int(1.5 * np.sin(xx * 0.9 + row))
+                if 0 <= yy < N:
+                    v[yy, xx] = 0.82
+            x += w + int(r.integers(2, 4))
+    return finish(v, [(0.0, (0.06, 0.09, 0.08)), (0.5, (0.30, 0.38, 0.34)), (1.0, (0.95, 0.97, 0.95))])
+
 TERRAIN = {
     'Cobble': cobble, 'Flagstone': flagstone, 'Grass': grass, 'ForestFloor': forest_floor, 'Dirt': dirt,
     'StoneWall': stone_wall, 'Brick': brick, 'WoodPlanks': planks, 'MountainRock': mountain_rock, 'MountainSnow': mountain_snow,
 }
 STREET = {
     'Plaster': plaster, 'Boards': boards, 'RoofTiles': roof_tiles, 'Leaves': leaves, 'Hedge': hedge, 'Bark': bark, 'Velvet': velvet,
+    'Metal': metal, 'Sand': sand, 'Cloth': cloth, 'Chalkboard': chalkboard,
 }
 
 made = []

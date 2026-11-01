@@ -671,7 +671,7 @@ namespace WizardsVRC.EditorTools
         {
             // The PS1 textures are darker on average than the plain speckle; lift the tint so a colour looks the same.
             float gain = tex == null ? 1f : TexGain(tex.name);
-            Material mat = PMat(name, new Color(color.r * gain, color.g * gain, color.b * gain, color.a), 1f);
+            Material mat = PMatBase(name, new Color(color.r * gain, color.g * gain, color.b * gain, color.a), 1f);
             if (tex != null)
             {
                 mat.mainTexture = tex;
@@ -702,6 +702,12 @@ namespace WizardsVRC.EditorTools
                 case "Hedge": return 1.6f;
                 case "Bark": return 1.6f;
                 case "MountainRock": return 1.35f;
+                case "MountainSnow": return 1.1f;
+                case "Metal": return 1.4f;
+                case "Sand": return 1.25f;
+                case "Cloth": return 1.25f;
+                case "Velvet": return 1.6f;
+                case "Chalkboard": return 2.2f;
                 default: return 1f;
             }
         }

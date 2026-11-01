@@ -450,6 +450,8 @@ namespace WizardsVRC.EditorTools
         {
             var t = WorldText(parent, "Sign", pos, Quaternion.LookRotation(-toward), new Vector2(1200, 220), 0.005f, text, 70);
             t.color = color;
+            // On a carved board with a gold border, backed by a wooden slab with finials (WizardsVRCSceneBuilder.Signs.cs).
+            DressSign(t, 0f, 200f);
             return t;
         }
 

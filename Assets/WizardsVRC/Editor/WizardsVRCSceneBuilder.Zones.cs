@@ -267,6 +267,8 @@ namespace WizardsVRC.EditorTools
                 var e = BuildTunnel(root, "Home", mouth, -openDir, tm[0], tm[1], tm[2], tm[3], wb.behaviours);
                 TunnelFacade(e, tm[0], PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)), "Starfall Castle", new Color(1f, 0.85f, 0.4f));
                 e.mountainCentre = Mountains(root, k + "_Home", e, 0f, 12f, 0.8f, tm[5], tm[6]);
+                // A welcome arch with the street's name a few steps out of the tunnel (Signs.cs).
+                StreetArch(root, mouth + openDir * 6f, openDir, z.displayName, z.levelRange);
                 e.passage.there = gate.tunnel.mid;
                 gate.tunnel.passage.there = e.mid;
                 gate.gate.openIfStarted = QuestsInZone(z, wb.data);
@@ -623,7 +625,7 @@ namespace WizardsVRC.EditorTools
             d.transform.localRotation = doorRot;
             d.transform.localScale = new Vector3(3f, 5f, 0.3f);
             d.GetComponent<Renderer>().sharedMaterial = mat;
-            WorldText(parent, name + "Label", localPos + new Vector3(0, 3.3f, 0), labelRot, new Vector2(1000, 220), 0.004f, label, 64).color = new Color(1f, 0.85f, 0.4f);
+            DressSign(WorldText(parent, name + "Label", localPos + new Vector3(0, 3.3f, 0), labelRot, new Vector2(1000, 220), 0.004f, label, 64), 0f, 210f);
             return d;
         }
 
