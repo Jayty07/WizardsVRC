@@ -73,6 +73,9 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Shaders/PSX.shader` | The world's main shader, styled on PS1 platformers like Spyro: Gouraud lighting per vertex (sun, sky/ground ambient and the four nearest point lights, which the builder makes per-vertex), shadowed sides tinted a cool purple-blue, "hand-painted" vertex colour variation, a little extra saturation, vertex snapping (**WizardsVRC > PSX Shake**: Off / Subtle / Classic PS1 / Strong; players can turn the wobble off for themselves in the book's Settings), partly affine textures, per-vertex fog and 15-bit colour with ordered dither. Each material's *PlayStation 1* and *Spyro style colour* settings can be tuned in the inspector |
 | `Tools/make_school_textures.py` | The classrooms' PS1 textures (`Textures/School`): a swallowtail banner and a medallion carpet with each school's symbol, an aisle runner per school, desk wood. The carpets and runners are 5 cm boxes on the floor, side by side, so nothing flickers |
 | `Tools/make_street_textures.py` | The 64x64 PS1-style ground, wall, building, roof, hedge and tree textures (`Textures/Terrain`, `Textures/Street`), plus metal plates, sand, woven cloth, stage velvet and a chalkboard; each zone's *Texture Style* picks a set, its colours tint them. Plain PSX materials named for stone, wood, metal, cloth, sand, snow and so on wear these automatically (`AutoTexture` in `WizardsVRCSceneBuilder.Castle.cs`, laid out in world space); glowing ones keep the fine speckle |
+| `Assets/WizardsVRC/Scripts/CosmeticsDatabase.cs`, `PlayerCosmetics.cs`, `WardrobePages.cs`, `ShopPages.cs`, `StarshardStore.cs` | Titles, auras, spell skins and elixirs; showing what each player wears to everyone; the book's Wardrobe and Starshard Shop tabs; the optional VRChat Creator Economy products. See *Shops, Starshards, titles and auras* |
+| `Assets/WizardsVRC/Scripts/GoldShop.cs`, `ItemTooltip.cs` | The castle's gold shops (click a shop's counter) and the hover tooltips on items, gear slots, spell cards and shop rows (gear shows the worn piece beside it) |
+| `Assets/WizardsVRC/Scripts/NotificationCenter.cs` | The book's Notices tab, the unread badges and the toast |
 | `Assets/WizardsVRC/Scripts/TowerFloor.cs`, `Editor/WizardsVRCSceneBuilder.Towers.cs` | **Boss towers** (Wizard101 Golem Tower style): every street with a boss gets a four-pad sigil leading to a tower of wave floors (the street's monsters, leaders that taunt you on arrival) and the boss on top; win to go up a floor; clearing it marks your wizard and pays Starshards. See *Boss towers* in [WORLD_BUILDING.md](WORLD_BUILDING.md) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Secret.cs` | **Secret bosses**: the Kraken beneath Tidewatch Docks (a diving bell at the water's edge, opened by Fenwick's level-8 side quest, down to a sunken platform with kelp, coral and a wreck), plus the Kraken's and its tentacles' bodies. See *Secret bosses* in [WORLD_BUILDING.md](WORLD_BUILDING.md) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Backdrop.cs` | What you see past a street's edge, matching the skylines (every place an isle in a sea): the street's rocky island and cliffs down to a rolling sea, its neighbourhood round the map in its own style (rooftops, chimneys and lamplit windows; hills, trees and giant flowers; forest; crags and ruins; smokestacks and slag; warehouses), boats, buoys and a lighthouse off any shore the street meets, and islets out at sea, also round the castle. Merged into one mesh per material, nothing solid |
@@ -151,6 +154,32 @@ Saves happen on create, on select/swap (the previous character is saved first), 
 **B** (desktop), the hub button or the backpack pedestal opens it. Bookmarks: **Pack** (equipment and items),
 **Deck** (decks and spells, shown as the same spell cards as in battle), **Quests**, and **Settings** (HUD and quest-arrow toggles, Save Now, Return to Starfall
 Castle, and Change Character, which saves and takes you back to the select room).
+
+## Shops, Starshards, titles and auras
+
+- **Gold shops:** every shop in the castle has a counter out front. Click it and its wares open in front of you (gear,
+  potions, decks). Hovering a row shows the item beside the piece you're wearing in that slot, with the stat changes
+  in green and red (`GoldShop`, `ItemTooltip`).
+- **Starshards** are the rare currency: 3 per boss, 1 per elite, 5 per boss tower (double the first time) and 8 for the
+  Kraken. Spend them in the book's **Starshard Shop** tab (`ShopPages`) on elixirs (timed stat boosts that tick down
+  while you play and never apply in PvP duels), titles, auras and spell skins (your casting glyph and spell flashes in
+  that colour).
+- **Titles** show over your head and **auras** swirl round you, in the open world and in duels, seen by everyone
+  (`PlayerCosmetics`, synced through a VRChat player object). Earn them by level, monsters, bosses, boss towers and the
+  Kraken, or buy them. Pick what you wear in the book's **Wardrobe** tab (`WardrobePages`).
+- **Selling Starshards for real money** is optional and goes through VRChat's Creator Economy (`StarshardStore`). Your
+  world has to be eligible for it. Make the products on the VRChat creator site, then drop them into the
+  `StarshardStore` object's `products` list in the scene (after each rebuild, or keep them in your own changes):
+  - a product with `productShards` above 0 is a **Starshard bundle**: each purchase adds that many Starshards to the
+    wizard you're playing, once;
+  - a product with `productShards` 0 is a **supporter perk**: owning it unlocks the cosmetics that list it
+    (`CosmeticsDatabase.UNLOCK_PRODUCT`, e.g. the *Patron of Starfall* title and *Patron's Radiance* aura) on every
+    wizard.
+
+  With no products set up, the shop simply runs on earned Starshards.
+- **Notices:** the book's **Notices** tab (`NotificationCenter`) lists new loot and gear, professors' messages when a
+  new spell unlocks at your level, newly available quests and tower clears, with an unread badge on the HUD and the
+  tab and a one-line toast.
 
 ## The start of the game
 
