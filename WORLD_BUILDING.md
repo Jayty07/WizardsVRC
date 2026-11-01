@@ -293,6 +293,26 @@ Every zone is culled on each player's own client automatically, so you don't hav
 Tips: keep zones at least 100 m apart in height (the checks enforce it), lower Detail Distance for dense mazes, and
 lower `Lamp Density` if a zone has lots of lamps. The rebuild log says how many props were chunked per zone.
 
+### Boss towers
+
+Every street whose encounters include a **boss** (a monster with *Is Boss* ticked in the Monster Catalog) gets a boss
+tower automatically, like Wizard101's Golem Tower. Nothing to paint:
+
+- **The way in** is a four-pad sigil with a rune obelisk, placed on open level ground as far along the street from its
+  start as fits (clear of the duel rings, NPCs and points). It works like a dungeon sigil: stand on a pad, others join
+  during the 10 second countdown, and the party goes in together; the tower is theirs until they've all left.
+- **Inside**, the party climbs: three floors of waves, then the boss. Each floor is a round stone chamber with a duel
+  ring. The wave's leader stands across the ring and taunts you as you arrive (a greeting with its portrait in a red,
+  hostile rim). Step into the ring to fight; everyone in it when the 6 second countdown ends takes part. Win and you're
+  taken up to the next floor; flee and you stay on the floor to try again; lose and you're back out by the sigil.
+- **The waves** are the street's own monsters, weakest first, then its elites; the top floor is the boss with its
+  strongest followers. Waves scale with the party (two monsters solo, one more per extra wizard).
+- **The top**: beat the boss and you come out on the roof (a chest, a view over the clouds, a veil home). Your wizard
+  is marked as having cleared that tower (the *Tower Climber* title) and gets Starshards (double the first time).
+  Every floor has a veil to give up and leave.
+
+Towers are built far from everything (`TowerOrigin` in `WizardsVRCSceneBuilder.Towers.cs`), each its own culled area.
+
 ### Dungeons
 
 Like Wizard101, part of a street can be a **dungeon** that one party has to itself. Add these landmarks:

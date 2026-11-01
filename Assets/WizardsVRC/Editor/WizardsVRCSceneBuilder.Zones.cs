@@ -348,6 +348,8 @@ namespace WizardsVRC.EditorTools
                 for (int i = 0; i < groups.Count; i++) peers[i] = groups[i].manager;
                 foreach (var c in groups) c.manager.peers = peers;
             }
+            // The street's boss tower: a four-pad sigil out here, the tower itself far away (WizardsVRCSceneBuilder.Towers.cs).
+            BuildZoneTower(root, g, z, start, ringCells, systems, cardDb, itemDb, playerState, qm, encounters, wb);
             if (ringCells.Count > 0)
                 Debug.Log("[WizardsVRC World] " + z.displayName + ": " + outsideSpots.Count + " duel ring spots" +
                           (dungeonSpots.Count > 0 ? " (+" + dungeonSpots.Count + " in the dungeon)" : "") + ".");

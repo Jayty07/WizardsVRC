@@ -36,6 +36,8 @@ namespace WizardsVRC
         public Transform start;
         [Tooltip("Where you come out (by the sigil).")]
         public Transform outside;
+        [Tooltip("Loads the destination area before a teleport (a boss tower is its own area, far away).")]
+        public AreaCuller culler;
         [Tooltip("World-space box round the dungeon's inside: a party member found outside it has left.")]
         public Vector3 boundsMin;
         public Vector3 boundsMax;
@@ -118,7 +120,11 @@ namespace WizardsVRC
         {
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
-            if (outside != null) me.TeleportTo(outside.position, outside.rotation);
+            if (outside != null)
+            {
+                if (culler != null) culler.Prepare(outside.position);
+                me.TeleportTo(outside.position, outside.rotation);
+            }
             if (!_leaveSent && InParty(me.playerId))
             {
                 _leaveSent = true;
@@ -144,6 +150,7 @@ namespace WizardsVRC
             int slot = 0;
             for (int i = 0; i < party.Length; i++) if (party[i] == me.playerId) slot = i;
             Vector3 side = start.right * ((slot - 1.5f) * 1.6f);
+            if (culler != null) culler.Prepare(start.position);
             me.TeleportTo(start.position + side, start.rotation);
         }
 

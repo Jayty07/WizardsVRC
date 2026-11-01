@@ -27,6 +27,11 @@ namespace WizardsVRC
         public Transform hubReturn;
         [Tooltip("Where a defeated wizard is sent (e.g. the zone's entrance). Empty = hubReturn.")]
         public Transform defeatReturn;
+        [Tooltip("Where a wizard who won is sent (a boss tower's next floor). Empty = hubReturn.")]
+        public Transform victoryReturn;
+        [Tooltip("A boss tower floor: told when you win here.")]
+        public TowerFloor towerFloor;
+        private bool _wonLast;
         [Tooltip("The encounter's root (ring, seats, labels, hand panel). Moved to the manager's ring spot when a fight starts.")]
         public Transform encounterRoot;
         [Tooltip("Body size per seat (the builder fills it from each seat's monster) for cast effects over their heads.")]
@@ -40,6 +45,8 @@ namespace WizardsVRC
         public float resultSeconds = 6f;
         private float _bannerClearAt = -1f;
         public Text padLabel;
+        [Tooltip("A boss tower floor's pad text when idle (the countdown and 'in progress' follow it).")]
+        public string padTitle = "";
         public Transform orb;
         public Renderer orbRenderer;
 
@@ -774,6 +781,9 @@ namespace WizardsVRC
                     if (playerState != null) playerState.SetHealth(Mathf.Max(1, BattleToCharacterHealth(manager.hp[_slot])));
                     _vitalsDone = true;
                     msg += "\n" + GrantRewards();
+                    _wonLast = true;
+                    if (towerFloor != null) towerFloor.LocalCleared();
+                    if (victoryReturn != null) msg += "\nOnward and upward...";
                 }
                 else if (_inBattle)
                 {
@@ -845,6 +855,7 @@ namespace WizardsVRC
             _seated = false;
             _leaving = false;
             _defeated = false;
+            _wonLast = false;
             // Duels never touch the character's health or mana, so there is nothing to write back afterwards.
             _vitalsDone = Pvp();
             _slot = slot;
@@ -998,7 +1009,8 @@ namespace WizardsVRC
             if (Utilities.IsValid(local))
             {
                 local.Immobilize(false);
-                Transform back = _defeated && defeatReturn != null ? defeatReturn : hubReturn;
+                Transform back = _defeated && defeatReturn != null ? defeatReturn : _wonLast && !_defeated && victoryReturn != null ? victoryReturn : hubReturn;
+                _wonLast = false;
                 if (back != null)
                 {
                     if (culler != null) culler.Prepare(back.position);
@@ -2327,6 +2339,12 @@ namespace WizardsVRC
                     else padLabel.text = "Duel in progress";
                 }
                 else if (!QueueUnlocked()) padLabel.text = queueLockedText;
+                else if (padTitle.Length > 0)
+                {
+                    if (phase == BattleManager.PHASE_IDLE) padLabel.text = padTitle;
+                    else if (phase == BattleManager.PHASE_QUEUE) padLabel.text = "The fight starts in " + manager.SecondsLeft().ToString() + "s\nWizards in the ring: " + manager.QueueCount().ToString() + " / 4";
+                    else padLabel.text = "Battle in progress";
+                }
                 else if (phase == BattleManager.PHASE_IDLE) padLabel.text = "Boss Arena Teleporter\nStep on the pad (up to 4 wizards)";
                 else if (phase == BattleManager.PHASE_QUEUE)
                     padLabel.text = "Teleporting in " + manager.SecondsLeft().ToString() + "s\nWizards: " + manager.QueueCount().ToString() + " / 4";
