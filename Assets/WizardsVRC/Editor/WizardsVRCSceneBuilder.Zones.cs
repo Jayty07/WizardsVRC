@@ -1002,11 +1002,13 @@ namespace WizardsVRC.EditorTools
 
         /// <summary>
         /// The name tag over a wandering monster: its name, level and rank with its school's icon (and Elite / Boss), in
-        /// the combat pixel font, tinted its school's colour (Wanderer fills it in), big enough to read from a way off.
+        /// the combat pixel font, tinted its school's colour (Wanderer fills it in), big enough to read from a way off. It
+        /// billboards: Wanderer turns it to face each player, upright.
         /// </summary>
         private static Text WanderLabel(Transform wt, float bodyScale)
         {
-            var label = WorldText(wt, "Label", new Vector3(0, bodyScale * 2f + 0.9f, 0), Quaternion.identity, new Vector2(900, 260), 0.0065f, "", 44);
+            // Bigger again (about 1.5x): its bottom line sits clear of the monster's head. Wanderer turns it to face you.
+            var label = WorldText(wt, "Label", new Vector3(0, bodyScale * 2f + 1.4f, 0), Quaternion.identity, new Vector2(900, 260), 0.0098f, "", 44);
             label.supportRichText = true;
             ApplyCombatFont(label.transform.parent);
             return label;

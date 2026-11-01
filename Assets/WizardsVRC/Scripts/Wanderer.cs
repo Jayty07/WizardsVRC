@@ -45,6 +45,8 @@ namespace WizardsVRC
         public float aggroRadius = 2.5f;
         public GameObject body;
         public Text label;
+        [Tooltip("The name tag turns to face you within this distance (m).")]
+        public float labelFaceRange = 70f;
         [Tooltip("This patrol monster's number in its encounter (BattleManager.wandererMonsters).")]
         public int wandererIndex;
         [Tooltip("Even fights: within this distance of the duel circle's centre it has reached the circle.")]
@@ -176,6 +178,24 @@ namespace WizardsVRC
             _length = loop ? _cum[n] : _cum[n - 1];
         }
 
+        /// <summary>
+        /// Turns the name tag to face you (about the vertical only, so it stays upright however the monster turns or
+        /// you look up and down). Skipped when you're too far off to read it.
+        /// </summary>
+        private void FaceLabel()
+        {
+            if (label == null) return;
+            Transform tag = label.transform.parent;
+            if (tag == null) return;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me)) return;
+            Vector3 d = tag.position - me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
+            d.y = 0f;
+            float far = labelFaceRange;
+            if (d.sqrMagnitude < 0.0004f || d.sqrMagnitude > far * far) return;
+            tag.rotation = Quaternion.LookRotation(d, Vector3.up);
+        }
+
         private void Update()
         {
             if (manager == null || laneManagers == null) return;
@@ -252,6 +272,7 @@ namespace WizardsVRC
             }
             if (body != null && body.activeSelf == inCircle) body.SetActive(!inCircle);
             if (label != null && label.gameObject.activeSelf == inCircle) label.gameObject.SetActive(!inCircle);
+            if (!inCircle) FaceLabel();
 
             if (inCircle || Time.time < _nextTry || client == null || !client.CanFight()) return;
             VRCPlayerApi me = Networking.LocalPlayer;
