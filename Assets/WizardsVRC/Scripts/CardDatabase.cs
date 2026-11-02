@@ -685,15 +685,24 @@ namespace WizardsVRC
             }
         }
 
-        /// <summary>Multi-line details for the spell details box.</summary>
-        public string GetDetails(int cardId)
+        /// <summary>Multi-line details for the spell details box (the tree's own requirement).</summary>
+        public string GetDetails(int cardId) { return DetailsText(null, cardId); }
+
+        /// <summary>
+        /// The details as this character sees them: "Requires" names the spell they actually need first, skipping another
+        /// school's blade or trap they can't learn (the same as <see cref="PrereqFor"/>, which the trainer goes by).
+        /// </summary>
+        public string GetDetailsFor(CharacterData c, int cardId) { return DetailsText(c, cardId); }
+
+        private string DetailsText(CharacterData c, int cardId)
         {
             int i = IndexOf(cardId);
             if (i < 0) return "";
+            int pre = c != null ? PrereqFor(c, cardId) : prereqs[i];
             return GetEffectText(cardId) + "\n" +
                    "Cost: " + pipCosts[i].ToString() + " pips    Accuracy: " + accuracies[i].ToString() + "%\n" +
                    SchoolName(schools[i]) + " spell, level " + levelReqs[i].ToString() +
-                   (prereqs[i] > 0 ? "\nRequires: " + GetName(prereqs[i]) : "") +
+                   (pre > 0 ? "\nRequires: " + GetName(pre) : "") +
                    (IsTrialSpell(cardId) ? "\nLearned from the " + SchoolName(schools[i]) + " trial quest" :
                     IsQuestSpell(cardId) ? "\nLearned from a " + SchoolName(schools[i]) + " side quest" : "") +
                    (SchoolOnly(cardId) ? "\nOnly " + SchoolName(schools[i]) + " wizards can learn it" : "");

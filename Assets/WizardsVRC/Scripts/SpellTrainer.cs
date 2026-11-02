@@ -193,7 +193,7 @@ namespace WizardsVRC
             if (detailsPanel != null) detailsPanel.SetActive(sel);
             if (!sel) return;
             detailName.text = cardDatabase.GetName(_selected);
-            detailBody.text = cardDatabase.GetDetails(_selected);
+            detailBody.text = cardDatabase.GetDetailsFor(c, _selected);
             cardDatabase.FillCard(_selected, detailFrame, detailCardName, detailPips, detailArt, detailAccuracy, detailInfo, detailSchool, false);
             bool canTry = !c.HasLearned(_selected) && !cardDatabase.IsQuestSpell(_selected) && cardDatabase.SchoolAllows(c, _selected);
             if (learnButton != null) learnButton.SetActive(canTry);

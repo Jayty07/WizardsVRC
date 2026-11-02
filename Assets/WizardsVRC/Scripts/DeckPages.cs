@@ -393,7 +393,7 @@ namespace WizardsVRC
             if (detailName != null) detailName.text = cardDatabase.GetName(_selected);
             cardDatabase.FillCard(_selected, detailFrame, detailCardName, detailPips, detailArt, detailAccuracy, detailInfo, detailSchool, false);
             if (detailBody != null)
-                detailBody.text = cardDatabase.GetDetails(_selected) + "\nIn this deck: " + inDeck.ToString() + " / " + copies.ToString();
+                detailBody.text = cardDatabase.GetDetailsFor(c, _selected) + "\nIn this deck: " + inDeck.ToString() + " / " + copies.ToString();
             if (addButton != null) addButton.SetActive(cardDatabase.Knows(c, _selected));
             if (removeButton != null) removeButton.SetActive(inDeck > 0);
         }

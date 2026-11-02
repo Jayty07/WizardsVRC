@@ -89,7 +89,8 @@ namespace WizardsVRC
             if (nameLabel != null)
                 nameLabel.text = "<color=#" + Hex(cardDatabase.GetColor(cardId)) + ">" + cardDatabase.GetName(cardId) + "</color>\n<size=22>" +
                                  cardDatabase.SchoolName(cardDatabase.GetSchool(cardId)) + " spell</size>";
-            if (bodyLabel != null) bodyLabel.text = cardDatabase.GetCardText(cardId) + "\n\n" + cardDatabase.GetDetails(cardId);
+            if (bodyLabel != null) bodyLabel.text = cardDatabase.GetCardText(cardId) + "\n\n" +
+                                                     (playerState != null && playerState.HasCharacter() ? cardDatabase.GetDetailsFor(playerState.current, cardId) : cardDatabase.GetDetails(cardId));
             if (compareRoot != null) compareRoot.SetActive(false);
             PlaceBeside(anchor);
         }
