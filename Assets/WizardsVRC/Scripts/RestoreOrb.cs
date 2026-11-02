@@ -44,6 +44,7 @@ namespace WizardsVRC
         private float[] _cum;
         private float _length;
         private float _nextCheck;
+        private float _sleepUntil;
 
         private void Start()
         {
@@ -68,6 +69,14 @@ namespace WizardsVRC
 
         private void Update()
         {
+            // Nobody near: no drifting or bobbing (it's time-based, so it's in the right place when you arrive).
+            if (Time.time < _sleepUntil) return;
+            VRCPlayerApi viewer = Networking.LocalPlayer;
+            if (Utilities.IsValid(viewer))
+            {
+                Vector3 dv = viewer.GetPosition() - transform.position;
+                if (dv.x * dv.x + dv.z * dv.z > 3600f) { _sleepUntil = Time.time + 0.5f; return; }
+            }
             if (_length > 0.01f) Drift();
             if (_taken || visual == null) return;
             float t = Time.time * 2.1f + _phase;

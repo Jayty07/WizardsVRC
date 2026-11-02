@@ -76,7 +76,7 @@ namespace WizardsVRC.EditorTools
             {
                 // Behaviours, moving things (pickups) and mirrors never go into the static distance-culling groups.
                 if (p.GetComponent<UdonBehaviour>() != null || p.GetComponent<LODGroup>() != null || p.GetComponent<Rigidbody>() != null ||
-                    p.GetComponent<Animation>() != null) return true;
+                    p.GetComponent<Animation>() != null || p.GetComponent<Animator>() != null) return true;
                 string n = p.name;
                 if (n.StartsWith("Encounter") || n.StartsWith("Patrol_") || n.StartsWith("RingSpots_") || n.StartsWith("Point_") ||
                     n.StartsWith("NPC_") || n.StartsWith("Classroom_") || n.StartsWith("Gate_") || n.StartsWith("LOD_") ||
@@ -113,6 +113,28 @@ namespace WizardsVRC.EditorTools
                 foreach (var tp in go.GetComponentsInChildren<TunnelPassage>(true))
                     tp.culler = culler;
             foreach (var ec in encounters) ec.culler = culler;
+            // Rings whose every piece (ring, seats, sign, pad) is inside one area sleep while that area is off.
+            var sleepers = new List<BattleClient>();
+            var sleeperArea = new List<int>();
+            foreach (var ec in encounters)
+            {
+                int area = -2;
+                foreach (Transform t in new[] { ec.encounterRoot, ec.arenaCenter, ec.padPivot, ec.padLabel != null ? ec.padLabel.transform : null,
+                                                ec.ring != null ? ec.ring.transform : null })
+                {
+                    if (t == null) continue;
+                    int a = -1;
+                    for (int i = 0; i < areas.Count; i++)
+                        if (areas[i] != null && t.IsChildOf(areas[i].transform)) { a = i; break; }
+                    if (area == -2) area = a;
+                    else if (area != a) area = -1;
+                }
+                if (area < 0) continue;
+                sleepers.Add(ec);
+                sleeperArea.Add(area);
+            }
+            culler.sleepers = sleepers.ToArray();
+            culler.sleeperArea = sleeperArea.ToArray();
             foreach (var go in scene.GetRootGameObjects())
                 foreach (var ds in go.GetComponentsInChildren<DungeonSigil>(true))
                     ds.culler = culler;
@@ -123,7 +145,8 @@ namespace WizardsVRC.EditorTools
             }
             var names = new List<string>();
             foreach (var a in areas) names.Add(a.name);
-            Debug.Log("[WizardsVRC] Area culling: " + string.Join(", ", names) + " switch off locally when you're not in them. Draw distance " + DrawDistance() + " m.");
+            Debug.Log("[WizardsVRC] Area culling: " + string.Join(", ", names) + " switch off locally when you're not in them (" + sleepers.Count + " of " +
+                      encounters.Count + " rings sleep with them). Draw distance " + DrawDistance() + " m.");
             return culler;
         }
     }

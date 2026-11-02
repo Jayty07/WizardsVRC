@@ -113,13 +113,7 @@ namespace WizardsVRC.EditorTools
                     Deco(strip, PrimitiveType.Cube, "TelegraphArm", new Vector3(18f, 9.4f, zz), new Vector3(2.4f, 0.2f, 0.2f), ghostWood, Quaternion.identity, false);
                 }
                 foreach (var t in strip.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = false;
-                var anim = strip.gameObject.AddComponent<Animation>();
-                var clip = ScrollClip("GhostTrainScenery" + copy, copy * span, span, seconds);
-                anim.clip = clip;
-                anim.AddClip(clip, clip.name);
-                anim.playAutomatically = true;
-                anim.wrapMode = WrapMode.Loop;
-                anim.cullingType = AnimationCullingType.AlwaysAnimate;
+                LoopAnimator(strip.gameObject, ScrollClip("GhostTrainScenery" + copy, copy * span, span, seconds), AnimatorCullingMode.AlwaysAnimate);
             }
             Motes(root, "BlowingDust", new Vector3(0, 2f, 20f), new Vector3(60f, 3f, 10f), new Color(0.8f, 0.7f, 0.75f), 18f, 2f, 3f,
                 new Vector2(0.2f, 0.6f), new Vector3(0, 0.2f, -18f), new Vector3(1f, 0.4f, 1f), 0f);
@@ -140,11 +134,10 @@ namespace WizardsVRC.EditorTools
             if (fresh) clip = new AnimationClip();
             clip.ClearCurves();
             clip.name = name;
-            clip.legacy = true;
-            clip.wrapMode = WrapMode.Loop;
-            clip.SetCurve("", typeof(Transform), "localPosition.x", AnimationCurve.Constant(0f, seconds, 0f));
-            clip.SetCurve("", typeof(Transform), "localPosition.y", AnimationCurve.Constant(0f, seconds, -3f));
-            clip.SetCurve("", typeof(Transform), "localPosition.z", AnimationCurve.Linear(0f, z0, seconds, z0 - span));
+            SetLooping(clip);
+            SetTransformCurve(clip, "", "m_LocalPosition.x", AnimationCurve.Constant(0f, seconds, 0f));
+            SetTransformCurve(clip, "", "m_LocalPosition.y", AnimationCurve.Constant(0f, seconds, -3f));
+            SetTransformCurve(clip, "", "m_LocalPosition.z", AnimationCurve.Linear(0f, z0, seconds, z0 - span));
             if (fresh) AssetDatabase.CreateAsset(clip, path);
             else EditorUtility.SetDirty(clip);
             return clip;

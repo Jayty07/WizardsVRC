@@ -31,7 +31,13 @@ namespace WizardsVRC
         public Material defaultSky;
         public Color defaultFog = new Color(0.9f, 0.66f, 0.68f);
 
+        [Header("Rings that sleep while their area is off (same index into Areas)")]
+        [Tooltip("Battle clients whose ring, seats and signs are all in one area: their every-frame animation stops while it's off.")]
+        public BattleClient[] sleepers;
+        public int[] sleeperArea;
+
         private float _next = 1f;
+        private bool[] _areaOn;
         private float _holdUntil;
         private int _skyArea = -2;
 
@@ -83,6 +89,20 @@ namespace WizardsVRC
         {
             GameObject go = areas[i];
             if (go != null && go.activeSelf != on) go.SetActive(on);
+            if (_areaOn == null)
+            {
+                _areaOn = new bool[areas.Length];
+                for (int k = 0; k < _areaOn.Length; k++) _areaOn[k] = true;   // every ring starts awake
+            }
+            if (i >= _areaOn.Length || _areaOn[i] == on) return;
+            _areaOn[i] = on;
+            if (sleepers == null || sleeperArea == null) return;
+            for (int k = 0; k < sleepers.Length && k < sleeperArea.Length; k++)
+            {
+                if (sleeperArea[k] != i || sleepers[k] == null) continue;
+                if (on) sleepers[k]._AreaWake();
+                else sleepers[k]._AreaSleep();
+            }
         }
 
         private void Update()

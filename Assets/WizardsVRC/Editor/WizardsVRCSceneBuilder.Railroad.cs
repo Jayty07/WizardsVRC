@@ -438,13 +438,7 @@ namespace WizardsVRC.EditorTools
                     else Butte(strip, at, Rr(5f, 14f), Rr(5f, 16f), rock, sand, Rr(0f, 360f));
                 }
                 foreach (var t in strip.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = false;
-                var anim = strip.gameObject.AddComponent<Animation>();
-                var clip = ScrollClip("RailroadScenery" + copy, copy * span, span, seconds);
-                anim.clip = clip;
-                anim.AddClip(clip, clip.name);
-                anim.playAutomatically = true;
-                anim.wrapMode = WrapMode.Loop;
-                anim.cullingType = AnimationCullingType.BasedOnRenderers;
+                LoopAnimator(strip.gameObject, ScrollClip("RailroadScenery" + copy, copy * span, span, seconds), AnimatorCullingMode.CullUpdateTransforms);
             }
             var sit = Child(root, "RideSeat", new Vector3(0, 0.05f, -2f));
             sit.localRotation = Quaternion.identity;

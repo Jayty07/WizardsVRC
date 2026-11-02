@@ -1036,6 +1036,31 @@ namespace WizardsVRC
                 }
             }
             if (playerState != null && playerState.HasCharacter()) playerState.SaveNow();
+            if (_areaAsleep) enabled = false;
+        }
+
+        // ------------------------------------------------------------------ sleeping with its area
+
+        private bool _areaAsleep;
+
+        /// <summary>
+        /// AreaCuller: this ring's area was switched off (you're elsewhere). Nothing of it is on screen, so its every-frame
+        /// animation stops until you come back; the fight itself (the synced BattleManager) carries on regardless, and the
+        /// state it sends still arrives. Never while you're in this fight.
+        /// </summary>
+        public void _AreaSleep()
+        {
+            _areaAsleep = true;
+            if (!_inBattle) enabled = false;
+        }
+
+        /// <summary>AreaCuller: the area is back on. Catch up with the fight's current state and animate again.</summary>
+        public void _AreaWake()
+        {
+            _areaAsleep = false;
+            if (enabled) return;
+            enabled = true;
+            OnBattleState();
         }
 
         /// <summary>

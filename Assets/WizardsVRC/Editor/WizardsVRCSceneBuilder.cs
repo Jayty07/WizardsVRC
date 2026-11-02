@@ -135,7 +135,9 @@ namespace WizardsVRC.EditorTools
             var sunLight = sun.AddComponent<Light>();
             sunLight.type = LightType.Directional;
             sunLight.intensity = 1.1f;
-            sunLight.shadows = LightShadows.Soft;
+            // The PS1 look has no cast shadows: none of the world's shaders draw them, so a shadowed sun only cost a shadow
+            // map and a full depth pre-pass of the scene every frame for nothing on screen (see SunShadows).
+            sunLight.shadows = SunShadows ? LightShadows.Hard : LightShadows.None;
             sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = new Color(0.55f, 0.6f, 0.75f);
@@ -359,6 +361,8 @@ namespace WizardsVRC.EditorTools
 
             // Every plain menu panel and button in the PS1 look (WizardsVRCSceneBuilder.UiStyle.cs).
             Debug.Log("[WizardsVRC] Styled " + StyleWorldUi(scene.GetRootGameObjects()) + " menu panels and buttons.");
+            // Static scenery sharing a material, combined per 32 m chunk (WizardsVRCSceneBuilder.Merge.cs).
+            MergeStaticScenery(scene);
             RestoreMyChanges(scene);
             // 2D sounds get the (disabled) VRC Spatial Audio Source the SDK asks for (WizardsVRCSceneBuilder.Audio.cs).
             Debug.Log("[WizardsVRC] Spatial audio: set up " + FixFlatAudio(scene) + " audio sources.");
@@ -458,6 +462,12 @@ namespace WizardsVRC.EditorTools
                 }
             };
         }
+
+        /// <summary>
+        /// Realtime sun shadows. The world's PSX shaders never draw shadows, so the only thing they'd show on is players'
+        /// avatars; off saves the shadow map and the depth pre-pass of everything in view.
+        /// </summary>
+        private const bool SunShadows = false;
 
         /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
         private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig" };

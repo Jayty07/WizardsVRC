@@ -70,6 +70,7 @@ namespace WizardsVRC
         private string _name = "";
         private float _walkStart = -100f;
         private int _walkLane;
+        private float _sleepUntil;
 
         private void Start()
         {
@@ -199,6 +200,16 @@ namespace WizardsVRC
         private void Update()
         {
             if (manager == null || laneManagers == null) return;
+            // Far from the local player, walk in small steps a few times a second instead of every frame (it reads the
+            // same at that distance, and fights only touch monsters near you).
+            if (Time.time < _sleepUntil) return;
+            VRCPlayerApi viewer = Networking.LocalPlayer;
+            if (Utilities.IsValid(viewer))
+            {
+                Vector3 dv = viewer.GetPosition() - transform.position;
+                float far = dv.x * dv.x + dv.z * dv.z;
+                _sleepUntil = far > 8100f ? Time.time + 0.3f : (far > 1600f ? Time.time + 0.1f : 0f);
+            }
             int lane = HiddenLane();
             bool hidden = lane >= 0;
             // A patrol monster that just left its patrol for a fight walks over to its seat in that fight's ring, then

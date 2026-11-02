@@ -128,7 +128,9 @@ namespace WizardsVRC.EditorTools
                 var anim = temp.AddComponent<Animator>();
                 anim.runtimeAnimatorController = RigController(look.kind, walking, look.heavy);
                 anim.applyRootMotion = false;
-                anim.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+                // Patrolling bodies only loop idle/walk, so off screen they stop entirely; fight bodies keep their clock
+                // (a hit or a fall carries on while you look away) and only skip moving their parts.
+                anim.cullingMode = walking ? AnimatorCullingMode.CullCompletely : AnimatorCullingMode.CullUpdateTransforms;
                 if (!walking)
                 {
                     var voice = temp.AddComponent<AudioSource>();

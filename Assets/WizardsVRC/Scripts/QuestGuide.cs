@@ -61,47 +61,33 @@ namespace WizardsVRC
             Show(beacon, false);
         }
 
+        private float _nextFind;
+        private bool _hasGoal;
+        private Vector3 _goal;
+        private string _goalName = "";
+        private int _shownMetres = -1;
+        private string _shownName = "";
+
         private void Update()
         {
-            Transform target = FindTarget();
             VRCPlayerApi local = Networking.LocalPlayer;
-            if (target == null || !Utilities.IsValid(local))
+            if (!Utilities.IsValid(local)) return;
+            // Where to point is worked out a few times a second (finding the nearest quest object and the way between
+            // areas walks a lot of data); the arrow itself follows your head every frame.
+            if (Time.time >= _nextFind)
+            {
+                _nextFind = Time.time + 0.25f;
+                _hasGoal = FindGoal(local);
+            }
+            if (!_hasGoal)
             {
                 Show(arrow, false);
                 Show(labelRoot, false);
                 Show(beacon, false);
                 return;
             }
-
-            int q = questManager.GetTrackedQuest();
-            Vector3 goal = target.position;
-            string goalName = questManager.GetObjectiveTargetName(q);
             Vector3 feet = local.GetPosition();
-            if (areaMinY != null && areaMinY.Length > 0)
-            {
-                // Different areas: leave yours through its exit, or (from the castle) head for the goal area's door.
-                int pa = AreaOf(feet.y);
-                int ga = AreaOf(goal.y);
-                if (pa != ga)
-                {
-                    // The goal's area, or the one on the way to it, whose entrance is in your area: head for that door.
-                    // Otherwise leave yours (its exit leads back toward the castle).
-                    int step = ga;
-                    int guard = 0;
-                    while (step >= 0 && ParentOf(step) != pa && guard < 8) { step = ParentOf(step); guard++; }
-                    if (step >= 0 && ParentOf(step) == pa && Has(areaEntrances, step)) { goal = areaEntrances[step].position; goalName = NameAt(areaEntranceNames, step); }
-                    else if (pa >= 0 && Has(areaExits, pa)) { goal = areaExits[pa].position; goalName = NameAt(areaExitNames, pa); }
-                    else if (ga >= 0 && Has(areaEntrances, ga)) { goal = areaEntrances[ga].position; goalName = NameAt(areaEntranceNames, ga); }
-                }
-            }
-            else
-            {
-                bool playerInside = feet.y > interiorMinY;
-                bool goalInside = goal.y > interiorMinY;
-                if (playerInside && !goalInside && interiorExit != null) { goal = interiorExit.position; goalName = interiorExitName; }
-                else if (!playerInside && goalInside && keepEntrance != null) { goal = keepEntrance.position; goalName = keepEntranceName; }
-            }
-
+            Vector3 goal = _goal;
             if (beacon != null)
             {
                 Show(beacon, true);
@@ -132,16 +118,61 @@ namespace WizardsVRC
                 labelRoot.position = arrow.position + Vector3.up * 0.12f;
                 labelRoot.rotation = Quaternion.LookRotation(forward, Vector3.up);
             }
-            if (label != null) label.text = goalName + "\n" + Mathf.RoundToInt(dist).ToString() + " m";
+            // The words only change when the metres do.
+            int metres = Mathf.RoundToInt(dist);
+            if (label != null && (metres != _shownMetres || _goalName != _shownName))
+            {
+                _shownMetres = metres;
+                _shownName = _goalName;
+                label.text = _goalName + "\n" + metres.ToString() + " m";
+            }
+        }
+
+        /// <summary>The point the arrow leads to right now (the target, or the door on the way to its area). False = none.</summary>
+        private bool FindGoal(VRCPlayerApi local)
+        {
+            Transform target = FindTarget();
+            if (target == null) return false;
+            int q = questManager.GetTrackedQuest();
+            Vector3 goal = target.position;
+            string goalName = questManager.GetObjectiveTargetName(q);
+            Vector3 feet = local.GetPosition();
+            if (areaMinY != null && areaMinY.Length > 0)
+            {
+                // Different areas: leave yours through its exit, or (from the castle) head for the goal area's door.
+                int pa = AreaOf(feet.y);
+                int ga = AreaOf(goal.y);
+                if (pa != ga)
+                {
+                    // The goal's area, or the one on the way to it, whose entrance is in your area: head for that door.
+                    // Otherwise leave yours (its exit leads back toward the castle).
+                    int step = ga;
+                    int guard = 0;
+                    while (step >= 0 && ParentOf(step) != pa && guard < 8) { step = ParentOf(step); guard++; }
+                    if (step >= 0 && ParentOf(step) == pa && Has(areaEntrances, step)) { goal = areaEntrances[step].position; goalName = NameAt(areaEntranceNames, step); }
+                    else if (pa >= 0 && Has(areaExits, pa)) { goal = areaExits[pa].position; goalName = NameAt(areaExitNames, pa); }
+                    else if (ga >= 0 && Has(areaEntrances, ga)) { goal = areaEntrances[ga].position; goalName = NameAt(areaEntranceNames, ga); }
+                }
+            }
+            else
+            {
+                bool playerInside = feet.y > interiorMinY;
+                bool goalInside = goal.y > interiorMinY;
+                if (playerInside && !goalInside && interiorExit != null) { goal = interiorExit.position; goalName = interiorExitName; }
+                else if (!playerInside && goalInside && keepEntrance != null) { goal = keepEntrance.position; goalName = keepEntranceName; }
+            }
+
+            _goal = goal;
+            _goalName = goalName;
+            return true;
         }
 
         private Transform FindTarget()
         {
             if (!guideEnabled || questManager == null || playerState == null || !playerState.HasCharacter()) return null;
             if (cutscenePlayer != null && cutscenePlayer.IsPlaying()) return null;
-            if (battleClients != null)
-                for (int i = 0; i < battleClients.Length; i++)
-                    if (battleClients[i] != null && battleClients[i].IsInBattle()) return null;
+            // In a fight (asking each of the world's rings would be hundreds of calls).
+            if (playerState.inCombat) return null;
             int q = questManager.GetTrackedQuest();
             if (q == CharacterData.NO_TRACKED_QUEST) return null;
             return questManager.GetObjectiveTarget(q);

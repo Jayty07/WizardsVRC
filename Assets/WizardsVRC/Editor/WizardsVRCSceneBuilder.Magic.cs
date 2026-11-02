@@ -9,10 +9,10 @@ namespace WizardsVRC.EditorTools
     /// Hub atmosphere: crystals, gems, wisps and curios that hover and turn as if held up by magic, ambient motes in
     /// each school's classroom, and the finishing pieces for the tavern's stage and hearth.
     ///
-    /// Floating runs on Unity's own (legacy) Animation component, not Udon: each floater is wrapped in a pivot that keeps
-    /// its place, and a small looping clip bobs and turns the piece inside it. That costs nothing in Udon, and a clip set
-    /// to cull by renderers stops while the piece is off screen. Clips are shared: one per kind of floater and one of
-    /// three phases, so neighbours don't move in step.
+    /// Floating runs on Unity's own Animator, not Udon: each floater is wrapped in a pivot that keeps its place, and a
+    /// small looping clip bobs and turns the piece inside it. That costs nothing in Udon, and an Animator restarts its loop
+    /// every time its area is switched back on (the legacy Animation component these used to have could stay stopped).
+    /// Clips are shared: one per kind of floater and one of three phases, so neighbours don't move in step.
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
@@ -71,7 +71,7 @@ namespace WizardsVRC.EditorTools
                 bool skip = false;
                 for (Transform p = tr.parent; p != null && p != root; p = p.parent)
                     if (p.name.StartsWith("Float_") || p.GetComponent<VRC.Udon.UdonBehaviour>() != null || p.GetComponent<Rigidbody>() != null ||
-                        p.GetComponent<Animation>() != null || p.name.StartsWith("Encounter") || p.name.StartsWith("Patrol_"))
+                        p.GetComponent<Animation>() != null || p.GetComponent<Animator>() != null || p.name.StartsWith("Encounter") || p.name.StartsWith("Patrol_"))
                     { skip = true; break; }
                 if (!skip) found.Add(tr);
             }
@@ -101,12 +101,42 @@ namespace WizardsVRC.EditorTools
             Vector3 w = pivot.position;
             int phase = Mathf.Abs(Mathf.RoundToInt(w.x * 7.3f + w.y * 3.1f + w.z * 5.7f)) % 3;
             var clip = FloatClip(pivot.name.Substring(6), phase, k);
-            var anim = pivot.gameObject.AddComponent<Animation>();
-            anim.clip = clip;
-            anim.AddClip(clip, clip.name);
-            anim.playAutomatically = true;
-            anim.wrapMode = WrapMode.Loop;
-            anim.cullingType = AnimationCullingType.BasedOnRenderers;   // stops while it's off screen
+            LoopAnimator(pivot.gameObject, clip, AnimatorCullingMode.AlwaysAnimate);
+        }
+
+        /// <summary>
+        /// Plays a clip on a loop with an Animator (one shared controller per clip, saved next to it). Animators start the
+        /// loop again whenever their object is switched back on, so area culling never leaves one stopped.
+        /// </summary>
+        private static Animator LoopAnimator(GameObject go, AnimationClip clip, AnimatorCullingMode cull)
+        {
+            string ctrlPath = FloatAnimDir + "/" + clip.name + ".controller";
+            var ctrl = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(ctrlPath);
+            if (ctrl == null) ctrl = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(ctrlPath);
+            var sm = ctrl.layers[0].stateMachine;
+            if (sm.states.Length == 0) sm.AddState("Loop");
+            var state = sm.states[0].state;
+            if (state.motion != clip) { state.motion = clip; EditorUtility.SetDirty(ctrl); }
+            sm.defaultState = state;
+            var anim = go.AddComponent<Animator>();
+            anim.runtimeAnimatorController = ctrl;
+            anim.applyRootMotion = false;
+            anim.cullingMode = cull;
+            return anim;
+        }
+
+        /// <summary>Makes a clip a looping Animator clip (not legacy).</summary>
+        private static void SetLooping(AnimationClip clip)
+        {
+            clip.legacy = false;
+            var settings = AnimationUtility.GetAnimationClipSettings(clip);
+            settings.loopTime = true;
+            AnimationUtility.SetAnimationClipSettings(clip, settings);
+        }
+
+        private static void SetTransformCurve(AnimationClip clip, string path, string prop, AnimationCurve curve)
+        {
+            AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(path, typeof(Transform), prop), curve);
         }
 
         /// <summary>A looping clip that bobs "Body" up and down and turns it about its up axis (saved, shared by kind and phase).</summary>
@@ -119,8 +149,7 @@ namespace WizardsVRC.EditorTools
             if (fresh) clip = new AnimationClip();
             clip.ClearCurves();
             clip.name = "Float_" + kind + "_" + phase;
-            clip.legacy = true;
-            clip.wrapMode = WrapMode.Loop;
+            SetLooping(clip);
 
             int steps = Mathf.Max(24, 24 * Mathf.Abs(k.turns));
             float p = phase * Mathf.PI * 2f / 3f, a0 = phase * 120f;
@@ -144,13 +173,13 @@ namespace WizardsVRC.EditorTools
                 qz[i] = new Keyframe(t, q.z);
                 qw[i] = new Keyframe(t, q.w);
             }
-            clip.SetCurve("Body", typeof(Transform), "localPosition.x", AnimationCurve.Constant(0f, k.length, 0f));
-            clip.SetCurve("Body", typeof(Transform), "localPosition.y", Smooth(y));
-            clip.SetCurve("Body", typeof(Transform), "localPosition.z", AnimationCurve.Constant(0f, k.length, 0f));
-            clip.SetCurve("Body", typeof(Transform), "localRotation.x", Smooth(qx));
-            clip.SetCurve("Body", typeof(Transform), "localRotation.y", Smooth(qy));
-            clip.SetCurve("Body", typeof(Transform), "localRotation.z", Smooth(qz));
-            clip.SetCurve("Body", typeof(Transform), "localRotation.w", Smooth(qw));
+            SetTransformCurve(clip, "Body", "m_LocalPosition.x", AnimationCurve.Constant(0f, k.length, 0f));
+            SetTransformCurve(clip, "Body", "m_LocalPosition.y", Smooth(y));
+            SetTransformCurve(clip, "Body", "m_LocalPosition.z", AnimationCurve.Constant(0f, k.length, 0f));
+            SetTransformCurve(clip, "Body", "m_LocalRotation.x", Smooth(qx));
+            SetTransformCurve(clip, "Body", "m_LocalRotation.y", Smooth(qy));
+            SetTransformCurve(clip, "Body", "m_LocalRotation.z", Smooth(qz));
+            SetTransformCurve(clip, "Body", "m_LocalRotation.w", Smooth(qw));
             clip.EnsureQuaternionContinuity();
             if (fresh) AssetDatabase.CreateAsset(clip, path);
             else EditorUtility.SetDirty(clip);

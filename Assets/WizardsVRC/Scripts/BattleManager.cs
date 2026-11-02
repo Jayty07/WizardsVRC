@@ -929,7 +929,7 @@ namespace WizardsVRC
 
         private void Update()
         {
-            if (!Networking.IsOwner(gameObject) || phase == PHASE_IDLE) return;
+            if (phase == PHASE_IDLE || !Networking.IsOwner(gameObject)) return;   // the cheap check first (most rings are idle)
             bool timeUp = phaseEndMs - Now() <= 0;
             if (phase == PHASE_QUEUE)
             {

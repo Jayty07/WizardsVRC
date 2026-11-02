@@ -16,6 +16,8 @@ namespace WizardsVRC.EditorTools
     {
         private const string AmbientDir = "Assets/WizardsVRC/Audio/Ambient";
         private const float AmbientBedVolume = 0.3f;
+        /// <summary>All ambience (beds and spot sounds) at this share of its set volume, so it sits under the music.</summary>
+        private const float AmbientLevel = 0.75f;
 
         /// <summary>Loads an ambient loop, set up the first time as a compressed, in-memory clip (they're short loops).</summary>
         private static AudioClip AmbientClip(string name)
@@ -48,7 +50,7 @@ namespace WizardsVRC.EditorTools
             src.loop = true;
             src.playOnAwake = true;
             src.spatialBlend = 0f;
-            src.volume = volume;
+            src.volume = volume * AmbientLevel;
             src.priority = 200;
             return src;
         }
@@ -65,7 +67,7 @@ namespace WizardsVRC.EditorTools
             src.loop = true;
             src.playOnAwake = true;
             src.spatialBlend = 1f;
-            src.volume = volume;
+            src.volume = volume * AmbientLevel;
             src.rolloffMode = AudioRolloffMode.Linear;
             src.minDistance = near;
             src.maxDistance = far;
