@@ -435,7 +435,7 @@ namespace WizardsVRC
             return i < cardFrames.Length ? cardFrames[i] : cardFrames[cardFrames.Length - 1];
         }
 
-        /// <summary>Art for the card's picture window: shields, blades and traps show their icon; others have none yet.</summary>
+        /// <summary>Art for the card's picture window: its painted picture; without one, a shield, blade or trap shows its icon.</summary>
         public Texture ArtFor(int cardId)
         {
             int ai = IndexOf(cardId);
@@ -476,6 +476,8 @@ namespace WizardsVRC
             {
                 Texture t = ArtFor(cardId);
                 art.texture = t;
+                // Card pictures fill the wide window; a square icon (a spell without a picture) sits in its middle.
+                if (t != null) art.uvRect = t.width == t.height ? new Rect(-0.25f, 0f, 1.5f, 1f) : new Rect(0f, 0f, 1f, 1f);
                 art.color = dim ? new Color(0.5f, 0.5f, 0.52f) : Color.white;
                 if (art.gameObject.activeSelf != (t != null)) art.gameObject.SetActive(t != null);
             }

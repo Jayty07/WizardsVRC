@@ -2635,6 +2635,7 @@ namespace WizardsVRC
                 {
                     Texture art = CardArt(card);
                     cardArts[i].texture = art;
+                    if (art != null) cardArts[i].uvRect = art.width == art.height ? new Rect(-0.25f, 0f, 1.5f, 1f) : new Rect(0f, 0f, 1f, 1f);
                     cardArts[i].color = usable || _discardMode ? Color.white : new Color(0.5f, 0.5f, 0.52f);
                     if (cardArts[i].gameObject.activeSelf != (art != null)) cardArts[i].gameObject.SetActive(art != null);
                 }

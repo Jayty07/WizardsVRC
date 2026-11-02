@@ -16,8 +16,9 @@ namespace WizardsVRC.EditorTools
     /// school-shaped missile; area spells rain down or burst over the far side; heals bloom and sparkle up round the
     /// target; shields, blades, traps and charms spiral up round it. Every animation lands its effect at its strike time.
     ///
-    /// Each card's art is a render of that same animation at its most dramatic moment (the creature mid-attack, the bolt,
-    /// the rain, the bloom), 64 pixels square over the school's colour, saved in Textures/CardArt.
+    /// Each card's art is a painted picture filling the card's window, its subject a render of that same animation at its
+    /// most dramatic moment (the creature mid-cast, the bolt, the rain, the bloom) over a backdrop for the school, or the
+    /// emblem of a shield, blade, trap or charm (WizardsVRCSceneBuilder.CardArt.cs), saved in Textures/CardArt.
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
@@ -143,7 +144,7 @@ namespace WizardsVRC.EditorTools
                 // The card's art, from the animation itself.
                 if (prefab == null)
                 {
-                    db.cardArt[i] = RenderCardArt(fx, db.ids[i], look, col);
+                    db.cardArt[i] = PaintCardArt(fx, db, i, look);
                     if (db.cardArt[i] != null) arts++;
                 }
                 fx.SetActive(false);
@@ -353,106 +354,7 @@ namespace WizardsVRC.EditorTools
             go.AddComponent<Animator>().runtimeAnimatorController = ctrl;
         }
 
-        // ================================================================== card art
-
-        /// <summary>
-        /// Renders the spell's animation at its strike into a 64 x 64 card picture over the school's colour: the creature
-        /// mid-attack (its walk pose), the bolt, or the area effect. Saved as Textures/CardArt/&lt;id&gt;.png (point filtered).
-        /// </summary>
-        private static Texture RenderCardArt(GameObject fx, int id, SpellLook look, Color col)
-        {
-            const int size = 64;
-            const int layer = 31;
-            var stage = new GameObject("CardArtStage").transform;
-            stage.position = new Vector3(0f, -5000f, 0f);
-            var copy = Object.Instantiate(fx, stage);
-            copy.SetActive(true);
-            copy.transform.localPosition = Vector3.zero;
-            copy.transform.localRotation = Quaternion.Euler(0, 200f, 0);   // three-quarter view, facing the camera
-            Transform summon = copy.transform.Find("Summon"), bolt = copy.transform.Find("Projectile"), area = copy.transform.Find("Area");
-            if (summon != null) summon.gameObject.SetActive(true);
-            if (bolt != null) bolt.gameObject.SetActive(true);
-            if (area != null) area.gameObject.SetActive(look.mode == FxArea);
-            // Pose it: the creature mid-stride, the area at its strike.
-            foreach (var a in copy.GetComponentsInChildren<Animator>(true))
-            {
-                var ctrl = a.runtimeAnimatorController;
-                if (ctrl == null || ctrl.animationClips.Length == 0) continue;
-                AnimationClip c = ctrl.animationClips[0];
-                foreach (var cc in ctrl.animationClips) if (cc.name == "Walk") c = cc;
-                float t = a.transform == area ? Mathf.Min(look.strike + 0.15f, c.length) : c.length * 0.3f;
-                c.SampleAnimation(a.gameObject, t);
-            }
-            foreach (var ps in copy.GetComponentsInChildren<ParticleSystem>(true)) ps.gameObject.SetActive(false);
-            foreach (var t in copy.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
-            var bounds = new Bounds(copy.transform.position + Vector3.up, Vector3.one);
-            foreach (var r in copy.GetComponentsInChildren<Renderer>(false)) if (r.enabled && r.gameObject.activeInHierarchy) bounds.Encapsulate(r.bounds);
-
-            // A backdrop in the school's colour, darker at the bottom, behind the subject.
-            var back = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            Object.DestroyImmediate(back.GetComponent<Collider>());
-            back.layer = layer;
-            back.transform.SetParent(stage, false);
-            var camGo = new GameObject("CardArtCamera");
-            camGo.transform.SetParent(stage, false);
-            var cam = camGo.AddComponent<Camera>();
-            cam.cullingMask = 1 << layer;
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = Color.Lerp(col, Color.black, 0.65f);
-            cam.fieldOfView = 32f;
-            float radius = Mathf.Max(bounds.extents.magnitude, 0.8f);
-            float dist = radius / Mathf.Sin(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * 0.95f;
-            // From in front and a little above.
-            cam.transform.position = bounds.center + new Vector3(0f, dist * 0.22f, -dist);
-            cam.transform.LookAt(bounds.center);
-            cam.nearClipPlane = 0.05f;
-            cam.farClipPlane = dist * 4f;
-            back.transform.position = bounds.center + cam.transform.forward * (dist + radius * 1.5f);
-            back.transform.rotation = Quaternion.LookRotation(cam.transform.forward);
-            back.transform.localScale = Vector3.one * (dist + radius * 1.5f) * 1.2f;
-            back.GetComponent<Renderer>().sharedMaterial = PMat("CardArtBack_" + ColorUtility.ToHtmlStringRGB(col), Color.Lerp(col, Color.black, 0.45f), 1f, Color.Lerp(col, Color.black, 0.55f));
-            var lightGo = new GameObject("CardArtLight");
-            lightGo.transform.SetParent(stage, false);
-            lightGo.transform.rotation = Quaternion.Euler(40f, 150f, 0f);
-            var light = lightGo.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.intensity = 1.3f;
-            light.cullingMask = 1 << layer;
-
-            var rt = RenderTexture.GetTemporary(size, size, 24, RenderTextureFormat.ARGB32);
-            rt.filterMode = FilterMode.Point;
-            cam.targetTexture = rt;
-            cam.Render();
-            var prev = RenderTexture.active;
-            RenderTexture.active = rt;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            tex.ReadPixels(new Rect(0, 0, size, size), 0, 0);
-            tex.Apply();
-            RenderTexture.active = prev;
-            cam.targetTexture = null;
-            RenderTexture.ReleaseTemporary(rt);
-            Object.DestroyImmediate(stage.gameObject);
-
-            // A thin dark frame, and the pixels saved.
-            for (int k = 0; k < size; k++)
-                foreach (var p in new[] { new Vector2Int(k, 0), new Vector2Int(k, size - 1), new Vector2Int(0, k), new Vector2Int(size - 1, k) })
-                    tex.SetPixel(p.x, p.y, new Color(0.08f, 0.06f, 0.05f));
-            string path = CardArtDir + "/" + id + ".png";
-            File.WriteAllBytes(path, tex.EncodeToPNG());
-            Object.DestroyImmediate(tex);
-            AssetDatabase.ImportAsset(path);
-            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer != null && (importer.filterMode != FilterMode.Point || importer.mipmapEnabled || importer.textureCompression != TextureImporterCompression.Uncompressed))
-            {
-                importer.textureType = TextureImporterType.Default;
-                importer.filterMode = FilterMode.Point;
-                importer.mipmapEnabled = false;
-                importer.wrapMode = TextureWrapMode.Clamp;
-                importer.textureCompression = TextureImporterCompression.Uncompressed;
-                importer.SaveAndReimport();
-            }
-            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-        }
+        // ================================================================== card art (WizardsVRCSceneBuilder.CardArt.cs)
 
         /// <summary>Clears the generated spell clips from the last build (they're made fresh each time).</summary>
         private static void ResetSpellFx()

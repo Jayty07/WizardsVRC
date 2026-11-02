@@ -69,8 +69,8 @@ namespace WizardsVRC.EditorTools
             artGo.transform.SetParent(rt, false);
             p.art = artGo.AddComponent<RawImage>();
             p.art.raycastTarget = false;
-            ((RectTransform)artGo.transform).anchoredPosition = new Vector2(0, 39);
-            ((RectTransform)artGo.transform).sizeDelta = new Vector2(84, 84);
+            ((RectTransform)artGo.transform).anchoredPosition = new Vector2(0, 37.5f);
+            ((RectTransform)artGo.transform).sizeDelta = new Vector2(142, 95);   // the frame's whole picture window (116 x 76 art)
             artGo.SetActive(false);
             if (!mini)
             {

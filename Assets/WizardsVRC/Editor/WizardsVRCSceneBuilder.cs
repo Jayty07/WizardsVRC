@@ -1843,13 +1843,13 @@ namespace WizardsVRC.EditorTools
                 client.cardPips[i] = CardText(brt, "Pips", new Vector2(-75, 114), new Vector2(34, 34), 22, TextAnchor.MiddleCenter, Color.white);
                 client.cardPips[i].fontStyle = FontStyle.Bold;
                 client.cardPips[i].gameObject.AddComponent<Outline>().effectColor = new Color(0.12f, 0.09f, 0.14f);
-                // Art window: shields / blades / traps show their icon; other spells stay blank until they have art.
+                // Art window: the card's painted picture fills it (WizardsVRCSceneBuilder.CardArt.cs).
                 var artGo = new GameObject("Art", typeof(RectTransform));
                 artGo.transform.SetParent(brt, false);
                 var art = artGo.AddComponent<RawImage>();
                 art.raycastTarget = false;
-                ((RectTransform)artGo.transform).anchoredPosition = new Vector2(0, 39);
-                ((RectTransform)artGo.transform).sizeDelta = new Vector2(84, 84);
+                ((RectTransform)artGo.transform).anchoredPosition = new Vector2(0, 37.5f);
+                ((RectTransform)artGo.transform).sizeDelta = new Vector2(142, 95);   // the frame's whole picture window (116 x 76 art)
                 artGo.SetActive(false);
                 client.cardArts[i] = art;
                 client.cardAccuracies[i] = CardText(brt, "Accuracy", new Vector2(-60, -21), new Vector2(54, 26), 13, TextAnchor.MiddleCenter, ink);
