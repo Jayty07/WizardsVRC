@@ -173,15 +173,29 @@ nothing is taken back.
 - **Titles** show over your head and **auras** swirl round you, in the open world and in duels, seen by everyone
   (`PlayerCosmetics`, synced through a VRChat player object). Earn them by level, monsters, bosses, boss towers and the
   Kraken, or buy them. Pick what you wear in the book's **Wardrobe** tab (`WardrobePages`).
-- **Selling Starshards for real money** is optional and goes through VRChat's Creator Economy (`StarshardStore`). Your
-  world has to be eligible for it. Make the products on the VRChat creator site, then drop them into the
-  `StarshardStore` object's `products` list in the scene (after each rebuild, or keep them in your own changes):
-  - a product with `productShards` above 0 is a **Starshard bundle**: each purchase adds that many Starshards to the
-    wizard you're playing, once;
-  - a product with `productShards` 0 is a **supporter perk**: owning it unlocks the cosmetics that list it
-    (`CosmeticsDatabase.UNLOCK_PRODUCT`, e.g. the *Patron of Starfall* title and *Patron's Radiance* aura) on every
-    wizard.
+- **Selling Starshards for real money** is optional and goes through VRChat's Creator Economy (`StarshardStore`). You
+  need Creator Economy access and Tilia authorization (see below). Make each product on the VRChat creator site, put
+  its `UdonProduct` asset in **`Assets/WizardsVRC/Store`**, and rebuild: the builder fills the `StarshardStore` from that
+  folder every time, so nothing is lost.
+  - an asset whose name has a number in it (`Shards_500`) is a **Starshard bundle** of that many: every purchase adds
+    them (times the quantity bought) to the wizard you're playing. Sell bundles as **Instant** listings with quantity
+    purchases on, so they can be bought again and again. Shards bought with no wizard loaded wait until you pick one;
+  - any other asset (`Patron`) is a **supporter perk**: owning it unlocks the cosmetics that list it
+    (`CosmeticsDatabase.UNLOCK_PRODUCT`, e.g. the *Patron of Starfall* title and *Patron's Radiance* aura, which go
+    with the first perk by name) on every wizard. Sell perks as **Permanent** listings.
 
+  The shop's **Get Shards** button (it appears once there's a product) opens the world's store page in VRChat.
+  Setting it up, step by step:
+  1. Apply for Creator Economy access, then get authorized by Tilia (vrchat.com > Marketplace > Storefront > Get
+     Started with Tilia; usually about 5 business days).
+  2. Storefront > My Products > **Create Udon Product** for each bundle ("500 Starshards") and perk.
+  3. In Unity: VRChat SDK > **UdonProducts Manager** (or Assets > Create > VRChat > UdonProduct and paste the product's
+     ID) and save each asset in `Assets/WizardsVRC/Store`, named like `Shards_500` (bundles) or `Patron` (perks).
+  4. On the site, make a **listing** per bundle: type **Instant**, **Enable Quantity Purchases**, add the bundle's
+     Udon product, price it in Credits (100 to 10,000 for instant listings), and in its visibility step add it to
+     this world's store; publish it. Perks: a **Permanent** listing.
+  5. Rebuild, then test: the UdonProducts Manager can buy and expire products in ClientSim, and in Build & Test (or as
+     the world's owner) your own listings cost nothing and local test purchases expire after 60 seconds.
   With no products set up, the shop simply runs on earned Starshards.
 - **Notices:** the book's **Notices** tab (`NotificationCenter`) lists new loot and gear, professors' messages when a
   new spell unlocks at your level, newly available quests and tower clears, with an unread badge on the HUD and the

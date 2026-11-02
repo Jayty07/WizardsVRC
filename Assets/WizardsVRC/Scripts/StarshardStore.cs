@@ -7,10 +7,13 @@ using VRC.SDKBase;
 namespace WizardsVRC
 {
     /// <summary>
-    /// The VRChat Creator Economy side of the Starshard Shop. Two kinds of product, both made on the VRChat creator site
-    /// and dropped into 'products' (see README, "Starshard Shop"):
-    ///  - Starshard bundles (productShards &gt; 0): each purchase adds that many Starshards to the wizard you're playing,
-    ///    once (how many you've claimed per product is kept in your VRChat player data).
+    /// The VRChat Creator Economy side of the Starshard Shop. Two kinds of product, both made on the VRChat creator site;
+    /// the builder picks up their UdonProduct assets from Assets/WizardsVRC/Store (see README, "Starshard Shop"):
+    ///  - Starshard bundles (productShards &gt; 0, an asset named like "Shards_500"): every purchase adds that many
+    ///    Starshards (times the quantity bought) to the wizard you're playing. Sell them as Instant listings with
+    ///    quantity purchases on, so players can buy them again and again. Shards bought while no wizard is loaded wait
+    ///    in your VRChat player data until you pick one. A Permanent bundle bought from the world's page outside the
+    ///    world pays out once, the next time you're here.
     ///  - Supporter perks (productShards = 0): owning it unlocks the cosmetics that list it (CosmeticsDatabase,
     ///    UNLOCK_PRODUCT) on every wizard.
     /// With no products set up (or before your world is in the Creator Economy) the shop simply runs on earned Starshards.
@@ -18,6 +21,8 @@ namespace WizardsVRC
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class StarshardStore : UdonSharpBehaviour
     {
+        private const string PendingKey = "wz_shard_pending";
+
         public UdonProduct[] products;
         [Tooltip("Starshards each purchase of the product gives (0 = a permanent perk).")]
         public int[] productShards;
@@ -26,19 +31,17 @@ namespace WizardsVRC
         public NotificationCenter notifications;
 
         private bool[] _owned;
-        private int[] _quantity;
         private bool _loaded;
 
         public bool HasProducts() { return products != null && products.Length > 0; }
         public int ProductCount() { return products != null ? products.Length : 0; }
         public string ProductLabel(int i) { return productLabels != null && i >= 0 && i < productLabels.Length ? productLabels[i] : ""; }
         public bool OwnsProduct(int i) { return _owned != null && i >= 0 && i < _owned.Length && _owned[i]; }
+        private int ShardsOf(int i) { return productShards != null && i >= 0 && i < productShards.Length ? productShards[i] : 0; }
 
         private void Start()
         {
-            int n = ProductCount();
-            _owned = new bool[n];
-            _quantity = new int[n];
+            _owned = new bool[ProductCount()];
         }
 
         /// <summary>Opens this world's store page in VRChat (where the products are bought).</summary>
@@ -52,15 +55,26 @@ namespace WizardsVRC
         {
             if (player == null || !player.isLocal) return;
             _loaded = true;
-            for (int k = 0; k < result.Length; k++) Mark(result[k], 1);
+            for (int k = 0; k < result.Length; k++) Owned(result[k]);
             ClaimShards();
         }
 
         public override void OnPurchaseConfirmedMultiple(IProduct result, VRCPlayerApi player, bool purchased, int quantity)
         {
             if (player == null || !player.isLocal) return;
-            Mark(result, quantity);
-            if (purchased && notifications != null) notifications.Post(NotificationCenter.KIND_SHOP, "Thank you!", result.Name, 0);
+            _loaded = true;
+            int i = IndexOf(result);
+            if (i < 0) return;
+            if (!purchased) { Owned(result); ClaimShards(); return; }
+            // A new purchase, just now: every bundle bought counts (Instant listings can be bought over and over).
+            _owned[i] = true;
+            int shards = ShardsOf(i);
+            if (shards > 0)
+            {
+                AddPending(shards * Mathf.Max(1, quantity));
+                PlayerData.SetInt(ClaimKey(i), 1);   // a Permanent bundle won't pay out again when its ownership loads
+            }
+            if (notifications != null) notifications.Post(NotificationCenter.KIND_SHOP, "Thank you!", result.Name, 0);
             ClaimShards();
         }
 
@@ -79,35 +93,49 @@ namespace WizardsVRC
             return -1;
         }
 
-        private void Mark(IProduct p, int quantity)
+        private string ClaimKey(int i) { return "wz_shard_claim_" + i.ToString(); }
+
+        /// <summary>A product you already own (loaded when you arrive): a Permanent bundle bought elsewhere pays out once.</summary>
+        private void Owned(IProduct p)
         {
             int i = IndexOf(p);
             if (i < 0) return;
             _owned[i] = true;
-            _quantity[i] = Mathf.Max(_quantity[i], Mathf.Max(1, quantity));
+            int shards = ShardsOf(i);
+            if (shards <= 0) return;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me)) return;
+            int claimed = 0;
+            PlayerData.TryGetInt(me, ClaimKey(i), out claimed);
+            if (claimed > 0) return;
+            AddPending(shards);
+            PlayerData.SetInt(ClaimKey(i), 1);
         }
 
-        /// <summary>Gives the active wizard any bundle Starshards not yet claimed (call when a character becomes active).</summary>
+        /// <summary>Starshards bought but not yet given to a wizard, kept in your VRChat player data until they are.</summary>
+        private void AddPending(int shards)
+        {
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me) || shards <= 0) return;
+            int pending = 0;
+            PlayerData.TryGetInt(me, PendingKey, out pending);
+            PlayerData.SetInt(PendingKey, pending + shards);
+        }
+
+        /// <summary>Gives the wizard you're playing any Starshards bought and not yet given (when a character becomes active, and after each purchase).</summary>
         public void ClaimShards()
         {
             if (!_loaded || playerState == null || !playerState.HasCharacter()) return;
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
-            for (int i = 0; i < ProductCount(); i++)
-            {
-                if (!_owned[i] || productShards == null || i >= productShards.Length || productShards[i] <= 0) continue;
-                string key = "wz_shard_claim_" + i.ToString();
-                int claimed = 0;
-                PlayerData.TryGetInt(me, key, out claimed);
-                int due = _quantity[i] - claimed;
-                if (due <= 0) continue;
-                int shards = due * productShards[i];
-                playerState.current.starshards += shards;
-                playerState.MarkDirty();
-                playerState.SaveNow();
-                PlayerData.SetInt(key, _quantity[i]);
-                if (notifications != null) notifications.Post(NotificationCenter.KIND_SHOP, "+" + shards.ToString() + " Starshards", ProductLabel(i), 0);
-            }
+            int pending = 0;
+            PlayerData.TryGetInt(me, PendingKey, out pending);
+            if (pending <= 0) return;
+            PlayerData.SetInt(PendingKey, 0);
+            playerState.current.starshards += pending;
+            playerState.MarkDirty();
+            playerState.SaveNow();
+            if (notifications != null) notifications.Post(NotificationCenter.KIND_SHOP, "+" + pending.ToString() + " Starshards", "Thank you for supporting the world!", 0);
         }
 
         private int _slot = -1;

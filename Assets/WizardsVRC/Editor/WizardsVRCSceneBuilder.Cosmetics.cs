@@ -294,6 +294,42 @@ namespace WizardsVRC.EditorTools
             return view;
         }
 
+        private const string StoreProductDir = "Assets/WizardsVRC/Store";
+
+        /// <summary>
+        /// The VRChat store products, from the UdonProduct assets in Assets/WizardsVRC/Store (so a rebuild never loses them):
+        /// an asset named with a number of Starshards ("Shards_500", "500 Starshards") is a bundle of that many; any other
+        /// is a supporter perk. Perks come first, in name order (the Patron cosmetics unlock with perk 0), then bundles,
+        /// smallest first.
+        /// </summary>
+        private static void FillStoreProducts(StarshardStore store)
+        {
+            var perks = new List<KeyValuePair<string, VRC.Economy.UdonProduct>>();
+            var bundles = new List<KeyValuePair<int, VRC.Economy.UdonProduct>>();
+            if (AssetDatabase.IsValidFolder(StoreProductDir))
+                foreach (string guid in AssetDatabase.FindAssets("t:UdonProduct", new[] { StoreProductDir }))
+                {
+                    var p = AssetDatabase.LoadAssetAtPath<VRC.Economy.UdonProduct>(AssetDatabase.GUIDToAssetPath(guid));
+                    if (p == null) continue;
+                    var m = System.Text.RegularExpressions.Regex.Match(p.name, @"\d+");
+                    int shards = m.Success ? int.Parse(m.Value) : 0;
+                    if (shards > 0) bundles.Add(new KeyValuePair<int, VRC.Economy.UdonProduct>(shards, p));
+                    else perks.Add(new KeyValuePair<string, VRC.Economy.UdonProduct>(p.name, p));
+                }
+            perks.Sort((x, y) => string.CompareOrdinal(x.Key, y.Key));
+            bundles.Sort((x, y) => x.Key.CompareTo(y.Key));
+            var products = new List<VRC.Economy.UdonProduct>();
+            var shardsList = new List<int>();
+            var labels = new List<string>();
+            foreach (var kv in perks) { products.Add(kv.Value); shardsList.Add(0); labels.Add(kv.Key); }
+            foreach (var kv in bundles) { products.Add(kv.Value); shardsList.Add(kv.Key); labels.Add(kv.Key + " Starshards"); }
+            store.products = products.ToArray();
+            store.productShards = shardsList.ToArray();
+            store.productLabels = labels.ToArray();
+            Debug.Log("[WizardsVRC] Starshard Shop: " + perks.Count + " supporter perk(s) and " + bundles.Count + " Starshard bundle(s) from " + StoreProductDir +
+                      (products.Count == 0 ? " (none: the shop runs on earned Starshards)" : "") + ".");
+        }
+
         // ================================================================== tooltip, gold shop panel
 
         private static ItemTooltip BuildTooltip(Transform systems)
@@ -585,8 +621,7 @@ namespace WizardsVRC.EditorTools
             var store = UdonSharpUndo.AddComponent<StarshardStore>(Child(systems, "StarshardStore", Vector3.zero).gameObject);
             store.playerState = playerState;
             // Products are made on the VRChat creator site and dropped into the StarshardStore by hand (README).
-            store.productShards = new int[0];
-            store.productLabels = new string[0];
+            FillStoreProducts(store);
             ExtraBehaviours.Add(db);
             ExtraBehaviours.Add(store);
             db.playerState = playerState;
