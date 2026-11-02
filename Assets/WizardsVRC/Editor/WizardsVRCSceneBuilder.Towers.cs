@@ -384,8 +384,7 @@ namespace WizardsVRC.EditorTools
             else Shape(t, "TowerRoof", ConeMesh(), new Vector3(0, h + 4.5f, 0), new Vector3(r * 2.3f, 8f, r * 2.3f), roofMat, false, Quaternion.identity);
             Shape(t, "TowerCrystal", GemMesh(), new Vector3(0, h + (desert ? 6.5f : 10.5f), 0), new Vector3(1.2f, 2f, 1.2f), PMat("Crystal_" + ColorUtility.ToHtmlStringRGB(col), col, 1f, col * 0.6f), false, Quaternion.identity);
             PointLight(t, TPolar(Vector3.zero, r + 2f, 90f, 4f), new Color(1f, 0.7f, 0.4f), 10f, 1.2f);
-            var sign = WorldText(t, "TowerName", TPolar(Vector3.zero, r + 0.25f, 90f, 6.2f), Quaternion.LookRotation(-TDir(90f)), new Vector2(1200, 180), 0.005f, towerName, 52);
-            DressSign(sign, 1100f, 170f);
+            // No name sign on the tower itself: the sigil's sign in front of it names the tower (and says when it's taken).
         }
 
         private static string MonsterLabel(int id)
