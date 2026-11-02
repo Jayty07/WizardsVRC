@@ -230,6 +230,7 @@ namespace WizardsVRC.EditorTools
             BuildInventoryBook(book, hud, deckPages, questPages);
             BuildHud(hud);
             Transform hubRoot = hubSpawn.parent;
+            AmbientBed(hubRoot, "Amb_Breeze");   // the castle grounds: breeze and birds (WizardsVRCSceneBuilder.Ambience.cs)
             var pedestal = BuildBackpackPedestal(hubRoot, hubPlan.pedestalPos, book);
             var queuePad = BuildQueuePad(hubRoot, hubPlan.padPos, battleClient);
             if (!HubTestProps)

@@ -90,6 +90,7 @@ namespace WizardsVRC.EditorTools
 
             // ---- the sunken platform, far away
             var root = new GameObject("Sunken_" + z.zoneKey).transform;
+            AmbientBed(root, desert ? "Amb_GhostTrain" : "Amb_Underwater", 0.35f);
             root.position = SecretOrigin + new Vector3(index * 300f, 0f, 0f);
             Transform arrival = desert ? GhostTrainArena(root) : SunkenArena(root);
 

@@ -415,6 +415,7 @@ namespace WizardsVRC.EditorTools
         {
             var holder = Child(t, "HearthFire", at);
             holder.localRotation = facing;
+            AmbientPoint(holder, new Vector3(0, 0.6f, 0), "Amb_Fire", 0.7f, 2f, 14f);   // its crackle, heard as you come near
             var outer = PMat("FlameOuter", new Color(0.95f, 0.32f, 0.06f), 1f, new Color(0.9f, 0.25f, 0.02f));
             var middle = PMat("FlameMiddle", new Color(1f, 0.7f, 0.15f), 1f, new Color(1f, 0.6f, 0.1f));
             var core = PMat("FlameCore", new Color(1f, 0.97f, 0.8f), 1f, new Color(1f, 0.92f, 0.65f));

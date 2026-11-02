@@ -180,6 +180,7 @@ namespace WizardsVRC.EditorTools
 
             // ---- the tower, far away, its own area
             var troot = new GameObject("Tower_" + z.zoneKey).transform;
+            AmbientBed(troot, "Amb_TowerTorches", 0.35f);
             troot.position = TowerOrigin + new Vector3(index * 260f, index * 110f, 0f);
             // Dark stone: the rooms are lit by their torches and braziers, not the sky.
             var stone = PsxTexMat("TowerStoneDark_" + z.zoneKey, Color.Lerp(new Color(0.34f, 0.32f, 0.38f), col, 0.1f), TileTexture(TerrainTexDir + "/StoneWall.png"), 2.4f);

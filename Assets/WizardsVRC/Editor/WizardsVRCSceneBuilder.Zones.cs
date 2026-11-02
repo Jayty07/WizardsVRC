@@ -190,6 +190,7 @@ namespace WizardsVRC.EditorTools
             string k = z.zoneKey;
             var root = new GameObject("Zone_" + k).transform;
             root.position = new Vector3(0f, z.height, 0f);
+            AmbientBed(root, AmbientFor(z));   // WizardsVRCSceneBuilder.Ambience.cs
             wb.zoneRoots.Add(root.gameObject);
             float cs = g.cell;
 

@@ -898,6 +898,8 @@ namespace WizardsVRC.EditorTools
             Vector3 dir = ZoneGrid.ToLocalDir(best), side = Vector3.Cross(Vector3.up, dir);
             Vector3 c0 = RectCenter(g, fp);
             float top = g.Elevation(fp.xMin, fp.yMin);
+            // The sound of it, loud close by and fading out across the area (WizardsVRCSceneBuilder.Ambience.cs).
+            AmbientPoint(root, new Vector3(c0.x, (top + water) * 0.5f, c0.z) + dir * (g.cell * 0.5f), "Amb_Water", 0.8f, 4f, 40f);
             float across = (best.x != 0 ? fp.height : fp.width) * g.cell, depth = (best.x != 0 ? fp.width : fp.height) * g.cell;
             Vector3 lip = new Vector3(c0.x, top, c0.z) + dir * (depth / 2f);
             Quaternion rot = Quaternion.LookRotation(dir);
