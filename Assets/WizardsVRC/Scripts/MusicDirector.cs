@@ -53,7 +53,7 @@ namespace WizardsVRC
             _level = new float[n];
             _started = new bool[n];
             for (int i = 0; i < n; i++)
-                if (sources[i] != null) { sources[i].volume = 0f; sources[i].loop = true; }
+                if (sources[i] != null) { sources[i].volume = 0f; sources[i].loop = true; sources[i].spatialBlend = 0f; }
         }
 
         /// <summary>The player's music volume, 0 to 1 (InventoryBook's setting).</summary>
