@@ -260,8 +260,7 @@ namespace WizardsVRC.EditorTools
                 client.defeatReturn = sigil.outside;        // beaten: back out by the sigil
                 client.victoryReturn = arrivals[k + 1];     // won: up to the next floor (the roof after the boss)
                 client.padTitle = (isTop ? "The Top: " + bossName : "Floor " + (k + 1) + " of " + floors) + "\nRun into a monster to fight";
-                client.padLabel = WorldText(room, "RingSign", new Vector3(0, 5.2f, -2.5f), Quaternion.identity, new Vector2(1100, 220), 0.0045f, client.padTitle, 44);
-                DressSign(client.padLabel, 1000f, 210f, false);
+                // No sign over the ring: the leader's greeting says which floor this is.
 
                 // Their beat: back and forth along the far (north) side of the chamber, well away from where you arrive.
                 var patrol = Child(troot, "TowerPatrol" + k, c);
