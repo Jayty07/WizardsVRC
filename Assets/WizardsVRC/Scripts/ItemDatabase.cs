@@ -36,29 +36,29 @@ namespace WizardsVRC
         [HideInInspector] public string[] categoryNames = { "Hat", "Robe", "Boots", "Wand", "Athame", "Amulet", "Ring", "Deck", "Potion" };
         [HideInInspector] public string[] statNames = { "Health", "Mana", "Damage", "Resist", "Accuracy", "Critical", "Block", "Pierce", "Power Pip" };
 
-        // World 1's items: every stat comes from a level budget for a full set, split by slot (Tools/make_items.py).
+        // World 1's and Dustwind's items: every stat comes from a level budget for a full set, split by slot (Tools/make_items.py).
         // Sorted by level, so the shops list them in order. Quest rewards and boss drops are unique (never sold).
-        [HideInInspector] public int[] ids = { 3, 2, 4, 1, 30, 50, 60, 10, 11, 40, 23, 25, 24, 20, 51, 61, 21, 22, 26, 80, 81, 82, 83, 31, 41, 79, 117, 28, 84, 85, 86, 87, 88, 89, 62, 114, 115, 27, 90, 91, 92, 93, 94, 95, 97, 101, 96, 100, 98, 108, 71, 74, 70, 118, 72, 75, 73, 109, 113, 63, 106, 107, 76, 104, 105, 102, 111, 116, 103, 110, 77, 119, 78, 112 };
-        [HideInInspector] public int[] categories = { 0, 1, 2, 3, 4, 6, 7, 8, 8, 5, 0, 1, 2, 3, 6, 7, 3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 7, 0, 0, 0, 0, 0, 0, 0, 7, 8, 8, 1, 1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 0, 2, 5, 6, 7, 0, 1, 3, 4, 6, 7, 0, 1, 2, 2, 3, 4, 5, 5, 6, 6, 5, 7, 0, 1 };
-        [HideInInspector] public int[] levelReqs = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 9, 10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 12, 12, 13, 13 };
-        [HideInInspector] public int[] schoolReqs = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, -1, -1, -1, -1, 4, 0, 1, 2, 3, 5, 6, -1, -1, -1, 3, 0, 1, 2, 4, 5, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-        [HideInInspector] public int[] healthBonus = { 10, 20, 15, 0, 5, 5, 0, 0, 0, 15, 20, 30, 25, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 5, 15, 20, 0, 30, 25, 40, 25, 35, 30, 30, 0, 0, 0, 60, 45, 65, 45, 50, 50, 55, 45, 0, 10, 25, 10, 50, 55, 35, 10, 0, 50, 85, 0, 15, 15, 0, 60, 85, 80, 70, 0, 15, 55, 45, 15, 20, 55, 0, 80, 130 };
-        [HideInInspector] public int[] manaBonus = { 1, 3, 0, 0, 0, 2, 0, 0, 0, 2, 2, 4, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 0, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 8, 6, 6, 6, 6, 6, 6, 0, 0, 0, 3, 3, 4, 0, 4, 4, 0, 4, 9, 0, 0, 5, 0, 4, 9, 0, 0, 0, 0, 6, 4, 4, 6, 5, 0, 6, 13 };
-        [HideInInspector] public int[] damageBonus = { 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 2, 1, 2, 0, 0, 2, 1, 3, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 3, 5, 4, 4, 3, 1, 3, 2, 0, 0, 0, 2, 0, 0, 0, 0, 5, 5, 4, 0, 0, 0, 5, 3, 2, 5, 3, 0, 0, 0, 0, 0, 0, 0, 8 };
-        [HideInInspector] public int[] resistBonus = { 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 1, 1, 0, 0, 0, 1, 1, 2, 1, 1, 1, 2, 3, 0, 0, 0, 1, 2, 3, 0, 2, 0, 2, 2, 0, 0, 2, 0, 2, 2, 4, 4, 0, 0, 0, 0, 2, 2, 0, 0, 2, 3 };
-        [HideInInspector] public int[] accuracyBonus = { 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0, 2, 2, 2, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 2, 0, 0, 1, 2, 0, 0, 1, 0, 2, 2, 2, 0, 2, 0, 2, 2, 0, 0, 2, 0, 0, 0, 2, 2, 0, 0, 3, 2 };
-        [HideInInspector] public int[] critBonus = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 2, 3, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 3, 0, 2, 0, 0, 3, 0, 1, 0, 0, 0, 4, 0, 0, 0, 1, 0, 3, 2, 0, 0, 3, 0, 5, 0 };
-        [HideInInspector] public int[] blockBonus = { 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 0, 0, 0, 2, 3, 0, 0, 0, 2, 2, 0, 2, 0, 0, 2, 3, 0, 0, 0, 0 };
-        [HideInInspector] public int[] pierceBonus = { 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 };
-        [HideInInspector] public int[] powerPipBonus = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 4, 4, 5, 4, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 7, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 8, 7, 0, 0, 8, 0, 0, 10 };
+        [HideInInspector] public int[] ids = { 3, 2, 4, 1, 30, 50, 60, 10, 11, 40, 23, 25, 24, 20, 51, 61, 21, 22, 26, 80, 81, 82, 83, 31, 41, 79, 117, 28, 84, 85, 86, 87, 88, 89, 62, 114, 115, 27, 90, 91, 92, 93, 94, 95, 97, 101, 96, 100, 98, 108, 71, 74, 70, 118, 72, 75, 73, 109, 113, 63, 106, 107, 76, 104, 105, 102, 111, 116, 103, 110, 77, 119, 78, 120, 112, 121, 122, 123, 124, 125, 180, 126, 188, 189, 127, 128, 129, 130, 131, 132, 133, 162, 170, 181, 163, 190, 171, 182, 164, 134, 183, 135, 165, 136, 137, 138, 139, 172, 140, 141, 142, 143, 144, 145, 146, 147, 176, 184, 166, 173, 191, 177, 167, 148, 149, 150, 185, 151, 152, 153, 154, 174, 155, 156, 157, 158, 159, 160, 161, 175, 187, 168, 169, 179, 186 };
+        [HideInInspector] public int[] categories = { 0, 1, 2, 3, 4, 6, 7, 8, 8, 5, 0, 1, 2, 3, 6, 7, 3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 7, 0, 0, 0, 0, 0, 0, 0, 7, 8, 8, 1, 1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 0, 2, 5, 6, 7, 0, 1, 3, 4, 6, 7, 0, 1, 2, 2, 3, 4, 5, 5, 6, 6, 5, 7, 0, 0, 1, 1, 2, 3, 4, 5, 5, 6, 8, 8, 3, 3, 3, 3, 3, 3, 3, 3, 6, 6, 0, 7, 2, 3, 7, 0, 0, 1, 1, 2, 3, 4, 5, 5, 6, 1, 1, 1, 1, 1, 1, 1, 0, 1, 2, 4, 7, 1, 5, 0, 1, 2, 2, 3, 4, 5, 6, 6, 0, 0, 0, 0, 0, 0, 0, 5, 5, 6, 7, 3, 4 };
+        [HideInInspector] public int[] levelReqs = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 9, 10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 12, 12, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 15, 15, 16, 16, 16, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 19, 19, 19, 19, 19, 19, 19, 20, 20, 20, 20, 20, 21, 21, 22, 22, 22, 22, 22, 22, 22, 22, 22, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 24, 25, 25 };
+        [HideInInspector] public int[] schoolReqs = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, -1, -1, -1, -1, 4, 0, 1, 2, 3, 5, 6, -1, -1, -1, 3, 0, 1, 2, 4, 5, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, -1, -1, -1, -1, -1, -1 };
+        [HideInInspector] public int[] healthBonus = { 10, 20, 15, 0, 5, 5, 0, 0, 0, 15, 20, 30, 25, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 5, 15, 20, 0, 30, 25, 40, 25, 35, 30, 30, 0, 0, 0, 60, 45, 65, 45, 50, 50, 55, 45, 0, 10, 25, 10, 50, 55, 35, 10, 0, 50, 85, 0, 15, 15, 0, 60, 85, 80, 70, 0, 15, 55, 45, 15, 20, 55, 0, 80, 70, 130, 105, 90, 0, 20, 50, 60, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 25, 90, 0, 125, 0, 0, 100, 125, 150, 170, 125, 0, 25, 75, 85, 25, 135, 200, 130, 185, 150, 145, 160, 130, 215, 160, 30, 0, 205, 100, 130, 190, 160, 200, 0, 30, 95, 30, 35, 115, 170, 110, 155, 130, 120, 135, 115, 130, 40, 0, 0, 50 };
+        [HideInInspector] public int[] manaBonus = { 1, 3, 0, 0, 0, 2, 0, 0, 0, 2, 2, 4, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 0, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 8, 6, 6, 6, 6, 6, 6, 0, 0, 0, 3, 3, 4, 0, 4, 4, 0, 4, 9, 0, 0, 5, 0, 4, 9, 0, 0, 0, 0, 6, 4, 4, 6, 5, 0, 6, 5, 13, 10, 0, 0, 0, 5, 6, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 7, 0, 0, 0, 0, 7, 9, 14, 15, 0, 0, 0, 7, 8, 7, 14, 14, 14, 19, 14, 14, 14, 9, 19, 0, 0, 0, 18, 9, 8, 17, 0, 0, 0, 0, 8, 8, 9, 9, 9, 9, 11, 9, 9, 9, 10, 11, 10, 0, 0, 0 };
+        [HideInInspector] public int[] damageBonus = { 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 2, 1, 2, 0, 0, 2, 1, 3, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 3, 5, 4, 4, 3, 1, 3, 2, 0, 0, 0, 2, 0, 0, 0, 0, 5, 5, 4, 0, 0, 0, 5, 3, 2, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 8, 6, 3, 5, 4, 0, 0, 0, 0, 0, 7, 5, 8, 5, 6, 7, 5, 6, 0, 0, 0, 0, 4, 8, 0, 0, 0, 8, 9, 4, 7, 5, 0, 0, 0, 11, 7, 13, 8, 10, 10, 8, 0, 12, 4, 6, 0, 11, 0, 0, 10, 4, 5, 9, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 8 };
+        [HideInInspector] public int[] resistBonus = { 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 1, 1, 0, 0, 0, 1, 1, 2, 1, 1, 1, 2, 3, 0, 0, 0, 1, 2, 3, 0, 2, 0, 2, 2, 0, 0, 2, 0, 2, 2, 4, 4, 0, 0, 0, 0, 2, 2, 0, 0, 2, 2, 3, 2, 4, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 0, 6, 0, 0, 3, 4, 3, 3, 6, 0, 0, 0, 0, 3, 2, 4, 2, 3, 3, 3, 4, 3, 4, 7, 0, 0, 4, 0, 3, 3, 7, 9, 0, 0, 0, 3, 4, 3, 5, 3, 4, 4, 4, 4, 0, 0, 4, 0, 0, 0 };
+        [HideInInspector] public int[] accuracyBonus = { 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0, 2, 2, 2, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 2, 0, 0, 1, 2, 0, 0, 1, 0, 2, 2, 2, 0, 2, 0, 2, 2, 0, 0, 2, 0, 0, 0, 2, 2, 0, 0, 3, 3, 2, 2, 0, 3, 0, 0, 0, 2, 0, 0, 3, 3, 2, 4, 3, 3, 3, 3, 2, 2, 3, 0, 0, 4, 0, 3, 4, 2, 2, 0, 3, 0, 0, 0, 2, 2, 2, 2, 3, 2, 2, 3, 4, 3, 0, 0, 0, 3, 0, 4, 3, 0, 0, 4, 0, 0, 3, 3, 4, 4, 3, 5, 4, 4, 5, 0, 0, 3, 0, 5, 0 };
+        [HideInInspector] public int[] critBonus = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 2, 3, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 3, 0, 2, 0, 0, 3, 0, 1, 0, 0, 0, 4, 0, 0, 0, 1, 0, 3, 2, 0, 0, 3, 0, 5, 5, 0, 0, 0, 2, 0, 3, 3, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 5, 0, 0, 3, 0, 6, 7, 0, 0, 0, 2, 0, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 4, 7, 0, 0, 0, 3, 0, 4, 0, 0, 9, 7, 7, 7, 8, 7, 7, 5, 5, 0, 0, 3, 0 };
+        [HideInInspector] public int[] blockBonus = { 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 0, 0, 0, 2, 3, 0, 0, 0, 2, 2, 0, 2, 0, 0, 2, 3, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 3, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 3, 4, 0, 3, 0, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 5 };
+        [HideInInspector] public int[] pierceBonus = { 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 2, 2, 2, 2, 3, 2, 2, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4 };
+        [HideInInspector] public int[] powerPipBonus = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 4, 4, 5, 4, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 7, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 8, 7, 0, 0, 8, 0, 0, 0, 10, 8, 0, 0, 0, 8, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 12, 0, 0, 0, 11, 12, 0, 12, 12, 12, 12, 12, 15, 12, 0, 15, 0, 0, 0, 14, 14, 0, 14, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 18, 0, 0, 0, 0 };
         /// <summary>Quest rewards and boss drops: never sold in shops or rolled as random loot.</summary>
-        [HideInInspector] public int[] uniqueItems = { 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1 };
+        [HideInInspector] public int[] uniqueItems = { 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1 };
         /// <summary>Decks only: how many spells the deck holds, and how many copies of one spell.</summary>
-        [HideInInspector] public int[] deckCapacity = { 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 38, 0, 0 };
-        [HideInInspector] public int[] deckMaxCopies = { 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0 };
+        [HideInInspector] public int[] deckCapacity = { 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 42, 0, 0, 45, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 52, 0, 0 };
+        [HideInInspector] public int[] deckMaxCopies = { 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0 };
         /// <summary>Potions only: health / mana restored when drunk (outside battle from the backpack, or in battle as your turn).</summary>
-        [HideInInspector] public int[] potionHealth = { 0, 0, 0, 0, 0, 0, 0, 150, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-        [HideInInspector] public int[] potionMana = { 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        [HideInInspector] public int[] potionHealth = { 0, 0, 0, 0, 0, 0, 0, 150, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        [HideInInspector] public int[] potionMana = { 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         [HideInInspector] public string[] names =
         {
@@ -135,7 +135,78 @@ namespace WizardsVRC
             "Hollowbane Amulet",
             "Warden's Deck",
             "Hollow Crown",
+            "Drover's Hat",
             "Hollow King's Mantle",
+            "Prairie Robe",
+            "Boardwalk Boots",
+            "Mesquite Wand",
+            "Frontier Athame",
+            "Brass Compass Pendant",
+            "Tin Star Badge",
+            "Horseshoe Ring",
+            "Greater Healing Potion",
+            "Strong Mana Tonic",
+            "Cinderspur Wand",
+            "Hailstone Wand",
+            "Thunderhead Wand",
+            "Saguaro Wand",
+            "Rattlebone Wand",
+            "Tall-Tale Wand",
+            "Dust Devil Wand",
+            "Frontier Sixwand",
+            "Express Office Ring",
+            "Bad Penny's Lucky Coin",
+            "Trail Hat",
+            "Drifter's Deck",
+            "Creekwater Boots",
+            "Mesquite Heartwood Wand",
+            "Saddlebag Deck",
+            "Wide-Brim Hat",
+            "Grist's Hard Hat",
+            "Trailworn Robe",
+            "Frontier Duster",
+            "Snakeskin Boots",
+            "Ironwood Wand",
+            "Railspike Athame",
+            "Lantern-Ore Pendant",
+            "Miner's Lamp Pendant",
+            "Silver Dollar Ring",
+            "Ember Duster",
+            "Frostline Duster",
+            "Stormrider Duster",
+            "Bloomfield Duster",
+            "Grim Drifter Duster",
+            "Storyteller's Duster",
+            "Sundial Duster",
+            "Pumpwright's Hat",
+            "Vesper's Engine Coat",
+            "Spurred Boots",
+            "Signalman's Athame",
+            "Wrangler's Deck",
+            "Bounty Hunter's Duster",
+            "Lodestone Amulet",
+            "Mesa Hat",
+            "Canyon Robe",
+            "High Desert Boots",
+            "Warden's Stoneplate Boots",
+            "Thunderwood Wand",
+            "Wardenstone Athame",
+            "Sunset Locket",
+            "Prospector's Signet",
+            "Warden-Stone Ring",
+            "Blazebrim Hat",
+            "Frostbrim Hat",
+            "Stormbrim Hat",
+            "Bloombrim Hat",
+            "Gravebrim Hat",
+            "Talebrim Hat",
+            "Sunbrim Hat",
+            "Ghostlight Lantern",
+            "Conductor's Pocketwatch",
+            "Silver Spur Ring",
+            "Lawbringer's Deck",
+            "Last Spike Wand",
+            "Calloway's Iron Spike",
         };
 
         [HideInInspector] public string[] descriptions =
@@ -213,7 +284,78 @@ namespace WizardsVRC
             "A shard of a shattered Hollow Lantern, its stolen light set free.",
             "Bound in Thornhollow bark; the castle's best deck for coin.",
             "Morvane's crown. It is lighter than it looks, and colder.",
+            "A wide felt hat with a sweat-stained band. Keeps the desert sun off your nose.",
             "Morvane's mantle, heavy with the light he stole and no longer holds.",
+            "Sun-faded robes of tough canvas, cut for long days in the saddle.",
+            "Heeled boots that ring out on every plank in Archrock.",
+            "Knotty desert hardwood, smoothed by a thousand hands.",
+            "A broad camp blade with an antler grip.",
+            "Always points back to Archrock, whichever way you're facing.",
+            "Archrock's deputy badge. Wear it with pride, partner.",
+            "A tiny bent horseshoe, worn points-up so the luck doesn't run out.",
+            "A big red bottle with a cork stopper. Tastes like cherries and gunpowder smoke.",
+            "A dark blue tonic. Fizzes so hard the cork pops.",
+            "Its tip glows like a coal in a campfire.",
+            "Cold as a desert night, and twice as clear.",
+            "Smells of rain before a storm breaks over the mesa.",
+            "Carved from a fallen cactus rib; it still flowers once a year.",
+            "Rattles softly when trouble is near.",
+            "Every story told about it is bigger than the last.",
+            "A little whirl of sand follows it everywhere.",
+            "Six notches on the grip, one for every spell school but yours. Marshal Quickwater's gift.",
+            "Given to anyone who saves the mail. Stamped 'Archrock Express'.",
+            "A bent copper penny on a ring. Bad Penny says it was never lucky for her.",
+            "Dusty, dented and perfect.",
+            "A deck in a worn leather pouch, strung on a cord.",
+            "Still damp from the creek you set flowing again.",
+            "Heartwood from Old Mesquite himself, given back once he calmed down.",
+            "Room for more spells than you'll ever need. Then you'll need them.",
+            "Brim wide enough to shade a friend.",
+            "Foreman Grist's dented hat, its lamp still burning stolen light.",
+            "Patched and re-patched on the long trail out of town.",
+            "The long coat of a frontier wizard, cut to swirl when you draw your wand.",
+            "Shed by a rattlesnake, not taken from one. The bootmaker swears it.",
+            "Desert ironwood: so dense it sinks in water.",
+            "Forged from a spike pried out of the Iron Line.",
+            "A chip of light-ore, freed from the Corps and glowing gently.",
+            "A tiny brass mine lamp that lights the way for those who are lost.",
+            "A silver coin hammered round a finger. It still shows the eagle.",
+            "A long coat that trails sparks instead of dust.",
+            "Frost creeps along its hem even at high noon.",
+            "Its tails snap like a flag in a gale.",
+            "Wildflowers sprout from its pockets after rain.",
+            "Faded black, and quiet as an empty street.",
+            "Every patch on it comes with a tale.",
+            "Its shadow always falls the right way for the hour.",
+            "Oil-stained and proud of it. Archrock's water flows because of you.",
+            "Captain Vesper's soot-black coat with brass buttons. It smells of coal smoke.",
+            "Their spurs jingle with every step. Sneaking is out of the question.",
+            "Its edge is painted red and white like a signal arm.",
+            "Stitched with rawhide; it holds a herd of spells.",
+            "Every outlaw in Dustwind knows the sound of this coat.",
+            "A magnetic stone that pulls stray magic back to you.",
+            "A tall crowned hat the color of red rock at sunset.",
+            "Layered in the banded colors of the canyon walls.",
+            "Built for scree, sand and the long climb up Thunder Mesa.",
+            "Heavy as the mesa and just as steady.",
+            "Cut from a tree the lightning chose twice.",
+            "Chipped from a fallen Warden stone, with its blessing.",
+            "Holds the last light of a desert evening.",
+            "Its seal is a pick crossed with a pan.",
+            "The Wardens' trust, set in stone.",
+            "A brim that never stops smoldering.",
+            "Rime on the brim, even in July.",
+            "The band crackles when clouds gather.",
+            "A hatband of desert blossoms that never wilt.",
+            "Worn low, by those who walk at dusk.",
+            "A feather in its band that once belonged to a legend, apparently.",
+            "Half gold, half shadow, like the mesa at noon.",
+            "A ghost's lantern, handed on with thanks. It never casts a shadow.",
+            "The Ghost Conductor's watch. It always reads midnight.",
+            "A ring shaped like a tiny spur. Its rowel still turns.",
+            "Bound in a marshal's tooled leather, with a tin star on the cover.",
+            "Hammered from the Iron Line's last spike, which was never driven.",
+            "Ironhand Calloway's golden spike, meant for the Heartstone.",
         };
 
         [HideInInspector] public Color[] iconColors =
@@ -291,7 +433,78 @@ namespace WizardsVRC
             new Color(0.6f, 0.5f, 0.9f),
             new Color(0.3f, 0.4f, 0.25f),
             new Color(0.25f, 0.22f, 0.32f),
+            new Color(0.55f, 0.42f, 0.28f),
             new Color(0.2f, 0.18f, 0.3f),
+            new Color(0.7f, 0.6f, 0.45f),
+            new Color(0.45f, 0.3f, 0.18f),
+            new Color(0.6f, 0.4f, 0.22f),
+            new Color(0.75f, 0.72f, 0.65f),
+            new Color(0.85f, 0.65f, 0.3f),
+            new Color(0.75f, 0.75f, 0.78f),
+            new Color(0.6f, 0.6f, 0.62f),
+            new Color(0.9f, 0.12f, 0.18f),
+            new Color(0.12f, 0.3f, 0.85f),
+            new Color(0.95f, 0.35f, 0.15f),
+            new Color(0.55f, 0.85f, 1.0f),
+            new Color(0.65f, 0.4f, 0.95f),
+            new Color(0.4f, 0.8f, 0.35f),
+            new Color(0.45f, 0.4f, 0.55f),
+            new Color(0.95f, 0.78f, 0.25f),
+            new Color(0.85f, 0.6f, 0.4f),
+            new Color(0.55f, 0.5f, 0.45f),
+            new Color(0.7f, 0.55f, 0.35f),
+            new Color(0.75f, 0.45f, 0.25f),
+            new Color(0.5f, 0.38f, 0.25f),
+            new Color(0.5f, 0.38f, 0.25f),
+            new Color(0.35f, 0.5f, 0.6f),
+            new Color(0.4f, 0.6f, 0.3f),
+            new Color(0.55f, 0.35f, 0.2f),
+            new Color(0.42f, 0.32f, 0.22f),
+            new Color(0.85f, 0.7f, 0.2f),
+            new Color(0.55f, 0.45f, 0.35f),
+            new Color(0.5f, 0.4f, 0.3f),
+            new Color(0.5f, 0.45f, 0.3f),
+            new Color(0.35f, 0.28f, 0.22f),
+            new Color(0.5f, 0.5f, 0.55f),
+            new Color(1.0f, 0.75f, 0.35f),
+            new Color(1.0f, 0.85f, 0.45f),
+            new Color(0.8f, 0.82f, 0.85f),
+            new Color(0.95f, 0.35f, 0.15f),
+            new Color(0.55f, 0.85f, 1.0f),
+            new Color(0.65f, 0.4f, 0.95f),
+            new Color(0.4f, 0.8f, 0.35f),
+            new Color(0.45f, 0.4f, 0.55f),
+            new Color(0.95f, 0.78f, 0.25f),
+            new Color(0.85f, 0.6f, 0.4f),
+            new Color(0.4f, 0.45f, 0.5f),
+            new Color(0.22f, 0.2f, 0.24f),
+            new Color(0.35f, 0.25f, 0.18f),
+            new Color(0.85f, 0.25f, 0.2f),
+            new Color(0.45f, 0.3f, 0.2f),
+            new Color(0.3f, 0.25f, 0.22f),
+            new Color(0.35f, 0.35f, 0.4f),
+            new Color(0.65f, 0.3f, 0.2f),
+            new Color(0.72f, 0.42f, 0.28f),
+            new Color(0.4f, 0.3f, 0.25f),
+            new Color(0.6f, 0.55f, 0.5f),
+            new Color(0.45f, 0.4f, 0.55f),
+            new Color(0.7f, 0.6f, 0.5f),
+            new Color(1.0f, 0.55f, 0.35f),
+            new Color(0.85f, 0.7f, 0.35f),
+            new Color(0.7f, 0.62f, 0.5f),
+            new Color(0.95f, 0.35f, 0.15f),
+            new Color(0.55f, 0.85f, 1.0f),
+            new Color(0.65f, 0.4f, 0.95f),
+            new Color(0.4f, 0.8f, 0.35f),
+            new Color(0.45f, 0.4f, 0.55f),
+            new Color(0.95f, 0.78f, 0.25f),
+            new Color(0.85f, 0.6f, 0.4f),
+            new Color(0.6f, 0.9f, 0.85f),
+            new Color(0.65f, 0.75f, 0.8f),
+            new Color(0.82f, 0.84f, 0.88f),
+            new Color(0.4f, 0.35f, 0.3f),
+            new Color(0.9f, 0.75f, 0.4f),
+            new Color(0.85f, 0.7f, 0.3f),
         };
 
         public int IndexOf(int itemId)

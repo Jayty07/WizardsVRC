@@ -24,6 +24,10 @@ namespace WizardsVRC.EditorTools
         /// <summary>Shop counters made while the hub is built (their relay is pointed at the gold shop later).</summary>
         private static readonly List<EventRelay> ShopCounters = new List<EventRelay>();
         private static readonly List<string> ShopCounterNames = new List<string>();
+        /// <summary>Per counter: its kind (ShopNames index) and the item levels it stocks (each world's shops sell that world's gear).</summary>
+        private static readonly List<Vector3Int> ShopCounterStock = new List<Vector3Int>();
+        /// <summary>Item levels the shops being built now stock (set per zone: Starfall Isle 1-12, Dustwind 13-40).</summary>
+        private static Vector2Int _shopBand = new Vector2Int(1, 12);
         private static GameObject GoldShopPanel, TooltipRoot;
 
         /// <summary>Clears what the last build left in the statics above (called at the start of every build).</summary>
@@ -34,6 +38,8 @@ namespace WizardsVRC.EditorTools
             ExtraBehaviours.Clear();
             ShopCounters.Clear();
             ShopCounterNames.Clear();
+            ShopCounterStock.Clear();
+            _shopBand = new Vector2Int(1, 12);
             ResetTowers();
         }
 
@@ -44,6 +50,9 @@ namespace WizardsVRC.EditorTools
             "Novice", "Apprentice", "Adept", "Magus", "Archmage",
             "Monster Hunter", "Monster Bane", "Boss Slayer", "Tower Climber", "Krakenbane",
             "the Radiant", "Starborn", "Shardlord", "Patron of Starfall",
+            // Dustwind
+            "Deputy", "Trailblazer", "Sheriff of Dustwind", "Bounty Hunter", "Lawman", "Legend of the West", "Ghost Rider",
+            "High Noon Duelist", "Keeper of the Heartstone",
         };
         private static readonly int[,] TitleUnlocks =
         {
@@ -53,19 +62,23 @@ namespace WizardsVRC.EditorTools
             { CosmeticsDatabase.UNLOCK_FLAG, 0 }, { CosmeticsDatabase.UNLOCK_FLAG, 30 },
             { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 },
             { CosmeticsDatabase.UNLOCK_PRODUCT, 0 },
+            { CosmeticsDatabase.UNLOCK_QUEST, 43 }, { CosmeticsDatabase.UNLOCK_LEVEL, 20 }, { CosmeticsDatabase.UNLOCK_LEVEL, 25 },
+            { CosmeticsDatabase.UNLOCK_BOUNTIES, 3 }, { CosmeticsDatabase.UNLOCK_BOUNTIES, 10 }, { CosmeticsDatabase.UNLOCK_BOUNTIES, 25 },
+            { CosmeticsDatabase.UNLOCK_FLAG, 29 }, { CosmeticsDatabase.UNLOCK_HIGHNOON, 5 }, { CosmeticsDatabase.UNLOCK_QUEST, 77 },
         };
-        private static readonly int[] TitlePrices = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 60, 120, 0 };
+        private static readonly int[] TitlePrices = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 60, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         private static readonly string[] AuraNames =
         {
             "Ember Motes", "Frost Mist", "Storm Sparks", "Life Petals", "Death Wisps", "Myth Glitter", "Balance Sands",
-            "Hunter's Glow", "Starfall", "Void Flame", "Golden Halo", "Patron's Radiance",
+            "Hunter's Glow", "Starfall", "Void Flame", "Golden Halo", "Patron's Radiance", "Sunstone",
         };
         private static readonly Color[] AuraColors =
         {
             new Color(1f, 0.5f, 0.15f), new Color(0.65f, 0.9f, 1f), new Color(0.75f, 0.55f, 1f), new Color(0.5f, 1f, 0.5f),
             new Color(0.55f, 1f, 0.7f), new Color(1f, 0.85f, 0.3f), new Color(0.95f, 0.8f, 0.55f),
             new Color(1f, 0.35f, 0.3f), new Color(0.6f, 0.75f, 1f), new Color(0.65f, 0.2f, 1f), new Color(1f, 0.92f, 0.5f), new Color(1f, 0.6f, 0.9f),
+            new Color(1f, 0.62f, 0.25f),
         };
         // Index 0..6: your own school's aura from level 10; 7: 10 bosses; the rest are bought or a VRChat perk.
         private static readonly int[,] AuraUnlocks =
@@ -74,10 +87,10 @@ namespace WizardsVRC.EditorTools
             { CosmeticsDatabase.UNLOCK_SCHOOL, 10 }, { CosmeticsDatabase.UNLOCK_SCHOOL, 10 }, { CosmeticsDatabase.UNLOCK_SCHOOL, 10 },
             { CosmeticsDatabase.UNLOCK_SCHOOL, 10 }, { CosmeticsDatabase.UNLOCK_BOSSES, 10 },
             { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 },
-            { CosmeticsDatabase.UNLOCK_PRODUCT, 0 },
+            { CosmeticsDatabase.UNLOCK_PRODUCT, 0 }, { CosmeticsDatabase.UNLOCK_LEVEL, 25 },
         };
         // School auras for other schools can also be bought, so a Fire wizard can wear Frost Mist.
-        private static readonly int[] AuraPrices = { 50, 50, 50, 50, 50, 50, 50, 0, 80, 100, 150, 0 };
+        private static readonly int[] AuraPrices = { 50, 50, 50, 50, 50, 50, 50, 0, 80, 100, 150, 0, 0 };
 
         private static readonly string[] SkinNames = { "Gilded", "Shadowflame", "Prismatic", "Moonlit" };
         private static readonly Color[] SkinColors = { new Color(1f, 0.82f, 0.3f), new Color(0.6f, 0.2f, 0.9f), new Color(0.4f, 1f, 0.9f), new Color(0.75f, 0.85f, 1f) };
@@ -106,7 +119,10 @@ namespace WizardsVRC.EditorTools
                 case CosmeticsDatabase.UNLOCK_MONSTERS: return "Defeat " + value + " monsters";
                 case CosmeticsDatabase.UNLOCK_BOSSES: return "Defeat " + value + " bosses";
                 case CosmeticsDatabase.UNLOCK_BATTLES: return "Win " + value + " battles";
-                case CosmeticsDatabase.UNLOCK_FLAG: return value == 30 ? "Defeat the Kraken beneath Tidewatch" : "Clear a boss tower";
+                case CosmeticsDatabase.UNLOCK_FLAG: return value == 30 ? "Defeat the Kraken beneath Tidewatch" : value == 29 ? "Defeat the Midnight Express" : "Clear a boss tower";
+                case CosmeticsDatabase.UNLOCK_QUEST: return value == 43 ? "Become a deputy in Archrock" : value == 77 ? "Seal the Heartstone (Dustwind's finale)" : "Finish quest " + value;
+                case CosmeticsDatabase.UNLOCK_BOUNTIES: return "Turn in " + value + " bounties at Archrock's bounty board";
+                case CosmeticsDatabase.UNLOCK_HIGHNOON: return "Win " + value + " High Noon duels in Archrock";
                 case CosmeticsDatabase.UNLOCK_SHOP: return "Starshard Shop";
                 case CosmeticsDatabase.UNLOCK_PRODUCT: return "Supporter perk (world store)";
                 case CosmeticsDatabase.UNLOCK_SCHOOL: return "Your school's aura at level " + value + " (or the Starshard Shop)";
@@ -447,7 +463,9 @@ namespace WizardsVRC.EditorTools
             var greet = new string[nShops];
             for (int s = 0; s < nShops; s++)
             {
-                int kind = s % ShopNames.Length;
+                int kind = s < ShopCounterStock.Count ? ShopCounterStock[s].x % ShopNames.Length : s % ShopNames.Length;
+                int minLv = s < ShopCounterStock.Count ? ShopCounterStock[s].y : 1;
+                int maxLv = s < ShopCounterStock.Count ? ShopCounterStock[s].z : 12;
                 names[s] = s < ShopCounterNames.Count && !string.IsNullOrEmpty(ShopCounterNames[s]) ? ShopCounterNames[s] + " - " + ShopNames[kind] : ShopNames[kind];
                 greet[s] = ShopGreetings[kind];
                 start.Add(items.Count);
@@ -457,7 +475,7 @@ namespace WizardsVRC.EditorTools
                         int id = itemDb.ids[i];
                         // Not the starter kit, and not quest rewards or boss drops (those are earned, never sold).
                         if (itemDb.categories[i] != cat || id <= 4 || id == CharacterData.STARTER_DECK_ITEM || itemDb.IsUnique(id)) continue;
-                        if (itemDb.levelReqs[i] > 40) continue;
+                        if (itemDb.levelReqs[i] > maxLv || itemDb.levelReqs[i] < minLv) continue;
                         items.Add(id);
                     }
                 counts.Add(items.Count - start[s]);
@@ -471,7 +489,8 @@ namespace WizardsVRC.EditorTools
             for (int k = 0; k < ShopCounters.Count; k++)
             {
                 ShopCounters[k].target = shop;
-                ShopCounters[k].eventName = "OpenShop" + Mathf.Min(k, 7);
+                if (k >= GoldShop.MAX_SHOPS) Debug.LogWarning("[WizardsVRC] More than " + GoldShop.MAX_SHOPS + " shop counters; the extra ones open the last shop.");
+                ShopCounters[k].eventName = "OpenShop" + Mathf.Min(k, GoldShop.MAX_SHOPS - 1);
                 ExtraBehaviours.Add(ShopCounters[k]);
             }
             ExtraBehaviours.Add(shop);
@@ -479,7 +498,7 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>A shop counter in front of a hub shop: a wooden counter with goods on it; click it to shop.</summary>
-        private static void ShopCounter(Transform root, Vector3 face, Vector3 front, string label, Material wood, Material gold)
+        private static void ShopCounter(Transform root, Vector3 face, Vector3 front, string label, Material wood, Material gold, int kind)
         {
             Vector3 side = Vector3.Cross(Vector3.up, front);
             Quaternion rot = Quaternion.LookRotation(front);
@@ -497,6 +516,7 @@ namespace WizardsVRC.EditorTools
             SetInteractText(relay, "Shop: " + (string.IsNullOrEmpty(label) ? "browse wares" : label));
             ShopCounters.Add(relay);
             ShopCounterNames.Add(label);
+            ShopCounterStock.Add(new Vector3Int(kind, _shopBand.x, _shopBand.y));
             WorldText(root, "ShopCounterSign", at + new Vector3(0, 2.1f, 0), rot * Quaternion.Euler(0, 180f, 0), new Vector2(600, 120), 0.004f, "Shop ●", 64).color = new Color(1f, 0.85f, 0.35f);
         }
 
@@ -626,6 +646,7 @@ namespace WizardsVRC.EditorTools
             ExtraBehaviours.Add(store);
             db.playerState = playerState;
             db.store = store;
+            db.questManager = questManager;
             BuildPlayerCosmetics(systems, db);
 
             var notices = BookNotices;
@@ -681,6 +702,8 @@ namespace WizardsVRC.EditorTools
 
             foreach (var ec in encounters) { ec.notifications = notices; ec.cosmetics = db; }
             HookBookHovers(book, deck);
+            // Something for every level up to 25 (WizardsVRCSceneBuilder.Rewards.cs).
+            BuildLevelRewards(systems, playerState, itemDb, notices, db);
         }
 
         /// <summary>Pointing at a backpack cell, a gear slot or a spell card shows its tooltip.</summary>

@@ -33,12 +33,14 @@ namespace WizardsVRC
 ///   deckOwners u16 * DECK_COUNT (the deck item each card list belongs to, 0 = free)
 /// v8: 512 quest slots (room for 10+ storylines per world, several worlds): questUsed, trackedQuest and counterUsed
 ///   are u16 (NO_TRACKED_QUEST = 65535). Older saves load as before.
+/// v9: signature / aura colours. v10: starshards, titles, auras, skins, records, elixirs.
+/// v11 appends: rewardLevel u8, BOUNTY_SLOTS * (bountyId u8, progress u8), bountiesDone u16, depotBits u16, highNoonWins u16.
     /// Typical saves are 1-2 KB raw; the worst case (every quest slot used) is about 2.6 KB raw (budget: 4 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 10;
+        public const int FORMAT_VERSION = 11;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -149,6 +151,19 @@ namespace WizardsVRC
         [Tooltip("Seconds of play left on each elixir (see CosmeticsDatabase).")]
         public int[] elixirSeconds = new int[ELIXIRS];
 
+        [Header("Dustwind (v11): level rewards, bounties, the railroad, High Noon")]
+        [Tooltip("Highest level whose level-up reward has been given (LevelRewards).")]
+        public int rewardLevel = 1;
+        public const int BOUNTY_SLOTS = 3;
+        [Tooltip("The bounty board's three posted bounties (bounty index + 1, 0 = none) and progress on each.")]
+        public int[] bountyIds = new int[BOUNTY_SLOTS];
+        public int[] bountyProgress = new int[BOUNTY_SLOTS];
+        [Tooltip("Bounties turned in (titles).")]
+        public int bountiesDone;
+        [Tooltip("Bit n = railroad depot n reached (you can ride to it from any other depot).")]
+        public int depotBits;
+        public int highNoonWins;
+
         [HideInInspector] public string lastError = "";
 
         private byte[] _buf;
@@ -207,6 +222,10 @@ namespace WizardsVRC
         {
             starshards = 0; titleBits = 0; equippedTitle = 0; auraBits = 0; equippedAura = 0; skinBits = 0; equippedSkin = 0;
             battlesWon = 0; monstersDefeated = 0; bossesDefeated = 0; towersCleared = 0; spellNoticeLevel = 1;
+            rewardLevel = 1; bountiesDone = 0; depotBits = 0; highNoonWins = 0;
+            if (bountyIds == null || bountyIds.Length != BOUNTY_SLOTS) bountyIds = new int[BOUNTY_SLOTS];
+            if (bountyProgress == null || bountyProgress.Length != BOUNTY_SLOTS) bountyProgress = new int[BOUNTY_SLOTS];
+            for (int i = 0; i < BOUNTY_SLOTS; i++) { bountyIds[i] = 0; bountyProgress[i] = 0; }
             if (elixirSeconds == null || elixirSeconds.Length != ELIXIRS) elixirSeconds = new int[ELIXIRS];
             for (int i = 0; i < ELIXIRS; i++) elixirSeconds[i] = 0;
         }
@@ -258,6 +277,14 @@ namespace WizardsVRC
             auraBits = other.auraBits; equippedAura = other.equippedAura; skinBits = other.skinBits; equippedSkin = other.equippedSkin;
             battlesWon = other.battlesWon; monstersDefeated = other.monstersDefeated; bossesDefeated = other.bossesDefeated;
             towersCleared = other.towersCleared; spellNoticeLevel = other.spellNoticeLevel;
+            rewardLevel = other.rewardLevel; bountiesDone = other.bountiesDone; depotBits = other.depotBits; highNoonWins = other.highNoonWins;
+            if (bountyIds == null || bountyIds.Length != BOUNTY_SLOTS) bountyIds = new int[BOUNTY_SLOTS];
+            if (bountyProgress == null || bountyProgress.Length != BOUNTY_SLOTS) bountyProgress = new int[BOUNTY_SLOTS];
+            for (int i = 0; i < BOUNTY_SLOTS; i++)
+            {
+                bountyIds[i] = other.bountyIds != null && i < other.bountyIds.Length ? other.bountyIds[i] : 0;
+                bountyProgress[i] = other.bountyProgress != null && i < other.bountyProgress.Length ? other.bountyProgress[i] : 0;
+            }
             if (elixirSeconds == null || elixirSeconds.Length != ELIXIRS) elixirSeconds = new int[ELIXIRS];
             if (other.elixirSeconds != null)
                 for (int i = 0; i < ELIXIRS && i < other.elixirSeconds.Length; i++) elixirSeconds[i] = other.elixirSeconds[i];
@@ -621,6 +648,16 @@ namespace WizardsVRC
             WriteU32(towersCleared);
             WriteU8(Mathf.Clamp(spellNoticeLevel, 0, 255));
             for (int i = 0; i < ELIXIRS; i++) WriteU16(Mathf.Clamp(elixirSeconds != null && i < elixirSeconds.Length ? elixirSeconds[i] : 0, 0, 65535));
+            // v11: level rewards, bounties, depots, High Noon
+            WriteU8(Mathf.Clamp(rewardLevel, 1, MAX_LEVEL));
+            for (int i = 0; i < BOUNTY_SLOTS; i++)
+            {
+                WriteU8(Mathf.Clamp(bountyIds != null && i < bountyIds.Length ? bountyIds[i] : 0, 0, 255));
+                WriteU8(Mathf.Clamp(bountyProgress != null && i < bountyProgress.Length ? bountyProgress[i] : 0, 0, 255));
+            }
+            WriteU16(Mathf.Clamp(bountiesDone, 0, 65535));
+            WriteU16(depotBits & 0xFFFF);
+            WriteU16(Mathf.Clamp(highNoonWins, 0, 65535));
 
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
@@ -825,6 +862,20 @@ namespace WizardsVRC
                 for (int i = 0; i < ELIXIRS; i++) elixirSeconds[i] = ReadU16();
             }
             else spellNoticeLevel = level;   // older saves: don't announce spells they've already had the chance to learn
+            if (version >= 11)
+            {
+                if (!Need(1 + BOUNTY_SLOTS * 2 + 2 + 2 + 2)) return false;
+                rewardLevel = Mathf.Clamp(ReadU8(), 1, MAX_LEVEL);
+                for (int i = 0; i < BOUNTY_SLOTS; i++)
+                {
+                    bountyIds[i] = ReadU8();
+                    bountyProgress[i] = ReadU8();
+                }
+                bountiesDone = ReadU16();
+                depotBits = ReadU16();
+                highNoonWins = ReadU16();
+            }
+            else rewardLevel = level;   // older saves: the levels they already have don't pay out again
             MigrateDecks(version);
             return true;
         }

@@ -1,4 +1,4 @@
-"""World 1's items: writes the item tables in Assets/WizardsVRC/Scripts/ItemDatabase.cs.
+"""World 1's and Dustwind's (World 2) items: writes the item tables in Assets/WizardsVRC/Scripts/ItemDatabase.cs.
 
 Every gear stat comes from one budget: what a full set (hat, robe, boots, wand, athame, amulet, ring) adds at a given
 level (ANCH, interpolated between the anchor levels). Each slot takes its share of each stat (SHARE: robes carry
@@ -12,7 +12,8 @@ import json, math, os, re
 HAT, ROBE, BOOTS, WAND, ATHAME, AMULET, RING, DECK, POTION = range(9)
 STATS = ['H','M','D','R','A','C','B','P','PP']
 # Full-set totals (all seven gear slots) at anchor levels.
-ANCH = {1:(60,7,3,3,2,2,2,2,0), 4:(110,10,6,4,4,3,2,1,4), 8:(200,16,11,7,6,5,4,2,9), 12:(320,24,17,10,8,8,6,3,15), 13:(350,26,18,11,9,9,7,3,16)}
+ANCH = {1:(60,7,3,3,2,2,2,2,0), 4:(110,10,6,4,4,3,2,1,4), 8:(200,16,11,7,6,5,4,2,9), 12:(320,24,17,10,8,8,6,3,15), 13:(350,26,18,11,9,9,7,3,16),
+        18:(500,34,24,14,11,11,9,4,22), 22:(640,42,29,17,13,13,11,5,27), 25:(760,48,33,19,15,15,12,6,31)}
 def budget(L):
     ks=sorted(ANCH)
     if L<=ks[0]: return ANCH[ks[0]]
@@ -118,6 +119,78 @@ add(118,"Seafarer's Deck",DECK,8,desc="Waxed against the salt; its pages never c
 add(63,"Starfall Deck",DECK,10,'quest',desc="Embossed with the Starfall crest. A deck for a wizard who knows exactly what they want.",color=(0.3,0.3,0.6),deck=(40,6))
 add(119,"Warden's Deck",DECK,12,desc="Bound in Thornhollow bark; the castle's best deck for coin.",color=(0.3,0.4,0.25),deck=(38,6))
 
+# ================================================================== Dustwind (World 2, Lv 13-25); ids 120+
+# Shop stock comes in three bands (Lv 13, 18 and 22) so Archrock's shops keep pace with the story.
+add(120,"Drover's Hat",HAT,13,desc="A wide felt hat with a sweat-stained band. Keeps the desert sun off your nose.",color=(0.55,0.42,0.28))
+add(121,"Prairie Robe",ROBE,13,desc="Sun-faded robes of tough canvas, cut for long days in the saddle.",color=(0.7,0.6,0.45))
+add(122,"Boardwalk Boots",BOOTS,13,desc="Heeled boots that ring out on every plank in Archrock.",color=(0.45,0.3,0.18))
+add(123,"Mesquite Wand",WAND,13,desc="Knotty desert hardwood, smoothed by a thousand hands.",color=(0.6,0.4,0.22))
+add(124,"Frontier Athame",ATHAME,13,desc="A broad camp blade with an antler grip.",color=(0.75,0.72,0.65))
+add(125,"Brass Compass Pendant",AMULET,13,desc="Always points back to Archrock, whichever way you're facing.",color=(0.85,0.65,0.3))
+add(126,"Horseshoe Ring",RING,13,desc="A tiny bent horseshoe, worn points-up so the luck doesn't run out.",color=(0.6,0.6,0.62))
+swands=[(127,"Cinderspur Wand","Its tip glows like a coal in a campfire."),(128,"Hailstone Wand","Cold as a desert night, and twice as clear."),
+        (129,"Thunderhead Wand","Smells of rain before a storm breaks over the mesa."),(130,"Saguaro Wand","Carved from a fallen cactus rib; it still flowers once a year."),
+        (131,"Rattlebone Wand","Rattles softly when trouble is near."),(132,"Tall-Tale Wand","Every story told about it is bigger than the last."),
+        (133,"Dust Devil Wand","A little whirl of sand follows it everywhere.")]
+for s_,(i,n,d) in enumerate(swands): add(i,n,WAND,14,school=s_,desc=d,color=SCOL[s_])
+add(134,"Wide-Brim Hat",HAT,18,desc="Brim wide enough to shade a friend.",color=(0.42,0.32,0.22))
+add(135,"Trailworn Robe",ROBE,18,desc="Patched and re-patched on the long trail out of town.",color=(0.55,0.45,0.35))
+add(136,"Snakeskin Boots",BOOTS,18,desc="Shed by a rattlesnake, not taken from one. The bootmaker swears it.",color=(0.5,0.45,0.3))
+add(137,"Ironwood Wand",WAND,18,desc="Desert ironwood: so dense it sinks in water.",color=(0.35,0.28,0.22))
+add(138,"Railspike Athame",ATHAME,18,desc="Forged from a spike pried out of the Iron Line.",color=(0.5,0.5,0.55))
+add(139,"Lantern-Ore Pendant",AMULET,18,desc="A chip of light-ore, freed from the Corps and glowing gently.",color=(1.0,0.75,0.35))
+add(140,"Silver Dollar Ring",RING,18,desc="A silver coin hammered round a finger. It still shows the eagle.",color=(0.8,0.82,0.85))
+srobes=[(141,"Ember Duster","A long coat that trails sparks instead of dust."),(142,"Frostline Duster","Frost creeps along its hem even at high noon."),
+        (143,"Stormrider Duster","Its tails snap like a flag in a gale."),(144,"Bloomfield Duster","Wildflowers sprout from its pockets after rain."),
+        (145,"Grim Drifter Duster","Faded black, and quiet as an empty street."),(146,"Storyteller's Duster","Every patch on it comes with a tale."),
+        (147,"Sundial Duster","Its shadow always falls the right way for the hour.")]
+for s_,(i,n,d) in enumerate(srobes): add(i,n,ROBE,19,school=s_,desc=d,color=SCOL[s_])
+add(148,"Mesa Hat",HAT,22,desc="A tall crowned hat the color of red rock at sunset.",color=(0.65,0.3,0.2))
+add(149,"Canyon Robe",ROBE,22,desc="Layered in the banded colors of the canyon walls.",color=(0.72,0.42,0.28))
+add(150,"High Desert Boots",BOOTS,22,desc="Built for scree, sand and the long climb up Thunder Mesa.",color=(0.4,0.3,0.25))
+add(151,"Thunderwood Wand",WAND,22,desc="Cut from a tree the lightning chose twice.",color=(0.45,0.4,0.55))
+add(152,"Wardenstone Athame",ATHAME,22,desc="Chipped from a fallen Warden stone, with its blessing.",color=(0.7,0.6,0.5))
+add(153,"Sunset Locket",AMULET,22,desc="Holds the last light of a desert evening.",color=(1.0,0.55,0.35))
+add(154,"Prospector's Signet",RING,22,desc="Its seal is a pick crossed with a pan.",color=(0.85,0.7,0.35))
+shats=[(155,"Blazebrim Hat","A brim that never stops smoldering."),(156,"Frostbrim Hat","Rime on the brim, even in July."),
+       (157,"Stormbrim Hat","The band crackles when clouds gather."),(158,"Bloombrim Hat","A hatband of desert blossoms that never wilt."),
+       (159,"Gravebrim Hat","Worn low, by those who walk at dusk."),(160,"Talebrim Hat","A feather in its band that once belonged to a legend, apparently."),
+       (161,"Sunbrim Hat","Half gold, half shadow, like the mesa at noon.")]
+for s_,(i,n,d) in enumerate(shats): add(i,n,HAT,23,school=s_,desc=d,color=SCOL[s_])
+# ---- the level reward track's Frontier set (levels 14-24; see LevelRewards)
+add(162,"Frontier Sixwand",WAND,14,'quest',desc="Six notches on the grip, one for every spell school but yours. Marshal Quickwater's gift.",color=(0.55,0.5,0.45))
+add(163,"Trail Hat",HAT,15,'quest',desc="Dusty, dented and perfect.",color=(0.5,0.38,0.25))
+add(165,"Frontier Duster",ROBE,18,'quest',desc="The long coat of a frontier wizard, cut to swirl when you draw your wand.",color=(0.5,0.4,0.3))
+add(166,"Spurred Boots",BOOTS,20,'quest',desc="Their spurs jingle with every step. Sneaking is out of the question.",color=(0.35,0.25,0.18))
+add(167,"Lodestone Amulet",AMULET,21,'quest',desc="A magnetic stone that pulls stray magic back to you.",color=(0.35,0.35,0.4))
+add(168,"Silver Spur Ring",RING,23,'quest',desc="A ring shaped like a tiny spur. Its rowel still turns.",color=(0.82,0.84,0.88))
+# ---- storyline rewards
+add(180,"Tin Star Badge",AMULET,13,'quest',desc="Archrock's deputy badge. Wear it with pride, partner.",color=(0.75,0.75,0.78))
+add(170,"Express Office Ring",RING,14,'quest',desc="Given to anyone who saves the mail. Stamped 'Archrock Express'.",color=(0.7,0.55,0.35))
+add(171,"Creekwater Boots",BOOTS,16,'quest',desc="Still damp from the creek you set flowing again.",color=(0.35,0.5,0.6))
+add(172,"Miner's Lamp Pendant",AMULET,18,'quest',desc="A tiny brass mine lamp that lights the way for those who are lost.",color=(1.0,0.85,0.45))
+add(173,"Signalman's Athame",ATHAME,20,'quest',desc="Its edge is painted red and white like a signal arm.",color=(0.85,0.25,0.2))
+add(176,"Pumpwright's Hat",HAT,20,'quest',desc="Oil-stained and proud of it. Archrock's water flows because of you.",color=(0.4,0.45,0.5))
+add(177,"Bounty Hunter's Duster",ROBE,21,'quest',desc="Every outlaw in Dustwind knows the sound of this coat.",color=(0.3,0.25,0.22))
+add(174,"Warden-Stone Ring",RING,22,'quest',desc="The Wardens' trust, set in stone.",color=(0.7,0.62,0.5))
+add(175,"Ghostlight Lantern",AMULET,23,'quest',desc="A ghost's lantern, handed on with thanks. It never casts a shadow.",color=(0.6,0.9,0.85))
+add(179,"Last Spike Wand",WAND,25,'quest',desc="Hammered from the Iron Line's last spike, which was never driven.",color=(0.9,0.75,0.4))
+# ---- boss drops
+add(181,"Bad Penny's Lucky Coin",RING,14,'boss',desc="A bent copper penny on a ring. Bad Penny says it was never lucky for her.",color=(0.75,0.45,0.25))
+add(182,"Mesquite Heartwood Wand",WAND,16,'boss',desc="Heartwood from Old Mesquite himself, given back once he calmed down.",color=(0.4,0.6,0.3))
+add(183,"Grist's Hard Hat",HAT,18,'boss',desc="Foreman Grist's dented hat, its lamp still burning stolen light.",color=(0.85,0.7,0.2))
+add(184,"Vesper's Engine Coat",ROBE,20,'boss',desc="Captain Vesper's soot-black coat with brass buttons. It smells of coal smoke.",color=(0.22,0.2,0.24))
+add(185,"Warden's Stoneplate Boots",BOOTS,22,'boss',desc="Heavy as the mesa and just as steady.",color=(0.6,0.55,0.5))
+add(187,"Conductor's Pocketwatch",AMULET,23,'boss',desc="The Ghost Conductor's watch. It always reads midnight.",color=(0.65,0.75,0.8))
+add(186,"Calloway's Iron Spike",ATHAME,25,'boss',desc="Ironhand Calloway's golden spike, meant for the Heartstone.",color=(0.85,0.7,0.3))
+# ---- potions and decks
+add(188,"Greater Healing Potion",POTION,13,desc="A big red bottle with a cork stopper. Tastes like cherries and gunpowder smoke.",color=(0.9,0.12,0.18),potion=(500,0))
+add(189,"Strong Mana Tonic",POTION,13,desc="A dark blue tonic. Fizzes so hard the cork pops.",color=(0.12,0.3,0.85),potion=(0,36))
+add(190,"Drifter's Deck",DECK,15,desc="A deck in a worn leather pouch, strung on a cord.",color=(0.5,0.38,0.25),deck=(42,6))
+add(164,"Saddlebag Deck",DECK,16,'quest',desc="Room for more spells than you'll ever need. Then you'll need them.",color=(0.55,0.35,0.2),deck=(45,6))
+add(191,"Wrangler's Deck",DECK,20,desc="Stitched with rawhide; it holds a herd of spells.",color=(0.45,0.3,0.2),deck=(48,6))
+add(169,"Lawbringer's Deck",DECK,24,'quest',desc="Bound in a marshal's tooled leather, with a tin star on the cover.",color=(0.4,0.35,0.3),deck=(52,7))
+
 def stats(it):
     if it['cat'] in (DECK,POTION): return [0]*9
     b=budget(it['lv']); sh=SHARE[it['cat']]; q=QUAL[it['qual']]
@@ -139,7 +212,7 @@ print(len(rows),'items; ids unique:',len({r['id'] for r in rows})==len(rows))
 
 def arr(name, vals, typ='int'):
     return "        [HideInInspector] public %s[] %s = { %s };\n" % (typ, name, ', '.join(str(v) for v in vals))
-out = "        // World 1's items: every stat comes from a level budget for a full set, split by slot (Tools/make_items.py).\n"
+out = "        // World 1's and Dustwind's items: every stat comes from a level budget for a full set, split by slot (Tools/make_items.py).\n"
 out += "        // Sorted by level, so the shops list them in order. Quest rewards and boss drops are unique (never sold).\n"
 out += arr('ids', [r['id'] for r in rows]) + arr('categories', [r['cat'] for r in rows])
 out += arr('levelReqs', [r['lv'] for r in rows]) + arr('schoolReqs', [r['school'] for r in rows])

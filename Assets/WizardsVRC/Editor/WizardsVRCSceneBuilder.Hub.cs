@@ -651,7 +651,7 @@ namespace WizardsVRC.EditorTools
             }
 
             // A counter out front where you buy from the shop (GoldShop, WizardsVRCSceneBuilder.Cosmetics.cs).
-            ShopCounter(root, face, front, l.label, wood, gold);
+            ShopCounter(root, face, front, l.label, wood, gold, index);
             // Hanging sign on a bracket beside the door, plus the shop's name over the awning.
             Vector3 bracket = face + side * (across / 2f - 1.2f) + new Vector3(0, 4.6f, 0);
             Block(root, "SignBracket", bracket + front * 0.6f, new Vector3(0.12f, 0.12f, 1.2f), beam, rot);

@@ -22,6 +22,9 @@ namespace WizardsVRC
         public const int UNLOCK_SHOP = 5;      // bought with Starshards
         public const int UNLOCK_PRODUCT = 6;   // owned VRChat product (StarshardStore product index 'value')
         public const int UNLOCK_SCHOOL = 7;    // your own school's aura at level 'value'
+        public const int UNLOCK_QUEST = 8;     // quest (save id 'value') finished
+        public const int UNLOCK_BOUNTIES = 9;  // 'value' bounties turned in at the bounty board
+        public const int UNLOCK_HIGHNOON = 10; // 'value' High Noon duels won
 
         public const int ELIXIR_SPEED = 100;
         public const int ELIXIR_XP = 101;
@@ -29,6 +32,7 @@ namespace WizardsVRC
         public PlayerState playerState;
         public NotificationCenter notifications;
         public StarshardStore store;
+        public QuestManager questManager;
         [Tooltip("Your own PlayerCosmetics (the per-player object registers itself when it spawns).")]
         [HideInInspector] public PlayerCosmetics localCosmetics;
 
@@ -77,6 +81,9 @@ namespace WizardsVRC
                 case UNLOCK_BATTLES: return c.battlesWon >= value;
                 case UNLOCK_FLAG: return c.HasBit(c.towersCleared, value);
                 case UNLOCK_PRODUCT: return store != null && store.OwnsProduct(value);
+                case UNLOCK_QUEST: return questManager != null && questManager.IsComplete(value);
+                case UNLOCK_BOUNTIES: return c.bountiesDone >= value;
+                case UNLOCK_HIGHNOON: return c.highNoonWins >= value;
                 default: return false;
             }
         }

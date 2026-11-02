@@ -14,6 +14,8 @@ namespace WizardsVRC
     public class GoldShop : UdonSharpBehaviour
     {
         public const int ROWS = 8;
+        /// <summary>Counters that can each open their own shop (OpenShop0 .. OpenShop15).</summary>
+        public const int MAX_SHOPS = 16;
 
         public PlayerState playerState;
         public ItemDatabase itemDatabase;
@@ -56,6 +58,14 @@ namespace WizardsVRC
         public void OpenShop5() { Open(5); }
         public void OpenShop6() { Open(6); }
         public void OpenShop7() { Open(7); }
+        public void OpenShop8() { Open(8); }
+        public void OpenShop9() { Open(9); }
+        public void OpenShop10() { Open(10); }
+        public void OpenShop11() { Open(11); }
+        public void OpenShop12() { Open(12); }
+        public void OpenShop13() { Open(13); }
+        public void OpenShop14() { Open(14); }
+        public void OpenShop15() { Open(15); }
 
         public void Buy0() { Buy(0); }
         public void Buy1() { Buy(1); }

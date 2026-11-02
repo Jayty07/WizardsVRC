@@ -1030,16 +1030,24 @@ namespace WizardsVRC
         private int RollLoot(int level)
         {
             if (itemDatabase == null || itemDatabase.ids == null || itemDatabase.ids.Length == 0) return 0;
+            // Any gear or potion near your level (never starter kit, decks, quest rewards or boss drops), picked evenly.
             int n = itemDatabase.ids.Length;
-            for (int tries = 0; tries < 16; tries++)
+            int count = 0;
+            for (int pass = 0; pass < 2; pass++)
             {
-                int i = Random.Range(0, n);
-                int id = itemDatabase.ids[i];
-                if (id <= 4 || itemDatabase.IsUnique(id) || itemDatabase.IsDeck(id)) continue;
-                int req = itemDatabase.GetLevelReq(id);
-                int floor = itemDatabase.IsPotion(id) ? level - 7 : level - 4;
-                if (req > level || req < floor) continue;
-                return id;
+                int pick = pass == 1 ? Random.Range(0, count) : -1;
+                int seen = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    int id = itemDatabase.ids[i];
+                    if (id <= 4 || itemDatabase.IsUnique(id) || itemDatabase.IsDeck(id)) continue;
+                    int req = itemDatabase.GetLevelReq(id);
+                    int floor = itemDatabase.IsPotion(id) ? level - 7 : level - 4;
+                    if (req > level || req < floor) continue;
+                    if (pass == 0) count++;
+                    else if (seen++ == pick) return id;
+                }
+                if (count == 0) return 0;
             }
             return 0;
         }
