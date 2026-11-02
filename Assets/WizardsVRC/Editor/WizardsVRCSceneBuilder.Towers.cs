@@ -73,8 +73,8 @@ namespace WizardsVRC.EditorTools
                     q.Enqueue(n);
                 }
             }
-            Vector2Int best = new Vector2Int(-1, -1), fallback = best;
-            int bestD = -1, fallbackD = -1;
+            Vector2Int best = new Vector2Int(-1, -1), fallback = best, roomy = best;
+            int bestD = -1, fallbackD = -1, roomyD = -1;
             foreach (var kv in dist)
             {
                 var c = kv.Key;
@@ -97,13 +97,39 @@ namespace WizardsVRC.EditorTools
                     if (d.magnitude < DuelCircleRadius + 1.5f) { ringFree = false; break; }
                 }
                 if (ringFree && kv.Value > bestD) { bestD = kv.Value; best = c; }
+                if (ringFree && kv.Value > roomyD && g.RingFits(c, 8.5f)) { roomyD = kv.Value; roomy = c; }
                 if (kv.Value > fallbackD) { fallbackD = kv.Value; fallback = c; }
             }
-            return best.x >= 0 ? best : fallback;
+            // Somewhere with room for the tower beside the sigil if there is one.
+            return roomy.x >= 0 ? roomy : best.x >= 0 ? best : fallback;
+        }
+
+        /// <summary>
+        /// The street's boss leaves the street for its tower: the encounters whose roster has the tower's boss (outside a
+        /// dungeon; a dungeon's boss stays in its dungeon) aren't built, and the first one's ring is where the tower stands.
+        /// Returns that cell ((-1, -1) when the boss has no street ring) and fills 'skip'.
+        /// </summary>
+        private static Vector2Int TowerSite(ZoneGrid g, ZoneDefinition z, HashSet<ZoneEncounter> skip)
+        {
+            var regulars = new List<int>();
+            var elites = new List<int>();
+            int boss = TowerMonsters(z, regulars, elites);
+            Vector2Int site = new Vector2Int(-1, -1);
+            if (boss == 0) return site;
+            foreach (var e in z.encounters)
+            {
+                if (e == null || e.roster == null || !e.roster.Contains(boss) || !ZoneGrid.IsRingDigit(e.Symbol)) continue;
+                var home = g.Find(e.Symbol);
+                if (home.Count == 0 || (_dungeonCells != null && _dungeonCells.Contains(home[0]))) continue;
+                skip.Add(e);
+                if (site.x < 0) site = home[0];
+            }
+            return site;
         }
 
         private static void BuildZoneTower(Transform zoneRoot, ZoneGrid g, ZoneDefinition z, Vector2Int start, List<Vector2Int> ringCells,
-            Transform systems, CardDatabase cardDb, ItemDatabase itemDb, PlayerState playerState, QuestManager qm, List<BattleClient> encounters, WorldBuild wb)
+            Transform systems, CardDatabase cardDb, ItemDatabase itemDb, PlayerState playerState, QuestManager qm, List<BattleClient> encounters, WorldBuild wb,
+            Vector2Int site)
         {
             var regulars = new List<int>();
             var elites = new List<int>();
@@ -111,7 +137,7 @@ namespace WizardsVRC.EditorTools
             if (boss == 0) return;
             if (regulars.Count == 0) regulars.AddRange(elites);
             if (regulars.Count == 0) regulars.Add(boss);
-            Vector2Int cell = TowerSigilCell(g, start, ringCells);
+            Vector2Int cell = site.x >= 0 ? site : TowerSigilCell(g, start, ringCells);
             if (cell.x < 0)
             {
                 Debug.LogWarning("[WizardsVRC World] " + z.displayName + ": no open level spot (about 7 m across) for the boss tower's sigil; no tower built.");
@@ -155,14 +181,17 @@ namespace WizardsVRC.EditorTools
             // ---- the tower, far away, its own area
             var troot = new GameObject("Tower_" + z.zoneKey).transform;
             troot.position = TowerOrigin + new Vector3(index * 260f, index * 110f, 0f);
-            var stone = PsxTexMat("TowerStone_" + z.zoneKey, Color.Lerp(new Color(0.62f, 0.6f, 0.66f), col, 0.12f), TileTexture(TerrainTexDir + "/StoneWall.png"), 2.4f);
-            var floorMat = PsxTexMat("TowerFloor_" + z.zoneKey, new Color(0.6f, 0.56f, 0.52f), TileTexture(TerrainTexDir + "/Flagstone.png"), 2.5f);
-            var ceiling = PsxTexMat("TowerCeiling", new Color(0.45f, 0.3f, 0.2f), TileTexture(TerrainTexDir + "/WoodPlanks.png"), 2f);
+            // Dark stone: the rooms are lit by their torches and braziers, not the sky.
+            var stone = PsxTexMat("TowerStoneDark_" + z.zoneKey, Color.Lerp(new Color(0.34f, 0.32f, 0.38f), col, 0.1f), TileTexture(TerrainTexDir + "/StoneWall.png"), 2.4f);
+            var floorMat = PsxTexMat("TowerFloorDark_" + z.zoneKey, new Color(0.36f, 0.33f, 0.32f), TileTexture(TerrainTexDir + "/Flagstone.png"), 2.5f);
+            var ceiling = PsxTexMat("TowerCeilingDark", new Color(0.24f, 0.16f, 0.11f), TileTexture(TerrainTexDir + "/WoodPlanks.png"), 2f);
+            // The outside (the street tower and the roof) keeps the lighter stone.
+            var outerStone = PsxTexMat("TowerStone_" + z.zoneKey, Color.Lerp(new Color(0.62f, 0.6f, 0.66f), col, 0.12f), TileTexture(TerrainTexDir + "/StoneWall.png"), 2.4f);
             var gold = PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f));
             var banner = PMat("TowerBanner_" + SchoolLabels[Mathf.Clamp(school, 0, 6)], Color.Lerp(col, Color.black, 0.25f), 1f);
             var flame = PMat("Flame", new Color(1f, 0.55f, 0.1f), 1f, new Color(1f, 0.4f, 0.05f));
             var veilMat = PMat("TowerVeil", new Color(0.65f, 0.4f, 1f), 1f, new Color(0.65f, 0.4f, 1f) * 1.2f);
-            var slit = PMat("TowerWindow", new Color(0.55f, 0.75f, 1f), 1f, new Color(0.45f, 0.6f, 0.9f));
+            var slit = PMat("TowerWindowNight", new Color(0.12f, 0.14f, 0.3f), 1f, new Color(0.1f, 0.12f, 0.32f));
 
             int floors = TowerWaves + 1;
             var arrivals = new Transform[floors + 1];
@@ -172,12 +201,29 @@ namespace WizardsVRC.EditorTools
                 arrivals[k].localRotation = Quaternion.identity;   // facing the ring (+Z)
             }
 
-            // ---- the sigil in the street (the way in) and its referee
+            // ---- the tower itself, standing where the boss used to be, and the sigil in front of it (the way in)
             Vector3 sc = g.Local(cell);
             Vector3 toStart = g.Local(start) - sc;
             toStart.y = 0f;
             Vector3 face = toStart.sqrMagnitude > 0.01f ? -toStart.normalized : Vector3.forward;   // a reader coming from the start looks this way
-            DungeonSigil sigil = TowerSigil(zoneRoot, systems, z, sc, face, towerName, col, stone, gold, wb);
+            Vector3 towerPos;
+            float towerR;
+            if (site.x >= 0)
+            {
+                // The boss's old ring plaza (3 x 3 cells open): the tower at its far side, the sigil at its near side.
+                towerPos = sc + face * (g.cell * 0.7f);
+                towerR = Mathf.Min(3.6f, g.cell * 0.45f);
+                sc -= face * (g.cell * 0.5f);
+            }
+            else
+            {
+                towerR = g.RingFits(cell, 8.5f) ? 2.8f : 0f;
+                towerPos = sc + face * 7f;
+            }
+            if (towerR > 0f) StreetTower(zoneRoot, towerPos, face, towerR, col, outerStone, gold, banner, towerName, IsDesert(z));
+            DungeonSigil sigil = TowerSigil(zoneRoot, systems, z, sc, face, towerName, col, outerStone, gold, wb);
+            // Quest arrows for the boss (it no longer walks the street) lead to the tower's sigil.
+            if (!wb.monsterTargets.ContainsKey(boss)) wb.monsterTargets[boss] = sigil.outside;
             sigil.start = arrivals[0];
             Vector3 top = troot.position + new Vector3(0, floors * TowerFloorH, 0);
             sigil.boundsMin = troot.position + new Vector3(-TowerRoomR - 12f, -10f, -TowerRoomR - 12f);
@@ -246,15 +292,15 @@ namespace WizardsVRC.EditorTools
             // ---- the roof: battlements round an open top, a chest, and a veil home; a sea of cloud far below
             var roof = Child(troot, "Roof", new Vector3(0, floors * TowerFloorH, 0));
             var mb = new MeshBuilder();
-            SectorPrism(mb, Vector3.zero, 0f, TowerRoomR + 0.8f, 0f, 360f, -0.4f, 0f, 48);
-            TavernMesh(roof, "RoofFloor", mb, floorMat, true);
+            DiscSlab(mb, TowerRoomR + 2.3f, -0.4f, 0f, 48);   // over the top floor's wider wall too
+            TavernMesh(roof, "RoofFloor", mb, PsxTexMat("TowerFloor_" + z.zoneKey, new Color(0.6f, 0.56f, 0.52f), TileTexture(TerrainTexDir + "/Flagstone.png"), 2.5f), true);
             for (int i = 0; i < 24; i++)
             {
                 float a = i * 15f;
                 if (i % 2 == 0)
-                    Block(roof, "Merlon", TPolar(Vector3.zero, TowerRoomR + 0.4f, a, 0.9f), new Vector3(2.2f, 1.8f, 0.8f), stone, TFacing(a));
+                    Block(roof, "Merlon", TPolar(Vector3.zero, TowerRoomR + 0.4f, a, 0.9f), new Vector3(2.2f, 1.8f, 0.8f), outerStone, TFacing(a));
                 else
-                    Block(roof, "Parapet", TPolar(Vector3.zero, TowerRoomR + 0.4f, a, 0.5f), new Vector3(2.2f, 1f, 0.8f), stone, TFacing(a));
+                    Block(roof, "Parapet", TPolar(Vector3.zero, TowerRoomR + 0.4f, a, 0.5f), new Vector3(2.2f, 1f, 0.8f), outerStone, TFacing(a));
             }
             Block(roof, "Chest", new Vector3(0, 0.45f, 4f), new Vector3(1.6f, 0.9f, 1f), PMat("Wood", new Color(0.55f, 0.34f, 0.18f), 2f));
             Block(roof, "ChestLid", new Vector3(0, 1.0f, 4f), new Vector3(1.7f, 0.25f, 1.1f), gold);
@@ -276,44 +322,124 @@ namespace WizardsVRC.EditorTools
             Debug.Log("[WizardsVRC World] " + z.displayName + ": " + towerName + " (" + TowerWaves + " wave floors, then " + bossName + ").");
         }
 
+        /// <summary>
+        /// The boss's tower out in the street (scenery; the sigil in front of it is the way in): a round stone tower with
+        /// bands, glowing window slits, a dark door facing the sigil, a banner in the boss's school colour, battlements and
+        /// a pointed roof with a crystal turning over it. Desert streets get sandstone and a flat watchtower top.
+        /// </summary>
+        private static void StreetTower(Transform root, Vector3 p, Vector3 face, float r, Color col, Material stone, Material gold, Material banner,
+            string towerName, bool desert)
+        {
+            var t = Child(root, "BossTower", p);
+            t.localRotation = Quaternion.LookRotation(-face);   // its door (local +Z) faces the sigil and the street
+            if (desert) stone = PsxTexMat("TowerSandstone", new Color(0.78f, 0.5f, 0.36f), TileTexture(TerrainTexDir + "/RedRock.png"), 2.6f);
+            var roofMat = PMat("TowerRoof_" + ColorUtility.ToHtmlStringRGB(col), Color.Lerp(col, new Color(0.2f, 0.18f, 0.25f), 0.45f), 1f);
+            var glow = PMat("TowerSlitGlow", new Color(1f, 0.7f, 0.35f), 1f, new Color(1f, 0.55f, 0.2f));
+            const float h = 22f;
+            Shape(t, "TowerBase", CylMesh(), new Vector3(0, 1f, 0), new Vector3(r * 2f + 1.2f, 1f, r * 2f + 1.2f), stone, true, Quaternion.identity);
+            Shape(t, "TowerBody", CylMesh(), new Vector3(0, h / 2f, 0), new Vector3(r * 2f, h / 2f, r * 2f), stone, true, Quaternion.identity);
+            foreach (float y in new[] { 7.5f, 14.5f })
+                Shape(t, "TowerBand", CylMesh(), new Vector3(0, y, 0), new Vector3(r * 2f + 0.4f, 0.25f, r * 2f + 0.4f), gold, false, Quaternion.identity);
+            // Window slits round it, lit from inside.
+            for (int k = 0; k < 3; k++)
+                for (int i = 0; i < 6; i++)
+                {
+                    float a = i * 60f + k * 30f + 30f;
+                    if (AngleGap(a, 90f) < 25f && k == 0) continue;   // over the door
+                    Block(t, "TowerSlit", TPolar(Vector3.zero, r * 0.99f, a, 4.5f + k * 7f), new Vector3(0.45f, 1.6f, 0.12f), glow, TFacing(a));
+                }
+            // The door, its arch and the banner over it.
+            Vector3 d = TPolar(Vector3.zero, r * 0.97f, 90f, 0f);
+            Block(t, "TowerDoor", d + new Vector3(0, 1.9f, 0.05f), new Vector3(2.2f, 3.8f, 0.2f), PMat("TunnelDark", new Color(0.05f, 0.04f, 0.08f), 1f), TFacing(90f));
+            Block(t, "TowerDoorArch", d + new Vector3(0, 4f, 0.15f), new Vector3(3f, 0.5f, 0.4f), gold, TFacing(90f));
+            Block(t, "TowerBanner", TPolar(Vector3.zero, r + 0.1f, 90f, 9.5f), new Vector3(1.8f, 4f, 0.08f), banner, TFacing(90f));
+            // The top: battlements, then a pointed roof (or a flat lookout in the desert) and the school's crystal.
+            Shape(t, "TowerCrown", CylMesh(), new Vector3(0, h + 0.3f, 0), new Vector3(r * 2f + 1.2f, 0.3f, r * 2f + 1.2f), stone, false, Quaternion.identity);
+            for (int i = 0; i < 12; i++)
+            {
+                float a = i * 30f;
+                if (i % 2 == 0) Block(t, "TowerMerlon", TPolar(Vector3.zero, r + 0.35f, a, h + 1.2f), new Vector3(1.3f, 1.4f, 0.6f), stone, TFacing(a));
+            }
+            if (desert) Shape(t, "TowerLookout", CylMesh(), new Vector3(0, h + 2.4f, 0), new Vector3(r * 1.4f, 1.8f, r * 1.4f), stone, false, Quaternion.identity);
+            else Shape(t, "TowerRoof", ConeMesh(), new Vector3(0, h + 4.5f, 0), new Vector3(r * 2.3f, 8f, r * 2.3f), roofMat, false, Quaternion.identity);
+            Shape(t, "TowerCrystal", GemMesh(), new Vector3(0, h + (desert ? 6.5f : 10.5f), 0), new Vector3(1.2f, 2f, 1.2f), PMat("Crystal_" + ColorUtility.ToHtmlStringRGB(col), col, 1f, col * 0.6f), false, Quaternion.identity);
+            PointLight(t, TPolar(Vector3.zero, r + 2f, 90f, 4f), new Color(1f, 0.7f, 0.4f), 10f, 1.2f);
+            var sign = WorldText(t, "TowerName", TPolar(Vector3.zero, r + 0.25f, 90f, 6.2f), Quaternion.LookRotation(-TDir(90f)), new Vector2(1200, 180), 0.005f, towerName, 52);
+            DressSign(sign, 1100f, 170f);
+        }
+
         private static string MonsterLabel(int id)
         {
             MonsterEntry m = _monsterCatalog != null ? _monsterCatalog.Find(id) : null;
             return m != null ? m.name : "Monster";
         }
 
-        /// <summary>A round stone chamber: floor, wall with window slits, pillars, banners, torches, a ceiling and an arch up.</summary>
+        /// <summary>
+        /// A solid round slab (floor or ceiling) of radius r between y0 and y1: its top, its underside and its edge, so it
+        /// reads from above and below (the room under it sees its underside as the ceiling).
+        /// </summary>
+        private static void DiscSlab(MeshBuilder mb, float r, float y0, float y1, int segs)
+        {
+            for (int i = 0; i < segs; i++)
+            {
+                float aa = i * 360f / segs, ab = (i + 1) * 360f / segs;
+                Vector3 o0 = TPolar(Vector3.zero, r, aa, 0f), o1 = TPolar(Vector3.zero, r, ab, 0f);
+                Vector3 up = new Vector3(0, y1, 0), dn = new Vector3(0, y0, 0);
+                mb.Quad(up, o0 + up, o1 + up, up, Vector3.up);
+                mb.Quad(dn, o1 + dn, o0 + dn, dn, Vector3.down);
+                mb.Quad(o0 + dn, o1 + dn, o1 + up, o0 + up, TDir((aa + ab) / 2f));
+            }
+        }
+
+        /// <summary>
+        /// A round stone chamber, closed all round: a solid floor, the wall up to the next floor's slab (its underside is
+        /// this room's ceiling, crossed by dark beams), window slits of night, pillars, banners, and the warm light of
+        /// torches on every pillar and four braziers round the ring; dust drifting in the torchlight. Dim and moody.
+        /// </summary>
         private static void TowerChamber(Transform room, float r, Material stone, Material floorMat, Material ceiling, Material gold, Material banner,
             Material flame, Material slit, bool isTop)
         {
+            float h = TowerFloorH - 0.4f;   // up to the underside of the next floor (or the roof)
             var mb = new MeshBuilder();
-            SectorPrism(mb, Vector3.zero, 0f, r + 0.8f, 0f, 360f, -0.4f, 0f, 48);
+            DiscSlab(mb, r + 0.8f, -0.4f, 0f, 48);
             TavernMesh(room, "ChamberFloor", mb, floorMat, true);
             mb = new MeshBuilder();
-            SectorPrism(mb, Vector3.zero, r, r + 0.8f, 0f, 360f, 0f, TowerWallH, 48);
+            SectorPrism(mb, Vector3.zero, r, r + 0.8f, 0f, 360f, 0f, h, 48);
             TavernMesh(room, "ChamberWall", mb, stone, true);
+            // The ceiling: dark planks just under the next slab, and beams across it.
             mb = new MeshBuilder();
-            SectorPrism(mb, Vector3.zero, 0f, r + 0.8f, 0f, 360f, TowerWallH, TowerWallH + 0.4f, 48);
+            DiscSlab(mb, r + 0.1f, h - 0.15f, h - 0.05f, 48);
             TavernMesh(room, "ChamberCeiling", mb, ceiling, false);
+            for (int k = 0; k < 4; k++)
+                Block(room, "CeilingBeam", new Vector3(0, h - 0.45f, 0), new Vector3(0.5f, 0.5f, r * 2f), ceiling, Quaternion.Euler(0, k * 45f, 0));
+            var ironMat = PMat("TowerIron", new Color(0.12f, 0.11f, 0.12f), 1f);
             for (int i = 0; i < 8; i++)
             {
                 float a = 22.5f + i * 45f;
-                Shape(room, "Pillar", CylMesh(), TPolar(Vector3.zero, r - 0.7f, a, TowerWallH / 2f), new Vector3(1.1f, TowerWallH / 2f, 1.1f), stone, true, Quaternion.identity);
+                Shape(room, "Pillar", CylMesh(), TPolar(Vector3.zero, r - 0.7f, a, h / 2f), new Vector3(1.1f, h / 2f, 1.1f), stone, true, Quaternion.identity);
                 Block(room, "PillarCap", TPolar(Vector3.zero, r - 0.7f, a, TowerWallH - 0.3f), new Vector3(1.5f, 0.5f, 1.5f), gold, TFacing(a));
-                // Between the pillars: a window slit of sky high up, and a banner or a torch below it.
+                // A torch on every pillar (every other one throws light: plenty of pools of warm light in the dark).
+                Block(room, "Sconce", TPolar(Vector3.zero, r - 1.35f, a, 3.4f), new Vector3(0.3f, 0.5f, 0.4f), gold, TFacing(a));
+                Shape(room, "TorchFlame", ConeMesh(), TPolar(Vector3.zero, r - 1.5f, a, 3.95f), new Vector3(0.35f, 0.6f, 0.35f), flame, false, Quaternion.identity);
+                if (i % 2 == 0) PointLight(room, TPolar(Vector3.zero, r - 2.4f, a, 4.2f), new Color(1f, 0.55f, 0.25f), 11f, 1.6f);
+                // Between the pillars: a window slit onto the night, and a banner under every other one.
                 float b = i * 45f;
-                Block(room, "WindowSlit", TPolar(Vector3.zero, r - 0.02f, b, 7f), new Vector3(0.6f, 2.4f, 0.06f), slit, TFacing(b));
+                Block(room, "WindowSlit", TPolar(Vector3.zero, r - 0.02f, b, 8f), new Vector3(0.6f, 2.6f, 0.06f), slit, TFacing(b));
                 if (i % 2 == 0)
                 {
-                    Block(room, "Banner", TPolar(Vector3.zero, r - 0.08f, b, 3.6f), new Vector3(1.5f, 3.4f, 0.06f), banner, TFacing(b));
-                    Block(room, "BannerRod", TPolar(Vector3.zero, r - 0.15f, b, 5.4f), new Vector3(1.9f, 0.1f, 0.1f), gold, TFacing(b));
+                    Block(room, "Banner", TPolar(Vector3.zero, r - 0.08f, b, 3.8f), new Vector3(1.5f, 3.4f, 0.06f), banner, TFacing(b));
+                    Block(room, "BannerRod", TPolar(Vector3.zero, r - 0.15f, b, 5.6f), new Vector3(1.9f, 0.1f, 0.1f), gold, TFacing(b));
                 }
-                else
-                {
-                    Block(room, "Sconce", TPolar(Vector3.zero, r - 0.25f, b, 3.2f), new Vector3(0.3f, 0.5f, 0.4f), gold, TFacing(b));
-                    Shape(room, "TorchFlame", ConeMesh(), TPolar(Vector3.zero, r - 0.4f, b, 3.7f), new Vector3(0.35f, 0.6f, 0.35f), flame, false, Quaternion.identity);
-                    PointLight(room, TPolar(Vector3.zero, r - 1.2f, b, 3.8f), new Color(1f, 0.6f, 0.3f), 12f, 1.4f);
-                }
+            }
+            // Four braziers round the ring, glowing up into the dark.
+            for (int k = 0; k < 4; k++)
+            {
+                float a = 45f + k * 90f;
+                Vector3 p = TPolar(Vector3.zero, DuelCircleRadius + 1.6f, a, 0f);
+                Shape(room, "Brazier", CylMesh(), p + new Vector3(0, 0.5f, 0), new Vector3(1f, 0.5f, 1f), ironMat, true, Quaternion.identity);
+                Shape(room, "BrazierCoals", CylMesh(), p + new Vector3(0, 1.02f, 0), new Vector3(0.85f, 0.04f, 0.85f), flame, false, Quaternion.identity);
+                Shape(room, "BrazierFlame", ConeMesh(), p + new Vector3(0, 1.6f, 0), new Vector3(0.7f, 1.1f, 0.7f), flame, false, Quaternion.identity);
+                if (k % 2 == 0) PointLight(room, p + new Vector3(0, 2.2f, 0), new Color(1f, 0.5f, 0.2f), 10f, 1.5f);
             }
             // The arch up (north): where the party goes on to once the floor is won.
             Vector3 n = TPolar(Vector3.zero, r - 0.3f, 90f, 0f);
@@ -321,7 +447,10 @@ namespace WizardsVRC.EditorTools
                 Block(room, "ArchPost", n + new Vector3(s * 1.9f, 2.3f, 0), new Vector3(0.6f, 4.6f, 0.8f), stone);
             Block(room, "ArchLintel", n + new Vector3(0, 4.9f, 0), new Vector3(4.6f, 0.7f, 0.9f), gold);
             Block(room, "ArchDark", n + new Vector3(0, 2.3f, 0.2f), new Vector3(3.2f, 4.6f, 0.1f), PMat("TunnelDark", new Color(0.05f, 0.04f, 0.08f), 1f));
-            PointLight(room, new Vector3(0, TowerWallH - 1.5f, 0), new Color(0.85f, 0.8f, 1f), r * 1.6f, isTop ? 1.6f : 1.2f);
+            // A dim cool fill from above, so the far side of the room isn't pitch black.
+            PointLight(room, new Vector3(0, h - 2f, 0), new Color(0.55f, 0.5f, 0.75f), r * 1.5f, isTop ? 0.7f : 0.45f);
+            Motes(room, "TowerDust", new Vector3(0, 3f, 0), new Vector3(r * 1.6f, 4f, r * 1.6f), new Color(1f, 0.75f, 0.45f), 6f, 6f, 10f,
+                new Vector2(0.04f, 0.1f), new Vector3(0, 0.08f, 0), new Vector3(0.12f, 0.06f, 0.12f), 0f);
             if (isTop)
                 Shape(room, "Throne", CylMesh(), TPolar(Vector3.zero, r - 2.6f, 90f, 1.2f), new Vector3(2.2f, 1.2f, 1.6f), gold, true, Quaternion.identity);
         }

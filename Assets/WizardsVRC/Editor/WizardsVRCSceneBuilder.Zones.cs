@@ -272,7 +272,9 @@ namespace WizardsVRC.EditorTools
                 Block(layout, "LowWall", c + new Vector3(0, 0.7f, 0), new Vector3(r.width * cs, 1.4f, r.height * cs), low);
                 Block(layout, "LowWallCap", c + new Vector3(0, 1.45f, 0), new Vector3(r.width * cs + 0.3f, 0.12f, r.height * cs + 0.3f), roof);
             }
-            foreach (var t in g.Find('^'))
+            // A forest street grows a whole wood instead (WizardsVRCSceneBuilder.Forest.cs).
+            if (z.textureStyle == ZoneTextureStyle.Forest) ForestGrowth(layout, g, z, trunk, stairCells);
+            else foreach (var t in g.Find('^'))
             {
                 if (IsDesert(z) || z.textureStyle == ZoneTextureStyle.Mine) Saguaro(layout, g.Local(t), 0.8f + g.Hash(t.x, t.y, 4) * 0.6f, g.Hash(t.x, t.y, 5), leaves, true);
                 else Tree(layout, g, t, trunk, leaves);
@@ -391,6 +393,15 @@ namespace WizardsVRC.EditorTools
             // forms at the free one nearest the wizard (the patrol monster walks over to it).
             var ringHome = new Dictionary<Vector2Int, Vector2Int>();
             var ringCells = StreetRingCells(g, z, start, ringHome);
+            // The street's boss lives in its tower, not out here: its encounter isn't built, and its tower stands on its
+            // old ring, so no fight forms there (WizardsVRCSceneBuilder.Towers.cs).
+            var towerSkip = new HashSet<ZoneEncounter>();
+            Vector2Int towerSite = z.isTown ? new Vector2Int(-1, -1) : TowerSite(g, z, towerSkip);
+            if (towerSite.x >= 0)
+            {
+                Vector3 tp = g.Local(towerSite);
+                ringCells.RemoveAll(c => { Vector3 d = g.Local(c) - tp; d.y = 0f; return d.magnitude < DuelCircleRadius + 4f; });
+            }
             var spotsRoot = Child(root, "RingSpots_" + z.zoneKey, Vector3.zero);
             var ringByCell = new Dictionary<Vector2Int, Transform>();
             var outsideSpots = new List<Transform>();
@@ -411,7 +422,7 @@ namespace WizardsVRC.EditorTools
             var outsideGroups = new List<BattleClient>();
             var dungeonGroups = new List<BattleClient>();
             foreach (var e in z.encounters)
-                if (e != null && ZoneGrid.IsRingDigit(e.Symbol))
+                if (e != null && ZoneGrid.IsRingDigit(e.Symbol) && !towerSkip.Contains(e))
                 {
                     var home = g.Find(e.Symbol);
                     bool inDungeon = home.Count > 0 && _dungeonCells != null && _dungeonCells.Contains(home[0]);
@@ -426,7 +437,7 @@ namespace WizardsVRC.EditorTools
                 foreach (var c in groups) c.manager.peers = peers;
             }
             // The street's boss tower: a four-pad sigil out here, the tower itself far away (WizardsVRCSceneBuilder.Towers.cs).
-            BuildZoneTower(root, g, z, start, ringCells, systems, cardDb, itemDb, playerState, qm, encounters, wb);
+            if (!z.isTown) BuildZoneTower(root, g, z, start, ringCells, systems, cardDb, itemDb, playerState, qm, encounters, wb, towerSite);
             // A secret boss reached from here (the Kraken under Tidewatch Docks; WizardsVRCSceneBuilder.Secret.cs).
             BuildSecretBoss(root, g, z, start, ringCells, systems, cardDb, itemDb, playerState, qm, encounters, wb);
             if (ringCells.Count > 0)

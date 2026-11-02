@@ -257,6 +257,8 @@ Spell levels were moved so Dustwind has new spells to learn: each school's rank 
 
 ## Duels (PvP)
 
+The circle's sign (on a carved board) turns to face you, staying upright, and shows the circle's name with its countdown.
+
 Step into the **duelling circle** (south-east of the hub) and a 15 second countdown starts; anyone else who steps in
 before it ends joins. When it reaches zero everyone inside sits down in the circle, dealt alternately into the **Blue
 team** (the near half) and the **Red team** (the far half), up to 4 a side. Alone in the circle, the countdown waits

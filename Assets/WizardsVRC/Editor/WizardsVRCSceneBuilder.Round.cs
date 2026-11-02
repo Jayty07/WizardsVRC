@@ -162,9 +162,13 @@ namespace WizardsVRC.EditorTools
                 Shape(t, "BrazierFlame", ConeMesh(), p + new Vector3(0, 1.55f, 0), new Vector3(0.7f, 0.9f, 0.7f), flame, false, Quaternion.identity);
             }
             // Sign over the gap facing the hub's centre (where the path comes in); BattleClient writes the countdown on it.
-            var label = WorldText(t, "DuelSign", new Vector3(0, 4.6f, rr + 0.8f), Quaternion.LookRotation(Vector3.back), new Vector2(1500, 300), 0.005f,
-                string.IsNullOrEmpty(l.label) ? "Duelling Circle" : l.label, 56);
-            label.color = new Color(1f, 0.85f, 0.45f);
+            // It turns to face whoever looks at it, upright (BattleClient.padPivot), so it's dressed on its own pivot.
+            var signPivot = Child(t, "DuelSignPivot", new Vector3(0, 4.6f, rr + 0.8f));
+            signPivot.localRotation = Quaternion.LookRotation(Vector3.back);
+            var label = WorldText(signPivot, "DuelSign", Vector3.zero, Quaternion.identity, new Vector2(1500, 300), 0.005f,
+                string.IsNullOrEmpty(l.label) ? "Duelling Circle" : l.label, 48);
+            DressSign(label, 1420f, 260f);
+            foreach (var tr in signPivot.GetComponentsInChildren<Transform>(true)) tr.gameObject.isStatic = false;
 
             Transform spot = Child(root, "DuelSpot_" + l.symbol, c);
             spot.localRotation = rot;
@@ -201,6 +205,8 @@ namespace WizardsVRC.EditorTools
                 client.hubReturn = hub.duelReturns[i];
                 client.defeatReturn = null;
                 client.padLabel = hub.duelLabels[i];
+                client.padTitle = hub.duelLabels[i].text;
+                client.padPivot = hub.duelLabels[i].transform.parent.parent;
 
                 var zone = Child(hub.root, "DuelZone" + i, spot.localPosition + new Vector3(0, 1.5f, 0));
                 var box = zone.gameObject.AddComponent<BoxCollider>();

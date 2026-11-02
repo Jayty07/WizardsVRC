@@ -411,11 +411,17 @@ from one budget: what a full set of the seven gear slots adds at a level, split 
 Every street whose encounters include a **boss** (a monster with *Is Boss* ticked in the Monster Catalog) gets a boss
 tower automatically, like Wizard101's Golem Tower. Nothing to paint:
 
-- **The way in** is a four-pad sigil with a rune obelisk, placed on open level ground as far along the street from its
-  start as fits (clear of the duel rings, NPCs and points). It works like a dungeon sigil: stand on a pad, others join
+- **The boss lives in its tower**, not out in the street: the encounter(s) with the tower's boss aren't built (unless
+  their ring is inside a dungeon, like Morvane's throne hall, where the boss stays). On the boss's old ring stands a
+  **real tower** (stone with lit window slits, its door, a banner in the boss's school colour, battlements, a pointed
+  roof or, in the desert, a sandstone lookout, and the school's crystal on top), and in front of it the way in.
+  Quest arrows for the boss lead there. Without a street ring, the sigil goes on open level ground as far along the
+  street as fits, with a smaller tower beside it if there's room.
+- **The way in** is a four-pad sigil with a rune obelisk. It works like a dungeon sigil: stand on a pad, others join
   during the 10 second countdown, and the party goes in together; the tower is theirs until they've all left.
-- **Inside**, the party climbs: three floors of waves, then the boss. Each floor is a round stone chamber with a duel
-  ring. The wave's leader stands across the ring and taunts you as you arrive (a greeting with its portrait in a red,
+- **Inside**, the party climbs: three floors of waves, then the boss. Each floor is a round, closed stone chamber (a solid
+  floor, a beamed ceiling, night through the window slits) with a duel ring, dim and lit by torches on every pillar,
+  four braziers round the ring and drifting dust. The wave's leader stands across the ring and taunts you as you arrive (a greeting with its portrait in a red,
   hostile rim). Step into the ring to fight; everyone in it when the 6 second countdown ends takes part. Win and you're
   taken up to the next floor; flee and you stay on the floor to try again; lose and you're back out by the sigil.
 - **The waves** are the street's own monsters, weakest first, then its elites; the top floor is the boss with its

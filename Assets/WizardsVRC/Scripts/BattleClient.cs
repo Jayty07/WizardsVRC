@@ -49,6 +49,8 @@ namespace WizardsVRC
         public float resultSeconds = 6f;
         private float _bannerClearAt = -1f;
         public Text padLabel;
+        [Tooltip("Turned to face the viewer (upright) every frame: the duelling circle's sign, board and all.")]
+        public Transform padPivot;
         [Tooltip("A boss tower floor's pad text when idle (the countdown and 'in progress' follow it).")]
         public string padTitle = "";
         public Transform orb;
@@ -2365,13 +2367,19 @@ namespace WizardsVRC
             }
             if (manager != null) AnimateCast();
             if (manager == null) return;
+            if (padPivot != null)
+            {
+                VRCPlayerApi viewer = Networking.LocalPlayer;
+                if (Utilities.IsValid(viewer)) Billboard(padPivot, viewer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position);
+            }
             if (padLabel != null)
             {
                 int phase = manager.phase;
                 if (Pvp())
                 {
-                    if (phase == BattleManager.PHASE_IDLE) padLabel.text = "Duelling Circle\nStep into the circle to start a duel (2-8 wizards)";
-                    else if (manager.WaitingForOpponent()) padLabel.text = "Duelling Circle\nWaiting for an opponent to step in...";
+                    string circle = padTitle.Length > 0 ? padTitle : "Duelling Circle";
+                    if (phase == BattleManager.PHASE_IDLE) padLabel.text = circle + "\nStep into the circle to duel (2-8 wizards)";
+                    else if (manager.WaitingForOpponent()) padLabel.text = circle + "\nWaiting for an opponent to step in...";
                     else if (phase == BattleManager.PHASE_QUEUE)
                         padLabel.text = "Duel starts in " + manager.SecondsLeft().ToString() + "s\nWizards in the circle: " + manager.QueueCount().ToString() + " / 8";
                     else padLabel.text = "Duel in progress";
