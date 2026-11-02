@@ -586,6 +586,9 @@ namespace WizardsVRC.EditorTools
             label.fontStyle = FontStyle.BoldAndItalic;
             pc.titleLabel = label;
             pc.titleRoot = titleRoot;
+            // The world creator's title: 3D letters bobbing in a wave over their head (WizardsVRCSceneBuilder.CreatorTitle.cs).
+            pc.creatorRoot = CreatorLetters(titleRoot, CreatorTitleText).gameObject;
+            pc.creatorRoot.SetActive(false);
             titleRoot.gameObject.SetActive(false);
 
             var auras = new ParticleSystem[AuraNames.Length];

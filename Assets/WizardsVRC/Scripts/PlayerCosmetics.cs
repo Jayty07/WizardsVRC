@@ -9,6 +9,9 @@ namespace WizardsVRC
     /// One per player (a VRChat player object): what that wizard is wearing (title, aura, spell skin), synced so everyone
     /// sees it. Draws the title over their head (turned to face you, upright) and their aura round their feet, in the
     /// open world and in duels. The owner's CosmeticsDatabase sets it with SetLook.
+    /// The world's creator (by VRChat display name, checked on each player's own client, never synced or saved) always
+    /// has their creator title floating over their head, 3D letters bobbing in a wave (built by
+    /// WizardsVRCSceneBuilder.CreatorTitle.cs), above any title they wear.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class PlayerCosmetics : UdonSharpBehaviour
@@ -22,6 +25,12 @@ namespace WizardsVRC
         [Tooltip("Titles and auras are drawn for players within this distance of you.")]
         public float drawRange = 45f;
 
+        [Header("The world's creator")]
+        [Tooltip("VRChat display name that gets the creator title (exact match).")]
+        public string creatorName = "Jayty07";
+        [Tooltip("The creator's floating 3D letters (under Title Root, so they turn to face each viewer too).")]
+        public GameObject creatorRoot;
+
         [UdonSynced] public int title;   // index + 1, 0 = none
         [UdonSynced] public int aura;
         [UdonSynced] public int skin;
@@ -30,12 +39,26 @@ namespace WizardsVRC
         private int _shownTitle = -1;
         private int _shownAura = -1;
         private bool _registered;
+        private bool _creator;
 
         private void Start()
         {
-            _owner = Networking.GetOwner(gameObject);
+            SetOwner(Networking.GetOwner(gameObject));
             Register();
             Apply();
+        }
+
+        /// <summary>Who wears this, and whether that's the world's creator.</summary>
+        private void SetOwner(VRCPlayerApi player)
+        {
+            _owner = player;
+            bool creator = Utilities.IsValid(player) && creatorName.Length > 0 && player.displayName == creatorName;
+            if (creator != _creator)
+            {
+                _creator = creator;
+                _shownTitle = -1;   // redraw the title
+                Apply();
+            }
         }
 
         private void Register()
@@ -61,7 +84,7 @@ namespace WizardsVRC
 
         public override void OnOwnershipTransferred(VRCPlayerApi player)
         {
-            _owner = player;
+            SetOwner(player);
             Register();
         }
 
@@ -76,7 +99,9 @@ namespace WizardsVRC
                     titleLabel.text = t.Length > 0 ? "« " + t + " »" : "";
                     titleLabel.color = new Color(1f, 0.86f, 0.45f);
                 }
-                if (titleRoot != null) titleRoot.gameObject.SetActive(t.Length > 0);
+                // The creator's letters float over the worn title (or on their own).
+                if (creatorRoot != null && creatorRoot.activeSelf != _creator) creatorRoot.SetActive(_creator);
+                if (titleRoot != null) titleRoot.gameObject.SetActive(t.Length > 0 || _creator);
             }
             if (_shownAura != aura)
             {
@@ -98,8 +123,8 @@ namespace WizardsVRC
 
         private void LateUpdate()
         {
-            if (_owner == null || !Utilities.IsValid(_owner)) { _owner = Networking.GetOwner(gameObject); if (_owner == null) return; }
-            if (title == 0 && aura == 0) return;
+            if (_owner == null || !Utilities.IsValid(_owner)) { SetOwner(Networking.GetOwner(gameObject)); if (_owner == null) return; }
+            if (title == 0 && aura == 0 && !_creator) return;
             Vector3 feet = _owner.GetPosition();
             VRCPlayerApi me = Networking.LocalPlayer;
             if (Utilities.IsValid(me) && !_owner.isLocal && (me.GetPosition() - feet).sqrMagnitude > drawRange * drawRange)
@@ -108,7 +133,7 @@ namespace WizardsVRC
                 return;
             }
             transform.position = feet;
-            if (titleRoot != null && title > 0)
+            if (titleRoot != null && (title > 0 || _creator))
             {
                 if (!titleRoot.gameObject.activeSelf) titleRoot.gameObject.SetActive(true);
                 Vector3 head = _owner.GetBonePosition(HumanBodyBones.Head);
