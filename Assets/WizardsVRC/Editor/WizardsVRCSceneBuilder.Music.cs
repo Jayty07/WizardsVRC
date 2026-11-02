@@ -57,16 +57,22 @@ namespace WizardsVRC.EditorTools
             music.hubMin = any ? new[] { hubBounds.min, keep.min } : new[] { hubBounds.min };
             music.hubMax = any ? new[] { hubBounds.max, keep.max } : new[] { hubBounds.max };
 
-            // Quiet inside the tavern, where the jukebox plays (the same circle it's heard in).
-            var jukebox = Object.FindObjectOfType<TavernJukebox>(true);
-            if (jukebox != null && jukebox.center != null)
+            // Quiet inside every jukebox room (the castle tavern, Archrock's saloon), in the same circle the jukebox is heard in.
+            var centers = new System.Collections.Generic.List<Transform>();
+            var radii = new System.Collections.Generic.List<float>();
+            var heights = new System.Collections.Generic.List<float>();
+            foreach (var jb in Object.FindObjectsOfType<TavernJukebox>(true))
             {
-                music.quietCenter = jukebox.center;
-                music.quietRadius = jukebox.radius;
-                music.quietHeight = jukebox.height;
+                if (jb.center == null) continue;
+                centers.Add(jb.center);
+                radii.Add(jb.radius);
+                heights.Add(jb.height);
             }
+            music.quietCenters = centers.ToArray();
+            music.quietRadii = radii.ToArray();
+            music.quietHeights = heights.ToArray();
             if (book != null) book.music = music;
-            Debug.Log("[WizardsVRC] Music: hub, combat and character creation themes" + (jukebox != null ? " (quiet in the tavern)" : "") + ".");
+            Debug.Log("[WizardsVRC] Music: hub, combat and character creation themes (quiet in " + centers.Count + " jukebox room(s)).");
             return music;
         }
 

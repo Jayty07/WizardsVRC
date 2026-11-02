@@ -33,10 +33,10 @@ namespace WizardsVRC
         [Tooltip("World-space boxes: the castle grounds, the keep.")]
         public Vector3[] hubMin;
         public Vector3[] hubMax;
-        [Tooltip("The tavern's floor centre: no hub music inside (its jukebox plays there).")]
-        public Transform quietCenter;
-        public float quietRadius = 18f;
-        public float quietHeight = 18f;
+        [Tooltip("Each jukebox room's floor centre (the tavern, the saloon): no music inside, its jukebox plays there.")]
+        public Transform[] quietCenters;
+        public float[] quietRadii;
+        public float[] quietHeights;
 
         public float fadeInSeconds = 2f;
         public float fadeOutSeconds = 1.2f;
@@ -127,10 +127,18 @@ namespace WizardsVRC
 
         private bool InQuiet(Vector3 p)
         {
-            if (quietCenter == null) return false;
-            Vector3 d = p - quietCenter.position;
-            if (d.y < -2f || d.y > quietHeight) return false;
-            return d.x * d.x + d.z * d.z < quietRadius * quietRadius;
+            if (quietCenters == null) return false;
+            for (int i = 0; i < quietCenters.Length; i++)
+            {
+                Transform c = quietCenters[i];
+                if (c == null) continue;
+                float r = quietRadii != null && i < quietRadii.Length ? quietRadii[i] : 18f;
+                float h = quietHeights != null && i < quietHeights.Length ? quietHeights[i] : 18f;
+                Vector3 d = p - c.position;
+                if (d.y < -2f || d.y > h) continue;
+                if (d.x * d.x + d.z * d.z < r * r) return true;
+            }
+            return false;
         }
     }
 }
