@@ -350,6 +350,7 @@ namespace WizardsVRC.EditorTools
             foreach (var b in new UdonSharpBehaviour[] { activeData, scratchData, saveManager, playerState, teleporter, selectUI, itemDb, book, hud, pedestal, cardDb, deckPages, queuePad, questPages, questGuide }) toSync.Add(b);
             foreach (var ec in encounters) { toSync.Add(ec.manager); toSync.Add(ec); foreach (var w in ec.GetComponentsInChildren<Wanderer>(true)) toSync.Add(w); }
             foreach (var b in ExtraBehaviours) if (b != null && !toSync.Contains(b)) toSync.Add(b);
+            foreach (var b in _monsterRigs) if (b != null) toSync.Add(b);
             foreach (var b in toSync)
             {
                 UdonSharpEditorUtility.CopyProxyToUdon(b);
@@ -459,7 +460,7 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
-        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm" };
+        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig" };
 
         /// <summary>Creates the program assets that are missing (and marks the rest current). True if any was made.</summary>
         private static bool CreateMissingPrograms()
@@ -1021,27 +1022,8 @@ namespace WizardsVRC.EditorTools
         private const string SpellAnimationDir = "Assets/WizardsVRC/SpellAnimations";
         private const string CastSoundDir = "Assets/WizardsVRC/Audio/Cast";
 
-        // Each spell can have a cast cinematic: a prefab in SpellAnimationDir named "<id>.prefab" or "<Spell Name>.prefab".
-        // Instances start switched off; BattleClient moves one to the caster and switches it on for that spell's turn.
-        private static void AttachSpellAnimations(Transform arenaRoot, CardDatabase db)
-        {
-            var holder = Child(arenaRoot, "SpellAnimations", Vector3.zero);
-            var anims = new GameObject[db.ids.Length];
-            int found = 0;
-            for (int i = 0; i < db.ids.Length; i++)
-            {
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SpellAnimationDir + "/" + db.ids[i] + ".prefab");
-                if (prefab == null) prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SpellAnimationDir + "/" + db.names[i] + ".prefab");
-                if (prefab == null) continue;
-                var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, holder);
-                inst.name = db.ids[i] + " " + db.names[i];
-                inst.SetActive(false);
-                anims[i] = inst;
-                found++;
-            }
-            db.spellAnimations = anims;
-            if (found > 0) Debug.Log("[WizardsVRC] Attached " + found + " spell animation(s) from " + SpellAnimationDir);
-        }
+        // Spell animations (built for every spell, or a prefab in SpellAnimationDir named "<id>.prefab" or "<Spell Name>.prefab")
+        // and the card art rendered from them: WizardsVRCSceneBuilder.SpellFx.cs.
 
         private const string TexturesDir = "Assets/WizardsVRC/Textures";
         private const string CardsDir = TexturesDir + "/Cards";
@@ -1492,6 +1474,9 @@ namespace WizardsVRC.EditorTools
             client.seats = new Transform[slots];
             client.overheadLabels = new Text[slots];
             client.monsterBodies = new GameObject[side];
+            client.monsterRigs = new MonsterRig[side];
+            // A beaten monster plays its fall before it sinks away.
+            client.defeatDelay = 1.25f;
             for (int s = 0; s < slots; s++)
             {
                 bool monster = s >= side;
@@ -1519,6 +1504,7 @@ namespace WizardsVRC.EditorTools
                     GameObject body = MonsterBody(seat, client.cardDatabase, seatMonster, i == 0 ? "Boss" : "Minion" + i);
                     body.SetActive(false);
                     client.monsterBodies[i] = body;
+                    client.monsterRigs[i] = body.GetComponent<MonsterRig>();
                     seatScale = seatMonster > 0 ? client.cardDatabase.MonsterBodyScale(seatMonster) : 1f;
                     labelHeight = seatScale * 2.2f + 0.5f;
                 }
@@ -1753,7 +1739,7 @@ namespace WizardsVRC.EditorTools
                 float ms = client.cardDatabase.MonsterBodyScale(monsterId);
                 Transform wt = Child(root, "Wanderer" + w, Vector3.zero);
                 var wanderer = UdonSharpUndo.AddComponent<Wanderer>(wt.gameObject);
-                wanderer.body = MonsterBody(wt, client.cardDatabase, monsterId, "Body");
+                wanderer.body = MonsterBody(wt, client.cardDatabase, monsterId, "Body", true);
                 wanderer.label = WanderLabel(wt, ms);
                 wanderer.manager = client.manager;
                 wanderer.client = client;

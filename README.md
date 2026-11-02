@@ -272,6 +272,26 @@ for an opponent. Duels use the normal combat (cards, pips, shields, blades, mini
 spells cost no mana, and nothing is won or lost: afterwards your health and mana are just as they were. Knocked-out
 wizards stay in their seat to watch; the duel ends when a team has nobody standing (or leaves). Fleeing is free.
 
+## Monsters, spell animations and card art
+
+**Monsters** are animated rigs built from primitives: bipeds (with hats, helmets, crowns, horns, ears, bones or a glowing
+core by type), four-legged beasts (tusks, pincers, a scorpion's stinger), floaters (wisps, sprites, moths, hawks with
+wings and tails), walking plants, and the special bodies (the Kraken, the Juggernaut, the ghost train, tumbleweeds and
+cacti). Each kind has keyframed **Idle, Walk, Hit, Die and Cast** clips: patrols walk, and in the ring a monster rears up
+or raises its arms as it casts, flinches when hit and falls when beaten, with a voice for each (`Tools/make_creature_sounds.py`:
+biped, beast, spirit, plant, construct, machine and deep voices, pitched by size). The rigs, clips and controllers are
+generated into `Assets/WizardsVRC/Generated/Rigs` on every rebuild (one prefab per monster).
+
+**Spell animations** play after the wind-up (the glyph drawn in the air): creature spells summon their creature at the
+caster (a rig of the same kinds in the school's colours, bigger for more pips) which charges or flies at the target
+and strikes; other attacks fly as a bolt with a trail; area spells rain down or erupt as a pillar over the far side;
+heals bloom with petals and sparkles; shields, blades, traps and charms spiral up round the target. The effect lands
+on the strike. A prefab in `SpellAnimations/<id>.prefab` or `<Spell Name>.prefab` still replaces a spell's animation.
+
+**Card art** is rendered from each spell's animation on every rebuild (the creature mid-attack, the bolt, the rain,
+the bloom) as a 64-pixel picture over the school's colour, into `Textures/CardArt`, and shows on the cards everywhere:
+the battle hand, the deck, the spell trainers and new-spell pop-ups.
+
 ## Ambient sound
 
 Under the music, every area has its own looping ambience: breeze and birdsong in the castle grounds, Sunpetal Gardens and

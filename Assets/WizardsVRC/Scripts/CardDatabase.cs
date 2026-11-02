@@ -251,6 +251,14 @@ namespace WizardsVRC
         /// this from prefabs in Assets/WizardsVRC/SpellAnimations named "&lt;id&gt;.prefab" or "&lt;Spell Name&gt;.prefab".
         /// </summary>
         public GameObject[] spellAnimations;
+        [Tooltip("How each spell's animation plays (0 none, 1 a creature charges, 2 a bolt flies, 3 an effect on the target, 4 a hand-made prefab).")]
+        [HideInInspector] public int[] animModes;
+        [Tooltip("Seconds into the animation when the spell's effect lands.")]
+        [HideInInspector] public float[] animStrikes;
+        [Tooltip("How long the animation lasts.")]
+        [HideInInspector] public float[] animSeconds;
+        [Tooltip("Each spell's card art (rendered from its animation by the builder).")]
+        public Texture[] cardArt;
 
         private Color _generalColor = new Color(0.6f, 0.6f, 0.65f);
 
@@ -288,6 +296,11 @@ namespace WizardsVRC
         public int GetAccuracy(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : accuracies[i]; }
         public int GetPower(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : powers[i]; }
         public int GetEffect(int cardId) { int i = IndexOf(cardId); return i < 0 ? EFFECT_DAMAGE : effects[i]; }
+        public int AnimMode(int cardId) { int i = IndexOf(cardId); return i < 0 || animModes == null || i >= animModes.Length || GetAnimation(cardId) == null ? 0 : animModes[i]; }
+        public float AnimStrike(int cardId) { int i = IndexOf(cardId); return i < 0 || animStrikes == null || i >= animStrikes.Length ? 0f : animStrikes[i]; }
+        /// <summary>Seconds the spell's animation takes after its wind-up (0 = it has none).</summary>
+        public float AnimSeconds(int cardId) { int i = IndexOf(cardId); return AnimMode(cardId) == 0 || animSeconds == null || i >= animSeconds.Length ? 0f : animSeconds[i]; }
+
         public GameObject GetAnimation(int cardId)
         {
             int i = IndexOf(cardId);
@@ -425,6 +438,8 @@ namespace WizardsVRC
         /// <summary>Art for the card's picture window: shields, blades and traps show their icon; others have none yet.</summary>
         public Texture ArtFor(int cardId)
         {
+            int ai = IndexOf(cardId);
+            if (ai >= 0 && cardArt != null && ai < cardArt.Length && cardArt[ai] != null) return cardArt[ai];
             int e = GetEffect(cardId);
             int kind = -1, sc = GENERAL;
             if (e == EFFECT_WARD || e == EFFECT_MULTIWARD) { kind = 0; sc = ShieldSchool(cardId); }

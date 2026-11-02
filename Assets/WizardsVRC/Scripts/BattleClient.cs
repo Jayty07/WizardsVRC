@@ -43,6 +43,8 @@ namespace WizardsVRC
         public Transform[] seats;
         public GameObject ring;
         public GameObject[] monsterBodies;
+        [Tooltip("Each monster seat's animated body (same order as Monster Bodies): it casts, flinches and falls as the round plays.")]
+        public MonsterRig[] monsterRigs;
         public Text[] overheadLabels;
         public Text bannerLabel;
         [Tooltip("Seconds the Victory / Defeat text stays over the ring before it clears.")]
@@ -395,6 +397,13 @@ namespace WizardsVRC
         private Vector3 _ringBase;
         private Vector3 _glyphBase;
         private GameObject _spellAnim;
+        private GameObject _stepAnim;
+        private int _stepCard;
+        private bool _animImpact;
+        private int _fxMode;
+        private float _fxStart, _fxStrike, _fxSeconds;
+        private Vector3 _fxFrom, _fxTo, _fxAreaPos;
+        private Transform _fxSummon, _fxBolt, _fxArea;
 
         private Color _cardDim = new Color(0.35f, 0.35f, 0.35f);
         private Color _faceOn = new Color(0.93f, 0.87f, 0.72f);
@@ -1260,6 +1269,12 @@ namespace WizardsVRC
                 UpdatePips();
             }
             string text = manager.SlotName(actor);
+            // A monster acting rears up / raises its arms and calls out.
+            if (manager.IsCastAct(_playIndex))
+            {
+                MonsterRig caster = RigOf(actor);
+                if (caster != null) caster.Cast();
+            }
             if (kind == BattleManager.KIND_PASS) text += " passes.";
             else if (kind == BattleManager.KIND_FIZZLE) text += "'s " + cardDatabase.GetName(card) + " fizzles!";
             else if (kind == BattleManager.KIND_DOT) text += " burns for " + manager.actValue[_playIndex].ToString() + " damage!";
@@ -1297,10 +1312,13 @@ namespace WizardsVRC
             SetBanner(text);
             RefreshLabels();
             int target = FirstTarget(actor);
-            GameObject anim = cardDatabase.GetAnimation(card);
-            if (anim != null)
+            // The spell's animation (if it has one) plays after the wind-up, in place of the plain orb (_LandStep).
+            _stepAnim = cardDatabase.GetAnimation(card);
+            _stepCard = card;
+            if (_stepAnim != null && cardDatabase.AnimMode(card) == 4)
             {
-                PlaySpellAnimation(anim, actor, target);
+                // A hand-made prefab: it plays from the caster as the spell lands.
+                PlaySpellAnimation(_stepAnim, actor, target);
                 ApplyStep();
                 SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.StepSeconds(_stepStart));
                 return;
@@ -1314,11 +1332,35 @@ namespace WizardsVRC
         public void _LandStep()
         {
             if (manager.phase != BattleManager.PHASE_PLAYBACK) { FinishPlayback(); return; }
+            if (_stepAnim != null)
+            {
+                // The spell's own animation: the creature charges, the bolt flies, the rain falls; the effect lands at its strike.
+                StartImpact();
+                _animImpact = true;
+                PlaySpellAnimation(_stepAnim, _castFrom, _castTo);
+                SendCustomEventDelayedSeconds(nameof(_AnimStrike), Mathf.Max(0.05f, cardDatabase.AnimStrike(_stepCard)));
+                SendCustomEventDelayedSeconds(nameof(_PlayStep), Mathf.Max(0.3f, cardDatabase.AnimSeconds(_stepCard)));
+                return;
+            }
             StartImpact();
             // Blades, traps and shields this hit uses spring into action first; the hit lands a moment later.
             if (StartFxUse()) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), Mathf.Min(fxUseSeconds, manager.impactSeconds * 0.8f));
             else ApplyStep();
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.impactSeconds);
+        }
+
+        /// <summary>The animated spell strikes: its effect bursts on the target and the step's results land.</summary>
+        public void _AnimStrike()
+        {
+            if (manager.phase != BattleManager.PHASE_PLAYBACK) return;
+            if (_fxArea != null && (_fxMode == 1 || _fxMode == 2))
+            {
+                _fxArea.position = _fxAreaPos;
+                _fxArea.gameObject.SetActive(true);
+            }
+            if (_fxBolt != null) _fxBolt.gameObject.SetActive(false);
+            if (StartFxUse()) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), fxUseSeconds * 0.5f);
+            else ApplyStep();
         }
 
         /// <summary>The hit lands after its shields / blades / traps have moved in (they break as it lands).</summary>
@@ -1545,21 +1587,81 @@ namespace WizardsVRC
         private void PlaySpellAnimation(GameObject anim, int from, int to)
         {
             _HideSpellAnimation();
-            if (seats == null || from < 0) return;
+            if (seats == null || from < 0 || from >= seats.Length) return;
             Vector3 pos = seats[from].position;
-            Vector3 aim = to >= 0 && to != from ? seats[to].position : (arenaCenter != null ? arenaCenter.position : pos + seats[from].forward);
+            Vector3 aim = to >= 0 && to < seats.Length && to != from ? seats[to].position : (arenaCenter != null ? arenaCenter.position : pos + seats[from].forward);
             Vector3 dir = aim - pos;
             dir.y = 0f;
             anim.transform.position = pos;
             if (dir.sqrMagnitude > 0.001f) anim.transform.rotation = Quaternion.LookRotation(dir);
+            _fxMode = cardDatabase.AnimMode(_stepCard);
+            _fxStrike = Mathf.Max(0.2f, cardDatabase.AnimStrike(_stepCard));
+            _fxSeconds = Mathf.Max(_fxStrike + 0.2f, cardDatabase.AnimSeconds(_stepCard));
+            _fxStart = Time.time;
+            _fxFrom = pos;
+            _fxTo = to >= 0 && to < seats.Length ? seats[to].position : aim;
+            // An area spell lands on the middle of the side it hits.
+            _fxAreaPos = _fxTo;
+            if (to >= 0 && to < BattleManager.SLOTS && cardDatabase.IsAoe(_stepCard))
+            {
+                int side = manager.SideOf(to) * BattleManager.SIDE;
+                Vector3 sum = Vector3.zero;
+                int n = 0;
+                for (int s = side; s < side + BattleManager.SIDE; s++)
+                    if (manager.Occupied(s) && s < seats.Length) { sum += seats[s].position; n++; }
+                if (n > 0) _fxAreaPos = sum / n;
+            }
+            Transform t = anim.transform;
+            _fxSummon = t.Find("Summon");
+            _fxBolt = t.Find("Projectile");
+            _fxArea = t.Find("Area");
+            if (_fxSummon != null) { _fxSummon.gameObject.SetActive(_fxMode == 1); _fxSummon.position = pos; _fxSummon.localScale = Vector3.one * 0.01f; }
+            if (_fxBolt != null) { _fxBolt.gameObject.SetActive(_fxMode == 2); _fxBolt.position = pos + Vector3.up * 1.3f; }
+            if (_fxArea != null)
+            {
+                _fxArea.gameObject.SetActive(_fxMode == 3);
+                _fxArea.position = _fxAreaPos;
+                _fxArea.rotation = Quaternion.LookRotation(dir.sqrMagnitude > 0.001f ? dir : Vector3.forward);
+            }
             anim.SetActive(true);
             _spellAnim = anim;
+        }
+
+        /// <summary>Moves the spell's creature (it appears, charges or flies at the target, then fades) and its bolt.</summary>
+        private void AnimateSpellFx()
+        {
+            float t = Time.time - _fxStart;
+            Vector3 dir = _fxTo - _fxFrom;
+            dir.y = 0f;
+            float len = dir.magnitude;
+            dir = len > 0.01f ? dir / len : Vector3.forward;
+            if (_fxMode == 1 && _fxSummon != null)
+            {
+                float appear = Mathf.Clamp01(t / 0.35f);
+                float fade = Mathf.Clamp01((_fxSeconds - t) / 0.4f);
+                float go = Mathf.Clamp01((t - 0.45f) / Mathf.Max(0.1f, _fxStrike - 0.45f));
+                Vector3 stop = _fxTo - dir * Mathf.Min(1.6f, len * 0.4f);
+                _fxSummon.position = Vector3.Lerp(_fxFrom, stop, go * go) + Vector3.up * (Mathf.Sin(go * Mathf.PI) * 0.8f);
+                _fxSummon.rotation = Quaternion.LookRotation(dir);
+                _fxSummon.localScale = Vector3.one * Mathf.Max(0.01f, appear * fade);
+            }
+            if (_fxMode == 2 && _fxBolt != null && _fxBolt.gameObject.activeSelf)
+            {
+                float o = Mathf.Clamp01(t / _fxStrike);
+                _fxBolt.position = Vector3.Lerp(_fxFrom + Vector3.up * 1.3f, _fxTo + Vector3.up * 1.1f, o) + Vector3.up * (Mathf.Sin(o * Mathf.PI) * 0.8f);
+                _fxBolt.rotation = Quaternion.LookRotation((_fxTo - _fxFrom).sqrMagnitude > 0.001f ? _fxTo - _fxFrom : Vector3.forward);
+            }
+            if (t > _fxSeconds + 0.2f) _HideSpellAnimation();
         }
 
         public void _HideSpellAnimation()
         {
             if (_spellAnim != null) _spellAnim.SetActive(false);
+            if (_fxSummon != null) _fxSummon.gameObject.SetActive(false);
+            if (_fxBolt != null) _fxBolt.gameObject.SetActive(false);
+            if (_fxArea != null) _fxArea.gameObject.SetActive(false);
             _spellAnim = null;
+            _animImpact = false;
         }
 
         /// <summary>
@@ -1789,7 +1891,7 @@ namespace WizardsVRC
         private void AnimateImpact()
         {
             float t = (Time.time - _impactStart) / Mathf.Max(0.1f, manager.impactSeconds);
-            if (t >= 0.95f) { EndCast(); return; }
+            if (t >= 0.95f || _animImpact) { EndCast(); return; }
             if (orb != null)
             {
                 bool on = t < 0.6f;
@@ -1937,6 +2039,15 @@ namespace WizardsVRC
             if (manager.hp[s] > 0 || _dieStart[s] > 0f) return true;
             bool playback = _playing || manager.phase == BattleManager.PHASE_PLAYBACK;
             return playback && _shownHp[s] > 0;
+        }
+
+        /// <summary>The animated body of the monster in seat s (null for wizards, summons and bodies without one).</summary>
+        private MonsterRig RigOf(int s)
+        {
+            if (s < BattleManager.SIDE || s >= BattleManager.SLOTS || monsterRigs == null || manager.IsSummon(s)) return null;
+            int m = s - BattleManager.SIDE;
+            if (m >= monsterRigs.Length || monsterRigs[m] == null || !monsterRigs[m].gameObject.activeInHierarchy) return null;
+            return monsterRigs[m];
         }
 
         private Transform BodyOf(int s)
@@ -2366,6 +2477,7 @@ namespace WizardsVRC
                 }
             }
             if (manager != null) AnimateCast();
+            if (_spellAnim != null) AnimateSpellFx();
             if (manager == null) return;
             if (padPivot != null)
             {
@@ -3048,6 +3160,18 @@ namespace WizardsVRC
         /// <summary>Hit, heal and defeat sounds where they happen (each client plays its own playback).</summary>
         private void ActSound(int i, int hpBefore)
         {
+            // The monster that's hit flinches, or falls if this hit beats it.
+            int hk = manager.actKind[i];
+            int ht = manager.actTarget[i];
+            if ((hk == BattleManager.KIND_DAMAGE || hk == BattleManager.KIND_DOT) && manager.actValue[i] > 0)
+            {
+                MonsterRig hurt = RigOf(ht);
+                if (hurt != null)
+                {
+                    if (hpBefore > 0 && manager.actHpAfter[i] <= 0) hurt.Die();
+                    else hurt.Hit();
+                }
+            }
             if (hitAudio == null || !hitAudio.gameObject.activeInHierarchy || seats == null) return;
             int k = manager.actKind[i];
             int t = manager.actTarget[i];
@@ -3067,6 +3191,9 @@ namespace WizardsVRC
         /// <summary>Card art: shields, blades and traps show their icon (they just flash and appear); other spells have none yet.</summary>
         private Texture CardArt(int card)
         {
+            // The card's own art (rendered from its spell animation), when it has some.
+            Texture own = cardDatabase.ArtFor(card);
+            if (own != null) return own;
             int e = cardDatabase.GetEffect(card);
             if (e == CardDatabase.EFFECT_WARD) return FxTexture(BattleManager.FX_SHIELD, cardDatabase.ShieldSchool(card));
             if (e == CardDatabase.EFFECT_TAUNT) return FxTexture(BattleManager.FX_SHIELD, CardDatabase.ANY_SCHOOL);

@@ -120,7 +120,7 @@ namespace WizardsVRC.EditorTools
         /// The body of a monster (patrol or ring seat): its catalog model prefab if it has one (unpacked, colliders
         /// removed, scaled by bodyScale), otherwise a capsule in its colour. Feet at the parent's origin.
         /// </summary>
-        private static GameObject MonsterBody(Transform parent, CardDatabase db, int monsterId, string name)
+        private static GameObject MonsterBody(Transform parent, CardDatabase db, int monsterId, string name, bool walking = false)
         {
             float scale = monsterId > 0 ? db.MonsterBodyScale(monsterId) : 1f;
             MonsterEntry entry = _monsterCatalog != null && monsterId > 0 ? _monsterCatalog.Find(monsterId) : null;
@@ -136,6 +136,9 @@ namespace WizardsVRC.EditorTools
                 foreach (var col in model.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
                 return model;
             }
+            // An animated rig (idle, walk, hit, cast, die and a voice; WizardsVRCSceneBuilder.Rigs.cs).
+            var rigged = RiggedMonster(parent, db, entry, monsterId, name, scale, walking);
+            if (rigged != null) return rigged;
             // The Kraken and its tentacles have their own shapes (WizardsVRCSceneBuilder.Secret.cs).
             var creature = CreatureBody(parent, db, entry, name, scale);
             if (creature != null) return creature;
@@ -1130,7 +1133,7 @@ namespace WizardsVRC.EditorTools
             float ms = db.MonsterBodyScale(monsterId);
             Transform wt = Child(parent, name, Vector3.zero);
             var wanderer = UdonSharpUndo.AddComponent<Wanderer>(wt.gameObject);
-            wanderer.body = MonsterBody(wt, db, monsterId, "Body");
+            wanderer.body = MonsterBody(wt, db, monsterId, "Body", true);
             wanderer.label = WanderLabel(wt, ms);
             wanderer.manager = client.manager;
             wanderer.client = client;

@@ -41,6 +41,9 @@ namespace WizardsVRC.EditorTools
             ShopCounterStock.Clear();
             _shopBand = new Vector2Int(1, 12);
             ResetTowers();
+            ResetRigs();
+            ResetSpellFx();
+            _monsterRigs.Clear();
         }
 
         // ================================================================== tables

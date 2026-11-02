@@ -270,7 +270,9 @@ namespace WizardsVRC
         {
             if (actKind[i] == KIND_FIZZLE && actCard[i] > 0) return FizzleCut(cardDatabase.GetSchool(actCard[i])) + fizzleAfterSeconds;
             if (!IsCastAct(i)) return actionSeconds;
-            return CastSeconds(cardDatabase.GetSchool(actCard[i])) + impactSeconds;
+            // A spell with an animation plays it out instead of the plain orb (CardDatabase.AnimSeconds).
+            float anim = cardDatabase.AnimSeconds(actCard[i]);
+            return CastSeconds(cardDatabase.GetSchool(actCard[i])) + (anim > 0f ? anim : impactSeconds);
         }
 
         /// <summary>How far into the wind-up a fizzle cuts off (never past the cast's own length).</summary>
