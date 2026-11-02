@@ -12,7 +12,7 @@ namespace WizardsVRC
     public class WardrobePages : UdonSharpBehaviour
     {
         public const int TITLE_ROWS = 14;
-        public const int AURA_ROWS = 12;
+        public const int AURA_ROWS = 21;
         public const int SKIN_ROWS = 4;
 
         public PlayerState playerState;
@@ -66,6 +66,15 @@ namespace WizardsVRC
         public void Aura9() { Wear(1, 9); }
         public void Aura10() { Wear(1, 10); }
         public void Aura11() { Wear(1, 11); }
+        public void Aura12() { Wear(1, 12); }
+        public void Aura13() { Wear(1, 13); }
+        public void Aura14() { Wear(1, 14); }
+        public void Aura15() { Wear(1, 15); }
+        public void Aura16() { Wear(1, 16); }
+        public void Aura17() { Wear(1, 17); }
+        public void Aura18() { Wear(1, 18); }
+        public void Aura19() { Wear(1, 19); }
+        public void Aura20() { Wear(1, 20); }
         public void Skin0() { Wear(2, 0); }
         public void Skin1() { Wear(2, 1); }
         public void Skin2() { Wear(2, 2); }

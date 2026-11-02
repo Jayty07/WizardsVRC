@@ -76,6 +76,8 @@ namespace WizardsVRC.EditorTools
         {
             "Ember Motes", "Frost Mist", "Storm Sparks", "Life Petals", "Death Wisps", "Myth Glitter", "Balance Sands",
             "Hunter's Glow", "Starfall", "Void Flame", "Golden Halo", "Patron's Radiance", "Sunstone",
+            // The school Surge auras (WizardsVRCSceneBuilder.Auras.cs): they power up with your pips in a duel.
+            "Inferno Surge", "Rimefrost Surge", "Tempest Surge", "Verdant Surge", "Gloom Surge", "Legend Surge", "Equinox Surge",
         };
         private static readonly Color[] AuraColors =
         {
@@ -83,6 +85,8 @@ namespace WizardsVRC.EditorTools
             new Color(0.55f, 1f, 0.7f), new Color(1f, 0.85f, 0.3f), new Color(0.95f, 0.8f, 0.55f),
             new Color(1f, 0.35f, 0.3f), new Color(0.6f, 0.75f, 1f), new Color(0.65f, 0.2f, 1f), new Color(1f, 0.92f, 0.5f), new Color(1f, 0.6f, 0.9f),
             new Color(1f, 0.62f, 0.25f),
+            new Color(1f, 0.42f, 0.08f), new Color(0.45f, 0.82f, 1f), new Color(0.62f, 0.35f, 1f), new Color(0.35f, 1f, 0.42f),
+            new Color(0.5f, 0.2f, 0.75f), new Color(1f, 0.78f, 0.2f), new Color(1f, 0.62f, 0.25f),
         };
         // Index 0..6: your own school's aura from level 10; 7: 10 bosses; the rest are bought or a VRChat perk.
         private static readonly int[,] AuraUnlocks =
@@ -92,9 +96,11 @@ namespace WizardsVRC.EditorTools
             { CosmeticsDatabase.UNLOCK_SCHOOL, 10 }, { CosmeticsDatabase.UNLOCK_BOSSES, 10 },
             { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 },
             { CosmeticsDatabase.UNLOCK_PRODUCT, 0 }, { CosmeticsDatabase.UNLOCK_LEVEL, 25 },
+            { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 },
+            { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 }, { CosmeticsDatabase.UNLOCK_SHOP, 0 },
         };
         // School auras for other schools can also be bought, so a Fire wizard can wear Frost Mist.
-        private static readonly int[] AuraPrices = { 50, 50, 50, 50, 50, 50, 50, 0, 80, 100, 150, 0, 0 };
+        private static readonly int[] AuraPrices = { 50, 50, 50, 50, 50, 50, 50, 0, 80, 100, 150, 0, 0, 140, 140, 140, 140, 140, 140, 140 };
 
         private static readonly string[] SkinNames = { "Gilded", "Shadowflame", "Prismatic", "Moonlit" };
         private static readonly Color[] SkinColors = { new Color(1f, 0.82f, 0.3f), new Color(0.6f, 0.2f, 0.9f), new Color(0.4f, 1f, 0.9f), new Color(0.75f, 0.85f, 1f) };
@@ -258,12 +264,13 @@ namespace WizardsVRC.EditorTools
             pages.auraSwatches = new Image[ar];
             for (int i = 0; i < ar; i++)
             {
-                int col = i % 2, row = i / 2;
-                GameObject b = Button(right, "Aura" + i, new Vector2(-195 + col * 390, 350 - row * 100), new Vector2(375, 92), "", brown, target, "Aura" + i);
+                // Three columns, so every aura (Surges included) has a button.
+                int col = i % 3, row = i / 3;
+                GameObject b = Button(right, "Aura" + i, new Vector2(-262 + col * 262, 360 - row * 84), new Vector2(255, 78), "", brown, target, "Aura" + i);
                 Text t = b.GetComponentInChildren<Text>();
-                t.fontSize = 22;
-                ((RectTransform)t.transform).anchoredPosition = new Vector2(24, 0);
-                pages.auraSwatches[i] = Panel(b.transform, "Swatch", new Vector2(-160, 0), new Vector2(30, 30), Color.white).GetComponent<Image>();
+                t.fontSize = 18;
+                ((RectTransform)t.transform).anchoredPosition = new Vector2(16, 0);
+                pages.auraSwatches[i] = Panel(b.transform, "Swatch", new Vector2(-108, 0), new Vector2(24, 24), Color.white).GetComponent<Image>();
                 pages.auraRows[i] = b;
                 pages.auraTexts[i] = t;
                 pages.auraImages[i] = b.GetComponent<Image>();
@@ -284,86 +291,6 @@ namespace WizardsVRC.EditorTools
                 pages.skinImages[i] = b.GetComponent<Image>();
             }
             InkLabel(right, "Hint", new Vector2(0, -460), new Vector2(800, 50), "Everyone sees your title and aura, out in the world and in duels.", 20, TextAnchor.MiddleCenter);
-            return view;
-        }
-
-        private static GameObject BuildShopPages(RectTransform root, InventoryBook book)
-        {
-            RectTransform left, right;
-            var view = BookView(root, "ShopView", out left, out right);
-            var pages = UdonSharpUndo.AddComponent<ShopPages>(Child(book.transform.parent, "ShopPages", Vector3.zero).gameObject);
-            BookShop = pages;
-            ExtraBehaviours.Add(pages);
-            UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(pages);
-            UdonBehaviour bookTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(book);
-            Color brown = new Color(0.45f, 0.3f, 0.18f);
-
-            InkLabel(left, "Title", new Vector2(0, 450), new Vector2(800, 60), "Starshard Shop", 44, TextAnchor.MiddleCenter);
-            pages.balanceLabel = InkLabel(left, "Balance", new Vector2(0, 370), new Vector2(800, 60), "", 36, TextAnchor.MiddleCenter);
-            ApplyCombatFont(pages.balanceLabel.transform);
-            pages.balanceLabel.color = Ink;
-            string[] tabs = { "Elixirs", "Titles", "Auras", "Spell Skins" };
-            pages.tabImages = new Image[tabs.Length];
-            for (int t = 0; t < tabs.Length; t++)
-            {
-                GameObject b = Button(left, "Tab" + t, new Vector2(0, 260 - t * 95), new Vector2(460, 80), tabs[t], brown, target, "Tab" + t);
-                b.GetComponentInChildren<Text>().fontSize = 28;
-                pages.tabImages[t] = b.GetComponent<Image>();
-            }
-            InkLabel(left, "About", new Vector2(0, -170), new Vector2(740, 200),
-                "Starshards come from bosses (3 each), elites (1), tower tops and some quests.\nElixirs count down only while you play and never work in duels against other wizards.",
-                22, TextAnchor.MiddleCenter);
-            pages.storeButton = Button(left, "GetShards", new Vector2(0, -330), new Vector2(560, 80), "Get Starshards (VRChat store)", new Color(0.3f, 0.35f, 0.6f), target, nameof(ShopPages.OpenVrcStore));
-            pages.statusLabel = InkLabel(left, "Status", new Vector2(0, -400), new Vector2(800, 50), "", 24, TextAnchor.MiddleCenter);
-            Button(left, "Close", new Vector2(0, -465), new Vector2(240, 60), "Close", new Color(0.45f, 0.25f, 0.15f), bookTarget, nameof(InventoryBook.CloseBook));
-
-            int rows = ShopPages.ROWS;
-            pages.rows = new GameObject[rows];
-            pages.rowNames = new Text[rows];
-            pages.rowBlurbs = new Text[rows];
-            pages.rowPrices = new Text[rows];
-            pages.rowSwatches = new Image[rows];
-            for (int r = 0; r < rows; r++)
-            {
-                RectTransform row = Panel(right, "Row" + r, new Vector2(0, 400 - r * 105), new Vector2(790, 98), new Color(0.82f, 0.74f, 0.58f));
-                pages.rowSwatches[r] = Panel(row, "Swatch", new Vector2(-365, 0), new Vector2(34, 34), Color.white).GetComponent<Image>();
-                pages.rowNames[r] = InkLabel(row, "Name", new Vector2(-90, 20), new Vector2(500, 44), "", 26, TextAnchor.MiddleLeft);
-                pages.rowNames[r].fontStyle = FontStyle.Bold;
-                pages.rowBlurbs[r] = InkLabel(row, "Blurb", new Vector2(-90, -22), new Vector2(500, 44), "", 19, TextAnchor.MiddleLeft);
-                pages.rowPrices[r] = InkLabel(row, "Price", new Vector2(215, 0), new Vector2(110, 60), "", 26, TextAnchor.MiddleRight);
-                Label(row, "Shard", new Vector2(285, 0), new Vector2(30, 40), "", 24, TextAnchor.MiddleCenter).color = new Color(0.65f, 0.5f, 0.1f);
-                ApplyCombatFont(row.Find("Shard"));
-                Button(row, "Buy", new Vector2(345, 0), new Vector2(90, 70), "Buy", new Color(0.25f, 0.5f, 0.3f), target, "Buy" + r);
-                pages.rows[r] = row.gameObject;
-            }
-            Button(right, "PrevPage", new Vector2(-300, -460), new Vector2(140, 60), "<", brown, target, nameof(ShopPages.PrevPage));
-            pages.pageLabel = InkLabel(right, "Page", new Vector2(0, -460), new Vector2(300, 50), "", 26, TextAnchor.MiddleCenter);
-            Button(right, "NextPage", new Vector2(300, -460), new Vector2(140, 60), ">", brown, target, nameof(ShopPages.NextPage));
-
-            // Entries: elixirs, titles for sale, auras for sale, skins.
-            var kinds = new List<int>();
-            var idx = new List<int>();
-            var blurbs = new List<string>();
-            var start = new int[4];
-            var count = new int[4];
-            start[0] = kinds.Count;
-            for (int i = 0; i < ElixirNames.Length; i++) { kinds.Add(3); idx.Add(i); blurbs.Add(ElixirBlurbs[i]); }
-            count[0] = kinds.Count - start[0];
-            start[1] = kinds.Count;
-            for (int i = 0; i < TitleNames.Length; i++) if (TitlePrices[i] > 0) { kinds.Add(0); idx.Add(i); blurbs.Add("Shown over your head"); }
-            count[1] = kinds.Count - start[1];
-            start[2] = kinds.Count;
-            for (int i = 0; i < AuraNames.Length; i++) if (AuraPrices[i] > 0) { kinds.Add(1); idx.Add(i); blurbs.Add(i < 7 ? "A school aura, whatever your school" : "A rare aura, seen in the world and in duels"); }
-            count[2] = kinds.Count - start[2];
-            start[3] = kinds.Count;
-            for (int i = 0; i < SkinNames.Length; i++) { kinds.Add(2); idx.Add(i); blurbs.Add("Your casting glyph and spell flashes in this colour"); }
-            count[3] = kinds.Count - start[3];
-            pages.entryKinds = kinds.ToArray();
-            pages.entryIndexes = idx.ToArray();
-            pages.entryBlurbs = blurbs.ToArray();
-            pages.tabNames = tabs;
-            pages.tabStart = start;
-            pages.tabCount = count;
             return view;
         }
 
@@ -592,8 +519,19 @@ namespace WizardsVRC.EditorTools
             titleRoot.gameObject.SetActive(false);
 
             var auras = new ParticleSystem[AuraNames.Length];
+            pc.auraFlares = new ParticleSystem[AuraNames.Length];
+            pc.auraMaxFx = new ParticleSystem[AuraNames.Length];
             for (int i = 0; i < auras.Length; i++)
             {
+                if (i >= SurgeFirst)
+                {
+                    // A school Surge: it grows with your pips in a duel, flares when you cast and erupts at full pips.
+                    ParticleSystem flare, maxFx;
+                    auras[i] = SurgeAura(go.transform, i, i - SurgeFirst, out flare, out maxFx);
+                    pc.auraFlares[i] = flare;
+                    pc.auraMaxFx[i] = maxFx;
+                    continue;
+                }
                 var ag = Child(go.transform, "Aura" + i, Vector3.zero).gameObject;
                 var ps = ag.AddComponent<ParticleSystem>();
                 var main = ps.main;

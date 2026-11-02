@@ -64,6 +64,31 @@ namespace WizardsVRC
         public int elixirMinutes = 30;
         public int elixirMaxMinutes = 180;
 
+        // Every player's PlayerCosmetics on this client (they list themselves), so a duel can find a wizard's aura.
+        private PlayerCosmetics[] _everyone = new PlayerCosmetics[100];
+        private int _everyoneCount;
+
+        public void ListCosmetics(PlayerCosmetics pc)
+        {
+            if (pc == null) return;
+            for (int i = 0; i < _everyoneCount; i++) if (_everyone[i] == pc) return;
+            for (int i = 0; i < _everyoneCount; i++)
+                if (_everyone[i] == null) { _everyone[i] = pc; return; }   // reuse a left player's slot
+            if (_everyoneCount < _everyone.Length) _everyone[_everyoneCount++] = pc;
+        }
+
+        /// <summary>The PlayerCosmetics of the player with this id (null if there isn't one).</summary>
+        public PlayerCosmetics CosmeticsOf(int playerId)
+        {
+            if (playerId <= 0) return null;
+            for (int i = 0; i < _everyoneCount; i++)
+            {
+                PlayerCosmetics pc = _everyone[i];
+                if (pc != null && pc.OwnerId() == playerId) return pc;
+            }
+            return null;
+        }
+
         private float _nextCheck;
         private float _tickAccum;
         private int _slot = -1;

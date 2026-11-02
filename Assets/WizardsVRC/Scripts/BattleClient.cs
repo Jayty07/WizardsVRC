@@ -264,6 +264,9 @@ namespace WizardsVRC
         private int[] _fxBl = new int[BattleManager.SLOTS * BattleManager.FX_MAX];
         private int[] _fxTr = new int[BattleManager.SLOTS * BattleManager.FX_MAX];
         private int[] _shownPips = new int[BattleManager.SLOTS];
+        // Which wizard's Surge aura each seat is powering, and with how many pips (SyncAuras).
+        private int[] _auraIds = new int[BattleManager.SLOTS];
+        private int[] _auraPips = new int[BattleManager.SLOTS];
         private int[] _shownPower = new int[BattleManager.SLOTS];
         private float _flashStart = -100f;
         private int _flashBattle = -1;
@@ -714,6 +717,7 @@ namespace WizardsVRC
             }
             if (active && manager.battleId != _flashBattle) StartFlash();
             if (active) { UpdateSeatRings(); UpdateFx(); UpdatePips(); }
+            else SyncAuras();   // the duel's over: everyone's Surge aura goes quiet
             RefreshBodies(phase);
 
             VRCPlayerApi local = Networking.LocalPlayer;
@@ -1308,6 +1312,12 @@ namespace WizardsVRC
             {
                 MonsterRig caster = RigOf(actor);
                 if (caster != null) caster.Cast();
+                // A wizard casting: their Surge aura (if they wear one) blasts outward.
+                if (cosmetics != null && actor >= 0 && actor < manager.PlayerSeats() && manager.slotIds[actor] > 0)
+                {
+                    PlayerCosmetics pc = cosmetics.CosmeticsOf(manager.slotIds[actor]);
+                    if (pc != null) pc.Flare();
+                }
             }
             if (kind == BattleManager.KIND_PASS) text += " passes.";
             else if (kind == BattleManager.KIND_FIZZLE) text += "'s " + cardDatabase.GetName(card) + " fizzles!";
@@ -2996,8 +3006,41 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ pips at the seats
 
+        /// <summary>
+        /// Each wizard in this duel powers their Surge aura with the pips shown at their seat (everyone watching sees the
+        /// same); when they leave the duel, or it ends, theirs goes quiet again.
+        /// </summary>
+        private void SyncAuras()
+        {
+            if (cosmetics == null || manager == null) return;
+            bool fight = manager.phase >= BattleManager.PHASE_JOINING;
+            int seats = manager.PlayerSeats();
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+            {
+                int id = fight && s < seats && manager.Occupied(s) && _shownHp[s] > 0 ? manager.slotIds[s] : 0;
+                if (id < 0) id = 0;
+                if (id != _auraIds[s])
+                {
+                    if (_auraIds[s] > 0)
+                    {
+                        PlayerCosmetics gone = cosmetics.CosmeticsOf(_auraIds[s]);
+                        if (gone != null) gone.SetPower(-1, BattleManager.MAX_PIPS);
+                    }
+                    _auraIds[s] = id;
+                    _auraPips[s] = -99;
+                }
+                if (id <= 0) continue;
+                int held = _shownPips[s] + _shownPower[s];
+                if (held == _auraPips[s]) continue;
+                _auraPips[s] = held;
+                PlayerCosmetics pc = cosmetics.CosmeticsOf(id);
+                if (pc != null) pc.SetPower(held, BattleManager.MAX_PIPS);
+            }
+        }
+
         private void UpdatePips()
         {
+            SyncAuras();
             if (pipIcons == null) return;
             int max = BattleManager.MAX_PIPS;
             for (int s = 0; s < BattleManager.SLOTS; s++)

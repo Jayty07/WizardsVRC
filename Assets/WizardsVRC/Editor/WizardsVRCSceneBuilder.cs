@@ -714,13 +714,18 @@ namespace WizardsVRC.EditorTools
             GameObject noticeTab = Tab(4, "NoticesTab", "No-\ntices", 18, nameof(InventoryBook.ShowNotices), target);
             extraTabs.Add(noticeTab.GetComponent<Image>());
             extraTabs.Add(Tab(5, "WardrobeTab", "Ward-\nrobe", 18, nameof(InventoryBook.ShowWardrobe), target).GetComponent<Image>());
-            extraTabs.Add(Tab(6, "ShopTab", "Shop", 20, nameof(InventoryBook.ShowShop), target).GetComponent<Image>());
+            // The Starshard Shop: a glowing Starshard set in its tab (WizardsVRCSceneBuilder.Shop.cs).
+            GameObject shopTab = Tab(6, "ShopTab", "", 20, nameof(InventoryBook.ShowShop), target);
+            ShopTabGem(shopTab.transform);
+            extraTabs.Add(shopTab.GetComponent<Image>());
             book.extraTabImages = extraTabs.ToArray();
             book.settingsTabImage = Tab(7, "SettingsTab", "Set-\ntings", 18, nameof(InventoryBook.ShowSettings), target).GetComponent<Image>();
             BookTabBadge = noticeTab.transform;
             book.extraViews = new[] { BuildStatsPages(root, book), BuildNoticesPages(root, book), BuildWardrobePages(root, book), BuildShopPages(root, book) };
             book.extraPages = new UdonSharpBehaviour[] { null, null, BookWardrobe, BookShop };
             canvasGo.transform.Find("Spine")?.SetAsLastSibling();
+            // The shop window covers the whole book, tabs and spine too.
+            canvasGo.transform.Find("ShopView")?.SetAsLastSibling();
 
             // ---- left page: character, paper-doll slots, stats
             book.nameLabel = InkLabel(left, "Name", new Vector2(0, 450), new Vector2(800, 60), "Name", 44, TextAnchor.MiddleCenter);

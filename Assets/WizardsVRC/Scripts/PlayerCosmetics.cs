@@ -21,6 +21,10 @@ namespace WizardsVRC
         public Text titleLabel;
         [Tooltip("One particle system per aura (index = aura), under this object; only the worn one plays.")]
         public ParticleSystem[] auras;
+        [Tooltip("Per aura: the burst when its wearer casts (school Surges only; empty for the rest).")]
+        public ParticleSystem[] auraFlares;
+        [Tooltip("Per aura: the eruption at full pips (school Surges only).")]
+        public ParticleSystem[] auraMaxFx;
         public float titleHeight = 0.55f;
         [Tooltip("Titles and auras are drawn for players within this distance of you.")]
         public float drawRange = 45f;
@@ -40,12 +44,61 @@ namespace WizardsVRC
         private int _shownAura = -1;
         private bool _registered;
         private bool _creator;
+        private int _pips = -1;      // pips held in the duel you're in (-1 = not in one); local to each viewer
+        private int _maxPips = 7;
+        private bool _listed;
 
         private void Start()
         {
             SetOwner(Networking.GetOwner(gameObject));
             Register();
+            if (database != null && !_listed) { _listed = true; database.ListCosmetics(this); }
             Apply();
+        }
+
+        /// <summary>The player wearing this (0 = nobody yet).</summary>
+        public int OwnerId() { return Utilities.IsValid(_owner) ? _owner.playerId : 0; }
+
+        // ------------------------------------------------------------------ Surge auras in duels (local to each viewer)
+
+        /// <summary>
+        /// The duel's pips for this wizard (BattleClient, on every client watching): a Surge aura grows with them and
+        /// erupts at full pips. pips &lt; 0 = out of the duel (back to its quiet form).
+        /// </summary>
+        public void SetPower(int pips, int maxPips)
+        {
+            _pips = pips;
+            _maxPips = Mathf.Max(1, maxPips);
+            ApplyPower();
+        }
+
+        /// <summary>This wizard just cast a spell: their Surge aura blasts outward.</summary>
+        public void Flare()
+        {
+            int i = aura - 1;
+            if (auraFlares == null || i < 0 || i >= auraFlares.Length || auraFlares[i] == null) return;
+            auraFlares[i].Emit(70);
+            ParticleSystem ring = auraFlares[i].transform.childCount > 0 ? auraFlares[i].transform.GetChild(0).GetComponent<ParticleSystem>() : null;
+            if (ring != null) ring.Emit(48);
+        }
+
+        private void ApplyPower()
+        {
+            if (auras == null) return;
+            int worn = aura - 1;
+            float fill = _pips < 0 ? -1f : Mathf.Clamp01(_pips / (float)_maxPips);
+            for (int i = 0; i < auras.Length; i++)
+            {
+                bool surge = auraMaxFx != null && i < auraMaxFx.Length && auraMaxFx[i] != null;
+                if (!surge) continue;
+                // Quiet outside a duel; in one it swells from a little under to well over its quiet size.
+                float size = fill < 0f ? 0.8f : 0.75f + 0.75f * fill;
+                if (auras[i] != null) auras[i].transform.localScale = new Vector3(size, size, size);
+                bool max = i == worn && fill >= 1f;
+                ParticleSystem m = auraMaxFx[i];
+                if (max && !m.isPlaying) m.Play();
+                else if (!max && m.isPlaying) m.Stop();
+            }
         }
 
         /// <summary>Who wears this, and whether that's the world's creator.</summary>
@@ -86,6 +139,8 @@ namespace WizardsVRC
         {
             SetOwner(player);
             Register();
+            _pips = -1;
+            ApplyPower();
         }
 
         private void Apply()
@@ -114,6 +169,7 @@ namespace WizardsVRC
                         if (on && !auras[i].isPlaying) auras[i].Play();
                         else if (!on && auras[i].isPlaying) auras[i].Stop();
                     }
+                ApplyPower();
             }
         }
 
