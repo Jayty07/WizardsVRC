@@ -387,10 +387,21 @@ namespace WizardsVRC.EditorTools
         /// <summary>Keys on one property: pairs of (time, value). Rotations are local Euler degrees, positions metres.</summary>
         private static void Keys(AnimationClip clip, string path, string prop, params float[] tv)
         {
-            var keys = new Keyframe[tv.Length / 2];
-            for (int i = 0; i < keys.Length; i++) keys[i] = new Keyframe(tv[i * 2], tv[i * 2 + 1]);
-            var curve = new AnimationCurve(keys);
-            for (int i = 0; i < keys.Length; i++)
+            // Times must rise: a key at (or before) the previous key's time replaces that key's value (AnimationCurve would
+            // otherwise drop it and the tangent loop below would run past the end).
+            var list = new System.Collections.Generic.List<Keyframe>();
+            for (int i = 0; i + 1 < tv.Length; i += 2)
+            {
+                if (list.Count > 0 && tv[i] <= list[list.Count - 1].time + 0.0001f)
+                {
+                    var last = list[list.Count - 1];
+                    list[list.Count - 1] = new Keyframe(last.time, tv[i + 1]);
+                    continue;
+                }
+                list.Add(new Keyframe(tv[i], tv[i + 1]));
+            }
+            var curve = new AnimationCurve(list.ToArray());
+            for (int i = 0; i < curve.length; i++)
             {
                 AnimationUtility.SetKeyLeftTangentMode(curve, i, AnimationUtility.TangentMode.ClampedAuto);
                 AnimationUtility.SetKeyRightTangentMode(curve, i, AnimationUtility.TangentMode.ClampedAuto);
