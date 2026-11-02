@@ -32,8 +32,12 @@ namespace WizardsVRC
 
         private float _next;
 
+        [Tooltip("The NPC's body: it nods and gestures (its Talk trigger) when you click it.")]
+        public Animator talkAnimator;
+
         public override void Interact()
         {
+            if (talkAnimator != null) talkAnimator.SetTrigger("Talk");
             if (questManager != null && Present()) questManager.TalkNpc(npcId);
         }
 

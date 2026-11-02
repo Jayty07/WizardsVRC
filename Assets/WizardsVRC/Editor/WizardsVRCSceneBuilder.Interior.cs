@@ -193,7 +193,8 @@ namespace WizardsVRC.EditorTools
             for (int i = 0; i < 2; i++) Planter(office, new Vector3(-5.5f + i * 11f, 0, 5.2f), PMat("Dirt", new Color(0.62f, 0.45f, 0.28f), 6f));
             PointLight(office, new Vector3(0, 5.5f, -1f), new Color(1f, 0.85f, 0.65f), 16f, 1.5f);
             PointLight(office, new Vector3(-5.5f, 1.5f, 2f), new Color(1f, 0.55f, 0.2f), 6f, 1.2f);
-            info.headmaster = Wizard(office, "Headmaster", new Vector3(0, 0, -3.6f), 180f, new Color(0.2f, 0.25f, 0.6f), new Color(0.25f, 0.2f, 0.55f), true, "Headmaster Greymantle");
+            float hmTop, hmFace;
+            info.headmaster = NpcModel(office, "Headmaster", new Vector3(0, 0, -3.6f), 180f, HeadmasterLook(), "Headmaster Greymantle", "(click to talk)", out hmTop, out hmFace);
             info.officeSpawn = Child(office, "OfficeSpawn", new Vector3(0, 0.05f, 2.5f));
             info.officeSpawn.rotation = Quaternion.Euler(0, 180f, 0);
             var canvasGo = new GameObject("SelectCanvas", typeof(RectTransform));
@@ -260,8 +261,8 @@ namespace WizardsVRC.EditorTools
             // Motes in the air and curios hovering over the desks (WizardsVRCSceneBuilder.Magic.cs).
             ClassroomMagic(room, s, W, D, h, col);
 
-            Color hat = Color.Lerp(col, Color.black, 0.35f);
-            return Wizard(room, "Professor" + SchoolLabels[s], new Vector3(0, 0, back - 2.2f), 0f, col, hat, s == 1 || s == 6, ProfessorNames[s]);
+            float top, face;
+            return NpcModel(room, "Professor" + SchoolLabels[s], new Vector3(0, 0, back - 2.2f), 0f, ProfessorLook(s), ProfessorNames[s], "(click to talk or learn spells)", out top, out face);
         }
 
         private static void ThemeProps(Transform room, int s, float W, float D, float h, Color col, Material bright, Material trim)
@@ -357,31 +358,6 @@ namespace WizardsVRC.EditorTools
         }
 
         // ------------------------------------------------------------ pieces
-
-        /// <summary>Placeholder robed wizard facing local -Z (towards whoever stands in front of it).</summary>
-        private static Transform Wizard(Transform parent, string name, Vector3 pos, float yaw, Color robe, Color hat, bool beard, string title,
-            string hint = "(click to talk or learn spells)")
-        {
-            var w = Child(parent, name, pos);
-            w.localRotation = Quaternion.Euler(0, yaw, 0);
-            var robeMat = PMat("Robe_" + ColorUtility.ToHtmlStringRGB(robe), robe, 1f);
-            var hatMat = PMat("Hat_" + ColorUtility.ToHtmlStringRGB(hat), hat, 1f);
-            Shape(w, "Robe", ConeMesh(), new Vector3(0, 0.8f, 0), new Vector3(1.1f, 1.6f, 1.1f), robeMat, false, Quaternion.identity);
-            Shape(w, "Body", CylMesh(), new Vector3(0, 1.45f, 0), new Vector3(0.55f, 0.35f, 0.55f), robeMat, false, Quaternion.identity);
-            Shape(w, "Head", BlobMesh(), new Vector3(0, 2.05f, 0), Vector3.one * 0.45f, PMat("Skin", new Color(0.95f, 0.8f, 0.65f), 1f), false, Quaternion.identity);
-            if (beard) Shape(w, "Beard", ConeMesh(), new Vector3(0, 1.72f, -0.16f), new Vector3(0.32f, 0.5f, 0.22f), PMat("Beard", new Color(0.92f, 0.92f, 0.95f), 1f), false, Quaternion.Euler(180, 0, 0));
-            Shape(w, "HatBrim", CylMesh(), new Vector3(0, 2.28f, 0), new Vector3(0.8f, 0.03f, 0.8f), hatMat, false, Quaternion.identity);
-            Shape(w, "HatCone", ConeMesh(), new Vector3(0, 2.75f, 0), new Vector3(0.5f, 0.9f, 0.5f), hatMat, false, Quaternion.Euler(-8, 0, 0));
-            Shape(w, "Staff", CylMesh(), new Vector3(0.55f, 1.1f, -0.1f), new Vector3(0.08f, 1.1f, 0.08f), PMat("Wood", new Color(0.55f, 0.34f, 0.18f), 2f), false, Quaternion.identity);
-            Shape(w, "StaffGem", GemMesh(), new Vector3(0.55f, 2.35f, -0.1f), new Vector3(0.25f, 0.35f, 0.25f), PMat("Gem_" + ColorUtility.ToHtmlStringRGB(robe), robe, 1f, robe * 0.7f), false, Quaternion.identity);
-            // PSX pixel-font tags that turn to face each player (see WizardsVRCSceneBuilder.NameTags.cs).
-            NameTag(w, "NameTag", new Vector3(0, 3.55f, 0), title);
-            HintTag(w, "TalkHint", new Vector3(0, 3.2f, 0), hint);
-            var box = w.gameObject.AddComponent<BoxCollider>();
-            box.center = new Vector3(0, 1.3f, 0);
-            box.size = new Vector3(1.2f, 2.6f, 1.2f);
-            return w;
-        }
 
         private static void HallSign(Transform root, Vector3 pos, float yaw, string text, Material gold)
         {

@@ -353,6 +353,9 @@ namespace WizardsVRC.EditorTools
             foreach (var ec in encounters) { toSync.Add(ec.manager); toSync.Add(ec); foreach (var w in ec.GetComponentsInChildren<Wanderer>(true)) toSync.Add(w); }
             foreach (var b in ExtraBehaviours) if (b != null && !toSync.Contains(b)) toSync.Add(b);
             foreach (var b in _monsterRigs) if (b != null) toSync.Add(b);
+            // Clicking an NPC (Talk, a professor's menu, the Headmaster) makes its body nod and gesture.
+            int talkers = WireTalkGestures(scene);
+            Debug.Log("[WizardsVRC] NPCs: " + talkers + " talk to you with a gesture.");
             foreach (var b in toSync)
             {
                 UdonSharpEditorUtility.CopyProxyToUdon(b);

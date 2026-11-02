@@ -27,8 +27,12 @@ namespace WizardsVRC
             return i >= 0 && i < OptionCount() ? labels[i] : "";
         }
 
+        [Tooltip("The NPC's body: it nods and gestures (its Talk trigger) when you click it.")]
+        public Animator talkAnimator;
+
         public override void Interact()
         {
+            if (talkAnimator != null) talkAnimator.SetTrigger("Talk");
             int n = OptionCount();
             if (n == 1 || (n > 1 && menu == null)) Choose(0);
             else if (n > 1) menu.Open(this);

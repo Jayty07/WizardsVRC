@@ -42,6 +42,7 @@ namespace WizardsVRC.EditorTools
             _shopBand = new Vector2Int(1, 12);
             ResetTowers();
             ResetRigs();
+            ResetNpcModels();
             ResetSpellFx();
             _monsterRigs.Clear();
         }

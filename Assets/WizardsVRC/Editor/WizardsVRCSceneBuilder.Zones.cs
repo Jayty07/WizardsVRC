@@ -759,12 +759,14 @@ namespace WizardsVRC.EditorTools
             float yaw = Mathf.Atan2(-front.x, -front.z) * Mathf.Rad2Deg;
             int id = QuestManager.NPC_STREET_FIRST + wb.npcCutscenes.Count;
 
-            Transform t = Wizard(root, "NPC_" + npc.key, pos, yaw, npc.robeColor, npc.hatColor, npc.beard, npc.displayName, "(click to talk)");
+            // Its own design (WizardsVRCSceneBuilder.NpcLooks.cs), built and animated by WizardsVRCSceneBuilder.Npcs.cs.
+            float npcTop, npcFace;
+            Transform t = NpcModel(root, "NPC_" + npc.key, pos, yaw, NpcLookFor(npc), npc.displayName, "(click to talk)", out npcTop, out npcFace);
             var qn = UdonSharpUndo.AddComponent<QuestNpc>(t.gameObject);
             qn.questManager = qm;
             qn.npcId = id;
-            qn.markerNew = MarkerTag(t, "QuestMarkerNew", new Vector3(0, 4.5f, 0), "!");
-            qn.markerTalk = MarkerTag(t, "QuestMarkerTalk", new Vector3(0, 4.5f, 0), "?");
+            qn.markerNew = MarkerTag(t, "QuestMarkerNew", new Vector3(0, npcTop + 1.2f, 0), "!");
+            qn.markerTalk = MarkerTag(t, "QuestMarkerTalk", new Vector3(0, npcTop + 1.2f, 0), "?");
             if (qn.markerNew != null) qn.markerNew.SetActive(false);
             if (qn.markerTalk != null) qn.markerTalk.SetActive(false);
             qn.showFromQuest = npc.showFromQuest;
@@ -786,7 +788,7 @@ namespace WizardsVRC.EditorTools
             }
 
             Vector3 side = Vector3.Cross(Vector3.up, front);
-            Vector3 face = pos + Vector3.up * 2f;
+            Vector3 face = pos + Vector3.up * npcFace;
             var shots = new[]
             {
                 Shot(root, "Shot_" + npc.key + "_Wide", pos + front * 7.5f + side * 0.5f + Vector3.up * 2.6f, face),

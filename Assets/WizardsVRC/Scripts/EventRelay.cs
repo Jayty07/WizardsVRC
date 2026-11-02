@@ -10,8 +10,12 @@ namespace WizardsVRC
         public UdonSharpBehaviour target;
         public string eventName = "";
 
+        [Tooltip("The NPC's body: it nods and gestures (its Talk trigger) when you click it.")]
+        public Animator talkAnimator;
+
         public override void Interact()
         {
+            if (talkAnimator != null) talkAnimator.SetTrigger("Talk");
             if (target != null && eventName != "") target.SendCustomEvent(eventName);
         }
     }

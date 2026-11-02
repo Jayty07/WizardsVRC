@@ -545,7 +545,40 @@ namespace WizardsVRC.EditorTools
                     Keys(die, "Bob", "scalez", 0, 1, 1.2f, 0.3f);
                     break;
             }
-            return new[] { idle, walk, hit, cast, die };
+            var all = new[] { idle, walk, hit, cast, die };
+            // Hit, Cast and Die start from the rest pose, so their first keys are the rest values.
+            CompleteClips(all, new[] { 2, 3, 4, 0, 1 });
+            return all;
+        }
+
+        /// <summary>
+        /// Makes every clip set every property any of them animates (the ones it doesn't move held at rest). An Animator
+        /// switched off and on again (a body hidden between fights) takes whatever pose it was left in as its resting pose,
+        /// so without this a monster that died stayed knocked over: idle never touched the parts the fall had turned.
+        /// 'order' says which clips' first keys count as the rest values, most trusted first.
+        /// </summary>
+        private static void CompleteClips(AnimationClip[] clips, int[] order)
+        {
+            var rest = new Dictionary<string, float>();
+            var bindings = new Dictionary<string, EditorCurveBinding>();
+            foreach (int i in order)
+                foreach (var b in AnimationUtility.GetCurveBindings(clips[i]))
+                {
+                    string key = b.path + "|" + b.propertyName;
+                    if (rest.ContainsKey(key)) continue;
+                    AnimationCurve c = AnimationUtility.GetEditorCurve(clips[i], b);
+                    if (c == null || c.length == 0) continue;
+                    rest[key] = c.keys[0].value;
+                    bindings[key] = b;
+                }
+            foreach (var clip in clips)
+            {
+                var has = new HashSet<string>();
+                foreach (var b in AnimationUtility.GetCurveBindings(clip)) has.Add(b.path + "|" + b.propertyName);
+                float len = Mathf.Max(clip.length, 0.1f);
+                foreach (var kv in rest)
+                    if (!has.Contains(kv.Key)) AnimationUtility.SetEditorCurve(clip, bindings[kv.Key], AnimationCurve.Constant(0f, len, kv.Value));
+            }
         }
 
         /// <summary>
