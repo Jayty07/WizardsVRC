@@ -361,7 +361,7 @@ namespace WizardsVRC.EditorTools
             Debug.Log("[WizardsVRC] Styled " + StyleWorldUi(scene.GetRootGameObjects()) + " menu panels and buttons.");
             RestoreMyChanges(scene);
             // 2D sounds get the (disabled) VRC Spatial Audio Source the SDK asks for (WizardsVRCSceneBuilder.Audio.cs).
-            Debug.Log("[WizardsVRC] Spatial audio: fixed " + FixFlatAudio(scene) + " 2D audio sources.");
+            Debug.Log("[WizardsVRC] Spatial audio: set up " + FixFlatAudio(scene) + " audio sources.");
 
             Directory.CreateDirectory("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
