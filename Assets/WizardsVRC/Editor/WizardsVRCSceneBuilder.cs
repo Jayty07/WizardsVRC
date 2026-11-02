@@ -451,16 +451,14 @@ namespace WizardsVRC.EditorTools
             };
         }
 
-        /// <summary>UdonSharp only compiles scripts that have a program asset next to them.</summary>
-        private static bool EnsureProgramAssets()
+        /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
+        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "TowerFloor" };
+
+        /// <summary>Creates the program assets that are missing (and marks the rest current). True if any was made.</summary>
+        private static bool CreateMissingPrograms()
         {
-            Directory.CreateDirectory(ProgramsDir);
-            // MonsterDatabase was merged into CardDatabase, and the hub's testing chest (LootChest) is gone; drop their old
-            // program assets so UdonSharp doesn't look for the scripts.
-            AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
-            AssetDatabase.DeleteAsset(ProgramsDir + "/LootChest.asset");
             bool created = false;
-            foreach (string name in new[] { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "TowerFloor" })
+            foreach (string name in ProgramNames)
             {
                 string assetPath = ProgramsDir + "/" + name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(assetPath);
@@ -481,6 +479,38 @@ namespace WizardsVRC.EditorTools
                 MarkScriptVersionCurrent(program);
                 created = true;
             }
+            return created;
+        }
+
+        /// <summary>
+        /// When the editor loads: gives every new runtime script its program asset straight away. Without one, UdonSharp
+        /// doesn't know the script is a behaviour and every other script that uses it fails ("type not found") until the
+        /// scene is rebuilt.
+        /// </summary>
+        [InitializeOnLoadMethod]
+        private static void AddMissingPrograms()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+                Directory.CreateDirectory(ProgramsDir);
+                if (!CreateMissingPrograms()) return;
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log("[WizardsVRC] Added UdonSharp program assets for new scripts; compiling.");
+                UdonSharpCompilerV1.CompileSync(new UdonSharpCompileOptions { IsEditorBuild = true });
+            };
+        }
+
+        /// <summary>UdonSharp only compiles scripts that have a program asset next to them.</summary>
+        private static bool EnsureProgramAssets()
+        {
+            Directory.CreateDirectory(ProgramsDir);
+            // MonsterDatabase was merged into CardDatabase, and the hub's testing chest (LootChest) is gone; drop their old
+            // program assets so UdonSharp doesn't look for the scripts.
+            AssetDatabase.DeleteAsset(ProgramsDir + "/MonsterDatabase.asset");
+            AssetDatabase.DeleteAsset(ProgramsDir + "/LootChest.asset");
+            bool created = CreateMissingPrograms();
             AssetDatabase.SaveAssets();
             if (created) AssetDatabase.Refresh();
             // Compile synchronously: CopyProxyToUdon refuses to run until every program asset has been compiled

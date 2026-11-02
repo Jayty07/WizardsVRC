@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 21;
+        public const int CurrentVersion = 22;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -184,6 +184,25 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 19) UpgradeTo19();
             if (from < 20) UpgradeTo20();
             if (from < 21) UpgradeTo21();
+            if (from < 22) UpgradeTo22();
+        }
+
+        /// <summary>
+        /// v22: three of Lantern Row's duel rings moved off walls and the canal (AlleyWisps' west ring, WispPack's south ring,
+        /// SnatcherGang's canal ring), so each ring has open ground all round. Only if the map is still the v19 default.
+        /// </summary>
+        private static void UpgradeTo22()
+        {
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || z.zoneKey != "LanternRow" || MapHash(z.map) != 0xE5253DF3u) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                WorldDefaults.FillLanternRow(fresh);
+                z.map = fresh.map;
+                Object.DestroyImmediate(fresh);
+                EditorUtility.SetDirty(z);
+                Debug.Log("[WizardsVRC] Upgraded world data (v22): Lantern Row's duel rings moved clear of walls.");
+            }
         }
 
         /// <summary>
