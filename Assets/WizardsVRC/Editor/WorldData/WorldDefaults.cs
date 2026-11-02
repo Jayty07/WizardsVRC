@@ -61,31 +61,31 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             return new List<MonsterEntry>
             {
-                R(M(13, "Dock Crab", School.Ice, 7, 450, false, 0, new[] { 112, 113 }, 55, 10, 20, 10, 15, 0.8f, new Color(0.55f, 0.35f, 0.3f),
+                R(M(13, "Dock Crab", School.Ice, 7, 450, false, 0, new[] { 112, 113 }, 55, 10, 20, 114, 15, 0.8f, new Color(0.55f, 0.35f, 0.3f),
                     "Tidewatch Docks piers. Tough shell, weak hits."), 1, "Beast", false),
-                R(M(14, "Smuggler Thug", School.Storm, 8, 500, false, 0, new[] { 124, 126 }, 60, 12, 24, 11, 15, 1f, new Color(0.35f, 0.32f, 0.3f),
+                R(M(14, "Smuggler Thug", School.Storm, 8, 500, false, 0, new[] { 124, 126 }, 60, 12, 24, 115, 15, 1f, new Color(0.35f, 0.32f, 0.3f),
                     "Tidewatch Docks warehouses. Drops shipping manifests (quest 19)."), 2, "Rogue", false),
-                R(M(15, "Captain Marrow Grell", School.Death, 8, 1500, true, 600, new[] { 148, 149, 150, 200 }, 330, 60, 110, 0, 0, 1.3f, new Color(0.22f, 0.2f, 0.26f),
+                R(M(15, "Captain Marrow Grell", School.Death, 8, 1500, true, 600, new[] { 148, 149, 150, 200 }, 330, 60, 110, 108, 40, 1.3f, new Color(0.22f, 0.2f, 0.26f),
                     "Tidewatch Docks boss in the smugglers' warehouse. Carries the coded ledger (quest 20)."), 3, "Rogue", false),
-                R(M(16, "Cinder Imp", School.Fire, 8, 420, false, 0, new[] { 100, 101 }, 60, 10, 22, 10, 15, 0.6f, new Color(0.9f, 0.4f, 0.15f),
+                R(M(16, "Cinder Imp", School.Fire, 8, 420, false, 0, new[] { 100, 101 }, 60, 10, 22, 114, 15, 0.6f, new Color(0.9f, 0.4f, 0.15f),
                     "Kiln Street. Escaped from the kilns: fast, fragile, burns."), 1, "Spirit", false),
-                R(M(17, "Hollowed Sentry", School.Death, 9, 600, false, 0, new[] { 148, 149 }, 70, 12, 26, 11, 15, 1.1f, new Color(0.4f, 0.42f, 0.46f),
+                R(M(17, "Hollowed Sentry", School.Death, 9, 600, false, 0, new[] { 148, 149 }, 70, 12, 26, 115, 15, 1.1f, new Color(0.4f, 0.42f, 0.46f),
                     "Kiln Street, Cole's back forge. Empty Dominion armor moved by a spark of stolen light. Drops glowing cores (quest 24)."), 2, "Hollowed", false),
-                R(M(18, "Captain Vesper", School.Fire, 10, 2000, true, 700, new[] { 100, 101, 102, 104, 200 }, 380, 80, 140, 0, 0, 1.2f, new Color(0.55f, 0.12f, 0.1f),
+                R(M(18, "Captain Vesper", School.Fire, 10, 2000, true, 700, new[] { 100, 101, 102, 104, 200 }, 380, 80, 140, 109, 40, 1.2f, new Color(0.55f, 0.12f, 0.1f),
                     "Kiln Street boss in the sealed furnace hall. Lantern Corps engineer; breaks off and escapes (quest 25)."), 3, "Dominion", false),
-                R(M(19, "Thornback Boar", School.Life, 10, 620, false, 0, new[] { 136, 138 }, 70, 12, 26, 10, 15, 1f, new Color(0.4f, 0.32f, 0.2f),
+                R(M(19, "Thornback Boar", School.Life, 10, 620, false, 0, new[] { 136, 138 }, 70, 12, 26, 114, 15, 1f, new Color(0.4f, 0.32f, 0.2f),
                     "Thornhollow Grove. Maddened by the survey stakes; charges in pairs."), 1, "Beast", false),
-                R(M(20, "Dominion Surveyor", School.Balance, 10, 640, false, 0, new[] { 172, 173, 175 }, 75, 14, 28, 11, 15, 1f, new Color(0.45f, 0.42f, 0.36f),
+                R(M(20, "Dominion Surveyor", School.Balance, 10, 640, false, 0, new[] { 172, 173, 175 }, 75, 14, 28, 115, 15, 1f, new Color(0.45f, 0.42f, 0.36f),
                     "Thornhollow Grove. The first Dominion soldiers a wizard meets. Drop survey maps (quest 31)."), 2, "Dominion", false),
-                R(M(21, "Dominion Legionnaire", School.Ice, 11, 760, false, 0, new[] { 112, 114, 200 }, 80, 16, 30, 10, 15, 1.1f, new Color(0.38f, 0.4f, 0.44f),
+                R(M(21, "Dominion Legionnaire", School.Ice, 11, 760, false, 0, new[] { 112, 114, 200 }, 80, 16, 30, 114, 15, 1.1f, new Color(0.38f, 0.4f, 0.44f),
                     "Thornhollow Grove and the Hollow Keep. Shield and blade, fights beside a sergeant."), 2, "Dominion", true),
-                R(M(22, "Sergeant Halvek Roan", School.Ice, 11, 2200, true, 800, new[] { 112, 113, 114, 116, 200 }, 420, 90, 150, 0, 0, 1.3f, new Color(0.3f, 0.33f, 0.4f),
+                R(M(22, "Sergeant Halvek Roan", School.Ice, 11, 2200, true, 800, new[] { 112, 113, 114, 116, 200 }, 420, 90, 150, 110, 40, 1.3f, new Color(0.3f, 0.33f, 0.4f),
                     "Thornhollow Grove boss in the clearing camp, with two legionnaires."), 3, "Dominion", false),
-                R(M(23, "Merchant Selwyn", School.Myth, 11, 1900, true, 700, new[] { 160, 161, 163, 165 }, 350, 80, 140, 0, 0, 1f, new Color(0.3f, 0.28f, 0.34f),
+                R(M(23, "Merchant Selwyn", School.Myth, 11, 1900, true, 700, new[] { 160, 161, 163, 165 }, 350, 80, 140, 111, 40, 1f, new Color(0.3f, 0.28f, 0.34f),
                     "The Silent Office spy from the Bazaar, caught in the Tidewatch warehouse (quest 34)."), 3, "Dominion", false),
-                R(M(24, "Hollowed Knight", School.Death, 12, 850, false, 0, new[] { 148, 149, 150 }, 85, 16, 32, 11, 15, 1.2f, new Color(0.3f, 0.3f, 0.36f),
+                R(M(24, "Hollowed Knight", School.Death, 12, 850, false, 0, new[] { 148, 149, 150 }, 85, 16, 32, 115, 15, 1.2f, new Color(0.3f, 0.3f, 0.36f),
                     "The Hollow Keep. Morvane's guard: heavier Hollowed."), 3, "Hollowed", true),
-                R(M(25, "Morvane the Hollow King", School.Death, 13, 3000, true, 1000, new[] { 149, 150, 152, 153, 154 }, 520, 150, 250, 0, 0, 1.6f, new Color(0.15f, 0.12f, 0.2f),
+                R(M(25, "Morvane the Hollow King", School.Death, 13, 3000, true, 1000, new[] { 149, 150, 152, 153, 154 }, 520, 150, 250, 112, 50, 1.6f, new Color(0.15f, 0.12f, 0.2f),
                     "World 1's last boss, in the Hollow Keep's throne hall, with two Hollowed Knights (quest 38)."), 4, "Undead King", false),
             };
         }
@@ -378,7 +378,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 },
                 new QuestEntry
                 {
-                    saveId = 5, title = "The Snuffer's Tower", prerequisite = 4, minLevel = 5, xp = 250, gold = 100, rewardItem = 26,
+                    saveId = 5, title = "The Snuffer's Tower", prerequisite = 4, minLevel = 5, xp = 250, gold = 100, rewardItem = 79,
                     description = "Every stolen flame leads to the tower at the end of the street, where Ashwick the Snuffer guards one of Vesper's Hollow Lanterns. Defeat him and destroy it.",
                     steps = new List<QuestStepEntry>
                     {

@@ -129,7 +129,7 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             return new List<MonsterEntry>
             {
-                R(M(26, "The Kraken", School.Storm, 10, 2600, true, 900, new[] { 124, 127, 128, 130 }, 520, 110, 190, 0, 0, 2.2f, new Color(0.24f, 0.18f, 0.34f),
+                R(M(26, "The Kraken", School.Storm, 10, 2600, true, 900, new[] { 124, 127, 128, 130 }, 520, 110, 190, 113, 40, 2.2f, new Color(0.24f, 0.18f, 0.34f),
                     "Secret boss beneath Tidewatch Docks, on the sunken platform (quest 40, level 8; diving bell at the water's edge)."), 4, "Kraken", false),
                 R(M(27, "Kraken Tentacle", School.Storm, 9, 520, false, 0, new[] { 124, 126 }, 55, 8, 16, 0, 0, 1.2f, new Color(0.36f, 0.24f, 0.42f),
                     "The Kraken's arms, rising round the sunken platform."), 2, "Tentacle", false),

@@ -304,7 +304,9 @@ namespace WizardsVRC
         public Image discardImage;
 
         [Header("Rewards")]
-        public int[] lootTable = { 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51, 61, 62 };
+        [Tooltip("Random loot after a win (30%). Empty = any item a shop could sell that's within a few levels of the wizard " +
+                 "(gear from 4 levels below up to their level, potions of their tier); quest rewards and boss drops never roll.")]
+        public int[] lootTable = new int[0];
 
         [Header("Defeat")]
         [Tooltip("Health (% of max) you are sent home with after being defeated.")]
@@ -1020,6 +1022,28 @@ namespace WizardsVRC
             if (playerState != null && playerState.HasCharacter()) playerState.SaveNow();
         }
 
+        /// <summary>
+        /// A random item for a wizard of this level: gear a shop could sell from 4 levels below up to their level, or a
+        /// potion of their tier (minor potions until level 8). Never a quest reward, a boss drop, a deck or the starter
+        /// kit. 0 when nothing fits.
+        /// </summary>
+        private int RollLoot(int level)
+        {
+            if (itemDatabase == null || itemDatabase.ids == null || itemDatabase.ids.Length == 0) return 0;
+            int n = itemDatabase.ids.Length;
+            for (int tries = 0; tries < 16; tries++)
+            {
+                int i = Random.Range(0, n);
+                int id = itemDatabase.ids[i];
+                if (id <= 4 || itemDatabase.IsUnique(id) || itemDatabase.IsDeck(id)) continue;
+                int req = itemDatabase.GetLevelReq(id);
+                int floor = itemDatabase.IsPotion(id) ? level - 7 : level - 4;
+                if (req > level || req < floor) continue;
+                return id;
+            }
+            return 0;
+        }
+
         private string GrantRewards()
         {
             if (playerState == null || !playerState.HasCharacter()) return "";
@@ -1061,10 +1085,10 @@ namespace WizardsVRC
                 msg += "\nLevel up! You are now level " + c.level.ToString() + ".";
                 if (c.lastPointsGained > 0) msg += " +" + c.lastPointsGained.ToString() + " Training Point" + (c.lastPointsGained > 1 ? "s" : "") + ".";
             }
-            if (drops.Length == 0 && lootTable.Length > 0 && Random.value < 0.3f)
+            if (drops.Length == 0 && Random.value < 0.3f)
             {
-                int itemId = lootTable[Random.Range(0, lootTable.Length)];
-                if (c.AddItem(itemId, 1))
+                int itemId = lootTable != null && lootTable.Length > 0 ? lootTable[Random.Range(0, lootTable.Length)] : RollLoot(c.level);
+                if (itemId > 0 && c.AddItem(itemId, 1))
                 {
                     msg += "\nLoot: " + itemDatabase.GetName(itemId);
                     if (notifications != null) notifications.Post(NotificationCenter.KIND_GEAR, "New loot", itemDatabase.GetName(itemId), itemId);

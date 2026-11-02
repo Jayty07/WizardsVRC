@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 20;
+        public const int CurrentVersion = 21;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -183,6 +183,54 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 18) UpgradeTo18();
             if (from < 19) UpgradeTo19();
             if (from < 20) UpgradeTo20();
+            if (from < 21) UpgradeTo21();
+        }
+
+        /// <summary>
+        /// v21: World 1's remade items. The Snuffer's Tower now rewards Ashwick's Lantern (the Storm-only Thunderhorn Wand
+        /// is sold instead); World 1's bosses drop their own gear; monsters from level 7 drop the stronger potions. Only
+        /// where the old default is still set.
+        /// </summary>
+        private static void UpgradeTo21()
+        {
+            var report = new List<string>();
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            if (cat != null)
+            {
+                int[] bossIds = { 15, 18, 22, 23, 25, 26 };
+                int[] bossDrops = { 108, 109, 110, 111, 112, 113 };
+                int[] bossPct = { 40, 40, 40, 40, 50, 40 };
+                int drops = 0, potions = 0;
+                for (int i = 0; i < bossIds.Length; i++)
+                {
+                    var m = cat.Find(bossIds[i]);
+                    if (m == null || m.dropItem != 0) continue;
+                    m.dropItem = bossDrops[i];
+                    m.dropChance = bossPct[i];
+                    drops++;
+                }
+                foreach (var m in cat.monsters)
+                {
+                    if (m == null || m.level < 7 || m.isBoss) continue;
+                    if (m.dropItem == 10) { m.dropItem = 114; potions++; }
+                    else if (m.dropItem == 11) { m.dropItem = 115; potions++; }
+                }
+                if (drops + potions > 0)
+                {
+                    EditorUtility.SetDirty(cat);
+                    if (drops > 0) report.Add(drops + " bosses drop their own gear");
+                    if (potions > 0) report.Add(potions + " monsters drop the stronger potions");
+                }
+            }
+            foreach (var ql in FindAll<Questline>())
+                foreach (var q in ql.quests)
+                    if (q != null && q.saveId == 5 && q.rewardItem == 26)
+                    {
+                        q.rewardItem = 79;
+                        EditorUtility.SetDirty(ql);
+                        report.Add("The Snuffer's Tower rewards Ashwick's Lantern");
+                    }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (v21): " + string.Join(", ", report) + ".");
         }
 
         /// <summary>

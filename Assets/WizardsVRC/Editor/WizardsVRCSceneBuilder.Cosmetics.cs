@@ -438,7 +438,7 @@ namespace WizardsVRC.EditorTools
             foreach (Transform row in rt) if (row.name.StartsWith("Row")) ApplyCombatFont(row.Find("Coin"));
             go.SetActive(false);
 
-            // Each shop sells its categories' gear (everything below level 40 that isn't a quest or starter item).
+            // Each shop sells its categories' gear (everything below level 40 that isn't a starter item, quest reward or boss drop).
             var start = new List<int>();
             var counts = new List<int>();
             var items = new List<int>();
@@ -455,7 +455,8 @@ namespace WizardsVRC.EditorTools
                     for (int i = 0; i < itemDb.ids.Length; i++)
                     {
                         int id = itemDb.ids[i];
-                        if (itemDb.categories[i] != cat || id <= 4 || id == CharacterData.STARTER_DECK_ITEM) continue;
+                        // Not the starter kit, and not quest rewards or boss drops (those are earned, never sold).
+                        if (itemDb.categories[i] != cat || id <= 4 || id == CharacterData.STARTER_DECK_ITEM || itemDb.IsUnique(id)) continue;
                         if (itemDb.levelReqs[i] > 40) continue;
                         items.Add(id);
                     }

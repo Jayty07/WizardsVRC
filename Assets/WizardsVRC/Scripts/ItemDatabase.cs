@@ -4,7 +4,7 @@ using UnityEngine;
 namespace WizardsVRC
 {
     /// <summary>
-    /// Static item definitions (placeholder fantasy gear). Parallel arrays indexed by definition index;
+    /// Static item definitions (World 1's gear, potions and decks). Parallel arrays indexed by definition index;
     /// look up by item id with <see cref="IndexOf"/>. Item id 0 means "no item".
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -36,87 +36,262 @@ namespace WizardsVRC
         [HideInInspector] public string[] categoryNames = { "Hat", "Robe", "Boots", "Wand", "Athame", "Amulet", "Ring", "Deck", "Potion" };
         [HideInInspector] public string[] statNames = { "Health", "Mana", "Damage", "Resist", "Accuracy", "Critical", "Block", "Pierce", "Power Pip" };
 
-        // id, category, level req, school req (-1 any), health, mana, damage %, resist %, accuracy %
-        [HideInInspector] public int[] ids =         { 1, 2, 3, 4, 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 40, 41, 50, 51, 60, 61, 62, 63 , 70, 71, 72, 73, 74, 75, 76, 77, 78 };
-        [HideInInspector] public int[] categories =  { 3, 1, 0, 2, 8, 8, 3, 3, 3, 0, 2, 1, 3, 1, 0, 4, 4, 5, 5, 6, 6, 7, 7, 7, 7 , 6, 2, 0, 3, 5, 1, 2, 5, 0 };
-        [HideInInspector] public int[] levelReqs =   { 1, 1, 1, 1, 1,  1,  3,  2,  2,  2,  2,  3,  4,  5,  5,  1,  3,  2,  4,  1,  3, 1, 3, 6, 10 , 8, 8, 9, 10, 9, 10, 11, 12, 13 };
-        [HideInInspector] public int[] schoolReqs =  { -1,-1,-1,-1,-1, -1, -1, 0,  1,  -1, -1, -1, 2,  3,  4,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-        [HideInInspector] public int[] healthBonus = { 0, 20, 10, 10, 0,  0,  0,  0,  15, 25, 20, 40, 0,  60, 30, 0,  10, 15, 0,  0,  10, 0, 10, 20, 35 , 20, 35, 40, 0, 25, 80, 50, 40, 70 };
-        [HideInInspector] public int[] manaBonus =   { 0, 5,  0,  0,  0,  0,  2,  0,  0,  3,  0,  10, 4,  8,  5,  0,  0,  5,  2,  0,  0, 0, 2, 4, 6 , 0, 2, 4, 4, 6, 10, 4, 6, 8 };
-        [HideInInspector] public int[] damageBonus = { 2, 0,  0,  0,  0,  0,  8,  10, 6,  0,  0,  3,  12, 0,  4,  3,  0,  0,  3,  0,  0, 0, 0, 0, 2 , 0, 0, 3, 14, 2, 4, 2, 4, 6 };
-        [HideInInspector] public int[] resistBonus = { 0, 1,  1,  1,  0,  0,  0,  0,  2,  3,  2,  2,  0,  4,  3,  0,  4,  0,  0,  0,  3, 0, 0, 1, 2 , 3, 3, 3, 0, 0, 5, 4, 3, 5 };
-        [HideInInspector] public int[] accuracyBonus={ 0, 0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  3,  2,  1,  1,  0,  0,  0,  2,  0, 0, 1, 1, 2 , 3, 0, 1, 3, 2, 2, 2, 2, 3 };
-        [HideInInspector] public int[] critBonus =   { 0, 0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  4,  0,  0,  3,  0,  0,  2,  0,  0, 0, 0, 0, 1 , 0, 0, 2, 4, 2, 0, 2, 3, 3 };
-        [HideInInspector] public int[] blockBonus =  { 0, 0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,  0,  3,  0,  0,  0,  2, 0, 0, 1, 1 , 2, 2, 0, 0, 0, 2, 2, 2, 3 };
-        [HideInInspector] public int[] pierceBonus = { 0, 0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  2,  0,  0,  2,  0,  0,  0,  1,  0, 0, 0, 0, 0 , 1, 0, 0, 3, 0, 0, 0, 1, 2 };
-        [HideInInspector] public int[] powerPipBonus={ 0, 0,  0,  0,  0,  0,  0,  0,  0,  2,  0,  3,  0,  3,  0,  0,  0,  5,  0,  0,  0, 0, 0, 2, 4 , 0, 0, 2, 2, 5, 4, 0, 5, 4 };
+        // World 1's items: every stat comes from a level budget for a full set, split by slot (Tools/make_items.py).
+        // Sorted by level, so the shops list them in order. Quest rewards and boss drops are unique (never sold).
+        [HideInInspector] public int[] ids = { 3, 2, 4, 1, 30, 50, 60, 10, 11, 40, 23, 25, 24, 20, 51, 61, 21, 22, 26, 80, 81, 82, 83, 31, 41, 79, 117, 28, 84, 85, 86, 87, 88, 89, 62, 114, 115, 27, 90, 91, 92, 93, 94, 95, 97, 101, 96, 100, 98, 108, 71, 74, 70, 118, 72, 75, 73, 109, 113, 63, 106, 107, 76, 104, 105, 102, 111, 116, 103, 110, 77, 119, 78, 112 };
+        [HideInInspector] public int[] categories = { 0, 1, 2, 3, 4, 6, 7, 8, 8, 5, 0, 1, 2, 3, 6, 7, 3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 7, 0, 0, 0, 0, 0, 0, 0, 7, 8, 8, 1, 1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 0, 2, 5, 6, 7, 0, 1, 3, 4, 6, 7, 0, 1, 2, 2, 3, 4, 5, 5, 6, 6, 5, 7, 0, 1 };
+        [HideInInspector] public int[] levelReqs = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 9, 10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 12, 12, 13, 13 };
+        [HideInInspector] public int[] schoolReqs = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, -1, -1, -1, -1, 4, 0, 1, 2, 3, 5, 6, -1, -1, -1, 3, 0, 1, 2, 4, 5, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+        [HideInInspector] public int[] healthBonus = { 10, 20, 15, 0, 5, 5, 0, 0, 0, 15, 20, 30, 25, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 5, 15, 20, 0, 30, 25, 40, 25, 35, 30, 30, 0, 0, 0, 60, 45, 65, 45, 50, 50, 55, 45, 0, 10, 25, 10, 50, 55, 35, 10, 0, 50, 85, 0, 15, 15, 0, 60, 85, 80, 70, 0, 15, 55, 45, 15, 20, 55, 0, 80, 130 };
+        [HideInInspector] public int[] manaBonus = { 1, 3, 0, 0, 0, 2, 0, 0, 0, 2, 2, 4, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 0, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 8, 6, 6, 6, 6, 6, 6, 0, 0, 0, 3, 3, 4, 0, 4, 4, 0, 4, 9, 0, 0, 5, 0, 4, 9, 0, 0, 0, 0, 6, 4, 4, 6, 5, 0, 6, 13 };
+        [HideInInspector] public int[] damageBonus = { 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 2, 1, 2, 0, 0, 2, 1, 3, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 3, 5, 4, 4, 3, 1, 3, 2, 0, 0, 0, 2, 0, 0, 0, 0, 5, 5, 4, 0, 0, 0, 5, 3, 2, 5, 3, 0, 0, 0, 0, 0, 0, 0, 8 };
+        [HideInInspector] public int[] resistBonus = { 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 1, 1, 0, 0, 0, 1, 1, 2, 1, 1, 1, 2, 3, 0, 0, 0, 1, 2, 3, 0, 2, 0, 2, 2, 0, 0, 2, 0, 2, 2, 4, 4, 0, 0, 0, 0, 2, 2, 0, 0, 2, 3 };
+        [HideInInspector] public int[] accuracyBonus = { 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0, 2, 2, 2, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 2, 0, 0, 1, 2, 0, 0, 1, 0, 2, 2, 2, 0, 2, 0, 2, 2, 0, 0, 2, 0, 0, 0, 2, 2, 0, 0, 3, 2 };
+        [HideInInspector] public int[] critBonus = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 2, 3, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 3, 0, 2, 0, 0, 3, 0, 1, 0, 0, 0, 4, 0, 0, 0, 1, 0, 3, 2, 0, 0, 3, 0, 5, 0 };
+        [HideInInspector] public int[] blockBonus = { 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 0, 0, 0, 2, 3, 0, 0, 0, 2, 2, 0, 2, 0, 0, 2, 3, 0, 0, 0, 0 };
+        [HideInInspector] public int[] pierceBonus = { 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 };
+        [HideInInspector] public int[] powerPipBonus = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 4, 4, 5, 4, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 7, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 8, 7, 0, 0, 8, 0, 0, 10 };
+        /// <summary>Quest rewards and boss drops: never sold in shops or rolled as random loot.</summary>
+        [HideInInspector] public int[] uniqueItems = { 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1 };
         /// <summary>Decks only: how many spells the deck holds, and how many copies of one spell.</summary>
-        [HideInInspector] public int[] deckCapacity =  { 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 20, 25, 30, 40 , 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-        [HideInInspector] public int[] deckMaxCopies = { 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 4, 4, 5, 6 , 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        [HideInInspector] public int[] deckCapacity = { 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 38, 0, 0 };
+        [HideInInspector] public int[] deckMaxCopies = { 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0 };
         /// <summary>Potions only: health / mana restored when drunk (outside battle from the backpack, or in battle as your turn).</summary>
-        [HideInInspector] public int[] potionHealth ={ 0, 0,  0,  0,  150,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-        [HideInInspector] public int[] potionMana =  { 0, 0,  0,  0,  0,  12, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        [HideInInspector] public int[] potionHealth = { 0, 0, 0, 0, 0, 0, 0, 150, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        [HideInInspector] public int[] potionMana = { 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         [HideInInspector] public string[] names =
         {
-            "Training Staff", "Apprentice Robe", "Apprentice Hat", "Apprentice Boots",
-            "Minor Healing Potion", "Mana Draught",
-            "Oakwood Wand", "Ember Wand", "Frost-Etched Wand", "Scholar's Hat", "Traveler's Boots", "Silkweave Robe",
-            "Thunderhorn Wand", "Verdant Vestments", "Gravewarden Cowl",
-            "Bone Athame", "Silver Athame", "Moonstone Amulet", "Sunstone Amulet", "Copper Ring", "Ring of Warding",
-            "Apprentice Deck", "Scholar's Deck", "Ironbound Deck", "Starfall Deck",
-            "Harbormaster's Ring", "Sea-Grey Boots", "Forgewarden's Cap", "Kilnfire Wand", "Starglass Amulet", "Grove Warden Robe", "Lightfoot Boots", "Hollowbane Amulet", "Hollow Crown",
+            "Apprentice Hat",
+            "Apprentice Robe",
+            "Apprentice Boots",
+            "Training Staff",
+            "Bone Athame",
+            "Copper Ring",
+            "Apprentice Deck",
+            "Minor Healing Potion",
+            "Mana Draught",
+            "Moonstone Amulet",
+            "Scholar's Hat",
+            "Silkweave Robe",
+            "Traveler's Boots",
+            "Oakwood Wand",
+            "Ring of Warding",
+            "Scholar's Deck",
+            "Ember Wand",
+            "Frost-Etched Wand",
+            "Thunderhorn Wand",
+            "Thornbriar Wand",
+            "Gravebone Wand",
+            "Fablewood Wand",
+            "Sandglass Wand",
+            "Silver Athame",
+            "Sunstone Amulet",
+            "Ashwick's Lantern",
+            "Traveler's Deck",
+            "Gravewarden Cowl",
+            "Flamewarden Hood",
+            "Rimeguard Hood",
+            "Stormcaller Hat",
+            "Briarleaf Hat",
+            "Fabler's Cap",
+            "Equinox Hat",
+            "Ironbound Deck",
+            "Healing Potion",
+            "Mana Tonic",
+            "Verdant Vestments",
+            "Emberweave Robe",
+            "Frostmantle Robe",
+            "Tempest Robe",
+            "Gloamshroud Robe",
+            "Legendweave Robe",
+            "Meridian Robe",
+            "Kilnstone Boots",
+            "Ashwood Wand",
+            "Tidecaller Athame",
+            "Lamplight Pendant",
+            "Brass Signet",
+            "Grell's Tricorn",
+            "Sea-Grey Boots",
+            "Starglass Amulet",
+            "Harbormaster's Ring",
+            "Seafarer's Deck",
+            "Forgewarden's Cap",
+            "Grove Warden Robe",
+            "Kilnfire Wand",
+            "Corps Lantern-Blade",
+            "Kraken-Eye Ring",
+            "Starfall Deck",
+            "Archivist's Hat",
+            "Starweave Robe",
+            "Lightfoot Boots",
+            "Keepwatch Boots",
+            "Crystalline Wand",
+            "Wardsteel Athame",
+            "Cipher Locket",
+            "Starlight Locket",
+            "Starfall Signet",
+            "Legion Bulwark Ring",
+            "Hollowbane Amulet",
+            "Warden's Deck",
+            "Hollow Crown",
+            "Hollow King's Mantle",
         };
 
         [HideInInspector] public string[] descriptions =
         {
-            "A plain practice staff every apprentice is handed on day one. It holds one basic spell from every school.",
-            "Sturdy, if unflattering, academy robes.",
             "A pointed felt hat. Mostly keeps the rain off.",
+            "Sturdy, if unflattering, academy robes.",
             "Comfortable boots for long walks between classes.",
+            "A plain practice staff every apprentice is handed on day one. It holds one basic spell from every school.",
+            "A ritual blade carved from a beast's tooth. Duel Master Holloway's prize for your first duel.",
+            "A simple band. Helps steady your aim.",
+            "A plain leather deck every apprentice is given. Equip a deck to fight with the spells you put in it.",
             "A small red vial. Drink it from your backpack, or in battle (uses your turn).",
             "A swirling blue tonic. Spells cost 1 mana per pip; this tops you back up.",
+            "A pale stone that glows softly at night.",
+            "A tall hat stitched with tiny star charts.",
+            "Light robes woven with faint protective runes. Gloomfang's guards wore them.",
+            "Well-worn boots that never seem to get muddy.",
             "A straight oak wand with a carved grip.",
+            "Etched with a small warding sigil.",
+            "A scholar's tooled-leather deck with room for a few more spells. Old Briarwick guards one.",
             "Warm to the touch; sparks drift from the tip.",
             "Rimed with frost that never melts.",
-            "A tall hat stitched with tiny star charts.",
-            "Well-worn boots that never seem to get muddy.",
-            "Light robes woven with faint protective runes.",
             "Crackles with static whenever it is drawn.",
-            "Leafy green robes that smell faintly of spring.",
-            "A dark hood worn by the keepers of old crypts.",
-            "A ritual blade carved from a beast's tooth.",
-            "A polished blade that turns aside hostile magic.",
-            "A pale stone that glows softly at night.",
+            "A living briar wand that sprouts a new leaf every morning.",
+            "Pale bone bound in black thread. It hums near graveyards.",
+            "Carved with tiny scenes from old stories that seem to move.",
+            "A slim hourglass of shifting sand set in a brass grip.",
+            "A polished blade that turns aside hostile magic. Taken from the Briar Heart.",
             "Holds a sliver of trapped sunlight.",
-            "A simple band. Helps steady your aim.",
-            "Etched with a small warding sigil.",
-            "A plain leather deck every apprentice is given. Equip a deck to fight with the spells you put in it.",
-            "A scholar's tooled-leather deck with room for a few more spells.",
+            "The Snuffer's own lantern, relit. It burns without oil.",
+            "A canvas-bound deck with a strap for the road.",
+            "A dark hood worn by the keepers of old crypts.",
+            "A hood of ember-red felt that never quite stops smoking.",
+            "Lined with frost-white fur; snow settles on it even indoors.",
+            "A wide-brimmed hat that makes your hair stand on end.",
+            "Woven from living leaves that turn toward the sun.",
+            "A storyteller's cap with a long feather that writes on its own.",
+            "Half day-gold, half night-blue, stitched down the middle.",
             "Iron-cornered and heavy; it can hold five copies of a favourite spell.",
-            "Embossed with the Starfall crest. A deck for a wizard who knows exactly what they want.",
-            "Quill's own signet ring, worn smooth by salt and rope.",
+            "A full red flask. Restores much more than a minor potion.",
+            "A deep blue tonic that fizzes on the tongue.",
+            "Leafy green robes that smell faintly of spring.",
+            "Woven with threads of banked fire; warm in any weather.",
+            "Heavy blue robes that crackle with rime when you move.",
+            "Violet robes whose hem flutters in a wind no one else feels.",
+            "Grey-black robes that drink in lamplight.",
+            "Embroidered with heroes and beasts from old tales.",
+            "Sand-coloured robes marked with the four winds.",
+            "Hobnailed boots with soles of fired clay. They don't burn.",
+            "Pale ash wood, oiled and balanced. A good wand for any school.",
+            "A curved blade of sea-glass that hums like a shell.",
+            "A tiny lantern on a chain, lit by Lantern Row's candlemakers.",
+            "A heavy brass ring from a Kiln Street smith.",
+            "Captain Marrow Grell's battered hat. There's a coded note still tucked in the band.",
             "Oiled sealskin boots that never slip on a wet pier.",
-            "A soot-stained leather cap with a brass brim. Smells of hot iron.",
-            "Quenched in a Kiln Street furnace; the grip is still warm.",
             "A sliver of the Observatory's old lens, set in silver.",
+            "Quill's own signet ring, worn smooth by salt and rope.",
+            "Waxed against the salt; its pages never curl.",
+            "A soot-stained leather cap with a brass brim. Smells of hot iron.",
             "Moss-green robes of the Thornhollow wardens, patched with bark.",
+            "Quenched in a Kiln Street furnace; the grip is still warm.",
+            "Captain Vesper's blade, its edge lit by a caged spark of stolen light.",
+            "A cold gold ring set with one of the Kraken's smaller eyes. It blinks.",
+            "Embossed with the Starfall crest. A deck for a wizard who knows exactly what they want.",
+            "Librarian Wren's design: a hat with pockets for notes.",
+            "Robes woven with silver thread that glints like the night sky.",
             "Light enough to catch a spy who runs.",
+            "Tall boots worn by the castle's night watch.",
+            "Grown, not carved, from Starfall crystal.",
+            "Castle-forged steel etched with the Starfall crest.",
+            "Selwyn's locket. Inside is a cipher wheel instead of a portrait.",
+            "A locket that holds a pinch of the rekindled crystal's light.",
+            "A silver ring set with a chip of fallen star.",
+            "Sergeant Roan's ring, stamped with the Dominion's iron sun.",
             "A shard of a shattered Hollow Lantern, its stolen light set free.",
+            "Bound in Thornhollow bark; the castle's best deck for coin.",
             "Morvane's crown. It is lighter than it looks, and colder.",
+            "Morvane's mantle, heavy with the light he stole and no longer holds.",
         };
 
         [HideInInspector] public Color[] iconColors =
         {
-            new Color(0.55f, 0.4f, 0.25f), new Color(0.35f, 0.35f, 0.6f), new Color(0.35f, 0.35f, 0.6f), new Color(0.45f, 0.3f, 0.2f),
-            new Color(0.8f, 0.2f, 0.2f), new Color(0.2f, 0.4f, 0.85f),
-            new Color(0.6f, 0.45f, 0.25f), new Color(0.85f, 0.35f, 0.1f), new Color(0.45f, 0.75f, 0.95f), new Color(0.3f, 0.3f, 0.7f),
-            new Color(0.5f, 0.35f, 0.2f), new Color(0.75f, 0.75f, 0.85f),
-            new Color(0.6f, 0.35f, 0.85f), new Color(0.3f, 0.7f, 0.3f), new Color(0.25f, 0.25f, 0.25f),
-            new Color(0.85f, 0.8f, 0.7f), new Color(0.8f, 0.8f, 0.85f), new Color(0.8f, 0.85f, 0.95f), new Color(0.95f, 0.75f, 0.2f),
-            new Color(0.75f, 0.45f, 0.25f), new Color(0.5f, 0.6f, 0.75f),
-            new Color(0.5f, 0.35f, 0.22f), new Color(0.55f, 0.25f, 0.2f), new Color(0.4f, 0.42f, 0.45f), new Color(0.3f, 0.3f, 0.6f),
-            new Color(0.7f, 0.65f, 0.55f), new Color(0.45f, 0.5f, 0.55f), new Color(0.5f, 0.32f, 0.18f), new Color(0.95f, 0.45f, 0.15f), new Color(0.7f, 0.8f, 1f), new Color(0.3f, 0.5f, 0.25f), new Color(0.6f, 0.55f, 0.45f), new Color(0.6f, 0.5f, 0.9f), new Color(0.25f, 0.22f, 0.32f),
+            new Color(0.35f, 0.35f, 0.6f),
+            new Color(0.35f, 0.35f, 0.6f),
+            new Color(0.45f, 0.3f, 0.2f),
+            new Color(0.55f, 0.4f, 0.25f),
+            new Color(0.85f, 0.8f, 0.7f),
+            new Color(0.75f, 0.45f, 0.25f),
+            new Color(0.5f, 0.35f, 0.22f),
+            new Color(0.8f, 0.2f, 0.2f),
+            new Color(0.2f, 0.4f, 0.85f),
+            new Color(0.8f, 0.85f, 0.95f),
+            new Color(0.3f, 0.3f, 0.7f),
+            new Color(0.75f, 0.75f, 0.85f),
+            new Color(0.5f, 0.35f, 0.2f),
+            new Color(0.6f, 0.45f, 0.25f),
+            new Color(0.5f, 0.6f, 0.75f),
+            new Color(0.55f, 0.25f, 0.2f),
+            new Color(0.95f, 0.35f, 0.15f),
+            new Color(0.55f, 0.85f, 1.0f),
+            new Color(0.65f, 0.4f, 0.95f),
+            new Color(0.4f, 0.8f, 0.35f),
+            new Color(0.45f, 0.4f, 0.55f),
+            new Color(0.95f, 0.78f, 0.25f),
+            new Color(0.85f, 0.6f, 0.4f),
+            new Color(0.8f, 0.8f, 0.85f),
+            new Color(0.95f, 0.75f, 0.2f),
+            new Color(1.0f, 0.65f, 0.3f),
+            new Color(0.5f, 0.45f, 0.3f),
+            new Color(0.45f, 0.4f, 0.55f),
+            new Color(0.95f, 0.35f, 0.15f),
+            new Color(0.55f, 0.85f, 1.0f),
+            new Color(0.65f, 0.4f, 0.95f),
+            new Color(0.4f, 0.8f, 0.35f),
+            new Color(0.95f, 0.78f, 0.25f),
+            new Color(0.85f, 0.6f, 0.4f),
+            new Color(0.4f, 0.42f, 0.45f),
+            new Color(0.85f, 0.15f, 0.2f),
+            new Color(0.15f, 0.35f, 0.9f),
+            new Color(0.4f, 0.8f, 0.35f),
+            new Color(0.95f, 0.35f, 0.15f),
+            new Color(0.55f, 0.85f, 1.0f),
+            new Color(0.65f, 0.4f, 0.95f),
+            new Color(0.45f, 0.4f, 0.55f),
+            new Color(0.95f, 0.78f, 0.25f),
+            new Color(0.85f, 0.6f, 0.4f),
+            new Color(0.55f, 0.35f, 0.25f),
+            new Color(0.75f, 0.65f, 0.5f),
+            new Color(0.45f, 0.7f, 0.75f),
+            new Color(1.0f, 0.8f, 0.45f),
+            new Color(0.8f, 0.65f, 0.3f),
+            new Color(0.25f, 0.22f, 0.28f),
+            new Color(0.45f, 0.5f, 0.55f),
+            new Color(0.7f, 0.8f, 1.0f),
+            new Color(0.7f, 0.65f, 0.55f),
+            new Color(0.3f, 0.45f, 0.55f),
+            new Color(0.5f, 0.32f, 0.18f),
+            new Color(0.3f, 0.5f, 0.25f),
+            new Color(0.95f, 0.45f, 0.15f),
+            new Color(0.9f, 0.35f, 0.2f),
+            new Color(0.35f, 0.75f, 0.7f),
+            new Color(0.3f, 0.3f, 0.6f),
+            new Color(0.45f, 0.35f, 0.6f),
+            new Color(0.25f, 0.3f, 0.6f),
+            new Color(0.6f, 0.55f, 0.45f),
+            new Color(0.35f, 0.3f, 0.4f),
+            new Color(0.6f, 0.8f, 1.0f),
+            new Color(0.7f, 0.72f, 0.8f),
+            new Color(0.45f, 0.4f, 0.6f),
+            new Color(0.75f, 0.85f, 1.0f),
+            new Color(0.65f, 0.75f, 1.0f),
+            new Color(0.5f, 0.55f, 0.65f),
+            new Color(0.6f, 0.5f, 0.9f),
+            new Color(0.3f, 0.4f, 0.25f),
+            new Color(0.25f, 0.22f, 0.32f),
+            new Color(0.2f, 0.18f, 0.3f),
         };
 
         public int IndexOf(int itemId)
@@ -243,6 +418,9 @@ namespace WizardsVRC
             if (statNames != null && stat >= 0 && stat < statNames.Length) return statNames[stat];
             return stat >= 0 && stat < _statNamesFallback.Length ? _statNamesFallback[stat] : "";
         }
+
+        /// <summary>A quest reward or boss drop: not sold in shops and not rolled as random loot.</summary>
+        public bool IsUnique(int itemId) { return SafeGet(uniqueItems, IndexOf(itemId)) != 0; }
 
         public bool IsPotion(int itemId) { return GetCategory(itemId) == CATEGORY_POTION; }
         public bool IsDeck(int itemId) { return GetCategory(itemId) == CATEGORY_DECK; }
