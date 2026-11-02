@@ -6,8 +6,7 @@ namespace WizardsVRC
 {
     /// <summary>
     /// Static spell card definitions (original placeholder spells). Each school has a 12-spell tree, tier k having
-    /// id 100 + school * 12 + k; each tier needs the one before it (<see cref="prereqs"/>), except that the school-only
-    /// blades and traps branch off to the side so no one is held up by them. General cards are 200+.
+    /// id 100 + school * 12 + k; each tier needs the one before it (<see cref="prereqs"/>). General cards are 200+.
     /// <see cref="aux"/> is effect-specific: pierce % for damage and stuns, heal % for drain, burn total for DoT, rounds for taunt,
     /// minion action power, and 1 = "any school" for shields/blades/traps. Damage spells hit for a random amount from
     /// <see cref="powers"/> (min) to <see cref="powerMax"/> (max); powerMax 0 = a fixed value.
@@ -195,18 +194,15 @@ namespace WizardsVRC
             "Tower Ward", "Mend", "Empower", "Steady Mind",
             "Elemental Tri-Shield", "Spirit Tri-Shield", "Elemental Tri-Trap", "Spirit Tri-Trap", "Wellspring Charm", "Second Wind",
         };
-        // The school-only blades and traps (tiers 2-3, Death's Dread Mark, Balance's Elemental Tri-Blade) branch off the
-        // tree instead of sitting in it: the spell after them needs the last spell everyone can learn, so another school's
-        // wizard is never stuck behind a spell they aren't allowed. A school's own trap still follows its blade.
         [HideInInspector] public int[] prereqs =
         {
-            0, 100, 101, 102, 101, 104, 105, 106, 107, 108, 108, 110,
-            0, 112, 113, 114, 113, 116, 117, 118, 119, 120, 120, 122,
-            0, 124, 125, 126, 125, 128, 129, 130, 131, 132, 132, 134,
-            0, 136, 137, 138, 137, 140, 141, 142, 143, 144, 144, 146,
-            0, 148, 149, 150, 149, 152, 153, 154, 155, 155, 155, 158,
-            0, 160, 161, 162, 161, 164, 165, 166, 167, 168, 168, 170,
-            0, 172, 173, 174, 173, 176, 177, 178, 179, 180, 179, 182,
+            0, 100, 101, 102, 103, 104, 105, 106, 107, 108, 108, 110,
+            0, 112, 113, 114, 115, 116, 117, 118, 119, 120, 120, 122,
+            0, 124, 125, 126, 127, 128, 129, 130, 131, 132, 132, 134,
+            0, 136, 137, 138, 139, 140, 141, 142, 143, 144, 144, 146,
+            0, 148, 149, 150, 151, 152, 153, 154, 155, 156, 156, 158,
+            0, 160, 161, 162, 163, 164, 165, 166, 167, 168, 168, 170,
+            0, 172, 173, 174, 175, 176, 177, 178, 179, 180, 180, 182,
             0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
         };
