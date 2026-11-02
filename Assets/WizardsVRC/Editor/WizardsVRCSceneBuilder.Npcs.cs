@@ -823,6 +823,9 @@ namespace WizardsVRC.EditorTools
             Directory.CreateDirectory(NpcDir);
             var ctrl = AnimatorController.CreateAnimatorControllerAtPath(NpcDir + "/" + key + ".controller");
             AnimationClip idleClip = NpcIdleClip(idle), talk = NpcTalkClip();
+            // Both set every joint either moves (Talk's first keys are the rest pose), so an NPC switched off mid-gesture
+            // (its area culled) doesn't come back with its arm stuck up.
+            CompleteClips(new[] { idleClip, talk }, new[] { 1, 0 });
             AssetDatabase.AddObjectToAsset(idleClip, ctrl);
             AssetDatabase.AddObjectToAsset(talk, ctrl);
             ctrl.AddParameter("Talk", AnimatorControllerParameterType.Trigger);
