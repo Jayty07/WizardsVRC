@@ -358,6 +358,8 @@ namespace WizardsVRC.EditorTools
             // Every plain menu panel and button in the PS1 look (WizardsVRCSceneBuilder.UiStyle.cs).
             Debug.Log("[WizardsVRC] Styled " + StyleWorldUi(scene.GetRootGameObjects()) + " menu panels and buttons.");
             RestoreMyChanges(scene);
+            // 2D sounds get the (disabled) VRC Spatial Audio Source the SDK asks for (WizardsVRCSceneBuilder.Audio.cs).
+            Debug.Log("[WizardsVRC] Spatial audio: fixed " + FixFlatAudio(scene) + " 2D audio sources.");
 
             Directory.CreateDirectory("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
