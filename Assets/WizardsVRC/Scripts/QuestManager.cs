@@ -443,6 +443,44 @@ namespace WizardsVRC
             return GetTitle(q) + "\n- " + GetObjectiveText(q);
         }
 
+        // ------------------------------------------------------------------ abandoning
+
+        /// <summary>True if this quest can be abandoned (it's active, and it isn't the opening prophecy or the trial).</summary>
+        public bool CanAbandon(int questId)
+        {
+            return HasCharacter() && questId != QUEST_PROPHECY && questId != QUEST_TRIAL && IsActive(questId);
+        }
+
+        /// <summary>True if the quest starts by itself (story quests): abandoning it starts it over instead of handing it back.</summary>
+        public bool RestartsWhenAbandoned(int questId)
+        {
+            return questId >= 0 && questId < QuestCount() && questAutoStart[questId] != 0;
+        }
+
+        /// <summary>
+        /// Abandons an active quest: its progress and step counters are wiped from your save, so it counts as never
+        /// started. A quest someone gives you is offered again by its giver (who checks your saved quests); a story quest
+        /// that starts by itself starts over from its first step. Nothing it already rewarded is taken back (it gives its
+        /// rewards only when finished), and quest objects it used come back.
+        /// </summary>
+        public bool Abandon(int questId)
+        {
+            if (!CanAbandon(questId)) return false;
+            CharacterData c = playerState.current;
+            c.questCounters[questId] = 0;
+            int steps = questStepCounts[questId];
+            if (questTargets != null)
+                for (int s = 0; s < steps && s < MAX_STEPS; s++)
+                {
+                    int i = questId * MAX_STEPS + s;
+                    if (stepTypes[i] != STEP_INTERACT) continue;
+                    for (int k = 0; k < questTargets.Length; k++)
+                        if (questTargets[k] != null && questTargets[k].targetId == stepParams[i]) questTargets[k].ResetUse();
+                }
+            SetStage(questId, RestartsWhenAbandoned(questId) && Available(questId) ? 1 : 0);
+            return true;
+        }
+
         // ------------------------------------------------------------------ progression
 
         /// <summary>Advances every active step of this type and param; true if any did.</summary>

@@ -421,8 +421,9 @@ tower automatically, like Wizard101's Golem Tower. Nothing to paint:
   during the 10 second countdown, and the party goes in together; the tower is theirs until they've all left.
 - **Inside**, the party climbs: three floors of waves, then the boss. Each floor is a round, closed stone chamber (a solid
   floor, a beamed ceiling, night through the window slits) with a duel ring, dim and lit by torches on every pillar,
-  four braziers round the ring and drifting dust. The wave's leader stands across the ring and taunts you as you arrive (a greeting with its portrait in a red,
-  hostile rim). Step into the ring to fight; everyone in it when the 6 second countdown ends takes part. Win and you're
+  four braziers round the ring and drifting dust. The floor's monsters walk the far side of the chamber like a street
+  patrol and the wave's leader taunts you as you arrive (a greeting with its portrait in a red, hostile rim). **Run into
+  one and the fight starts** in the ring like any encounter; the others join a round later if there's a seat. Win and you're
   taken up to the next floor; flee and you stay on the floor to try again; lose and you're back out by the sigil.
 - **The waves** are the street's own monsters, weakest first, then its elites; the top floor is the boss with its
   strongest followers. Waves scale with the party (two monsters solo, one more per extra wizard); the boss fights a solo

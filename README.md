@@ -155,6 +155,11 @@ Saves happen on create, on select/swap (the previous character is saved first), 
 **Deck** (decks and spells, shown as the same spell cards as in battle), **Quests**, and **Settings** (HUD and quest-arrow toggles, Save Now, Return to Starfall
 Castle, and Change Character, which saves and takes you back to the select room).
 
+On the **Quests** page, **Abandon** (click it twice to confirm) wipes an active quest's progress from your save, so it
+counts as never started: its quest giver offers it again (givers check your saved quests), quest objects it used come
+back, and a story quest that starts by itself starts over from its first step. Quests only reward you when finished, so
+nothing is taken back.
+
 ## Shops, Starshards, titles and auras
 
 - **Gold shops:** every shop in the castle has a counter out front. Click it and its wares open in front of you (gear,

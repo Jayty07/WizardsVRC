@@ -33,6 +33,9 @@ namespace WizardsVRC
         public Text detailRewards;
         public GameObject trackButton;
         public Text trackLabel;
+        [Tooltip("Abandon: click once to ask, again to confirm.")]
+        public GameObject abandonButton;
+        public Text abandonLabel;
         public Text guideLabel;
         [Tooltip("The current world, its goal and how many of its storylines are finished.")]
         public Text worldLabel;
@@ -45,6 +48,7 @@ namespace WizardsVRC
         private int _count;
         private int _page;
         private int _selected = -1;
+        private int _confirmAbandon = -1;
 
         public void Row0() { SelectRow(0); }
         public void Row1() { SelectRow(1); }
@@ -88,6 +92,27 @@ namespace WizardsVRC
             Refresh();
         }
 
+        /// <summary>Abandon the selected quest: the first click asks, the second does it.</summary>
+        public void Abandon()
+        {
+            if (!Ready() || _selected < 0 || !questManager.CanAbandon(_selected)) return;
+            if (_confirmAbandon != _selected)
+            {
+                _confirmAbandon = _selected;
+                Refresh();
+                return;
+            }
+            int q = _selected;
+            _confirmAbandon = -1;
+            bool restarts = questManager.RestartsWhenAbandoned(q);
+            if (questManager.Abandon(q))
+            {
+                BuildList();
+                if (!restarts) _selected = _count > 0 ? _list[0] : -1;
+            }
+            Refresh();
+        }
+
         public void ToggleGuide()
         {
             if (questGuide != null) questGuide.ToggleGuide();
@@ -99,6 +124,7 @@ namespace WizardsVRC
             int i = _page * ROWS + row;
             if (i >= _count) return;
             _selected = _list[i];
+            _confirmAbandon = -1;
             Refresh();
         }
 
@@ -153,6 +179,16 @@ namespace WizardsVRC
             detailRewards.text = "Rewards: " + questManager.GetRewardText(_selected);
             if (trackButton != null) trackButton.SetActive(active);
             if (trackLabel != null) trackLabel.text = tracked == _selected ? "Stop Tracking" : "Track";
+            bool canAbandon = questManager.CanAbandon(_selected);
+            if (abandonButton != null) abandonButton.SetActive(canAbandon);
+            if (abandonLabel != null)
+                abandonLabel.text = _confirmAbandon == _selected
+                    ? (questManager.RestartsWhenAbandoned(_selected) ? "Sure? Starts over" : "Sure? Click again")
+                    : "Abandon";
+            if (_confirmAbandon == _selected && detailObjective != null)
+                detailObjective.text += questManager.RestartsWhenAbandoned(_selected)
+                    ? "\n\nAbandoning a story quest starts it over from the first step."
+                    : "\n\nAbandoning it wipes your progress; the quest giver will offer it again.";
         }
 
         private bool Ready()

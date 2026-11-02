@@ -238,12 +238,20 @@ namespace WizardsVRC.EditorTools
                 TowerChamber(room, isTop ? TowerRoomR + 1.5f : TowerRoomR, stone, floorMat, ceiling, gold, banner, flame, slit, isTop);
 
                 string name = z.zoneKey + "_Tower" + k;
-                var client = MakeEncounter(systems, name, cardDb, itemDb, playerState, arrivals[k], rosters[k], false, encounters);
+                // Like any street encounter: the floor's monsters walk the far side of the chamber, and running into one
+                // starts the fight in the ring (the others join as they come over, a round later, if there's a seat).
+                var client = MakeEncounter(systems, name, cardDb, itemDb, playerState, arrivals[k], rosters[k], true, encounters);
                 var m = client.manager;
                 m.scaleRosterWithParty = true;
-                m.queueSeconds = 6;
                 Transform spot = Child(troot, "TowerRing" + k, c);
                 m.ringSpots = new[] { spot };
+                m.ringSpot = 0;
+                m.groupLanes = new[] { m };
+                m.peers = new[] { m };
+                m.respawnSeconds = 20;
+                int walkers = isTop ? 1 : rosters[k].Length;   // the boss walks alone (its followers come with it by party size)
+                m.wandererMonsters = new int[walkers];
+                for (int w = 0; w < walkers; w++) m.wandererMonsters[w] = rosters[k][w % rosters[k].Length];
                 client.questManager = qm;
                 BuildEncounter(troot, spot.localPosition, name, client, 0);
                 Transform encRoot = troot.Find("Encounter" + name);
@@ -251,20 +259,35 @@ namespace WizardsVRC.EditorTools
                 client.hubReturn = arrivals[k];             // fled: still on this floor, try again
                 client.defeatReturn = sigil.outside;        // beaten: back out by the sigil
                 client.victoryReturn = arrivals[k + 1];     // won: up to the next floor (the roof after the boss)
-                client.padTitle = (isTop ? "The Top: " + bossName : "Floor " + (k + 1) + " of " + floors) + "\nStep into the ring to fight";
+                client.padTitle = (isTop ? "The Top: " + bossName : "Floor " + (k + 1) + " of " + floors) + "\nRun into a monster to fight";
                 client.padLabel = WorldText(room, "RingSign", new Vector3(0, 5.2f, -2.5f), Quaternion.identity, new Vector2(1100, 220), 0.0045f, client.padTitle, 44);
                 DressSign(client.padLabel, 1000f, 210f, false);
 
-                // Step into the ring to start the countdown; everyone inside when it ends fights.
-                var zone = Child(troot, "TowerZone" + k, c + new Vector3(0, 1.5f, 0));
-                var box = zone.gameObject.AddComponent<BoxCollider>();
-                box.isTrigger = true;
-                box.size = new Vector3(DuelCircleRadius * 1.6f, 3f, DuelCircleRadius * 1.6f);
-                var pad = UdonSharpUndo.AddComponent<BattleQueuePad>(zone.gameObject);
-                pad.client = client;
-                pad.keepQueued = true;
-                pad.zoneRadius = DuelCircleRadius * 1.1f;
-                wb.behaviours.Add(pad);
+                // Their beat: back and forth along the far (north) side of the chamber, well away from where you arrive.
+                var patrol = Child(troot, "TowerPatrol" + k, c);
+                float pr = DuelCircleRadius + 1.4f;
+                float[] beat = { 15f, 50f, 90f, 130f, 165f };
+                var path = new Transform[beat.Length];
+                float length = 0f;
+                for (int i = 0; i < beat.Length; i++)
+                {
+                    path[i] = Child(patrol, "Waypoint" + i, TPolar(Vector3.zero, pr, beat[i], 0.05f));
+                    if (i > 0) length += Vector3.Distance(path[i - 1].localPosition, path[i].localPosition);
+                }
+                for (int w = 0; w < walkers; w++)
+                {
+                    var wd = MakeWanderer(patrol, client, cardDb, m.wandererMonsters[w], "Wanderer" + w);
+                    wd.wandererIndex = w;
+                    wd.contactRadius = DuelCircleRadius + 8f;
+                    wd.path = path;
+                    wd.loop = false;
+                    wd.speed = isTop ? 0.7f : 1f;
+                    wd.phaseOffset = length * 2f * w / walkers;
+                    wd.laneManagers = new[] { m };
+                    wd.laneClients = new[] { client };
+                    wb.behaviours.Add(wd);
+                }
+                if (!wb.monsterTargets.ContainsKey(rosters[k][0])) wb.monsterTargets[rosters[k][0]] = path[2];
 
                 // The floor: its leader across the ring and the greeting.
                 var floor = UdonSharpUndo.AddComponent<TowerFloor>(room.gameObject);
@@ -278,9 +301,7 @@ namespace WizardsVRC.EditorTools
                 floor.towerName = towerName;
                 floor.clearBits = 1 | (1 << (1 + Mathf.Min(index, 28)));
                 floor.clearShards = 5;
-                var stand = Child(room, "Leader", new Vector3(0, 0.05f, DuelCircleRadius + 2.2f));
-                stand.localRotation = Quaternion.LookRotation(Vector3.back);
-                floor.idleBody = MonsterBody(stand, cardDb, rosters[k][0], "LeaderBody");
+                // The leader is the first of the walkers (no stand-in body: the monsters are right there).
                 TowerDialog(room, floor, cardDb.MonsterSchool(rosters[k][0]));
                 client.towerFloor = floor;
                 wb.behaviours.Add(floor);
