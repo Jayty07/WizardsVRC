@@ -404,6 +404,15 @@ namespace WizardsVRC
         private float _fxStart, _fxStrike, _fxSeconds;
         private Vector3 _fxFrom, _fxTo, _fxAreaPos;
         private Transform _fxSummon, _fxBolt, _fxArea;
+        // The creature's beats (PlaySpellAnimation / AnimateCreature): the circle it rises from, its pillar of light, the
+        // sparkle bursts, its Animator, its kind of body, where it's summoned and where it strikes.
+        private Transform _fxCircle, _fxBeam, _fxBurstT;
+        private ParticleSystem _fxBurst;
+        private Animator _fxRigAnim;
+        private int _fxKind, _fxCue;
+        private bool _fxAoe;
+        private Vector3 _fxPad, _fxGoal;
+        private const int RIG_BIPED = 0, RIG_BEAST = 1, RIG_FLYER = 2, RIG_PLANT = 3;
 
         private Color _cardDim = new Color(0.35f, 0.35f, 0.35f);
         private Color _faceOn = new Color(0.93f, 0.87f, 0.72f);
@@ -1640,43 +1649,210 @@ namespace WizardsVRC
             _fxSummon = t.Find("Summon");
             _fxBolt = t.Find("Projectile");
             _fxArea = t.Find("Area");
-            if (_fxSummon != null) { _fxSummon.gameObject.SetActive(_fxMode == 1); _fxSummon.position = pos; _fxSummon.localScale = Vector3.one * 0.01f; }
-            if (_fxBolt != null) { _fxBolt.gameObject.SetActive(_fxMode == 2); _fxBolt.position = pos + Vector3.up * 1.3f; }
+            _fxCircle = t.Find("Circle");
+            _fxBeam = _fxCircle != null ? _fxCircle.Find("Beam") : null;
+            _fxBurstT = t.Find("Burst");
+            _fxBurst = _fxBurstT != null ? _fxBurstT.GetComponent<ParticleSystem>() : null;
+            Transform rig = _fxSummon != null ? _fxSummon.Find("Rig") : null;
+            _fxRigAnim = rig != null ? rig.GetComponent<Animator>() : null;
+            _fxKind = cardDatabase.AnimKind(_stepCard);
+            _fxAoe = cardDatabase.IsAoe(_stepCard);
+            _fxCue = 0;
+            // A creature is summoned a little in front of its caster and strikes its target (the middle of the side, for
+            // spells that hit everyone).
+            Vector3 fwd = dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.forward;
+            _fxPad = pos + fwd * 1.8f;
+            _fxGoal = _fxAoe ? _fxAreaPos : _fxTo;
+            if (_fxSummon != null) { _fxSummon.gameObject.SetActive(_fxMode == 1); _fxSummon.position = _fxPad + Vector3.down * 2f; _fxSummon.rotation = Quaternion.LookRotation(fwd); _fxSummon.localScale = Vector3.one * 0.01f; }
+            if (_fxBolt != null) { _fxBolt.gameObject.SetActive(_fxMode == 2); _fxBolt.position = pos + Vector3.up * 2.3f; _fxBolt.localScale = Vector3.one * 0.01f; }
             if (_fxArea != null)
             {
                 _fxArea.gameObject.SetActive(_fxMode == 3);
                 _fxArea.position = _fxAreaPos;
                 _fxArea.rotation = Quaternion.LookRotation(dir.sqrMagnitude > 0.001f ? dir : Vector3.forward);
             }
+            // The circle: under the creature as it's summoned, or marking where an area spell is about to land.
+            if (_fxCircle != null)
+            {
+                _fxCircle.gameObject.SetActive(_fxMode == 1 || _fxMode == 3);
+                _fxCircle.position = _fxMode == 1 ? _fxPad : _fxAreaPos;
+                _fxCircle.localScale = Vector3.one * 0.01f;
+            }
+            if (_fxBeam != null) _fxBeam.localScale = new Vector3(1f, 0.01f, 1f);
             anim.SetActive(true);
             _spellAnim = anim;
         }
 
-        /// <summary>Moves the spell's creature (it appears, charges or flies at the target, then fades) and its bolt.</summary>
+        /// <summary>Plays the spell's animation out frame by frame: the creature's beats, the bolt's flight, the circle.</summary>
         private void AnimateSpellFx()
         {
             float t = Time.time - _fxStart;
-            Vector3 dir = _fxTo - _fxFrom;
-            dir.y = 0f;
-            float len = dir.magnitude;
-            dir = len > 0.01f ? dir / len : Vector3.forward;
-            if (_fxMode == 1 && _fxSummon != null)
-            {
-                float appear = Mathf.Clamp01(t / 0.35f);
-                float fade = Mathf.Clamp01((_fxSeconds - t) / 0.4f);
-                float go = Mathf.Clamp01((t - 0.45f) / Mathf.Max(0.1f, _fxStrike - 0.45f));
-                Vector3 stop = _fxTo - dir * Mathf.Min(1.6f, len * 0.4f);
-                _fxSummon.position = Vector3.Lerp(_fxFrom, stop, go * go) + Vector3.up * (Mathf.Sin(go * Mathf.PI) * 0.8f);
-                _fxSummon.rotation = Quaternion.LookRotation(dir);
-                _fxSummon.localScale = Vector3.one * Mathf.Max(0.01f, appear * fade);
-            }
-            if (_fxMode == 2 && _fxBolt != null && _fxBolt.gameObject.activeSelf)
-            {
-                float o = Mathf.Clamp01(t / _fxStrike);
-                _fxBolt.position = Vector3.Lerp(_fxFrom + Vector3.up * 1.3f, _fxTo + Vector3.up * 1.1f, o) + Vector3.up * (Mathf.Sin(o * Mathf.PI) * 0.8f);
-                _fxBolt.rotation = Quaternion.LookRotation((_fxTo - _fxFrom).sqrMagnitude > 0.001f ? _fxTo - _fxFrom : Vector3.forward);
-            }
+            if (_fxMode == 1 && _fxSummon != null) AnimateCreature(t);
+            if (_fxMode == 2 && _fxBolt != null && _fxBolt.gameObject.activeSelf) AnimateBolt(t);
+            if (_fxCircle != null && _fxCircle.gameObject.activeSelf) AnimateSummonCircle(t);
             if (t > _fxSeconds + 0.2f) _HideSpellAnimation();
+        }
+
+        private float Ease(float x)
+        {
+            x = Mathf.Clamp01(x);
+            return x * x * (3f - 2f * x);
+        }
+
+        private void Cue(string trigger)
+        {
+            if (_fxRigAnim != null) _fxRigAnim.SetTrigger(trigger);
+        }
+
+        private void Sparkle(Vector3 at, int count)
+        {
+            if (_fxBurst == null) return;
+            _fxBurstT.position = at;
+            _fxBurst.Emit(count);
+        }
+
+        /// <summary>
+        /// A summoned creature's attack, in beats:
+        ///   0 - 0.55 s   the circle opens in a pillar of light and the creature rises out of it, growing to full size
+        ///   - 0.95 s     it rears up (its cast pose) and draws back
+        ///   - strike     the attack, by body: walkers run in and swing, beasts dash and pounce, flyers climb and dive
+        ///   strike       it hits (the spell's burst on the target, the results land)
+        ///   - end        it's thrown back off the target, hangs a moment, and breaks apart into sparkles
+        /// </summary>
+        private void AnimateCreature(float t)
+        {
+            float S = _fxStrike, T = _fxSeconds;
+            Vector3 flat = _fxGoal - _fxPad;
+            flat.y = 0f;
+            float len = flat.magnitude;
+            Vector3 dir = len > 0.01f ? flat / len : Vector3.forward;
+            float size = _fxAoe ? 1.3f : 1f;
+            Vector3 from = _fxPad - dir * 0.35f;
+            Vector3 stop = _fxGoal - dir * Mathf.Min(1.4f, len * 0.35f);
+            stop.y = _fxGoal.y;
+
+            // One-off cues as each beat starts.
+            if (_fxCue == 0 && t >= 0.15f) { _fxCue = 1; Sparkle(_fxPad + Vector3.up * 0.3f, 45); }
+            if (_fxCue == 1 && t >= 0.55f) { _fxCue = 2; Cue("Cast"); }
+            if (_fxCue == 2 && t >= 0.95f) { _fxCue = 3; if (_fxKind != RIG_FLYER) Cue("Walk"); }
+            if (_fxCue == 3 && t >= S - 0.3f) { _fxCue = 4; Cue("Cast"); }
+            if (_fxCue == 4 && t >= S) { _fxCue = 5; Cue("Hit"); Sparkle(_fxGoal + Vector3.up * 1.1f, 35); }
+            if (_fxCue == 5 && t >= T - 0.55f) { _fxCue = 6; Sparkle(_fxSummon.position + Vector3.up * 0.9f * size, 60); }
+
+            Vector3 p;
+            Vector3 face = dir;
+            float scale = size;
+            if (t < 0.55f)
+            {
+                float r = Ease((t - 0.15f) / 0.4f);
+                p = _fxPad + Vector3.up * Mathf.Lerp(-1.4f, 0f, r) * size;
+                scale = Mathf.Lerp(0.45f, 1f, r) * size;
+                if (t < 0.15f) scale = 0.01f;
+            }
+            else if (t < 0.95f)
+            {
+                float r = (t - 0.55f) / 0.4f;
+                p = _fxPad - dir * (Mathf.Sin(r * Mathf.PI * 0.5f) * 0.35f);
+            }
+            else if (t < S)
+            {
+                float r = Mathf.Clamp01((t - 0.95f) / Mathf.Max(0.1f, S - 0.95f));
+                if (_fxKind == RIG_FLYER)
+                {
+                    // Up into the air above the field, then a dive at the target.
+                    Vector3 high = Vector3.Lerp(from, stop, 0.3f) + Vector3.up * 3.2f * size;
+                    Vector3 end = stop + Vector3.up * 0.5f;
+                    if (r < 0.4f)
+                    {
+                        p = Vector3.Lerp(from, high, Ease(r / 0.4f));
+                        face = dir;
+                    }
+                    else
+                    {
+                        float a = (r - 0.4f) / 0.6f;
+                        p = Vector3.Lerp(high, end, a * a);
+                        face = (end - high).normalized;
+                    }
+                }
+                else if (_fxKind == RIG_BEAST)
+                {
+                    // A dash, then a pounce.
+                    Vector3 leap = Vector3.Lerp(from, stop, 0.5f);
+                    if (r < 0.6f)
+                    {
+                        float a = r / 0.6f;
+                        p = Vector3.Lerp(from, leap, a * a);
+                    }
+                    else
+                    {
+                        float a = (r - 0.6f) / 0.4f;
+                        p = Vector3.Lerp(leap, stop, a) + Vector3.up * (Mathf.Sin(a * Mathf.PI) * 1.8f * size);
+                    }
+                }
+                else
+                {
+                    // A charge, bounding, gathering speed into the blow.
+                    p = Vector3.Lerp(from, stop, r * r) + Vector3.up * (Mathf.Abs(Mathf.Sin(r * Mathf.PI * 3f)) * 0.15f);
+                }
+            }
+            else
+            {
+                // Thrown back off the target, then gone in a burst of sparkles.
+                float r = Ease((t - S) / 0.35f);
+                p = stop - dir * (1.1f * r) + Vector3.up * (Mathf.Sin(Mathf.Clamp01((t - S) / 0.35f) * Mathf.PI) * 0.4f);
+                float vanish = Mathf.Clamp01((t - (T - 0.55f)) / 0.5f);
+                scale = size * (1f - vanish);
+                p += Vector3.up * (vanish * 0.8f);
+            }
+            if (_fxKind != RIG_FLYER) face.y = 0f;
+            _fxSummon.position = p;
+            if (face.sqrMagnitude > 0.0001f) _fxSummon.rotation = Quaternion.LookRotation(face);
+            _fxSummon.localScale = Vector3.one * Mathf.Max(0.01f, scale);
+        }
+
+        /// <summary>A bolt gathers over its caster's head, then streaks in, faster and faster, to burst on the target.</summary>
+        private void AnimateBolt(float t)
+        {
+            float charge = Mathf.Min(_fxStrike * 0.42f, 0.5f);
+            Vector3 start = _fxFrom + Vector3.up * 2.3f;
+            Vector3 end = _fxTo + Vector3.up * 1.1f;
+            if (t < charge)
+            {
+                _fxBolt.position = start;
+                _fxBolt.localScale = Vector3.one * Mathf.Lerp(0.2f, 1.35f, Ease(t / charge));
+                if (_fxCue == 0) { _fxCue = 1; Sparkle(start, 30); }
+            }
+            else
+            {
+                float o = Mathf.Clamp01((t - charge) / Mathf.Max(0.1f, _fxStrike - charge));
+                _fxBolt.position = Vector3.Lerp(start, end, o * o) + Vector3.up * (Mathf.Sin(o * Mathf.PI) * 0.5f);
+                _fxBolt.localScale = Vector3.one * Mathf.Lerp(1.35f, 1f, o);
+            }
+            Vector3 d = end - start;
+            if (d.sqrMagnitude > 0.001f) _fxBolt.rotation = Quaternion.LookRotation(d);
+        }
+
+        /// <summary>
+        /// The summoning circle: it spins open with a pillar of light, then closes once the creature is out. Under an area
+        /// spell it marks where it will land until the strike.
+        /// </summary>
+        private void AnimateSummonCircle(float t)
+        {
+            float open = _fxMode == 1 ? 0.15f : 0.35f;
+            float close0 = _fxMode == 1 ? 0.6f : _fxStrike;
+            float close1 = close0 + (_fxMode == 1 ? 0.35f : 0.25f);
+            float s = t < open ? Ease(t / open) : t < close0 ? 1f : 1f - Ease((t - close0) / (close1 - close0));
+            if (t >= close1) { _fxCircle.gameObject.SetActive(false); return; }
+            float pulse = 1f + 0.04f * Mathf.Sin(t * 18f);
+            _fxCircle.localScale = new Vector3(s * pulse * (_fxAoe ? 1.4f : 1f), 1f, s * pulse * (_fxAoe ? 1.4f : 1f));
+            _fxCircle.rotation = Quaternion.Euler(0f, t * 140f, 0f);
+            if (_fxBeam != null)
+            {
+                // The pillar shoots up as the creature starts to rise and thins away as it comes out.
+                float h = _fxMode == 1 ? Mathf.Clamp01((t - 0.05f) / 0.15f) * 2.2f : 0.01f;
+                float w = _fxMode == 1 ? 1f - Ease((t - 0.25f) / 0.3f) : 0f;
+                _fxBeam.localScale = new Vector3(Mathf.Max(0.01f, w), Mathf.Max(0.01f, h), Mathf.Max(0.01f, w));
+            }
         }
 
         public void _HideSpellAnimation()
@@ -1685,6 +1861,7 @@ namespace WizardsVRC
             if (_fxSummon != null) _fxSummon.gameObject.SetActive(false);
             if (_fxBolt != null) _fxBolt.gameObject.SetActive(false);
             if (_fxArea != null) _fxArea.gameObject.SetActive(false);
+            if (_fxCircle != null) _fxCircle.gameObject.SetActive(false);
             _spellAnim = null;
             _animImpact = false;
         }

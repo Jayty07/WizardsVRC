@@ -94,14 +94,16 @@ namespace WizardsVRC.EditorTools
             {
                 // No creature: a bolt for single targets, rain or a burst over the far side for area spells.
                 if (aoe) { L.mode = FxArea; L.area = Has(n, "rain", "gale", "swarm", "sandstorm", "storm") ? "Rain" : "Pillar"; L.strike = 1.1f; L.seconds = 2f; }
-                else { L.mode = FxBolt; L.strike = 0.7f; L.seconds = 1.5f; }
+                else { L.mode = FxBolt; L.strike = 1f; L.seconds = 1.7f; }   // gathers over the caster, then streaks in
                 return L;
             }
             L.mode = FxCreature;
             L.creature = look;
             L.creatureScale = 0.6f + db.pipCosts[i] * 0.22f;
-            L.strike = 1.2f;
-            L.seconds = 2.2f;
+            // Circle opens and it rises (0-0.55 s), rears up (to 0.95 s), runs, pounces or dives in and strikes (1.9 s), is
+            // thrown back and breaks into sparkles (3 s). BattleClient plays the beats.
+            L.strike = 1.9f;
+            L.seconds = 3f;
             if (aoe) L.area = "Rain";
             return L;
         }
@@ -118,6 +120,7 @@ namespace WizardsVRC.EditorTools
             db.animModes = new int[n];
             db.animStrikes = new float[n];
             db.animSeconds = new float[n];
+            db.animKinds = new int[n];
             db.cardArt = new Texture[n];
             int built = 0, arts = 0;
             Directory.CreateDirectory(CardArtDir);
@@ -139,6 +142,7 @@ namespace WizardsVRC.EditorTools
                 else fx = BuildSpellFx(holder, db.ids[i], look, col);
                 fx.name = db.ids[i] + " " + db.names[i];
                 db.animModes[i] = look.mode;
+                db.animKinds[i] = look.mode == FxCreature && look.creature != null ? (int)look.creature.kind : -1;
                 db.animStrikes[i] = look.strike;
                 db.animSeconds[i] = look.seconds;
                 // The card's art, from the animation itself.
@@ -176,7 +180,7 @@ namespace WizardsVRC.EditorTools
                 foreach (var r in rigRoot.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 rigRoot.localScale = Vector3.one * look.creatureScale;
                 var anim = rigRoot.gameObject.AddComponent<Animator>();
-                anim.runtimeAnimatorController = RigController(look.creature.kind, true, look.creature.heavy);
+                anim.runtimeAnimatorController = SpellRigController(look.creature.kind, look.creature.heavy);
                 anim.applyRootMotion = false;
                 // A sparkle trail behind it as it moves.
                 var trail = SpellParticles(summon, "Trail", col, 25f, 0.6f, 0.3f, true);
@@ -195,7 +199,34 @@ namespace WizardsVRC.EditorTools
             var area = Child(root, "Area", Vector3.zero);
             BuildArea(area, look, id, col, glow, core);
             area.gameObject.SetActive(false);
+            SummonCircle(root, col, glow, core);
+            // Sparkles BattleClient throws out at each beat (the creature rising, striking, breaking up).
+            var burst = SpellParticles(root, "Burst", col, 0f, 0.9f, 0.22f, false);
+            var bm = burst.main;
+            bm.loop = true;
+            bm.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 4f);
+            bm.gravityModifier = -0.15f;
+            bm.maxParticles = 200;
             return root.gameObject;
+        }
+
+        /// <summary>
+        /// The summoning circle a creature rises out of (and that marks where an area spell will land): a glowing disc with a
+        /// brighter core, six standing rune stones, and a pillar of light ("Beam", a pivot on the ground BattleClient grows).
+        /// </summary>
+        private static void SummonCircle(Transform root, Color col, Material glow, Material core)
+        {
+            var circle = Child(root, "Circle", Vector3.zero);
+            Shape(circle, "Disc", CylMesh(), new Vector3(0, 0.03f, 0), new Vector3(2.8f, 0.01f, 2.8f), glow, false, Quaternion.identity);
+            Shape(circle, "Core", CylMesh(), new Vector3(0, 0.05f, 0), new Vector3(1.9f, 0.01f, 1.9f), core, false, Quaternion.identity);
+            Shape(circle, "Hub", CylMesh(), new Vector3(0, 0.07f, 0), new Vector3(0.9f, 0.01f, 0.9f), glow, false, Quaternion.identity);
+            for (int k = 0; k < 6; k++)
+                Shape(circle, "Rune" + k, GemMesh(), TPolar(Vector3.zero, 1.55f, k * 60f, 0.35f), new Vector3(0.18f, 0.4f, 0.18f), core, false, Quaternion.Euler(0, k * 60f, 0));
+            var beam = Child(circle, "Beam", Vector3.zero);
+            Shape(beam, "BeamShape", CylMesh(), new Vector3(0, 1f, 0), new Vector3(1.2f, 1f, 1.2f), core, false, Quaternion.identity);
+            foreach (var t in circle.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = false;
+            foreach (var r in circle.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            circle.gameObject.SetActive(false);
         }
 
         /// <summary>The effect on the target: its shapes animate once (a clip on an Animator) each time it's switched on.</summary>

@@ -12,8 +12,8 @@ namespace WizardsVRC.EditorTools
     ///     and lightning for Storm, a sunlit glade for Life, a moonlit graveyard for Death, a golden sunburst for Myth, a
     ///     sunset over dunes for Balance, a starry dusk for General. Each card's is a little different (seeded by its id).
     ///   - The subject, drawn bold with a dark outline, a rim of the school's light and a glow behind it: attack spells show
-    ///     their creature mid-cast (the same rig that's summoned in battle), their bolt streaking in, or their rain or
-    ///     burst; heals their bloom; minions their portal. Shields, blades, traps and charms show their emblem (the
+    ///     their creature mid-attack with speed streaks behind it (the same rig that's summoned in battle: diving, pouncing
+    ///     or swinging, as it does in the duel), their bolt streaking in, or their rain or burst; heals their bloom; minions their portal. Shields, blades, traps and charms show their emblem (the
     ///     game's own icons), with two smaller ones behind for the three-way spells.
     ///   - School motes over it all (embers, snowflakes, sparks, petals, wisps, sand), a vignette, and the PS1's 15-bit
     ///     colour with its ordered dither.
@@ -399,7 +399,13 @@ namespace WizardsVRC.EditorTools
             copy.transform.localPosition = Vector3.zero;
             bool creature = look.mode == FxCreature, bolt = look.mode == FxBolt;
             // Creatures in three-quarter view turned towards the right of the picture; bolts streaking up to the right.
-            copy.transform.localRotation = creature ? Quaternion.Euler(0f, 145f, 0f) : bolt ? Quaternion.Euler(0f, 0f, 25f) * Quaternion.Euler(0f, 90f, 0f) : Quaternion.Euler(0f, 180f, 0f);
+            // Attacking, as on the card it springs from: flyers pitched into their dive, beasts reared up mid-pounce, the rest
+            // leaning into the blow.
+            float pitch = 0f;
+            if (creature && look.creature != null)
+                pitch = look.creature.kind == RigKind.Floater ? 20f : look.creature.kind == RigKind.Quadruped ? -16f : 7f;
+            copy.transform.localRotation = creature ? Quaternion.Euler(0f, 145f, 0f) * Quaternion.Euler(pitch, 0f, 0f)
+                                         : bolt ? Quaternion.Euler(0f, 0f, 25f) * Quaternion.Euler(0f, 90f, 0f) : Quaternion.Euler(0f, 180f, 0f);
             Transform summon = copy.transform.Find("Summon"), proj = copy.transform.Find("Projectile"), area = copy.transform.Find("Area");
             if (summon != null) summon.gameObject.SetActive(creature);
             if (proj != null) proj.gameObject.SetActive(bolt);
@@ -505,7 +511,7 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>Lays a rendered subject over the backdrop: a glow behind it, a streak behind a bolt, a dark outline and a rim of light.</summary>
-        private static bool ArtComposite(Color[] px, Color[] subject, int school, bool bolt)
+        private static bool ArtComposite(Color[] px, Color[] subject, int school, bool bolt, int streaks, Vector2 streakDir, System.Random rng)
         {
             if (subject == null) return false;
             var on = new bool[ArtW * ArtH];
@@ -536,6 +542,21 @@ namespace WizardsVRC.EditorTools
                     Vector2 nrm = new Vector2(-back.y, back.x);
                     for (float s = -half; s <= half; s += 0.5f)
                         Put(px, Mathf.RoundToInt(p.x + nrm.x * s), Mathf.RoundToInt(p.y + nrm.y * s), Color.Lerp(Color.white, light, Mathf.Abs(s) / Mathf.Max(half, 0.5f)), (1f - f) * 0.75f);
+                }
+            }
+            // Speed streaks trailing off its back edge (creatures caught mid-attack).
+            for (int k = 0; k < streaks; k++)
+            {
+                int sy = y0 + Mathf.RoundToInt((y1 - y0) * (k + 0.5f) / streaks) + rng.Next(-2, 3);
+                if (sy < 0 || sy >= ArtH) continue;
+                int sx = -1;
+                for (int x = 0; x < ArtW; x++) if (on[sy * ArtW + x]) { sx = x; break; }
+                if (sx < 0) continue;
+                int length = rng.Next(10, 27);
+                for (int j = 2; j < length; j++)
+                {
+                    float f = j / (float)length;
+                    Put(px, Mathf.RoundToInt(sx + streakDir.x * j), Mathf.RoundToInt(sy + streakDir.y * j), Color.Lerp(Color.white, light, f), (1f - f) * 0.7f);
                 }
             }
             for (int y = 0; y < ArtH; y++)
@@ -588,7 +609,13 @@ namespace WizardsVRC.EditorTools
                     drawn = true;
                 }
             }
-            if (!drawn && look.mode != FxLegacy) drawn = ArtComposite(px, RenderArtSubject(fx, look), school, look.mode == FxBolt);
+            if (!drawn && look.mode != FxLegacy)
+            {
+                bool flyer = look.mode == FxCreature && look.creature != null && look.creature.kind == RigKind.Floater;
+                int streaks = look.mode == FxCreature ? 6 : 0;
+                Vector2 back = flyer ? new Vector2(-0.86f, -0.5f) : new Vector2(-1f, 0f);   // flyers dive in from the upper left
+                drawn = ArtComposite(px, RenderArtSubject(fx, look), school, look.mode == FxBolt, streaks, back, rng);
+            }
             if (!drawn)
             {
                 // Nothing to show: the school's own symbol.

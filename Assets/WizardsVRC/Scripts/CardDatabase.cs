@@ -257,6 +257,8 @@ namespace WizardsVRC
         [HideInInspector] public float[] animStrikes;
         [Tooltip("How long the animation lasts.")]
         [HideInInspector] public float[] animSeconds;
+        [Tooltip("A creature spell's body: 0 biped, 1 four-legged, 2 flying, 3 plant, 4 other (-1 = no creature). How it attacks.")]
+        [HideInInspector] public int[] animKinds;
         [Tooltip("Each spell's card art (rendered from its animation by the builder).")]
         public Texture[] cardArt;
 
@@ -297,6 +299,7 @@ namespace WizardsVRC
         public int GetPower(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : powers[i]; }
         public int GetEffect(int cardId) { int i = IndexOf(cardId); return i < 0 ? EFFECT_DAMAGE : effects[i]; }
         public int AnimMode(int cardId) { int i = IndexOf(cardId); return i < 0 || animModes == null || i >= animModes.Length || GetAnimation(cardId) == null ? 0 : animModes[i]; }
+        public int AnimKind(int cardId) { int i = IndexOf(cardId); return i < 0 || animKinds == null || i >= animKinds.Length ? -1 : animKinds[i]; }
         public float AnimStrike(int cardId) { int i = IndexOf(cardId); return i < 0 || animStrikes == null || i >= animStrikes.Length ? 0f : animStrikes[i]; }
         /// <summary>Seconds the spell's animation takes after its wind-up (0 = it has none).</summary>
         public float AnimSeconds(int cardId) { int i = IndexOf(cardId); return AnimMode(cardId) == 0 || animSeconds == null || i >= animSeconds.Length ? 0f : animSeconds[i]; }

@@ -549,6 +549,50 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>
+        /// The Animator controller for a summoned spell creature: it starts in Idle and BattleClient cues each beat of the
+        /// attack with a trigger from any state: Walk (the run in), Cast (rearing up, the blow), Hit (thrown back off the
+        /// target), Die, and Idle to settle. Cast and Hit go back to Idle on their own.
+        /// </summary>
+        private static RuntimeAnimatorController SpellRigController(RigKind kind, bool heavy)
+        {
+            string key = "Spell_" + kind + (heavy ? "_Heavy" : "");
+            RuntimeAnimatorController rc;
+            if (_rigControllers.TryGetValue(key, out rc)) return rc;
+            Directory.CreateDirectory(RigDir);
+            var ctrl = AnimatorController.CreateAnimatorControllerAtPath(RigDir + "/Rig_" + key + ".controller");
+            var clips = RigClips(kind);
+            foreach (var c in clips) AssetDatabase.AddObjectToAsset(c, ctrl);
+            var sm = ctrl.layers[0].stateMachine;
+            float speed = heavy ? 0.8f : 1f;
+            string[] names = { "Idle", "Walk", "Hit", "Cast", "Die" };
+            var states = new AnimatorState[5];
+            for (int i = 0; i < 5; i++)
+            {
+                states[i] = sm.AddState(names[i]);
+                states[i].motion = clips[i];
+                states[i].speed = i == 1 ? speed * 1.6f : speed;   // a run, not a stroll
+                ctrl.AddParameter(names[i], AnimatorControllerParameterType.Trigger);
+                var t = sm.AddAnyStateTransition(states[i]);
+                t.AddCondition(AnimatorConditionMode.If, 0, names[i]);
+                t.duration = 0.06f;
+                t.hasExitTime = false;
+                t.canTransitionToSelf = i == 2 || i == 3;
+            }
+            sm.defaultState = states[0];
+            foreach (int i in new[] { 2, 3 })
+            {
+                var back = states[i].AddTransition(states[0]);
+                back.hasExitTime = true;
+                back.exitTime = 0.95f;
+                back.duration = 0.1f;
+            }
+            EditorUtility.SetDirty(ctrl);
+            AssetDatabase.SaveAssets();
+            _rigControllers[key] = ctrl;
+            return ctrl;
+        }
+
+        /// <summary>
         /// The Animator controller for a kind of rig: battle bodies start in Idle and take the Cast, Hit and Die triggers
         /// (Hit and Cast go back to Idle; Die holds); patrol bodies only walk. Heavy constructs move a little slower.
         /// </summary>
