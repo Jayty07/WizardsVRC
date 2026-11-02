@@ -275,6 +275,8 @@ namespace WizardsVRC.EditorTools
             streets.Add(homeTeleport);
             // Notices, tooltips, titles and auras, elixirs, the Starshard Shop and the gold shops (WizardsVRCSceneBuilder.Cosmetics.cs).
             WireExtras(systems.transform, playerState, itemDb, cardDb, book, hud, deckPages, questManager, null, encounters);
+            // Every word in the book (every tab, the cards, the wardrobe and shop pages) in the pixel font, like the signs.
+            if (book.bookRoot != null) ApplyCombatFont(book.bookRoot.transform);
             // Pop-up panels stay clickable when they open inside an NPC's or door's click box.
             var muter = UdonSharpUndo.AddComponent<InteractMuter>(Child(systems.transform, "InteractMuter", Vector3.zero).gameObject);
             muter.panels = new[]
