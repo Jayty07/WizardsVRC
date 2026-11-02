@@ -214,8 +214,46 @@ swells and breaks in surf on the island. (The boss arena is still reached by its
 leads to the Headmaster's office.)
 
 Travel **between worlds** goes through the **portal room**, through the door on the west wall of the Headmaster's study:
-a round chamber with five arches. Starfall Isle's always glows; World 2's lights up once you finish quest 16
-(it says "coming soon" until World 2 is built); the other three stay dark.
+a round chamber with five arches. Starfall Isle's always glows; World 2's lights up once you finish quest 16 and takes
+you through to **Archrock**, Dustwind's town (the sandstone arch at its south end brings you back); the other three stay
+dark.
+
+## World 2: Dustwind (Lv 13-25)
+
+A Wild West world (see the World 2 plan): the Dominion's Railmaster, **Ironhand Calloway**, is laying the Iron Line across
+Dustwind to drive its last spike into the **Heartstone** under Thunder Mesa. It's all in the same VRChat world as
+Starfall Isle (saves can't cross worlds); every Dustwind area is switched off for anyone not in it.
+
+**Archrock** is the town (it plays the castle's part): Marshal Ada Quickwater's office and the bounty board on High
+Street, the **Dusty Lantern Saloon** (a two-storey timber saloon with everything the Crystal Tap has: the jukebox, here a
+player piano whose keys move while it plays, the mug bell, seats, the mirror and a pot-belly stove), four shops selling
+Dustwind's gear (Lv 13+), the **High Noon Circle**, the corral's straw dummies, the depot and six trails out of town:
+
+| Street | Lv | Boss | Storyline (save ids) |
+| --- | --- | --- | --- |
+| Tumbleweed Row | 13-14 | Bad Penny | The Stagecoach Robberies (44-47) |
+| Coyote Gulch | 14-16 | Old Mesquite | Bone Dry (48-51) |
+| Copperbottom Mine | 16-18 | Foreman Grist (the mine is a dungeon) | Light in the Dark (52-55) |
+| Iron Line Railyard | 18-20 | Captain Vesper and the Juggernaut | Full Steam (56-59) |
+| Thunder Mesa | 20-22 | Stone Warden Prime | The Wardens' Trust (60-63) |
+| Lonesome Bend | 22-25 | Railmaster Calloway, in the drill fortress (a dungeon) | Ghosts of Lonesome Bend (64-67) |
+
+Ten storylines (with Deputized 41-43 in town, Water for Archrock 68-70, Wanted 71-73 and The Missing Songbook 74-75) lead
+to the finale, *Last Spike* (76-77). Seven school side quests (78-84) each teach a utility spell early, and **the Midnight
+Express** (quest 85, Old Silas at Lonesome Bend from level 22) is the secret boss: ring the old station's bell and duel it
+on a flatbed car with the desert rushing past (the *Ghost Rider* title). Monsters are ids 28-53.
+
+- **Railroad:** walk past a street's whistle stop (by its way in) once, then ride the train there from Archrock's depot
+  (and back from any stop): a few seconds in a passenger car with the desert going by, then you step off.
+- **Bounty board** (from level 17): three wanted posters at a time; battles count toward them anywhere, turn them in at
+  the board for gold and Starshards (the Bounty Hunter, Lawman and Legend of the West titles at 3, 10 and 25).
+- **High Noon:** Archrock's day runs on the server clock (20 minutes); for 3 minutes round each noon, duels won in the
+  High Noon Circle pay +5 Starshards (the High Noon Duelist title at 5 wins).
+- **Dust storms:** every 9 minutes a storm blows through each street in turn for about a minute (orange fog, blowing
+  sand). Everyone on the street sees the same storm. It's only a look.
+
+Spell levels were moved so Dustwind has new spells to learn: each school's rank 4 attack at **18**, its shield at
+**20**, its second rank 4 spell at **22** and its rank 5 attack at **25** (they were 26, 22, 28 and 42).
 
 ## Duels (PvP)
 

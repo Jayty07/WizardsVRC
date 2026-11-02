@@ -116,6 +116,11 @@ namespace WizardsVRC.EditorTools
             foreach (var go in scene.GetRootGameObjects())
                 foreach (var ds in go.GetComponentsInChildren<DungeonSigil>(true))
                     ds.culler = culler;
+            foreach (var go in scene.GetRootGameObjects())
+            {
+                foreach (var rr in go.GetComponentsInChildren<Railroad>(true)) rr.culler = culler;
+                foreach (var st in go.GetComponentsInChildren<DustStorm>(true)) st.culler = culler;
+            }
             var names = new List<string>();
             foreach (var a in areas) names.Add(a.name);
             Debug.Log("[WizardsVRC] Area culling: " + string.Join(", ", names) + " switch off locally when you're not in them. Draw distance " + DrawDistance() + " m.");

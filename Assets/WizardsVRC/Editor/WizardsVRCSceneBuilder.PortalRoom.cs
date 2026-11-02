@@ -47,10 +47,11 @@ namespace WizardsVRC.EditorTools
 
             // ---- five arches round the north half, facing the middle
             string[] names = { "Starfall Isle", "World 2", "World 3", "World 4", "World 5" };
-            float[] angles = { 0f, -40f, 40f, -80f, 80f };
+            // The finale that opens each later world's arch (World 2 opens with Starfall Isle's finale, quest 16).
+            int[] opens = { -1, 16, 77, -2, -2 };
             for (int i = 0; i < 5; i++)
             {
-                Vector3 dir = Quaternion.Euler(0, angles[i], 0) * Vector3.forward;
+                Vector3 dir = PortalArchDir(i + 1);
                 Quaternion face = Quaternion.LookRotation(-dir);
                 Vector3 c = dir * (PortalRoomRadius - 1.2f);
                 Transform arch = Child(hall, "Arch_" + i, c);
@@ -82,21 +83,34 @@ namespace WizardsVRC.EditorTools
                     shut.SetActive(false);
                     continue;
                 }
-                if (i == 1)
+                var town = TownOfWorld(i + 1);
+                if (opens[i] >= -1 && (i == 1 || town != null))
                 {
-                    // Click the arch: it says it's dark, or that the way is open.
+                    // Click the arch: it says it's dark, or (once the world before is done) takes you through to the town.
                     var hit = arch.gameObject.AddComponent<BoxCollider>();
                     hit.center = new Vector3(0, 2.2f, 0);
                     hit.size = new Vector3(2.6f, 4.4f, 0.4f);
                     var gate = UdonSharpUndo.AddComponent<QuestGate>(arch.gameObject);
                     gate.questManager = qm;
                     gate.playerState = playerState;
-                    gate.requiredQuest = 16;
+                    gate.requiredQuest = opens[i];
                     gate.label = label;
-                    gate.openText = "World 2\n(the way is open: coming soon)";
+                    string world = town != null ? town.zone.displayName + (string.IsNullOrEmpty(town.zone.levelRange) ? "" : "  " + town.zone.levelRange) : names[i];
+                    gate.openText = town != null ? world + "\n(click to step through)" : names[i] + "\n(the way is open: coming soon)";
                     gate.lockedText = "A dark arch";
                     gate.openVisual = lit;
                     gate.closedVisual = shut;
+                    if (town != null)
+                    {
+                        // The teleporter sits on a child without a collider, so only the gate answers the click.
+                        var go = Child(arch, "ToWorld" + (i + 1), Vector3.zero);
+                        var tp = UdonSharpUndo.AddComponent<TeleportHelper>(go.gameObject);
+                        tp.defaultTarget = town.spawn;
+                        tp.showZones = new[] { town.root };
+                        gate.teleporter = tp;
+                        behaviours.Add(tp);
+                        SetInteractText(gate, "Step through to " + town.zone.displayName);
+                    }
                     behaviours.Add(gate);
                     lit.SetActive(false);
                     label.text = gate.lockedText;

@@ -45,6 +45,12 @@ namespace WizardsVRC
             ApplySky(AreaAt(position));
         }
 
+        /// <summary>Sets the sky and fog again on the next check (after something else changed the fog, e.g. a dust storm).</summary>
+        public void RefreshSky()
+        {
+            _skyArea = -2;
+        }
+
         /// <summary>First area whose bounds hold the position (-1 = none).</summary>
         private int AreaAt(Vector3 p)
         {

@@ -175,7 +175,11 @@ NPCs show a floating **!** when they have a quest for you and **?** when one of 
 | Explore | walk into it; advances *Explore* steps (reach the tower, find the cat). *Trigger Size Cells* sets how big |
 | Decoration | scenery, and a guide-arrow target |
 
-Looks: StreetLamp (lights up when used), GlowingItem (disappears when picked up), Crate, Signpost, None.
+Looks: StreetLamp (lights up when used), GlowingItem (disappears when picked up), Crate, Signpost, None, and Dustwind's
+props (mostly for Decoration points): Barrel, Wagon (a cattle car), Stagecoach, OreCart, WaterTower, Windmill, Rails,
+Gravestone, StandingStone, DrillRig, Locomotive and WaterPump. **Rails** lay track toward every neighbouring cell with the
+same symbol (straight runs, corners and junctions); a Wagon or Locomotive next to rails lines up with them and sits on
+track.
 Several cells with the same symbol make several of them (3 lamps = 3 `L`s); a step's count says how many are needed.
 
 ### Landmarks
@@ -197,10 +201,13 @@ stands on (a rotated square) and the paths up to its door.
 | Shop | any | a timber-framed shop or house filling its block: door, striped awning, shop windows, a hanging sign and its **Label** over the door (scenery) |
 | Waterfall | any | paint it on the high side of a drop with water (`~`) below: a stone spring, a channel, the falling water (PSX waterfall shader), foam and spray |
 | Tavern | any | a **round, walk-in tavern** filling the circle inside the block you paint (about 8 x 8 cells; a fountain, NPCs and points may stand inside the block). Doors north, west and south; inside a curved bar to the east with stools, taps, bottle shelves, kegs and a **bell that brings every mug back**, round tables with stools and candles, a **stage** (curtains, coloured lights, instruments) with a **jukebox**: a synced video player whose screen hangs over the curtains and whose music is **only heard inside the tavern** (it fades as you walk out of a door). It starts the default song (`TavernDefaultSong` in `WizardsVRCSceneBuilder.Jukebox.cs`) when an instance opens; on the lectern at the stage's west end anyone can paste a YouTube link and press Play (it plays for everyone), go back to the default song or pause, and each player can mute it or change its volume for themselves, a **hearth** with log seats, a **mirror** each player switches on for themselves, hanging lanterns, and a conical roof open over the middle. Every seat is a VRCStation (click to sit); the mugs are pickups synced for everyone. Paint an NPC anywhere in the tavern's block and they stand behind the bar as its barkeep. |
-| Street Gate | hub | a **tunnel** to **Target Zone** (no portals): a stone mouth (on a round castle, a gatehouse in the curtain wall at the cell's bearing; otherwise at the back of the cell) leading into **mountains**, with a sign; with **Required Quest** its portcullis stays down (showing **Locked Hint**) until that quest is done. The street gets the matching tunnel behind its `S`. See *Travel and the sky* |
+| Street Gate | hub, town | a **tunnel** to **Target Zone** (no portals): a stone mouth (on a round castle, a gatehouse in the curtain wall at the cell's bearing; otherwise at the back of the cell) leading into **mountains**, with a sign; with **Required Quest** its portcullis stays down (showing **Locked Hint**) until that quest is done. The street gets the matching tunnel behind its `S`. See *Travel and the sky* |
 | Arena Pad | hub | the boss arena teleporter (also lockable with Required Quest) |
 | Backpack Pedestal, Notice Board | hub | the book pedestal, and the Change Character / Backpack board (Bank Chest, the old testing chest, is no longer built) |
-| Duel Circle | hub | the **duelling circle** for PvP: paint a round block about 6-7 cells across, all at one height. A mosaic floor, Blue and Red team banners, braziers and a sign with the countdown. Stepping in starts a 15 s countdown; everyone inside when it ends duels in two teams (see the README) |
+| Duel Circle | hub, town | the **duelling circle** for PvP: paint a round block about 6-7 cells across, all at one height. A mosaic floor, Blue and Red team banners, braziers and a sign with the countdown. Stepping in starts a 15 s countdown; everyone inside when it ends duels in two teams (see the README) |
+| Saloon | town | Dustwind's **Western saloon** filling its block (about 4 x 5 cells of 6 m or more): a long two-storey timber hall with a painted false front, a porch with hitching rails and a trough, batwing doors, a long bar with a brass foot rail, stools, sarsaparilla mugs and the **mug bell**, bottle shelves and the **mirror** behind the bar, checker tables, a stage with a **player piano** (its keys move while the jukebox plays) and the **jukebox** screen on the back wall (Big screen drops it down; heard only inside), a pot-belly stove with the stylized **fire** and log seats, wagon-wheel chandeliers, and balcony galleries up a staircase with benches looking down on the stage. NPCs painted in its block stand behind the bar |
+| Train Depot | town | a platform and ticket booth with the station's sign: click the window for the railroad timetable (see the README). Streets of World 2 on get a **whistle stop** by their `S` automatically |
+| Bounty Board | town | the wanted-poster board (Dustwind's bounties, from level 17) |
 | Health Orb, Mana Orb | any | a floating red / blue orb **starts** on every cell you paint and then drifts round the area on its own wandering loop (to a few random places within about 10 cells and back, along walkable ground). Streets also get about one of each kind per 110 walkable cells without painting any. Walking into one restores 25% of your health / mana (at least 10) if you need it; it vanishes for you only and comes back after 30 s, further along its loop |
 
 ### The castle hub
@@ -432,6 +439,11 @@ Beat it for the *Krakenbane* title (bit 30 of the tower record) and Starshards; 
 Lose and you're back on the dock. Settings: the entrance's name, the quest that opens it, the locked hint, the roster
 (first = the boss), the greeting and the record bit.
 
+On a desert street there's no water, so set **Entrance Symbol** and paint it where the way in should stand. Lonesome
+Bend's is the old station's bell (`Q`): ring it once *The Midnight Express* (quest 85) is started and you're on a ghost
+train, duelling the Midnight Express and its conductors on an open flatbed car with the desert streaming past (scenery on
+looping native animations); a pale door takes you back to the platform.
+
 ### Dungeons
 
 Like Wizard101, part of a street can be a **dungeon** that one party has to itself. Add these landmarks:
@@ -481,8 +493,32 @@ The checks (in the World inspector and Validate World Data) warn when a world ha
 storyline doesn't follow from the goal quest, and stop you when the next world's storylines or gates could be played
 before the previous world's finale.
 
-Making World 2: **WizardsVRC > World Data > New World**, set Order 2, its goal and goal quest; make the goal quest require
-World 1's finale (16); give the hub gates to its zones Required Quest 16 (or its goal quest); add its questlines.
+A later world's **town** (a zone with **Is Town** and its **World** number, e.g. Archrock for World 2) plays the castle's
+part: you reach it through its arch in the portal room (the arch's Quest Gate opens with the world before's finale and
+then teleports you to the town's `S`, where a sandstone arch brings you home), its **Street Gates** are tunnels to its
+world's streets (those streets' tunnels home come back to the town), and duelling circles work there. One town per world.
+Every zone has a **World** number: skylines only show their own world's areas, shops stock their world's gear, and a
+desert-style or World 2+ zone gets the desert look (sand flats and buttes past its edges instead of the sea).
+
+The default **World 2, Dustwind** (Lv 13-25), added by world data v23 where the zone keys and save ids are free:
+
+| Storyline | Questline | Quests | Where |
+| --- | --- | --- | --- |
+| Deputized | `Questline_Deputized` | 41-43 | Archrock (through the arch; Marshal Quickwater; the goal quest is 43) |
+| The Stagecoach Robberies | `Questline_StagecoachRobberies` | 44-47 | Tumbleweed Row (Lv 13-14) |
+| Bone Dry | `Questline_BoneDry` | 48-51 (+ school quests 78, 81) | Coyote Gulch (Lv 14-16) |
+| Light in the Dark | `Questline_LightInTheDark` | 52-55 (+ 83, 84) | Copperbottom Mine (Lv 16-18, a dungeon) |
+| Full Steam | `Questline_FullSteam` | 56-59 (+ 80) | Iron Line Railyard (Lv 18-20) |
+| The Wardens' Trust | `Questline_WardensTrust` | 60-63 (+ 79) | Thunder Mesa (Lv 20-22) |
+| Ghosts of Lonesome Bend | `Questline_GhostsOfLonesomeBend` | 64-67 (+ 82, the Midnight Express 85) | Lonesome Bend (Lv 22-25) |
+| Water for Archrock | `Questline_WaterForArchrock` | 68-70 | the pump, with parts from three streets |
+| Wanted | `Questline_Wanted` | 71-73 | bounties for Marshal Quickwater |
+| The Missing Songbook | `Questline_MissingSongbook` | 74-75 | the Dusty Lantern Saloon |
+
+The finale, `Questline_World2Finale` (*Gather the Posse* 76 and *Last Spike* 77), is fought in Calloway's drill fortress
+at the top of Lonesome Bend. Archrock's trails open in story order (43, 47, 51, 55, 59, 63). Monsters 28-53 (regulars
+rank 4-5, elites 5-6, bosses 5-7); the tumbleweeds, cacti, the Juggernaut and the Midnight Express have their own bodies
+(creature types Tumbleweed, Cactus, Locomotive and GhostTrain).
 
 Save ids go up to **511** (save format v8), so there's room for 10+ storylines of several quests in every world.
 
@@ -508,7 +544,7 @@ save ids are free, the hub map gains the four new tunnel gates (if you never cha
 what to add) and the old two-step finale is replaced.
 
 The **portal room** (through the west door of the Headmaster's study) has five arches; the World 2 arch is a Quest Gate
-on quest 16. When World 2 exists, give that gate a teleporter to its first area.
+on quest 16 that takes you to World 2's town (and World 3's opens with quest 77, once World 3 has a town).
 
 ## Questlines
 

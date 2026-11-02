@@ -16,8 +16,9 @@ namespace WizardsVRC
     /// Ice = tank (any-school shields, taunts, high health/resist, low damage); Life = healer (single/group heals, best
     /// accuracy); Death = drain/self-sustain; Myth = minions + tactical counter-play (shatter, dispel, stuns, pierce);
     /// Balance = support (universal blades/traps, tri-blades). Tier milestones: L1 low-pip attack, L5 secondary
-    /// attack/utility, L10 blade, L12 trap, L16 low-rank AoE or early minion, L22 shield/dispel, L26 mid attack,
-    /// L28 minion, L33 buff utility / high-impact trap, L35 quest spell, L42 big single-target hit, L48 7-pip AoE.
+    /// attack/utility, L10 blade, L12 trap, L16 low-rank AoE or early minion, then Dustwind's (World 2, Lv 13-25): L18 mid
+    /// attack, L20 shield/dispel, L22 minion, L25 big single-target hit; later: L33 buff utility / high-impact trap (taught
+    /// early by Dustwind's school side quests), L35 quest spell, L48 7-pip AoE.
     /// </remarks>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CardDatabase : UdonSharpBehaviour
@@ -111,13 +112,13 @@ namespace WizardsVRC
         };
         [HideInInspector] public int[] levelReqs =
         {
-            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
-            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
-            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
-            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
-            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
-            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
-            1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48,
+            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
+            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
+            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
+            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
+            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
+            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
+            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
             1, 2, 3, 4,
             24, 30, 18, 20, 6, 5,
         };

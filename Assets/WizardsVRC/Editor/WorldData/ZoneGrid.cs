@@ -68,7 +68,12 @@ namespace WizardsVRC.EditorTools.WorldData
         public static bool IsBuiltIn(char c) { return IsSolid(c) || c == '.' || c == ',' || c == 'S' || IsRingDigit(c) || IsPatrolLetter(c); }
 
         /// <summary>True for symbols defined by the zone's NPC, point or landmark lists.</summary>
-        public bool IsCustom(char c) { return zone.FindNpc(c) != null || zone.FindPoint(c) != null || zone.FindLandmark(c) != null; }
+        public bool IsCustom(char c)
+        {
+            if (zone.FindNpc(c) != null || zone.FindPoint(c) != null || zone.FindLandmark(c) != null) return true;
+            var sb = zone.secretBoss;
+            return sb != null && sb.enabled && !string.IsNullOrEmpty(sb.entranceSymbol) && sb.entranceSymbol[0] == c;
+        }
 
         /// <summary>Walls, trees and solid landmarks (buildings, fountains, stalls).</summary>
         public bool Solid(int x, int y)

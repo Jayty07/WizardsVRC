@@ -34,11 +34,22 @@ namespace WizardsVRC.EditorTools
             Material frameMat, Material standMat, List<UdonSharpBehaviour> behaviours)
         {
             var centre = Child(t, "JukeboxCentre", c);
+            return BuildJukeboxAt(t, centre, TPolar(c, R - 0.9f, screenA, 7.6f), TFacing(screenA), TPolar(c, R - 1.5f, screenA, 3f),
+                TPolar(c, R - 1.6f, screenA, 5.3f), TPolar(c, 11.6f, lecternA, 0f), TFacing(lecternA), R - 0.8f, Vector2.zero, wallH + roofRise,
+                "Tavern Jukebox", frameMat, standMat, behaviours);
+        }
 
+        /// <summary>
+        /// The jukebox anywhere: screen rig at screenPos (wallRot's +Z points into the wall), the speaker, the big-screen
+        /// spot, and the lectern (lecternRot's +Z is the way you look at it). Heard inside 'radius' of the centre, or inside
+        /// a box of boxHalf (x across, y along) in the centre's frame when boxHalf.x > 0.
+        /// </summary>
+        private static TavernJukebox BuildJukeboxAt(Transform t, Transform centre, Vector3 screenPos, Quaternion wallRot, Vector3 playerPos, Vector3 bigPos,
+            Vector3 lecternBase, Quaternion lecternRot, float radius, Vector2 boxHalf, float height, string title,
+            Material frameMat, Material standMat, List<UdonSharpBehaviour> behaviours)
+        {
             // ---- the screen: a dark-framed 16:9 panel high on the wall over the curtains. It hangs on a rig the jukebox
             // can move: the Big Screen button brings it down in front of the curtains at a little over twice the size.
-            Quaternion wallRot = TFacing(screenA);
-            Vector3 screenPos = TPolar(c, R - 0.9f, screenA, 7.6f);
             var rig = Child(t, "JukeboxScreenRig", screenPos);
             rig.localRotation = wallRot;
             Block(rig, "ScreenFrame", new Vector3(0f, 0f, 0.06f), new Vector3(4.3f, 2.55f, 0.08f), frameMat);
@@ -61,7 +72,7 @@ namespace WizardsVRC.EditorTools
             screenR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             // ---- the player and its speaker
-            var playerGo = Child(t, "JukeboxPlayer", TPolar(c, R - 1.5f, screenA, 3f)).gameObject;
+            var playerGo = Child(t, "JukeboxPlayer", playerPos).gameObject;
             var speaker = playerGo.AddComponent<AudioSource>();
             speaker.playOnAwake = false;
             speaker.loop = false;
@@ -92,21 +103,21 @@ namespace WizardsVRC.EditorTools
             jukebox.speaker = speaker;
             jukebox.defaultUrl = new VRCUrl(TavernDefaultSong);
             jukebox.center = centre;
-            jukebox.radius = R - 0.8f;
-            jukebox.height = wallH + roofRise;
+            jukebox.radius = radius;
+            jukebox.boxHalf = boxHalf;
+            jukebox.height = height;
             jukebox.screenRig = rig;
             jukebox.smallPosition = rig.localPosition;
             // Big: centred lower and in front of the curtains (about 8.8 x 5 m, its foot just above the stage).
-            jukebox.bigPosition = TPolar(c, R - 1.6f, screenA, 5.3f);
+            jukebox.bigPosition = bigPos;
             jukebox.bigScale = 2.2f;
             behaviours.Add(jukebox);
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(jukebox);
 
             // ---- the lectern with the controls, tilted back like a music stand
-            Vector3 lecternBase = TPolar(c, 11.6f, lecternA, 0f);
-            Block(t, "JukeboxLecternPost", lecternBase + new Vector3(0, 0.6f, 0), new Vector3(0.2f, 1.2f, 0.2f), standMat, TFacing(lecternA));
-            Block(t, "JukeboxLecternFoot", lecternBase + new Vector3(0, 0.05f, 0), new Vector3(0.7f, 0.1f, 0.7f), standMat, TFacing(lecternA));
-            Quaternion deskRot = TFacing(lecternA) * Quaternion.Euler(35f, 0f, 0f);
+            Block(t, "JukeboxLecternPost", lecternBase + new Vector3(0, 0.6f, 0), new Vector3(0.2f, 1.2f, 0.2f), standMat, lecternRot);
+            Block(t, "JukeboxLecternFoot", lecternBase + new Vector3(0, 0.05f, 0), new Vector3(0.7f, 0.1f, 0.7f), standMat, lecternRot);
+            Quaternion deskRot = lecternRot * Quaternion.Euler(35f, 0f, 0f);
             Vector3 deskPos = lecternBase + new Vector3(0, 1.3f, 0);
             Block(t, "JukeboxLecternDesk", deskPos + deskRot * new Vector3(0, 0, 0.04f), new Vector3(1.16f, 0.72f, 0.05f), standMat, deskRot);
 
@@ -116,7 +127,7 @@ namespace WizardsVRC.EditorTools
             canvasGo.transform.localRotation = deskRot; // canvas +Z = the way you look at it (outwards, down at the desk)
             var cr = (RectTransform)canvasGo.transform;
             Panel(cr, "Background", Vector2.zero, new Vector2(900, 540), new Color(0.13f, 0.08f, 0.06f, 0.96f));
-            Label(cr, "Title", new Vector2(0, 225), new Vector2(860, 60), "Tavern Jukebox", 38, TextAnchor.MiddleCenter).color = new Color(1f, 0.82f, 0.45f);
+            Label(cr, "Title", new Vector2(0, 225), new Vector2(860, 60), title, 38, TextAnchor.MiddleCenter).color = new Color(1f, 0.82f, 0.45f);
             jukebox.statusLabel = Label(cr, "Status", new Vector2(0, 168), new Vector2(860, 50), "Nothing playing", 24, TextAnchor.MiddleCenter);
 
             jukebox.urlField = UrlField(cr, "Link", new Vector2(-95, 92), new Vector2(650, 72), target);

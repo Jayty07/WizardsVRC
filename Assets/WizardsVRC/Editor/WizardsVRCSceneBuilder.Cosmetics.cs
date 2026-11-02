@@ -704,6 +704,8 @@ namespace WizardsVRC.EditorTools
             HookBookHovers(book, deck);
             // Something for every level up to 25 (WizardsVRCSceneBuilder.Rewards.cs).
             BuildLevelRewards(systems, playerState, itemDb, notices, db);
+            // Dustwind's railroad, bounty board, High Noon and dust storms (WizardsVRCSceneBuilder.Railroad.cs).
+            WireDustwind(systems, playerState, notices, uiAudio, cardDb, encounters);
         }
 
         /// <summary>Pointing at a backpack cell, a gear slot or a spell card shows its tooltip.</summary>

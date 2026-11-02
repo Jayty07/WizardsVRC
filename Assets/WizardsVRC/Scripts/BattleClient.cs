@@ -17,6 +17,10 @@ namespace WizardsVRC
         public BattleManager manager;
         [Tooltip("The book's notifications (new gear).")]
         public NotificationCenter notifications;
+        [Tooltip("Dustwind's bounty board: battles you win count toward your posted bounties.")]
+        public BountyBoard bounties;
+        [Tooltip("Archrock's High Noon (duelling circles there only): duels won at noon pay a bonus.")]
+        public HighNoon highNoon;
         [Tooltip("Elixir bonuses and spell skins.")]
         public CosmeticsDatabase cosmetics;
         public PlayerState playerState;
@@ -763,6 +767,7 @@ namespace WizardsVRC
                     int w = manager.winnerSide;
                     string result = w < 0 ? "The duel is over." : TeamName(w) + " wins!";
                     if (_inBattle) result = w < 0 ? "The duel is over." : (w == MySide() ? "Victory! " : "Defeat... ") + TeamName(w) + " wins.";
+                    if (_inBattle && w >= 0 && w == MySide() && highNoon != null) result += highNoon.DuelWon();
                     if (_inBattle) result += "\nDuels cost nothing: your health and mana are as they were.";
                     _vitalsDone = true;
                     ShowResult(result);
@@ -1088,6 +1093,7 @@ namespace WizardsVRC
             if (notifications != null && drops.Length > 0) notifications.Post(NotificationCenter.KIND_GEAR, "New loot", drops.Trim(), 0);
             int levels = c.AddXp(xp);
             if (questManager != null) questManager.OnBattleWon(manager);
+            if (bounties != null) bounties.OnBattleWon(manager);
             if (levels > 0)
             {
                 msg += "\nLevel up! You are now level " + c.level.ToString() + ".";

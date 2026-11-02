@@ -41,6 +41,8 @@ namespace WizardsVRC.EditorTools
             public readonly List<float> areaMin = new List<float>(), areaMax = new List<float>();
             public readonly List<Transform> areaIn = new List<Transform>(), areaOut = new List<Transform>();
             public readonly List<string> areaInNames = new List<string>(), areaOutNames = new List<string>();
+            /// <summary>Guide area each area's way in stands in (-1 = the castle, 0 = the keep interior, else 1 + index).</summary>
+            public readonly List<int> areaParent = new List<int>();
             /// <summary>Zone roots and their bounds for the AreaCuller.</summary>
             public readonly List<GameObject> cullRoots = new List<GameObject>();
             public readonly List<Bounds> cullBounds = new List<Bounds>();
@@ -162,8 +164,16 @@ namespace WizardsVRC.EditorTools
         {
             // The hub's geometry was built with the castle; its NPCs, points and practice ring go in now.
             BuildHubContents(hub, systems, qm, cardDb, itemDb, playerState, encounters, wb);
+            _townGates.Clear();
+            ClearDustwindRecords();
+            _townOf.Clear();
+            _townArea.Clear();
+            _worldTowns.Clear();
+            // Each later world's town first (its Street Gates are the tunnels its streets come home through), then the streets.
             foreach (var z in wb.data.zones)
-                if (z != null && z.includeInBuild && !z.isHub) BuildZone(z, systems, hubRoot, qm, cardDb, itemDb, playerState, encounters, wb, hub);
+                if (z != null && z.includeInBuild && !z.isHub && z.isTown) BuildZone(z, systems, hubRoot, qm, cardDb, itemDb, playerState, encounters, wb, hub);
+            foreach (var z in wb.data.zones)
+                if (z != null && z.includeInBuild && !z.isHub && !z.isTown) BuildZone(z, systems, hubRoot, qm, cardDb, itemDb, playerState, encounters, wb, hub);
             qm.streetNpcCutscenes = wb.npcCutscenes.ToArray();
         }
 
@@ -206,6 +216,13 @@ namespace WizardsVRC.EditorTools
             Vector3 openDir = ZoneGrid.ToLocalDir(open);
             HubGate gate = null;
             if (hub != null) hub.gates.TryGetValue(k, out gate);
+            // A later world's street comes home to its town (Archrock) instead of the castle.
+            ZoneDefinition homeTown = null;
+            if (gate == null && _townGates.TryGetValue(k, out gate)) homeTown = _townOf[k];
+            string homeName = homeTown != null ? homeTown.displayName : "Starfall Castle";
+            // A town: its Street Gates become tunnels out to its streets (built like the castle's), and duelling circles work.
+            HubLayout town = z.isTown ? new HubLayout { zone = z, grid = g, root = root } : null;
+            _shopBand = z.world <= 1 ? new Vector2Int(1, 12) : new Vector2Int(13, 40);
             Vector3 mouth = g.Local(start) - openDir * (cs * 0.5f);
             // Past the map's edge: the street's island, the sea and its neighbourhood (WizardsVRCSceneBuilder.Backdrop.cs).
             BuildStreetBackdrop(root, g, z, W, H, baseY, mouth, bld, roof, leaves, trunk, glow);
@@ -225,22 +242,27 @@ namespace WizardsVRC.EditorTools
                 tunnelRect = UnityEngine.Rect.MinMaxRect(x0, z0, x1, z1);
                 gaps.Add(tunnelRect);
             }
+            var townTunnels = town != null ? TownTunnelRects(g, z, wb.data) : new List<UnityEngine.Rect>();
+            gaps.AddRange(townTunnels);
             EdgeWalls(root, W, H, gaps);
 
             Transform layout = Child(root, "Layout", Vector3.zero);
             var stairCells = new HashSet<Vector2Int>();
             // No ground (or kerbs) under the tunnel home: it has its own floor, and a kerb across its mouth would trip you.
             if (gate != null) _terrainSkip = CellsBehind(g, mouth, -openDir, TunW / 2f + TunT + 1f, TunL1 + TunL3 + 2f);
+            else if (town != null) GateGround(g, z, wb.data);
             BuildTerrain(layout, g, MakeTerrainMats(z, k), baseY, stairCells);
             OuterSea(layout, g);
             int houseIndex = 0;
             var noHouse = new HashSet<Vector2Int>();
-            if (gate != null)
+            var keepClear = new List<UnityEngine.Rect>(townTunnels);
+            if (gate != null) keepClear.Add(tunnelRect);
+            foreach (var rect in keepClear)
                 for (int y = 0; y < g.height; y++)
                     for (int x = 0; x < g.width; x++)
                     {
                         Vector3 c = g.Local(x, y);
-                        if (tunnelRect.Overlaps(new UnityEngine.Rect(c.x - cs / 2f, c.z - cs / 2f, cs, cs))) noHouse.Add(new Vector2Int(x, y));
+                        if (rect.Overlaps(new UnityEngine.Rect(c.x - cs / 2f, c.z - cs / 2f, cs, cs))) noHouse.Add(new Vector2Int(x, y));
                     }
             foreach (var r in RectsAt(g, (x, y) => g.At(x, y) == '#' && !noHouse.Contains(new Vector2Int(x, y)), 3, 3))
                 House(layout, g, z, r, houseIndex++, bld, roof, window);
@@ -250,19 +272,39 @@ namespace WizardsVRC.EditorTools
                 Block(layout, "LowWall", c + new Vector3(0, 0.7f, 0), new Vector3(r.width * cs, 1.4f, r.height * cs), low);
                 Block(layout, "LowWallCap", c + new Vector3(0, 1.45f, 0), new Vector3(r.width * cs + 0.3f, 0.12f, r.height * cs + 0.3f), roof);
             }
-            foreach (var t in g.Find('^')) Tree(layout, g, t, trunk, leaves);
+            foreach (var t in g.Find('^'))
+            {
+                if (IsDesert(z) || z.textureStyle == ZoneTextureStyle.Mine) Saguaro(layout, g.Local(t), 0.8f + g.Hash(t.x, t.y, 4) * 0.6f, g.Hash(t.x, t.y, 5), leaves, true);
+                else Tree(layout, g, t, trunk, leaves);
+            }
             StreetLamps(layout, g, z, wood, glow, stairCells);
             _dungeonSystems = systems;
             _dungeonStart = null;
             _dungeonCells = null;
             _zoneOrbSeeds.Clear();
             if (z.landmarks != null && z.landmarks.Count > 0)
-                BuildLandmarks(root, g, z, null, null, wb.data, bld, roof, PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)),
+                BuildLandmarks(root, g, z, town, null, wb.data, bld, roof, PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)),
                     PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f), door, window, wood, wb.behaviours);
+            if (town != null)
+            {
+                foreach (var kv in town.gates)
+                {
+                    kv.Value.gate.questManager = qm;
+                    _townGates[kv.Key] = kv.Value;
+                    _townOf[kv.Key] = z;
+                }
+                wb.behaviours.AddRange(town.behaviours);
+            }
 
             // ---- entrance: spawn, the tunnel home (or, without a castle gate, a door), and the way in from the castle
             Transform spawn = Child(root, "Spawn", g.Local(start) + new Vector3(0, 0.05f, 0));
             spawn.localRotation = Quaternion.LookRotation(openDir);
+            if (z.world >= 2 && !z.isTown)
+            {
+                // Dustwind: a whistle stop by the way in, and dust storms (not down the mine) (WizardsVRCSceneBuilder.Railroad.cs).
+                WhistleStop(root, g, z, start, openDir, spawn, wb.data);
+                if (z.textureStyle != ZoneTextureStyle.Mine) _stormBands.Add(new Vector2(z.height - 50f, z.height + 60f));
+            }
             var sky = new SkyArea { key = k, zone = z, root = root.gameObject, radius = Mathf.Max(W, H) / 2f, garden = IsGardenZone(g) };
             GameObject inDoor, outDoor;
             if (gate != null)
@@ -270,7 +312,7 @@ namespace WizardsVRC.EditorTools
                 // Walk out of the castle's tunnel and you walk out of this one (TunnelPassage links the two middles).
                 var tm = TunnelMats(z);
                 var e = BuildTunnel(root, "Home", mouth, -openDir, tm[0], tm[1], tm[2], tm[3], wb.behaviours);
-                TunnelFacade(e, tm[0], PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)), "Starfall Castle", new Color(1f, 0.85f, 0.4f));
+                TunnelFacade(e, tm[0], PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)), homeName, new Color(1f, 0.85f, 0.4f));
                 e.mountainCentre = Mountains(root, k + "_Home", e, 0f, 12f, 0.8f, tm[5], tm[6]);
                 // A welcome arch with the street's name a few steps out of the tunnel (Signs.cs).
                 StreetArch(root, mouth + openDir * 6f, openDir, z.displayName, z.levelRange);
@@ -281,6 +323,22 @@ namespace WizardsVRC.EditorTools
                 outDoor = e.front.gameObject;
                 sky.hubBearing = BearingOf(gate.tunnel.root.position);
                 sky.ownBearing = BearingOf(e.root.localPosition);
+            }
+            else if (town != null)
+            {
+                // A town is reached through the portal room's arch for its world; the arch home stands at S.
+                Transform arrival = PortalArchFront(z.world);
+                outDoor = TownPortalArch(root, g.Local(start) - openDir * (cs * 0.3f), openDir, arrival, root.gameObject, wb.behaviours);
+                inDoor = arrival != null ? arrival.gameObject : outDoor;
+                _worldTowns[z.world] = new TownLink { zone = z, spawn = spawn, root = root.gameObject };
+                sky.town = true;
+                sky.hubBearing = 0f;
+                sky.ownBearing = 0f;
+                town.spawn = spawn;
+                int before = encounters.Count;
+                BuildDuelCircles(town, systems, cardDb, itemDb, playerState, qm, encounters, wb);
+                // Archrock's circle runs High Noon (WizardsVRCSceneBuilder.Railroad.cs).
+                HighNoonCircles(root, g, z, encounters, before);
             }
             else
             {
@@ -305,12 +363,26 @@ namespace WizardsVRC.EditorTools
             }
             wb.skyAreas.Add(sky);
 
+            sky.world = z.world;
+            if (town != null) _townArea[k] = wb.areaMin.Count + 1;
+            int parentArea = -1;
+            if (town != null) parentArea = 0;
+            else if (homeTown != null && _townArea.ContainsKey(homeTown.zoneKey)) parentArea = _townArea[homeTown.zoneKey];
             wb.areaMin.Add(z.height - 50f);
             wb.areaMax.Add(z.height + 60f);
             wb.areaIn.Add(inDoor.transform);
             wb.areaOut.Add(outDoor.transform);
-            wb.areaInNames.Add(z.displayName + (gate != null ? " tunnel (castle)" : " door (castle)"));
-            wb.areaOutNames.Add(gate != null ? "Tunnel back to Starfall Castle" : "Door back to Starfall Castle");
+            wb.areaParent.Add(parentArea);
+            if (town != null)
+            {
+                wb.areaInNames.Add("Arch to " + z.displayName + " (portal room)");
+                wb.areaOutNames.Add("Arch back to Starfall");
+            }
+            else
+            {
+                wb.areaInNames.Add(z.displayName + (gate != null ? " tunnel (" + (homeTown != null ? homeTown.displayName : "castle") + ")" : " door (castle)"));
+                wb.areaOutNames.Add(gate != null ? "Tunnel back to " + homeName : "Door back to Starfall Castle");
+            }
 
             // ---- NPCs, points, encounters
             foreach (var npc in z.npcs) if (npc != null) BuildNpc(root, g, z, npc, qm, wb);
@@ -364,7 +436,9 @@ namespace WizardsVRC.EditorTools
             // Health and mana orbs drifting round the street (any painted orb cells start one each, plus about one of
             // each kind per 110 walkable cells).
             int orbsPerKind = Mathf.Clamp(g.Reachable().Count / 110, 1, 5);
-            BuildWanderingOrbs(root, g, z.zoneKey, new List<HubOrb>(_zoneOrbSeeds), orbsPerKind, playerState, wb.orbs, wb);
+            var orbSeeds = new List<HubOrb>(_zoneOrbSeeds);
+            if (town != null) orbSeeds.AddRange(town.orbs);   // a town's painted orbs went to its layout, like the hub's
+            BuildWanderingOrbs(root, g, z.zoneKey, orbSeeds, orbsPerKind, playerState, wb.orbs, wb);
 
             // Culling: small props drop out with distance; the whole zone is off for anyone not in it.
             AddDistanceCulling(root, z.detailDistance);
@@ -559,6 +633,12 @@ namespace WizardsVRC.EditorTools
 
         private static void House(Transform parent, ZoneGrid g, ZoneDefinition z, RectInt r, int index, Material wall, Material roof, Material window)
         {
+            if (z.textureStyle == ZoneTextureStyle.Boomtown || z.textureStyle == ZoneTextureStyle.Desert || z.textureStyle == ZoneTextureStyle.Mine)
+            {
+                // Dustwind's buildings (WizardsVRCSceneBuilder.Frontier.cs).
+                FrontierHouse(parent, g, z, r, wall, roof, window);
+                return;
+            }
             float cs = g.cell;
             Vector3 c = RectCenter(g, r);
             bool edge = r.xMin == 0 || r.yMin == 0 || r.xMax == g.width || r.yMax == g.height;
@@ -655,7 +735,11 @@ namespace WizardsVRC.EditorTools
             else front = Quaternion.Euler(0, npc.facing, 0) * Vector3.forward;
             // An NPC painted inside a tavern's block keeps the bar: behind the counter, facing the room.
             Vector3 barSpot, barFront;
-            if (TavernBarkeepSpot(g, z, cells[0], out barSpot, out barFront)) { pos = barSpot; front = barFront; }
+            if (TavernBarkeepSpot(g, z, cells[0], out barSpot, out barFront) || SaloonBarkeepSpot(g, z, cells[0], out barSpot, out barFront))
+            {
+                pos = barSpot;
+                front = barFront;
+            }
             // The wizard model faces its local -Z, so turn it until -Z points along 'front'.
             float yaw = Mathf.Atan2(-front.x, -front.z) * Mathf.Rad2Deg;
             int id = QuestManager.NPC_STREET_FIRST + wb.npcCutscenes.Count;
@@ -748,6 +832,10 @@ namespace WizardsVRC.EditorTools
                         Deco(holder, PrimitiveType.Cylinder, "Post", new Vector3(0, 1.1f, 0), new Vector3(0.18f, 1.1f, 0.18f), wood, Quaternion.identity, true);
                         click = Deco(holder, PrimitiveType.Cube, "Board", new Vector3(0, 2f, 0), new Vector3(1.6f, 0.6f, 0.1f), wood, Quaternion.identity, true);
                         labelY = 2.9f;
+                        break;
+                    default:
+                        // Dustwind's props (WizardsVRCSceneBuilder.Dustwind.cs).
+                        click = DustwindLook(holder, g, cells[n], p, wood, ref labelY);
                         break;
                 }
                 if (!string.IsNullOrEmpty(p.label))
@@ -1287,6 +1375,7 @@ namespace WizardsVRC.EditorTools
             var max = new List<float> { InteriorOrigin.y + 100f };
             var into = new List<Transform> { keepEntrance };
             var outof = new List<Transform> { interiorExit };
+            var parents = new List<int> { -1 };
             var inNames = new List<string> { outdoorSchools ? "Headmaster's Tower door" : "Keep door (Hall of Schools)" };
             var outNames = new List<string> { outdoorSchools ? "Door to the castle grounds" : "Door to the Courtyard" };
             min.AddRange(wb.areaMin);
@@ -1295,6 +1384,8 @@ namespace WizardsVRC.EditorTools
             outof.AddRange(wb.areaOut);
             inNames.AddRange(wb.areaInNames);
             outNames.AddRange(wb.areaOutNames);
+            parents.AddRange(wb.areaParent);
+            guide.areaParents = parents.ToArray();
             guide.areaMinY = min.ToArray();
             guide.areaMaxY = max.ToArray();
             guide.areaEntrances = into.ToArray();

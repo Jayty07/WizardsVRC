@@ -33,6 +33,9 @@ namespace WizardsVRC
         public Transform[] areaExits;
         public string[] areaEntranceNames;
         public string[] areaExitNames;
+        [Tooltip("Area each area's entrance stands in (-1 = the castle). A later world's streets are entered from its town, " +
+                 "and the town from the portal room, so the arrow leads you there step by step.")]
+        public int[] areaParents;
 
         [Header("Legacy single interior (used only when no areas are set)")]
         [Tooltip("Anything above this height is inside the keep interior.")]
@@ -81,7 +84,13 @@ namespace WizardsVRC
                 int ga = AreaOf(goal.y);
                 if (pa != ga)
                 {
-                    if (pa >= 0 && Has(areaExits, pa)) { goal = areaExits[pa].position; goalName = NameAt(areaExitNames, pa); }
+                    // The goal's area, or the one on the way to it, whose entrance is in your area: head for that door.
+                    // Otherwise leave yours (its exit leads back toward the castle).
+                    int step = ga;
+                    int guard = 0;
+                    while (step >= 0 && ParentOf(step) != pa && guard < 8) { step = ParentOf(step); guard++; }
+                    if (step >= 0 && ParentOf(step) == pa && Has(areaEntrances, step)) { goal = areaEntrances[step].position; goalName = NameAt(areaEntranceNames, step); }
+                    else if (pa >= 0 && Has(areaExits, pa)) { goal = areaExits[pa].position; goalName = NameAt(areaExitNames, pa); }
                     else if (ga >= 0 && Has(areaEntrances, ga)) { goal = areaEntrances[ga].position; goalName = NameAt(areaEntranceNames, ga); }
                 }
             }
@@ -136,6 +145,11 @@ namespace WizardsVRC
             int q = questManager.GetTrackedQuest();
             if (q == CharacterData.NO_TRACKED_QUEST) return null;
             return questManager.GetObjectiveTarget(q);
+        }
+
+        private int ParentOf(int area)
+        {
+            return areaParents != null && area >= 0 && area < areaParents.Length ? areaParents[area] : -1;
         }
 
         /// <summary>Index of the area containing height y, or -1 for the castle.</summary>

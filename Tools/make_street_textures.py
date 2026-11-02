@@ -428,13 +428,132 @@ def chalkboard():
             x += w + int(r.integers(2, 4))
     return finish(v, [(0.0, (0.06, 0.09, 0.08)), (0.5, (0.30, 0.38, 0.34)), (1.0, (0.95, 0.97, 0.95))])
 
+
+# ------------------------------------------------------------------ Dustwind (desert, boomtown, mine)
+
+def desert_sand():
+    """Packed desert ground: faint wind ripples, pebbles, cracked patches and the odd tuft."""
+    ripple = np.sin((YY / N * 5 + XX / N + 0.3 * np.sin(XX / N * 2 * np.pi * 3)) * 2 * np.pi)
+    v = 0.6 + 0.06 * ripple + 0.14 * (fbm(201) - 0.5)
+    f1, f2, ids = voronoi(5, 0.4, 202)
+    cracked = value_noise(4, 203) > 0.6
+    v = np.where(cracked & (f2 - f1 < 1.2), v - 0.22, v)
+    peb = rng(204).random((N, N)) > 0.975
+    v = np.where(peb, v + 0.2, v)
+    v = np.where(np.roll(peb, (1, 1), (0, 1)) & ~peb, v - 0.12, v)
+    return finish(v, EARTH)
+
+
+def red_rock():
+    """Banded sandstone: soft horizontal strata of different shades, rounded by wind, with a few fissures."""
+    warp = fbm(211)
+    band = (YY + warp * 10) / N * 6
+    strata = np.sin(band * 2 * np.pi) * 0.5 + 0.5
+    v = 0.42 + 0.3 * strata + 0.12 * (value_noise(16, 212) - 0.5)
+    v += 0.22 * bevel(strata * 4 + warp * 2, 0.7)
+    fiss = (np.abs(value_noise(4, 213) - 0.5) < 0.02)
+    v = np.where(fiss, 0.12, v)
+    pits = value_noise(32, 214) > 0.86
+    v = np.where(pits, v - 0.14, v)
+    return finish(v, [(0.0, (0.20, 0.14, 0.14)), (0.45, (0.62, 0.52, 0.46)), (0.8, (0.88, 0.80, 0.70)), (1.0, (1.0, 0.95, 0.86))])
+
+
+def mine_rock():
+    """Rough tunnel rock: broken faces in the dark, with glinting ore veins."""
+    f1, f2, ids = voronoi(5, 0.45, 221)
+    facet = rng(222).random(64)[ids % 64]
+    v = 0.36 + 0.2 * (facet - 0.5) + 0.12 * (fbm(223) - 0.5)
+    v += 0.3 * bevel(facet * 3 + fbm(224) * 2, 0.9)
+    v = np.where(f2 - f1 < 1.1, 0.08, v)
+    vein = (np.abs(value_noise(4, 225) - 0.5) < 0.016) & (value_noise(8, 226) > 0.45)
+    v = np.where(vein, 0.95, v)
+    return finish(v, [(0.0, (0.10, 0.09, 0.10)), (0.5, (0.45, 0.42, 0.40)), (0.9, (0.80, 0.74, 0.62)), (1.0, (1.0, 0.92, 0.6))])
+
+
+def rail_ties():
+    """Railroad bed: wooden ties across over gravel ballast (rails are built as geometry)."""
+    f1, f2, ids = voronoi(16, 0.45, 231)
+    gravel = 0.62 + 0.28 * rng(232).random(256)[ids] - 0.35 * (f2 - f1 < 1.0)
+    tie = (YY % 16) < 7
+    grain = value_noise(32, 233)
+    v = np.where(tie, 0.22 + 0.14 * (grain - 0.5) + 0.04 * np.sin(XX * 0.7), gravel)
+    v = np.where(tie & ((YY % 16) == 0), v + 0.12, v)
+    v = np.where(~tie & ((YY % 16) == 7), v - 0.2, v)
+    return finish(v, WOOD)
+
+
+def adobe():
+    """Mud-brick adobe: smooth plaster over faint brick courses, worn patches showing the bricks, a straw fleck."""
+    ids, edge, per = blocks(8, 16, 241)
+    v = 0.66 + 0.12 * (fbm(242) - 0.5)
+    worn = fbm(243) > 0.6
+    v = np.where(worn & (edge < 1), v - 0.25, v)
+    v = np.where(worn, v - 0.06 + 0.08 * (per - 0.5), v)
+    straw = rng(244).random((N, N)) > 0.985
+    v = np.where(straw, v + 0.15, v)
+    return finish(v, PLASTER)
+
+
+def clapboard():
+    """Weathered clapboard siding: overlapping horizontal boards, sun-bleached, nail heads, peeling paint."""
+    row = YY // 8
+    per = rng(251).random(8)[row]
+    ly = YY % 8
+    v = 0.4 + 0.3 * (ly / 8.0) + 0.16 * per + 0.12 * (value_noise(32, 252) - 0.5)
+    v = np.where(ly == 7, 0.1, v)                            # shadow under each board's lap
+    peel = value_noise(8, 253) > 0.7
+    v = np.where(peel, v - 0.15, v)
+    for r_ in range(8):
+        for x in (6, 38):
+            v[r_ * 8 + 4, (x + r_ * 5) % N] = 0.12
+    return finish(v, WOOD)
+
+
+def shingles():
+    """Wooden roof shingles: staggered rows of split shakes, each a slightly different shade, gaps between."""
+    row = YY // 8
+    shift = (row % 2) * 5
+    col = (XX + shift) // 10
+    per = rng(261).random((9, 8))[np.clip(col, 0, 7), row % 8]
+    ly = YY % 8
+    v = 0.36 + 0.35 * (ly / 8.0) + 0.2 * (per - 0.5) + 0.08 * (value_noise(32, 262) - 0.5)
+    v = np.where(((XX + shift) % 10) == 0, 0.1, v)
+    v = np.where(ly == 7, v - 0.18, v)
+    return finish(v, WOOD)
+
+
+def cactus():
+    """Cactus skin: ribs running up with dark grooves, little spine tufts along each rib."""
+    rib = np.sin(XX / N * 8 * 2 * np.pi)
+    v = 0.48 + 0.25 * rib + 0.08 * (value_noise(16, 271) - 0.5)
+    v = np.where(rib < -0.85, 0.12, v)
+    for c in range(8):
+        x = c * 8 + 2
+        for y in range(2 + (c % 2) * 4, N, 8):
+            v[y % N, x % N] = 1.0
+            v[(y + 1) % N, (x + 1) % N] = 0.85
+    return finish(v, LEAF)
+
+
+def timber():
+    """Rough-hewn timber beams (mine props, boardwalk posts): long grain, adze marks, a dark knot."""
+    grain = value_noise(64, 281)[:1, :].repeat(N, 0) * 0.6 + value_noise(16, 282) * 0.4
+    v = 0.45 + 0.35 * (grain - 0.5) + 0.06 * np.sin(YY / 3.0 + grain * 8)
+    adze = ((YY % 12) < 2) & (value_noise(8, 283) > 0.4)
+    v = np.where(adze, v - 0.12, v)
+    knot = np.hypot(XX - 40, YY - 20) < 3
+    v = np.where(knot, 0.12, v)
+    return finish(v, WOOD)
+
 TERRAIN = {
     'Cobble': cobble, 'Flagstone': flagstone, 'Grass': grass, 'ForestFloor': forest_floor, 'Dirt': dirt,
     'StoneWall': stone_wall, 'Brick': brick, 'WoodPlanks': planks, 'MountainRock': mountain_rock, 'MountainSnow': mountain_snow,
+    'DesertSand': desert_sand, 'RedRock': red_rock, 'MineRock': mine_rock, 'RailTies': rail_ties,
 }
 STREET = {
     'Plaster': plaster, 'Boards': boards, 'RoofTiles': roof_tiles, 'Leaves': leaves, 'Hedge': hedge, 'Bark': bark, 'Velvet': velvet,
     'Metal': metal, 'Sand': sand, 'Cloth': cloth, 'Chalkboard': chalkboard,
+    'Adobe': adobe, 'Clapboard': clapboard, 'Shingles': shingles, 'Cactus': cactus, 'Timber': timber,
 }
 
 made = []

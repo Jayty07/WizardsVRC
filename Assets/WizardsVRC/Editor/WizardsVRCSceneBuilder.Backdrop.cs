@@ -27,6 +27,9 @@ namespace WizardsVRC.EditorTools
             float Rr(float a, float b) => a + (float)rng.NextDouble() * (b - a);
             ZoneTextureStyle st = z.textureStyle;
             bool garden = IsGardenZone(g);
+            // Dustwind: a mesa edge over desert flats instead of an island in the sea.
+            bool desert = IsDesert(z) || st == ZoneTextureStyle.Mine;
+            if (desert) garden = false;
 
             // ---- which sides meet the water (a side with a lot of '~' on its edge has no land beyond it)
             bool[] wet = new bool[4];   // north, east, south, west (map up = north)
@@ -49,7 +52,7 @@ namespace WizardsVRC.EditorTools
                         break;
                     }
                 }
-                wet[side] = water > n * 0.3f;
+                wet[side] = !desert && water > n * 0.3f;
             }
             if (edgeWater < float.MaxValue) seaY = edgeWater - 0.08f;
 
@@ -63,15 +66,21 @@ namespace WizardsVRC.EditorTools
                 new Vector2(hw + mE - c, hh + mN), new Vector2(-hw - mW + c, hh + mN), new Vector2(-hw - mW, hh + mN - c), new Vector2(-hw - mW, -hh - mS + c),
             };
             float top = baseY - GroundDrop - 0.3f;
-            Material isleTop = garden || st == ZoneTextureStyle.Forest
+            Material isleTop = desert ? PsxTexMat(z.zoneKey + "_IsleSand", z.groundColor, TileTexture(TerrainTexDir + "/DesertSand.png"), 3f)
+                : garden || st == ZoneTextureStyle.Forest
                 ? PsxTexMat(z.zoneKey + "_IsleGrass", z.grassColor, TileTexture(TerrainTexDir + "/Grass.png"), 3f)
                 : PsxTexMat(z.zoneKey + "_IsleGround", z.groundColor, TileTexture(TerrainTexDir + "/Dirt.png"), 3f);
             string key = z.zoneKey + "_" + Mathf.RoundToInt(W) + "x" + Mathf.RoundToInt(H) + "_" + Mathf.RoundToInt(seaY * 10f) + "_" + Mathf.RoundToInt(top * 10f) +
                          (wet[0] ? "n" : "") + (wet[1] ? "e" : "") + (wet[2] ? "s" : "") + (wet[3] ? "w" : "");
             Shape(root, "IsleCliff", PrismMesh("PSX_Isle_" + key, poly, seaY - 4f, top - 0.2f), Vector3.zero, Vector3.one, rock, false, Quaternion.identity);
             Shape(root, "IsleTop", PrismMesh("PSX_IsleTop_" + key, poly, top - 0.2f, top), Vector3.zero, Vector3.one, isleTop, false, Quaternion.identity);
-            var sea = Shape(root, "Sea", GridMesh(64, 64, false), new Vector3(0, seaY, 0), new Vector3(W + 900f, 1f, H + 900f), PsxSwellMat(), false, Quaternion.identity);
-            sea.isStatic = false;
+            Material sandFloor = PsxTexMat("DesertFloor", new Color(0.85f, 0.62f, 0.42f), TileTexture(TerrainTexDir + "/DesertSand.png"), 6f);
+            if (desert) Shape(root, "DesertFloor", GridMesh(8, 8, false), new Vector3(0, seaY, 0), new Vector3(W + 900f, 1f, H + 900f), sandFloor, false, Quaternion.identity);
+            else
+            {
+                var sea = Shape(root, "Sea", GridMesh(64, 64, false), new Vector3(0, seaY, 0), new Vector3(W + 900f, 1f, H + 900f), PsxSwellMat(), false, Quaternion.identity);
+                sea.isStatic = false;
+            }
 
             var holder = Child(root, "Backdrop", Vector3.zero);
             // Rocks along the foot of the cliffs.
@@ -105,7 +114,8 @@ namespace WizardsVRC.EditorTools
                         if ((flat - new Vector3(mouth.x, 0, mouth.z)).magnitude < 75f) continue;   // keep clear of the tunnel's mountains
                         if (p.x > hw + mE - 4f || p.x < -hw - mW + 4f || p.z > hh + mN - 4f || p.z < -hh - mS + 4f) continue;   // off the island
                         Quaternion face = Quaternion.LookRotation(-outward) * Quaternion.Euler(0, Rr(-12f, 12f), 0);
-                        BackdropProp(holder, st, garden, p, face, row > 15f, rng, bld, roof, leaves, trunk, glow, rock, z.accentColor);
+                        if (desert) DesertBackdropProp(holder, st, p, face, row > 15f, rng, bld, roof, leaves, trunk, glow, rock, tm[6]);
+                        else BackdropProp(holder, st, garden, p, face, row > 15f, rng, bld, roof, leaves, trunk, glow, rock, z.accentColor);
                     }
                 }
             }
@@ -131,8 +141,9 @@ namespace WizardsVRC.EditorTools
                 Vector3 lh = along * Rr(-len * 0.25f, len * 0.25f) + outward * (edge + 110f);
                 Lighthouse(holder, new Vector3(lh.x, seaY, lh.z), rock);
             }
-            // Far islets all round, inside the draw distance.
-            Islets(holder, Vector3.zero, Mathf.Max(hw, hh) + BackdropMargin + 40f, Mathf.Max(hw, hh) + BackdropMargin + 150f, seaY, 7, rng, rock, leaves, trunk);
+            // Far islets (buttes, out on the desert) all round, inside the draw distance.
+            if (desert) DesertButtes(holder, Mathf.Max(hw, hh) + BackdropMargin + 60f, Mathf.Max(hw, hh) + BackdropMargin + 170f, seaY, 9, rng, rock, tm[6]);
+            else Islets(holder, Vector3.zero, Mathf.Max(hw, hh) + BackdropMargin + 40f, Mathf.Max(hw, hh) + BackdropMargin + 150f, seaY, 7, rng, rock, leaves, trunk);
 
             foreach (var t in holder.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = true;
             MergeRenderers(holder, "BackdropMesh");

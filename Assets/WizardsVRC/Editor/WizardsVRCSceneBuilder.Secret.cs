@@ -27,7 +27,24 @@ namespace WizardsVRC.EditorTools
             var sb = z.secretBoss;
             if (sb == null || !sb.enabled || sb.roster == null || sb.roster.Count == 0) return;
             Vector2Int toWater;
-            Vector2Int cell = WaterEdgeCell(g, start, ringCells, out toWater);
+            Vector2Int cell;
+            // A desert street has no sea: its way in stands on its own map symbol (the old station's bell).
+            bool desert = IsDesert(z);
+            var marked = string.IsNullOrEmpty(sb.entranceSymbol) ? new List<Vector2Int>() : g.Find(sb.entranceSymbol[0]);
+            if (marked.Count > 0)
+            {
+                cell = marked[0];
+                // It faces out: toward a wall beside it if there is one, otherwise toward the map's nearest edge.
+                toWater = Vector2Int.zero;
+                float far = float.MinValue;
+                Vector2 mid = new Vector2(g.width * 0.5f, g.height * 0.5f);
+                foreach (var d in ZoneGrid.Dirs)
+                {
+                    float score = (new Vector2(cell.x + d.x, cell.y + d.y) - mid).magnitude + (g.Walkable(cell.x + d.x, cell.y + d.y) ? 0f : 100f);
+                    if (score > far) { far = score; toWater = d; }
+                }
+            }
+            else cell = WaterEdgeCell(g, start, ringCells, out toWater);
             if (cell.x < 0)
             {
                 Debug.LogWarning("[WizardsVRC World] " + z.displayName + ": no walkable spot beside the water for " + sb.displayName + "'s " + sb.entranceLabel + "; not built.");
@@ -42,6 +59,10 @@ namespace WizardsVRC.EditorTools
             Quaternion face = Quaternion.LookRotation(water);
             var dock = Child(zoneRoot, "SecretWay_" + sb.displayName.Replace(" ", ""), p);
             dock.localRotation = face;
+            Transform bell;
+            if (desert) bell = StationBell(dock);
+            else
+            {
             var metal = PMat("Brass", new Color(0.78f, 0.6f, 0.25f), 1f);
             var timber = PMat("TimberBeam", new Color(0.3f, 0.19f, 0.12f), 1f);
             var iron = PMat("Iron", new Color(0.25f, 0.22f, 0.22f), 1f);
@@ -49,7 +70,7 @@ namespace WizardsVRC.EditorTools
             Block(dock, "CraneArm", new Vector3(-0.6f, 5.9f, 1.4f), new Vector3(0.35f, 0.35f, 3.6f), timber);
             Block(dock, "CraneBrace", new Vector3(-1.1f, 4.9f, 0.8f), new Vector3(0.2f, 0.2f, 1.9f), timber, Quaternion.Euler(-40f, 0, 0));
             Block(dock, "Chain", new Vector3(-0.6f, 4.5f, 2.9f), new Vector3(0.08f, 2.6f, 0.08f), iron);
-            var bell = Child(dock, "DivingBell", new Vector3(-0.6f, 2.2f, 2.9f));
+            bell = Child(dock, "DivingBell", new Vector3(-0.6f, 2.2f, 2.9f));
             Shape(bell, "BellBody", CylMesh(), Vector3.zero, new Vector3(1.8f, 1f, 1.8f), metal, false, Quaternion.identity);
             Shape(bell, "BellDome", BlobMesh(), new Vector3(0, 1f, 0), new Vector3(1.8f, 1.2f, 1.8f), metal, false, Quaternion.identity);
             Shape(bell, "BellRim", CylMesh(), new Vector3(0, -0.95f, 0), new Vector3(2f, 0.1f, 2f), iron, false, Quaternion.identity);
@@ -59,6 +80,7 @@ namespace WizardsVRC.EditorTools
             var hit = bell.gameObject.AddComponent<BoxCollider>();
             hit.center = new Vector3(0, 0.3f, 0);
             hit.size = new Vector3(2.2f, 3f, 2.2f);
+            }
             Transform dockReturn = Child(zoneRoot, "SecretReturn_" + index, p - water * 0.4f + new Vector3(0, 0.1f, 0));
             dockReturn.localRotation = face;
             var sign = WorldText(dock, "BellSign", new Vector3(-1.6f, 6.9f, 0.6f), Quaternion.identity, new Vector2(1300, 260), 0.004f, sb.entranceLabel, 48);
@@ -69,7 +91,7 @@ namespace WizardsVRC.EditorTools
             // ---- the sunken platform, far away
             var root = new GameObject("Sunken_" + z.zoneKey).transform;
             root.position = SecretOrigin + new Vector3(index * 300f, 0f, 0f);
-            Transform arrival = SunkenArena(root);
+            Transform arrival = desert ? GhostTrainArena(root) : SunkenArena(root);
 
             // The way down (QuestGate on the bell) and back up (a bubble veil).
             var down = UdonSharpUndo.AddComponent<TeleportHelper>(Child(dock, "BellTeleport", Vector3.zero).gameObject);
@@ -82,7 +104,7 @@ namespace WizardsVRC.EditorTools
             gate.openIfStarted = sb.questId >= 0 ? new[] { sb.questId } : new int[0];
             gate.teleporter = down;
             gate.label = sign;
-            gate.openText = sb.entranceLabel + "\n(click to go down)";
+            gate.openText = sb.entranceLabel + (desert ? "\n(click to ring it)" : "\n(click to go down)");
             gate.lockedText = sb.entranceLabel + "\n" + sb.lockedHint;
             sign.text = sb.questId >= 0 ? gate.lockedText : gate.openText;
             UdonBehaviour gateBacking = UdonSharpEditorUtility.GetBackingUdonBehaviour(gate);
@@ -91,17 +113,18 @@ namespace WizardsVRC.EditorTools
 
             var bubble = Child(root, "AirBubble", new Vector3(-7f, 1.2f, -12.5f));
             bubble.localRotation = Quaternion.LookRotation(new Vector3(0.5f, 0, 1f));
-            Shape(bubble, "Bubble", BlobMesh(), new Vector3(0, 1.6f, 0), new Vector3(2.6f, 3.2f, 2.6f),
-                PMat("AirBubble", new Color(0.75f, 0.92f, 1f), 1f, new Color(0.45f, 0.7f, 0.85f)), false, Quaternion.identity);
+            Shape(bubble, "Bubble", BlobMesh(), new Vector3(0, 1.6f, 0), desert ? new Vector3(2.2f, 3.2f, 0.4f) : new Vector3(2.6f, 3.2f, 2.6f),
+                desert ? PMat("GhostDoor", new Color(0.6f, 1f, 0.9f), 1f, new Color(0.3f, 0.75f, 0.65f))
+                    : PMat("AirBubble", new Color(0.75f, 0.92f, 1f), 1f, new Color(0.45f, 0.7f, 0.85f)), false, Quaternion.identity);
             var bcol = bubble.gameObject.AddComponent<BoxCollider>();
             bcol.center = new Vector3(0, 1.6f, 0);
             bcol.size = new Vector3(2.4f, 3.2f, 2.4f);
             var up = UdonSharpUndo.AddComponent<TeleportHelper>(bubble.gameObject);
             up.defaultTarget = dockReturn;
             UdonBehaviour upBacking = UdonSharpEditorUtility.GetBackingUdonBehaviour(up);
-            if (upBacking != null) upBacking.interactText = "Back up to the surface";
+            if (upBacking != null) upBacking.interactText = desert ? "Step off the train" : "Back up to the surface";
             wb.behaviours.Add(up);
-            var upSign = WorldText(bubble, "UpSign", new Vector3(0, 4f, -0.2f), Quaternion.identity, new Vector2(1000, 150), 0.0035f, "Back to the surface", 44);
+            var upSign = WorldText(bubble, "UpSign", new Vector3(0, 4f, -0.2f), Quaternion.identity, new Vector2(1000, 150), 0.0035f, desert ? "Step off the train" : "Back to the surface", 44);
             DressSign(upSign, 0f, 140f, false);
 
             // ---- the fight on the platform
@@ -142,7 +165,7 @@ namespace WizardsVRC.EditorTools
             floor.towerName = sb.displayName;
             floor.clearBits = 1 << Mathf.Clamp(sb.clearBit, 1, 30);
             floor.clearShards = 8;
-            var lurk = Child(root, "Lurking", new Vector3(0, 0.2f, DuelCircleRadius + 4.5f));
+            var lurk = Child(root, "Lurking", new Vector3(0, desert ? 1.25f : 0.2f, DuelCircleRadius + 4.5f));
             lurk.localRotation = Quaternion.LookRotation(Vector3.back);
             floor.idleBody = MonsterBody(lurk, cardDb, boss, "LurkingBody");
             TowerDialog(spot, floor, cardDb.MonsterSchool(boss));
@@ -152,7 +175,8 @@ namespace WizardsVRC.EditorTools
             wb.cullRoots.Add(root.gameObject);
             wb.cullBounds.Add(new Bounds(root.position + new Vector3(0, 25f, 0), new Vector3(200f, 120f, 200f)));
             root.gameObject.SetActive(false);
-            Debug.Log("[WizardsVRC World] " + z.displayName + ": " + sb.displayName + " beneath the waves (" + sb.entranceLabel + " by the water, quest " + sb.questId + ").");
+            Debug.Log("[WizardsVRC World] " + z.displayName + ": " + sb.displayName + (desert ? " on its ghost train (" + sb.entranceLabel : " beneath the waves (" + sb.entranceLabel + " by the water") +
+                      ", quest " + sb.questId + ").");
         }
 
         /// <summary>
@@ -310,6 +334,8 @@ namespace WizardsVRC.EditorTools
         /// <summary>Kraken and tentacle bodies (creature types "Kraken" and "Tentacle"); null for anything else.</summary>
         private static GameObject CreatureBody(Transform parent, CardDatabase db, MonsterEntry entry, string name, float scale)
         {
+            var dustwind = DustwindCreature(parent, db, entry, name, scale);
+            if (dustwind != null) return dustwind;
             if (entry == null || (entry.creatureType != "Kraken" && entry.creatureType != "Tentacle")) return null;
             Material mat = MonsterMat(db, entry.id);
             if (mat == null) mat = PMat("Monster_" + entry.id, entry.bodyColor, 1f);

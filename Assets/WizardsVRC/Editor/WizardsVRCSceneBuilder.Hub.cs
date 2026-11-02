@@ -331,6 +331,9 @@ namespace WizardsVRC.EditorTools
                         case LandmarkKind.Shop: Shop(root, g, l, shop++, gold, door, window, wood); break;
                         case LandmarkKind.Waterfall: WaterfallLandmark(root, g, l, PMat("WaterfallRock", new Color(0.5f, 0.47f, 0.45f), 3f)); break;
                         case LandmarkKind.Tavern: TavernLandmark(root, g, z, l, behaviours, stone, roof, gold, window, wood); break;
+                        case LandmarkKind.Saloon: SaloonLandmark(root, g, z, l, behaviours, gold, window); break;
+                        case LandmarkKind.TrainDepot: TrainDepotLandmark(root, g, z, l, data); break;
+                        case LandmarkKind.BountyBoard: BountyBoardLandmark(root, g, l); break;
                         case LandmarkKind.StreetGate: if (hub != null) HubTunnelLandmark(root, g, z, l, cell, hub, data, stone, gold); break;
                         case LandmarkKind.ArenaPad:
                             if (hub == null) break;
@@ -613,6 +616,12 @@ namespace WizardsVRC.EditorTools
         /// </summary>
         private static void Shop(Transform root, ZoneGrid g, ZoneLandmark l, int index, Material gold, Material door, Material window, Material wood)
         {
+            // Dustwind's boomtowns build their shops in board and batten (WizardsVRCSceneBuilder.Dustwind.cs).
+            if (IsFrontierStyle(g.zone))
+            {
+                FrontierShop(root, g, l, index, gold, window, wood);
+                return;
+            }
             var fp = g.Footprint(l.Symbol);
             float hash = g.Hash(fp.xMin, fp.yMin, 31);
             Color wallCol = ShopWalls[index % ShopWalls.Length], roofCol = ShopRoofs[(index + Mathf.FloorToInt(hash * 3f)) % ShopRoofs.Length];
@@ -976,6 +985,24 @@ namespace WizardsVRC.EditorTools
         /// <summary>Tunnel and mountain materials: stone, floor, dark, lantern glow, iron, rock, snow.</summary>
         private static Material[] TunnelMats(ZoneDefinition z)
         {
+            if (IsDesert(z))
+            {
+                // Dustwind: tunnels cut through red sandstone, under buttes with sandy tops instead of snowy peaks.
+                Texture2D red = TileTexture(TerrainTexDir + "/RedRock.png");
+                Material dFloor = PsxTexMat("TunnelFloorDesert", new Color(0.62f, 0.48f, 0.36f), TileTexture(TerrainTexDir + "/Dirt.png"), 2.4f);
+                dFloor.SetFloat("_OffsetFactor", 1f);
+                dFloor.SetFloat("_OffsetUnits", 1f);
+                return new[]
+                {
+                    PsxTexMat("TunnelSandstone", Color.Lerp(z.buildingColor, new Color(0.75f, 0.45f, 0.32f), 0.6f), red, 2.6f),
+                    dFloor,
+                    PMat("TunnelDark", new Color(0.04f, 0.04f, 0.06f), 1f),
+                    PMat("TunnelLantern", new Color(1f, 0.75f, 0.4f), 1f, new Color(1f, 0.6f, 0.2f)),
+                    PMat("RailingIron", new Color(0.17f, 0.16f, 0.21f), 1f),
+                    PsxTexMat("ButteRock", new Color(0.86f, 0.52f, 0.36f), red, 7f),
+                    PsxTexMat("ButteTop", new Color(0.9f, 0.72f, 0.5f), TileTexture(TerrainTexDir + "/DesertSand.png"), 6f),
+                };
+            }
             Texture2D wallTex = TileTexture(TerrainTexDir + "/StoneWall.png");
             Material floor = PsxTexMat("TunnelFloor", new Color(0.5f, 0.45f, 0.4f), TileTexture(TerrainTexDir + "/Cobble.png"), 2.4f);
             // Where the street's paving runs into the mouth, the paving wins (no flicker between the two).

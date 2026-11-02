@@ -14,7 +14,15 @@ namespace WizardsVRC.EditorTools.WorldData
         Decoration,
     }
 
-    public enum ZonePointLook { StreetLamp, GlowingItem, Crate, Signpost, None }
+    /// <summary>
+    /// How a point looks. Dustwind's dressing (Barrel on) is mostly for Decoration points: Rails lay track along a line of
+    /// cells with the same symbol, the rest stand on their cell.
+    /// </summary>
+    public enum ZonePointLook
+    {
+        StreetLamp, GlowingItem, Crate, Signpost, None,
+        Barrel, Wagon, Stagecoach, OreCart, WaterTower, Windmill, Rails, Gravestone, StandingStone, DrillRig, Locomotive, WaterPump,
+    }
 
     /// <summary>Buildings and fixtures a map can place (mostly for the hub). The first group are solid buildings.</summary>
     public enum LandmarkKind
@@ -75,6 +83,20 @@ namespace WizardsVRC.EditorTools.WorldData
         DungeonExit,
         /// <summary>Paint right across a dungeon's way in: barred for good (the sigil is the only way in).</summary>
         DungeonGate,
+        /// <summary>
+        /// A Western saloon (Dustwind's towns), filling its block (paint the whole block; NPCs painted inside stand behind
+        /// the bar): a two-storey timber hall with a false front, a porch and batwing doors on its door side, a long bar
+        /// with stools and a mirror behind it, checker tables, a stage with a player piano and the jukebox, a pot-belly
+        /// stove with seats round it, and balcony galleries upstairs along both sides with benches. Works like the Tavern.
+        /// </summary>
+        Saloon,
+        /// <summary>
+        /// A railroad depot (one cell, on a road): a platform, a station sign and a ticket window where you ride the
+        /// train to any depot you've already reached (see Railroad). Label = the depot's name.
+        /// </summary>
+        TrainDepot,
+        /// <summary>The bounty board (one cell): wanted posters for three bounties at a time (see BountyBoard).</summary>
+        BountyBoard,
     }
 
     /// <summary>
@@ -98,6 +120,9 @@ namespace WizardsVRC.EditorTools.WorldData
         Forge,   // cobbles, brick buildings and walls
         Forest,  // dirt paths, leaf litter, hedges
         Keep,    // flagstones, big stone blocks everywhere
+        Desert,  // packed sand, red rock walls, adobe houses, cactus instead of trees (Dustwind's trails)
+        Boomtown,// dirt streets with boardwalks, weathered board buildings, shingle roofs (Dustwind's towns)
+        Mine,    // rough rock floors, timber-propped rock walls, ore veins
     }
 
     /// <summary>
@@ -131,6 +156,14 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("Castle look only: a round island with a round curtain wall just inside the map edge (paint '#' outside the " +
                  "circle). Cells past the circle's edge are left out.")]
         public bool roundCastle;
+
+        [Header("World")]
+        [Tooltip("Which world this area is in (1 = Starfall Isle, 2 = Dustwind...). Skylines show only their own world's areas, " +
+                 "and shops stock their world's gear.")]
+        [Min(1)] public int world = 1;
+        [Tooltip("A world's town (World 2 on): you arrive through the portal room's arch for its world (the arch back is at S), " +
+                 "its Street Gates are tunnels to that world's streets, and duelling circles work here. One per world.")]
+        public bool isTown;
 
         [Header("Placement")]
         [Tooltip("Height the zone is built at, far from the castle (0), keep interior (200) and arena (400). " +
@@ -321,6 +354,8 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("The fight: the first monster is the boss.")]
         public List<int> roster = new List<int>();
         [TextArea(1, 3)] public string greeting = "";
+        [Tooltip("Map character where the way in stands (e.g. a station bell). Blank = at the water's edge, as far along the street as it can be.")]
+        public string entranceSymbol = "";
         [Tooltip("Bit of CharacterData.towersCleared set when it's beaten (titles; 30 = the Kraken).")]
         [Range(1, 30)] public int clearBit = 30;
     }

@@ -84,6 +84,15 @@ namespace WizardsVRC.EditorTools.WorldData
                 ValidateZone(z, data.monsters, r);
             }
             if (hubs > 1) r.Error("Only one zone can be the hub (Is Hub).");
+            var towns = new Dictionary<int, string>();
+            foreach (var z in data.zones)
+            {
+                if (z == null || !z.includeInBuild || !z.isTown) continue;
+                if (z.isHub) r.Error("Zone '" + z.zoneKey + "' is both the hub and a town; a town is a later world's hub (untick one).");
+                if (z.world < 2) r.Warn("Zone '" + z.zoneKey + "' is a town in world 1; towns are for later worlds (Starfall Castle is world 1's).");
+                if (towns.ContainsKey(z.world)) r.Error("World " + z.world + " has two towns ('" + towns[z.world] + "' and '" + z.zoneKey + "').");
+                else towns[z.world] = z.zoneKey;
+            }
             // Street gates must lead somewhere real; quest locks must name real quests.
             var questIds = new HashSet<int> { QuestManager.QUEST_PROPHECY, QuestManager.QUEST_TRIAL };
             foreach (var ql in data.questlines) if (ql != null && ql.includeInBuild) foreach (var q in ql.quests) if (q != null) questIds.Add(q.saveId);
@@ -99,6 +108,9 @@ namespace WizardsVRC.EditorTools.WorldData
                         foreach (var t in data.zones) if (t != null && t.includeInBuild && t.zoneKey == l.targetZone) target = t;
                         if (target == null) r.Error("Zone '" + z.zoneKey + "': gate '" + l.symbol + "' leads to zone '" + l.targetZone + "', which doesn't exist (or isn't included).");
                         else if (target.isHub) r.Error("Zone '" + z.zoneKey + "': gate '" + l.symbol + "' can't lead to the hub.");
+                        else if (target.isTown) r.Error("Zone '" + z.zoneKey + "': gate '" + l.symbol + "' leads to a town; towns are reached through the portal room.");
+                        else if (target.world != z.world && !z.isHub)
+                            r.Warn("Zone '" + z.zoneKey + "': gate '" + l.symbol + "' leads to '" + target.zoneKey + "' in another world.");
                     }
                     if (l.requiredQuest >= 0 && !questIds.Contains(l.requiredQuest))
                         r.Error("Zone '" + z.zoneKey + "': landmark '" + l.symbol + "' needs quest " + l.requiredQuest + ", which doesn't exist.");
@@ -167,7 +179,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (starts.Count == 0) r.Error(zn + ": the map needs an S (entrance).");
             ValidateHeights(z, g, zn, r);
             if (starts.Count > 1) r.Warn(zn + ": several S cells; the first one (top-left) is the entrance.");
-            if (!z.isHub && starts.Count > 0)
+            if (!z.isHub && !z.isTown && starts.Count > 0)
             {
                 // The tunnel home runs about 17 m straight back from S (away from its open side): keep S by the map's edge.
                 Vector2Int back = -g.OpenDirection(starts[0]);
@@ -236,22 +248,26 @@ namespace WizardsVRC.EditorTools.WorldData
                         if (cells.Count != fp.width * fp.height && !facesCentre) r.Warn(ln + " doesn't fill a rectangle; it's built over its whole bounding box.");
                         if (g.DoorDirection(l) == Vector2Int.zero) r.Error(ln + " has no open cell next to it (at its own height) for its door.");
                     }
-                    else if (!l.Solid && cells.Count > 1 && l.kind != LandmarkKind.Tavern && l.kind != LandmarkKind.DuelCircle &&
+                    else if (!l.Solid && cells.Count > 1 && l.kind != LandmarkKind.Tavern && l.kind != LandmarkKind.Saloon && l.kind != LandmarkKind.DuelCircle &&
                              l.kind != LandmarkKind.HealthOrb && l.kind != LandmarkKind.ManaOrb)
                         r.Warn(ln + " is placed " + cells.Count + " times; only the first is used.");
                     if (l.kind == LandmarkKind.BankChest) r.Warn(ln + ": the practice chest is no longer built; remove it from the landmark list.");
                     if (l.kind == LandmarkKind.DuelCircle && Mathf.Min(fp.width, fp.height) * g.cell < 2f * (ZoneGrid.RingClearance + 1f))
                         r.Warn(ln + " block is only " + Mathf.Min(fp.width, fp.height) * g.cell + " m across; a duelling circle needs about " +
                                2f * (ZoneGrid.RingClearance + 1f) + " m.");
-                    if (l.kind == LandmarkKind.DuelCircle && !z.isHub) r.Warn(ln + ": duelling circles only work in the hub (Is Hub), so it is left out here.");
+                    if (l.kind == LandmarkKind.DuelCircle && !z.isHub && !z.isTown) r.Warn(ln + ": duelling circles only work in the hub or a town (Is Hub / Is Town), so it is left out here.");
+                    if (l.kind == LandmarkKind.Saloon && Mathf.Min(fp.width, fp.height) * g.cell < 24f)
+                        r.Warn(ln + " block is only " + Mathf.Min(fp.width, fp.height) * g.cell + " m across; a saloon needs about 24 m by 32 m or more.");
                     if (l.kind == LandmarkKind.Tavern && Mathf.Min(fp.width, fp.height) * g.cell < 30f)
                         r.Warn(ln + " block is only " + Mathf.Min(fp.width, fp.height) * g.cell + " m across; a tavern needs about 30 m or more."); 
-                    if (!z.isHub && (l.kind == LandmarkKind.Keep || l.kind == LandmarkKind.StreetGate || l.kind == LandmarkKind.ArenaPad ||
+                    if (!z.isHub && (l.kind == LandmarkKind.Keep || l.kind == LandmarkKind.ArenaPad ||
                                      l.kind == LandmarkKind.BankChest || l.kind == LandmarkKind.BackpackPedestal || l.kind == LandmarkKind.NoticeBoard))
                         r.Warn(ln + ": this landmark only works in the hub (Is Hub), so it is left out here.");
+                    if (!z.isHub && !z.isTown && l.kind == LandmarkKind.StreetGate)
+                        r.Warn(ln + ": street gates only work in the hub or a town (Is Hub / Is Town), so it is left out here.");
                     if (l.kind == LandmarkKind.StreetGate && string.IsNullOrEmpty(l.targetZone)) r.Error(ln + ": set Target Zone (the zone key it leads to).");
                     if ((l.IsBuilding || l.kind == LandmarkKind.Fountain || l.kind == LandmarkKind.Tower || l.kind == LandmarkKind.Waterfall ||
-                         l.kind == LandmarkKind.Tavern || l.kind == LandmarkKind.DuelCircle) && cells.Count > 1)
+                         l.kind == LandmarkKind.Tavern || l.kind == LandmarkKind.Saloon || l.kind == LandmarkKind.DuelCircle) && cells.Count > 1)
                     {
                         bool flat = true;
                         foreach (var c in cells) if (g.Level(c) != g.Level(cells[0])) flat = false;

@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 22;
+        public const int CurrentVersion = 23;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -102,6 +102,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 CreateZone("Zone_SunpetalGardens", WorldDefaults.FillSunpetalGardens);
                 CreateZone("Zone_LanternRow", WorldDefaults.FillLanternRow);
                 foreach (var nz in World1Zones) CreateZone(nz.file, nz.fill);
+                foreach (var nz in World2Zones) CreateZone(nz.file, nz.fill);
                 created = true;
             }
             if (FindAll<Questline>().Count == 0)
@@ -111,11 +112,14 @@ namespace WizardsVRC.EditorTools.WorldData
                 CreateQuestline("Questline_LanternRow", WorldDefaults.FillLanternRowQuests);
                 CreateQuestline("Questline_World1Finale", WorldDefaults.FillWorld1Finale);
                 foreach (var nq in World1Questlines) CreateQuestline(nq.file, nq.fill);
+                foreach (var nq in World2Questlines) CreateQuestline(nq.file, nq.fill);
+                CreateQuestline("Questline_World2Finale", WorldDefaults.FillWorld2Finale);
                 created = true;
             }
             if (FindAll<WorldArc>().Count == 0 && !hadData)
             {
                 CreateWorld1();
+                CreateWorld2();
                 created = true;
             }
             int version = ReadVersion();
@@ -185,6 +189,104 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 20) UpgradeTo20();
             if (from < 21) UpgradeTo21();
             if (from < 22) UpgradeTo22();
+            if (from < 23) UpgradeTo23();
+        }
+
+        /// <summary>World 2's town and streets (world data v23).</summary>
+        private static readonly ZoneDefault[] World2Zones =
+        {
+            new ZoneDefault { file = "Zone_Archrock", key = "Archrock", fill = WorldDefaults.FillArchrock },
+            new ZoneDefault { file = "Zone_TumbleweedRow", key = "TumbleweedRow", fill = WorldDefaults.FillTumbleweedRow },
+            new ZoneDefault { file = "Zone_CoyoteGulch", key = "CoyoteGulch", fill = WorldDefaults.FillCoyoteGulch },
+            new ZoneDefault { file = "Zone_CopperbottomMine", key = "CopperbottomMine", fill = WorldDefaults.FillCopperbottomMine },
+            new ZoneDefault { file = "Zone_IronLineRailyard", key = "IronLineRailyard", fill = WorldDefaults.FillIronLineRailyard },
+            new ZoneDefault { file = "Zone_ThunderMesa", key = "ThunderMesa", fill = WorldDefaults.FillThunderMesa },
+            new ZoneDefault { file = "Zone_LonesomeBend", key = "LonesomeBend", fill = WorldDefaults.FillLonesomeBend },
+        };
+
+        /// <summary>World 2's storylines (world data v23), in story order.</summary>
+        private static readonly QuestlineDefault[] World2Questlines =
+        {
+            new QuestlineDefault { file = "Questline_Deputized", firstId = 41, fill = WorldDefaults.FillDeputized },
+            new QuestlineDefault { file = "Questline_StagecoachRobberies", firstId = 44, fill = WorldDefaults.FillStagecoachRobberies },
+            new QuestlineDefault { file = "Questline_BoneDry", firstId = 48, fill = WorldDefaults.FillBoneDry },
+            new QuestlineDefault { file = "Questline_LightInTheDark", firstId = 52, fill = WorldDefaults.FillLightInTheDark },
+            new QuestlineDefault { file = "Questline_FullSteam", firstId = 56, fill = WorldDefaults.FillFullSteam },
+            new QuestlineDefault { file = "Questline_WardensTrust", firstId = 60, fill = WorldDefaults.FillWardensTrust },
+            new QuestlineDefault { file = "Questline_GhostsOfLonesomeBend", firstId = 64, fill = WorldDefaults.FillGhostsOfLonesomeBend },
+            new QuestlineDefault { file = "Questline_WaterForArchrock", firstId = 68, fill = WorldDefaults.FillWaterForArchrock },
+            new QuestlineDefault { file = "Questline_Wanted", firstId = 71, fill = WorldDefaults.FillWanted },
+            new QuestlineDefault { file = "Questline_MissingSongbook", firstId = 74, fill = WorldDefaults.FillMissingSongbook },
+        };
+
+        /// <summary>World 2 (Dustwind) with its goal, storylines and finale.</summary>
+        private static void CreateWorld2()
+        {
+            var storylines = new List<Questline>();
+            foreach (var nq in World2Questlines)
+            {
+                var ql = AssetDatabase.LoadAssetAtPath<Questline>(Folder + "/" + nq.file + ".asset");
+                if (ql != null) storylines.Add(ql);
+            }
+            var w = ScriptableObject.CreateInstance<WorldArc>();
+            WorldDefaults.FillWorld2(w, storylines);
+            AssetDatabase.CreateAsset(w, AssetDatabase.GenerateUniqueAssetPath(Folder + "/World_Dustwind.asset"));
+        }
+
+        /// <summary>
+        /// v23: World 2, Dustwind. Adds monsters 28-53, the town of Archrock and its six streets, the eleven storylines and
+        /// the finale (save ids 41-85, where free) and the Dustwind world arc. Its arch in the portal room opens with
+        /// Starfall Isle's finale (quest 16).
+        /// </summary>
+        private static void UpgradeTo23()
+        {
+            var report = new List<string>();
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            if (cat != null)
+            {
+                int added = 0;
+                foreach (var m in WorldDefaults.World2Monsters())
+                    if (cat.Find(m.id) == null) { cat.monsters.Add(m); added++; }
+                if (added > 0) { EditorUtility.SetDirty(cat); report.Add(added + " monsters"); }
+            }
+            var zones = FindAll<ZoneDefinition>();
+            foreach (var nz in World2Zones)
+            {
+                bool have = false;
+                foreach (var z in zones) have |= z != null && z.zoneKey == nz.key;
+                if (have) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                nz.fill(fresh);
+                fresh.height = Mathf.Max(fresh.height, NextFreeHeight());
+                AssetDatabase.CreateAsset(fresh, AssetDatabase.GenerateUniqueAssetPath(Folder + "/" + nz.file + ".asset"));
+                report.Add(fresh.displayName);
+            }
+            var used = new HashSet<int>();
+            foreach (var ql in FindAll<Questline>()) foreach (var q in ql.quests) if (q != null) used.Add(q.saveId);
+            var newLines = new List<Questline>();
+            var all = new List<QuestlineDefault>(World2Questlines);
+            all.Add(new QuestlineDefault { file = "Questline_World2Finale", firstId = 76, fill = WorldDefaults.FillWorld2Finale });
+            foreach (var nq in all)
+            {
+                var probe = ScriptableObject.CreateInstance<Questline>();
+                nq.fill(probe);
+                bool free = true;
+                foreach (var q in probe.quests) free &= !used.Contains(q.saveId);
+                if (!free) { Debug.Log("[WizardsVRC] Save ids " + nq.firstId + "+ are already used, so the " + probe.storylineName + " storyline wasn't added."); continue; }
+                AssetDatabase.CreateAsset(probe, AssetDatabase.GenerateUniqueAssetPath(Folder + "/" + nq.file + ".asset"));
+                if (nq.firstId != 76) newLines.Add(probe);
+                report.Add(probe.storylineName);
+            }
+            bool haveWorld2 = false;
+            foreach (var w in FindAll<WorldArc>()) haveWorld2 |= w != null && w.order == 2;
+            if (!haveWorld2)
+            {
+                var w = ScriptableObject.CreateInstance<WorldArc>();
+                WorldDefaults.FillWorld2(w, newLines);
+                AssetDatabase.CreateAsset(w, AssetDatabase.GenerateUniqueAssetPath(Folder + "/World_Dustwind.asset"));
+                report.Add("the Dustwind world");
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (v23): " + string.Join(", ", report) + ".");
         }
 
         /// <summary>

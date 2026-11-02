@@ -28,15 +28,21 @@ namespace WizardsVRC.EditorTools
             Texture2D stone = TileTexture(TerrainTexDir + "/StoneWall.png");
             ZoneTextureStyle st = z.textureStyle;
             // The street's own paving and lawn (see ZoneTextureStyle); walls and kerbs are stone everywhere.
-            string pave = st == ZoneTextureStyle.Garden || st == ZoneTextureStyle.Keep ? "Flagstone" : st == ZoneTextureStyle.Forest ? "Dirt" : "Cobble";
-            string lawnTex = st == ZoneTextureStyle.Forest ? "ForestFloor" : "Grass";
-            float paveTile = pave == "Flagstone" ? 3.4f : pave == "Dirt" ? 3f : 2.4f;
+            string pave = st == ZoneTextureStyle.Garden || st == ZoneTextureStyle.Keep ? "Flagstone"
+                : st == ZoneTextureStyle.Forest || st == ZoneTextureStyle.Boomtown || st == ZoneTextureStyle.Mine ? "Dirt"
+                : st == ZoneTextureStyle.Desert ? "DesertSand" : "Cobble";
+            string lawnTex = st == ZoneTextureStyle.Forest ? "ForestFloor" : st == ZoneTextureStyle.Mine ? "MineRock"
+                : st == ZoneTextureStyle.Desert || st == ZoneTextureStyle.Boomtown ? "DesertSand" : "Grass";
+            float paveTile = pave == "Flagstone" ? 3.4f : pave == "Dirt" || pave == "DesertSand" ? 3f : 2.4f;
+            bool redRock = st == ZoneTextureStyle.Desert || st == ZoneTextureStyle.Boomtown;
+            Texture2D wallTex = st == ZoneTextureStyle.Forge ? TileTexture(TerrainTexDir + "/Brick.png") : redRock ? TileTexture(TerrainTexDir + "/RedRock.png")
+                : st == ZoneTextureStyle.Mine ? TileTexture(TerrainTexDir + "/MineRock.png") : stone;
             return new TerrainMats
             {
                 paving = PsxTexMat(k + "_Paving", z.roadColor, TileTexture(TerrainTexDir + "/" + pave + ".png"), paveTile),
                 lawn = PsxTexMat(k + "_Lawn", z.grassColor, TileTexture(TerrainTexDir + "/" + lawnTex + ".png"), 3f),
                 wall = PsxTexMat(k + "_RetainingWall", Color.Lerp(z.buildingColor, new Color(0.62f, 0.55f, 0.5f), 0.55f),
-                    st == ZoneTextureStyle.Forge ? TileTexture(TerrainTexDir + "/Brick.png") : stone, st == ZoneTextureStyle.Forge ? 2f : 3f),
+                    wallTex, st == ZoneTextureStyle.Forge ? 2f : 3f),
                 kerb = PsxTexMat(k + "_Kerb", Color.Lerp(z.roadColor, new Color(0.85f, 0.83f, 0.8f), 0.55f), stone, 1.1f),
                 bed = PsxTexMat(k + "_PondBed", new Color(0.34f, 0.36f, 0.3f), cobble, 3f),
                 water = PsxWaterMat(),
@@ -708,6 +714,15 @@ namespace WizardsVRC.EditorTools
                 case "Cloth": return 1.25f;
                 case "Velvet": return 1.6f;
                 case "Chalkboard": return 2.2f;
+                case "DesertSand": return 1.25f;
+                case "RedRock": return 1.3f;
+                case "MineRock": return 1.6f;
+                case "RailTies": return 1.7f;
+                case "Adobe": return 1.05f;
+                case "Clapboard": return 1.6f;
+                case "Shingles": return 1.7f;
+                case "Cactus": return 1.45f;
+                case "Timber": return 1.75f;
                 default: return 1f;
             }
         }
@@ -719,6 +734,19 @@ namespace WizardsVRC.EditorTools
         private static void StreetMats(ZoneDefinition z, string k, out Material building, out Material roof, out Material low, out Material leaves, out Material trunk)
         {
             ZoneTextureStyle st = z.textureStyle;
+            if (st == ZoneTextureStyle.Desert || st == ZoneTextureStyle.Boomtown || st == ZoneTextureStyle.Mine)
+            {
+                // Dustwind: adobe in the desert, weathered clapboard in the boomtowns, bare rock in the mines; cactus for trees.
+                string w = st == ZoneTextureStyle.Desert ? StreetTexDir + "/Adobe.png" : st == ZoneTextureStyle.Boomtown ? StreetTexDir + "/Clapboard.png"
+                    : TerrainTexDir + "/MineRock.png";
+                building = PsxTexMat(k + "_Building", z.buildingColor, TileTexture(w), st == ZoneTextureStyle.Boomtown ? 3f : 4f);
+                roof = PsxTexMat(k + "_Roof", z.roofColor, TileTexture(st == ZoneTextureStyle.Desert ? StreetTexDir + "/Adobe.png" : st == ZoneTextureStyle.Mine
+                    ? TerrainTexDir + "/MineRock.png" : StreetTexDir + "/Shingles.png"), 2.6f);
+                low = PsxTexMat(k + "_LowWall", z.lowWallColor, TileTexture(st == ZoneTextureStyle.Desert ? TerrainTexDir + "/RedRock.png" : StreetTexDir + "/Timber.png"), 2.2f);
+                leaves = PsxTexMat(k + "_Tree", z.treeColor, TileTexture(StreetTexDir + "/Cactus.png"), 1.4f);
+                trunk = PsxTexMat(k + "_Trunk", new Color(0.42f, 0.3f, 0.2f), TileTexture(StreetTexDir + "/Timber.png"), 1.4f);
+                return;
+            }
             string wallTex = st == ZoneTextureStyle.Docks ? StreetTexDir + "/Boards.png" : st == ZoneTextureStyle.Forge ? TerrainTexDir + "/Brick.png"
                 : st == ZoneTextureStyle.Keep || st == ZoneTextureStyle.Forest ? TerrainTexDir + "/StoneWall.png" : StreetTexDir + "/Plaster.png";
             float wallTile = st == ZoneTextureStyle.Forge ? 2.2f : st == ZoneTextureStyle.Docks ? 3f : st == ZoneTextureStyle.Keep ? 3.6f : 4f;

@@ -157,6 +157,8 @@ namespace WizardsVRC.EditorTools
             // The hub zone (if the world data has one) decides whether the schools are indoors or out in the castle grounds.
             HubLayout hubPlan = PlanHub(worldData);
             Interior interior = BuildInterior(hubPlan.outdoorSchools);
+            _interiorRoot = interior.root;
+            _archFronts.Clear();
             Transform selectSpawn = interior.officeSpawn;
             Canvas selectCanvas = interior.selectCanvas;
             Transform hubSpawn = BuildHub(out Canvas hubCanvas, hubPlan, interior, worldData);
@@ -278,7 +280,7 @@ namespace WizardsVRC.EditorTools
             muter.panels = new[]
             {
                 ((CutscenePlayer)cutscenes[0]).screenRoot, interactionMenu.menuRoot, trainer.panelRoot,
-                trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot, GoldShopPanel,
+                trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot, GoldShopPanel, RailroadPanel, BountyPanel,
             };
             streets.Add(muter);
             // Pop-ups, menus, dialogue, the HUD, the quest arrow's words and the duel hand draw over everything, so they're
@@ -288,7 +290,7 @@ namespace WizardsVRC.EditorTools
             {
                 foreach (var go in new GameObject[] { ((CutscenePlayer)cutscenes[0]).screenRoot, interactionMenu.menuRoot, trainer.panelRoot,
                              trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot, hud.hudRoot,
-                             questGuide.labelRoot != null ? questGuide.labelRoot.gameObject : null, GoldShopPanel, TooltipRoot })
+                             questGuide.labelRoot != null ? questGuide.labelRoot.gameObject : null, GoldShopPanel, TooltipRoot, RailroadPanel, BountyPanel })
                     OverlayUI(go, overlay);
                 foreach (var ec in encounters) { OverlayUI(ec.handRoot, overlay); OverlayUI(ec.fleeConfirmRoot, overlay); }
             }
@@ -452,7 +454,7 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
-        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "TowerFloor", "LevelRewards" };
+        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm" };
 
         /// <summary>Creates the program assets that are missing (and marks the rest current). True if any was made.</summary>
         private static bool CreateMissingPrograms()

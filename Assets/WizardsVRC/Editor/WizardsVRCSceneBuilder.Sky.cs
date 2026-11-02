@@ -25,6 +25,9 @@ namespace WizardsVRC.EditorTools
             public ZoneDefinition zone;
             public GameObject root;
             public bool hub;
+            /// <summary>Which world it's in (skylines only show their own world), and whether it's that world's town.</summary>
+            public int world = 1;
+            public bool town;
             /// <summary>Position in the world's layout (m): the castle at the origin, +Y = north.</summary>
             public Vector2 pos;
             /// <summary>World bearing = this area's own (local) bearing + rot.</summary>
@@ -77,6 +80,14 @@ namespace WizardsVRC.EditorTools
             list.Add(h);
             foreach (var a in wb.skyAreas)
             {
+                if (a.town)
+                {
+                    // A later world's town is the middle of its own world's layout (its streets lie round it).
+                    a.pos = Vector2.zero;
+                    a.rot = 0f;
+                    list.Add(a);
+                    continue;
+                }
                 float d = Mathf.Max(200f, a.zone.horizonDistance), t = a.hubBearing * Mathf.Deg2Rad;
                 a.pos = new Vector2(Mathf.Sin(t) * d, Mathf.Cos(t) * d);
                 a.rot = a.hubBearing + 180f - a.ownBearing;
@@ -127,7 +138,7 @@ namespace WizardsVRC.EditorTools
                 mat.SetTexture("_Skyline", AssetDatabase.LoadAssetAtPath<Texture2D>(texPath));
                 mat.SetColor("_TopColor", a.zone.skyTopColor);
                 mat.SetColor("_HorizonColor", a.zone.skyHorizonColor);
-                mat.SetColor("_BottomColor", new Color(0.06f, 0.2f, 0.52f));
+                mat.SetColor("_BottomColor", IsDesert(a.zone) ? new Color(0.62f, 0.4f, 0.26f) : new Color(0.06f, 0.2f, 0.52f));
                 mat.SetFloat("_Low", SkyLow);
                 mat.SetFloat("_High", SkyHigh);
                 EditorUtility.SetDirty(mat);
@@ -207,9 +218,11 @@ namespace WizardsVRC.EditorTools
 
         private static Texture2D PaintSkyline(SkyArea me, List<SkyArea> all)
         {
-            var s = new Strip { horizon = me.zone.skyHorizonColor, sea = Rgb(0.12f, 0.36f, 0.78f) };
+            bool desert = IsDesert(me.zone);
+            var s = new Strip { horizon = me.zone.skyHorizonColor, sea = desert ? Rgb(0.74f, 0.5f, 0.32f) : Rgb(0.12f, 0.36f, 0.78f) };
             var rng = new System.Random(StableSeed(me.key));
-            PaintSea(s, rng);
+            if (desert) PaintDesertFloor(s, rng);
+            else PaintSea(s, rng);
             PaintClouds(s, rng, Color.Lerp(me.zone.skyHorizonColor, Color.white, 0.5f));
 
             // Everything else in the world, as seen from here, furthest first.
@@ -217,7 +230,7 @@ namespace WizardsVRC.EditorTools
             var taken = new List<Vector2>();
             foreach (var o in all)
             {
-                if (o == me) continue;
+                if (o == me || o.world != me.world) continue;
                 Vector2 d = o.pos - me.pos;
                 float dist = Mathf.Max(50f, d.magnitude);
                 float bearing = Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg - me.rot;
@@ -252,7 +265,8 @@ namespace WizardsVRC.EditorTools
                     items.Add(new KeyValuePair<float, System.Action>(dist, () => PaintTown(s, bearing, hw, k, size, z.buildingColor, z.roofColor, z.accentColor, seed)));
                 }
             }
-            PaintIsles(s, rng, taken);
+            if (desert) PaintMesas(s, rng, taken);
+            else PaintIsles(s, rng, taken);
             items.Sort((a, b) => b.Key.CompareTo(a.Key));
             foreach (var it in items) it.Value();
 
@@ -483,6 +497,60 @@ namespace WizardsVRC.EditorTools
                 s.Column(col.Key, baseE, 8.5f * size, bc);
                 s.Column(col.Key, 8.5f * size, 9.1f * size, lit);
                 s.Column(col.Key, 9.1f * size, (9.1f + 1.2f * (1f - Mathf.Abs(col.Value - tx) / 0.35f)) * size, rc);
+            }
+        }
+        /// <summary>Dustwind's look: desert floor instead of sea, mesas instead of islands (World 2 on, or a desert style).</summary>
+        private static bool IsDesert(ZoneDefinition z)
+        {
+            return z != null && (z.world >= 2 || z.textureStyle == ZoneTextureStyle.Desert || z.textureStyle == ZoneTextureStyle.Boomtown);
+        }
+
+        /// <summary>Sand flats below the horizon, hazier toward it, with scattered scrub and the odd dark rock.</summary>
+        private static void PaintDesertFloor(Strip s, System.Random rng)
+        {
+            int top = s.Y(0f);
+            Color scrub = Rgb(0.45f, 0.42f, 0.25f), rock = Rgb(0.5f, 0.28f, 0.2f);
+            for (int y = 0; y < top; y++)
+            {
+                float e = Strip.Elev(y);
+                float t = Mathf.Min(1f, -e / 5f);
+                Color c = Color.Lerp(Color.Lerp(s.sea, s.horizon, 0.5f), s.sea, t);
+                for (int x = 0; x < SkyW; x++)
+                {
+                    double r = rng.NextDouble();
+                    Color px = r < 0.02 ? Color.Lerp(c, scrub, 0.6f) : r < 0.026 ? Color.Lerp(c, rock, 0.5f) : c;
+                    // Faint wind ripples in the sand.
+                    if (((x + y * 7) % 23) == 0) px = Color.Lerp(px, Color.white, 0.08f);
+                    s.Set(x, y, px, 1f);
+                }
+            }
+        }
+
+        /// <summary>Flat-topped red mesas and pointed buttes round the horizon, away from the places that are really there.</summary>
+        private static void PaintMesas(Strip s, System.Random rng, List<Vector2> taken)
+        {
+            Color red = Rgb(0.62f, 0.32f, 0.22f), band = Rgb(0.78f, 0.5f, 0.32f), cap = Rgb(0.55f, 0.27f, 0.2f);
+            for (int i = 0; i < 14; i++)
+            {
+                float b = (float)rng.NextDouble() * 360f;
+                bool butte = rng.NextDouble() < 0.35;
+                float w = butte ? 0.8f + (float)rng.NextDouble() * 1.2f : 3f + (float)rng.NextDouble() * 7f;
+                float h = butte ? 1.6f + (float)rng.NextDouble() * 2.2f : 0.9f + (float)rng.NextDouble() * 1.8f;
+                float k = 0.4f + (float)rng.NextDouble() * 0.35f;
+                bool clear = true;
+                foreach (var tk in taken) if (Mathf.Abs(Mathf.DeltaAngle(b, tk.x)) < tk.y + w + 3f) clear = false;
+                if (!clear) continue;
+                Color c = s.Haze(red, k), cb = s.Haze(band, k), cc = s.Haze(cap, k);
+                foreach (var col in s.Cols(b - w, b + w))
+                {
+                    float t = Mathf.Abs((col.Value - b) / w);
+                    // Steep sides, flat top (mesa) or a narrow spire (butte).
+                    float top = butte ? h * Mathf.Pow(Mathf.Max(0f, 1f - t), 0.35f) : h * Mathf.Min(1f, Mathf.Max(0f, (1f - t) * 5f));
+                    if (top <= 0f) continue;
+                    s.Column(col.Key, -0.3f, top, c);
+                    s.Column(col.Key, top * 0.45f, top * 0.55f, cb);
+                    s.Column(col.Key, top * 0.92f, top, cc);
+                }
             }
         }
     }

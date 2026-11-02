@@ -38,6 +38,12 @@ namespace WizardsVRC
         public float radius = 19f;
         [Tooltip("How high above the floor still counts as inside (m).")]
         public float height = 18f;
+        [Tooltip("A rectangular hall (the saloon): half its width (x) and length (y) in the centre's own frame. 0 = round (radius).")]
+        public Vector2 boxHalf;
+        [Header("Player piano (optional)")]
+        [Tooltip("Piano keys that bob while the music plays.")]
+        public Transform[] pianoKeys;
+        private Vector3[] _keyRest;
         [Range(0f, 1f)] public float volume = 0.45f;
         public float fadeSeconds = 0.6f;
 
@@ -262,11 +268,38 @@ namespace WizardsVRC
                 if (Utilities.IsValid(me) && center != null)
                 {
                     Vector3 p = me.GetPosition() - center.position;
-                    inside = p.x * p.x + p.z * p.z < radius * radius && p.y > -1.5f && p.y < height;
+                    if (boxHalf.x > 0f)
+                    {
+                        Vector3 lp = Quaternion.Inverse(center.rotation) * p;
+                        inside = Mathf.Abs(lp.x) < boxHalf.x && Mathf.Abs(lp.z) < boxHalf.y && lp.y > -1.5f && lp.y < height;
+                    }
+                    else inside = p.x * p.x + p.z * p.z < radius * radius && p.y > -1.5f && p.y < height;
                 }
                 float target = inside && !_muted ? volume : 0f;
                 float step = Time.deltaTime / Mathf.Max(0.05f, fadeSeconds);
                 speaker.volume = Mathf.MoveTowards(speaker.volume, target, step);
+            }
+            // The player piano's keys dance while a song plays (only drawn near the saloon anyway).
+            if (pianoKeys != null && pianoKeys.Length > 0)
+            {
+                if (_keyRest == null || _keyRest.Length != pianoKeys.Length)
+                {
+                    _keyRest = new Vector3[pianoKeys.Length];
+                    for (int i = 0; i < pianoKeys.Length; i++) if (pianoKeys[i] != null) _keyRest[i] = pianoKeys[i].localPosition;
+                }
+                bool playing = _ready && !_paused && player != null && player.IsPlaying && speaker != null && speaker.volume > 0.01f;
+                float tm = Time.time;
+                for (int i = 0; i < pianoKeys.Length; i++)
+                {
+                    if (pianoKeys[i] == null) continue;
+                    float dip = 0f;
+                    if (playing)
+                    {
+                        float w = Mathf.Sin(tm * (5.3f + (i % 5) * 1.7f) + i * 2.1f) * Mathf.Sin(tm * 1.3f + i * 0.7f);
+                        dip = w > 0.55f ? -0.025f : 0f;
+                    }
+                    pianoKeys[i].localPosition = _keyRest[i] + new Vector3(0f, dip, 0f);
+                }
             }
             // The screen eases between its normal and its big size.
             if (screenRig != null)
