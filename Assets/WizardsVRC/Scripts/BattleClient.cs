@@ -901,8 +901,54 @@ namespace WizardsVRC
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
             }
             Transform spot = !manager.wanderMode && stagingSpots != null && slot < stagingSpots.Length && stagingSpots[slot] != null ? stagingSpots[slot] : seats[slot];
-            if (culler != null) culler.Prepare(spot.position);
-            local.TeleportTo(spot.position, spot.rotation);
+            QueueMove(spot, 0);
+        }
+
+        // ------------------------------------------------------------------ moving the local player
+
+        private Transform _moveTo;
+        private int _moveHold;
+        private bool _moveQueued;
+
+        /// <summary>
+        /// Teleports the local player to 'target' (null: stay put) a frame from now, and with hold 1 immobilizes them once
+        /// they're there (-1 frees them first). Everything that seats or unseats a wizard runs from OnBattleState, which is
+        /// called inside network updates (OnDeserialization, network events), and VRChat says never to teleport there: the
+        /// avatar can be left behind its own view, so you see a copy of yourself standing where you were, and everyone
+        /// else sees you there too instead of in your seat. Later calls in the same frame win, so arriving at the ring and
+        /// taking the seat in one update is a single teleport.
+        /// </summary>
+        private void QueueMove(Transform target, int hold)
+        {
+            _moveTo = target;
+            _moveHold = hold;
+            if (target != null && culler != null) culler.Prepare(target.position);
+            if (_moveQueued) return;
+            _moveQueued = true;
+            SendCustomEventDelayedFrames(nameof(_ApplyMove), 1);
+        }
+
+        public void _ApplyMove()
+        {
+            _moveQueued = false;
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (!Utilities.IsValid(local)) return;
+            if (_moveHold < 0) local.Immobilize(false);
+            if (_moveTo != null)
+            {
+                if (culler != null) culler.Prepare(_moveTo.position);
+                local.TeleportTo(_moveTo.position, _moveTo.rotation);
+            }
+            // Immobilize only after the teleport has taken effect.
+            if (_moveHold > 0) SendCustomEventDelayedFrames(nameof(_ApplyHold), 2);
+            _moveTo = null;
+            if (_areaAsleep && !_inBattle) enabled = false;
+        }
+
+        public void _ApplyHold()
+        {
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (Utilities.IsValid(local) && _inBattle && _seated && !_moveQueued) local.Immobilize(true);
         }
 
         private void TakeSeat()
@@ -913,9 +959,7 @@ namespace WizardsVRC
             CharacterData c = playerState.current;
 
             Transform seat = seats[_slot];
-            if (culler != null) culler.Prepare(seat.position);
-            local.TeleportTo(seat.position, seat.rotation);
-            local.Immobilize(true);
+            QueueMove(seat, 1);
 
             float eye = local.GetAvatarEyeHeightAsMeters();
             if (eye < 0.2f) eye = 1.6f;
@@ -1036,20 +1080,11 @@ namespace WizardsVRC
             _nextEngage = Time.time + 5f;
             if (playerState != null) { playerState.inCombat = false; playerState.combatHealth = -1; }
             if (handRoot != null) handRoot.SetActive(false);
-            VRCPlayerApi local = Networking.LocalPlayer;
-            if (Utilities.IsValid(local))
-            {
-                local.Immobilize(false);
-                Transform back = _defeated && defeatReturn != null ? defeatReturn : _wonLast && !_defeated && victoryReturn != null ? victoryReturn : hubReturn;
-                _wonLast = false;
-                if (back != null)
-                {
-                    if (culler != null) culler.Prepare(back.position);
-                    local.TeleportTo(back.position, back.rotation);
-                }
-            }
+            Transform back = _defeated && defeatReturn != null ? defeatReturn : _wonLast && !_defeated && victoryReturn != null ? victoryReturn : hubReturn;
+            _wonLast = false;
+            QueueMove(back, -1);   // freed, then sent on (a frame later: this can run inside a network update)
             if (playerState != null && playerState.HasCharacter()) playerState.SaveNow();
-            if (_areaAsleep) enabled = false;
+            // (If the ring's area is asleep, _ApplyMove switches this off once the move is done.)
         }
 
         // ------------------------------------------------------------------ sleeping with its area
@@ -1064,7 +1099,7 @@ namespace WizardsVRC
         public void _AreaSleep()
         {
             _areaAsleep = true;
-            if (!_inBattle) enabled = false;
+            if (!_inBattle && !_moveQueued) enabled = false;   // a move still to make switches it off when done
         }
 
         /// <summary>AreaCuller: the area is back on. Catch up with the fight's current state and animate again.</summary>

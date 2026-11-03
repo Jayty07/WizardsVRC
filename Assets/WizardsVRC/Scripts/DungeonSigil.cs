@@ -149,9 +149,22 @@ namespace WizardsVRC
             _myPad = -1;
             int slot = 0;
             for (int i = 0; i < party.Length; i++) if (party[i] == me.playerId) slot = i;
-            Vector3 side = start.right * ((slot - 1.5f) * 1.6f);
+            _enterPos = start.position + start.right * ((slot - 1.5f) * 1.6f);
             if (culler != null) culler.Prepare(start.position);
-            me.TeleportTo(start.position + side, start.rotation);
+            // Not now: this runs inside OnDeserialization (for everyone but the referee), and VRChat says never to
+            // teleport during a network update (the avatar can be left behind its own view). A frame later.
+            SendCustomEventDelayedFrames(nameof(_EnterNow), 1);
+        }
+
+        private Vector3 _enterPos;
+
+        public void _EnterNow()
+        {
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me) || start == null || state != STATE_INSIDE || !InParty(me.playerId)) return;
+            if (culler != null) culler.Prepare(start.position);
+            me.TeleportTo(_enterPos, start.rotation);
+            _enteredAt = Time.time;
         }
 
         // ------------------------------------------------------------------ referee (owner)
