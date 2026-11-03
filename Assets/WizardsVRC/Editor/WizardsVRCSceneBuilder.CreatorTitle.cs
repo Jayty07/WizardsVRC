@@ -20,20 +20,23 @@ namespace WizardsVRC.EditorTools
         private static Transform CreatorLetters(Transform parent, string text)
         {
             var font = NameFont();
-            const float p = 0.026f, depth = 0.12f;   // deep enough that the violet sides show as they turn
+            // Each letter is only about two pixels deep and sits two clear pixels from the next, so the violet sides show
+            // as they turn but never fill the gaps and run the letters together (at 1 pixel apart and 0.12 deep they did,
+            // from any angle but dead ahead).
+            const float p = 0.022f, depth = 0.05f, gap = 2f, space = 4f;
             var root = Child(parent, "CreatorTitle", new Vector3(0f, 0.26f, 0f));
             root.gameObject.isStatic = false;
             var face = PMat("CreatorTitleFace", new Color(1f, 0.84f, 0.32f), 1f, new Color(1f, 0.72f, 0.22f) * 0.85f);
             var side = PMat("CreatorTitleSide", new Color(0.38f, 0.16f, 0.6f), 1f, new Color(0.26f, 0.1f, 0.42f) * 0.6f);
 
-            // Lay the letters out (1 pixel between letters, 3 for a space), centred.
+            // Lay the letters out, centred.
             float total = 0f;
-            foreach (char c in text) total += c == ' ' ? 3f : GlyphFor(font, c)[0].Length + 1f;
-            float x = -(total - 1f) * p / 2f;
+            foreach (char c in text) total += c == ' ' ? space : GlyphFor(font, c)[0].Length + gap;
+            float x = -(total - gap) * p / 2f;
             var letters = new List<Transform>();
             foreach (char c in text)
             {
-                if (c == ' ') { x += 3f * p; continue; }
+                if (c == ' ') { x += space * p; continue; }
                 string[] rows = GlyphFor(font, c);
                 int w = rows[0].Length;
                 var lt = Child(root, "L" + letters.Count, new Vector3(x + w * p / 2f, 0f, 0f));
@@ -43,18 +46,19 @@ namespace WizardsVRC.EditorTools
                 r.sharedMaterials = new[] { face, side };
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 letters.Add(lt);
-                x += (w + 1f) * p;
+                x += (w + gap) * p;
             }
 
-            // The wave: each letter bobs, rocks and turns a beat after the one before it.
+            // The wave: each letter bobs, rocks and turns a beat after the one before it (small turns and rocks, so a
+            // letter's corners never swing into its neighbour's).
             var clip = NewClip("CreatorWobble", true);
             const float len = 1.8f;
             for (int i = 0; i < letters.Count; i++)
             {
                 float ph = -i * 0.075f;
-                Wave(clip, "L" + i, "posy", len, 1, 0f, 0.045f, ph);
-                Wave(clip, "L" + i, "rotz", len, 1, 0f, 8f, ph + 0.25f);
-                Wave(clip, "L" + i, "roty", len, 1, 0f, 24f, ph + 0.1f);
+                Wave(clip, "L" + i, "posy", len, 1, 0f, 0.04f, ph);
+                Wave(clip, "L" + i, "rotz", len, 1, 0f, 5f, ph + 0.25f);
+                Wave(clip, "L" + i, "roty", len, 1, 0f, 14f, ph + 0.1f);
                 Wave(clip, "L" + i, "rotx", len, 1, 0f, 0f);
                 Wave(clip, "L" + i, "scaley", len, 2, 1f, 0.06f, ph);
             }
