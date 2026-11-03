@@ -744,10 +744,19 @@ namespace WizardsVRC
             return Mathf.Max(1, rosterSize > 0 ? Mathf.Min(rosterSize, len > 0 ? len : rosterSize) : len);
         }
 
-        /// <summary>The most monsters this fight may hold now: the encounter's size plus one per extra wizard, at most four.</summary>
+        /// <summary>
+        /// The most monsters this fight may hold now: the encounter's size plus one per extra wizard, at most four, and the
+        /// same party rules as the start of a fight (StartBattle): a boss and one follower per extra wizard, or with
+        /// scaleRosterWithParty (tower floors) two for a solo wizard and one more per extra wizard. Monsters that wander in
+        /// or are run into mid-fight are held to it too.
+        /// </summary>
         private int MonsterCap()
         {
-            return Mathf.Min(SIDE, BaseSize() + Mathf.Max(0, WizardCount() - 1));
+            int wizards = Mathf.Max(1, WizardCount());
+            int cap = Mathf.Min(SIDE, BaseSize() + wizards - 1);
+            if (IsBossFight()) cap = Mathf.Min(cap, wizards);
+            else if (scaleRosterWithParty) cap = Mathf.Min(cap, 1 + wizards);
+            return cap;
         }
 
         /// <summary>
