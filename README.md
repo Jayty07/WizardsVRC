@@ -383,6 +383,8 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   your battle deck for each fight, on top of your deck (they don't use its space), and you can cast them whatever your
   school. The starting Training Staff holds one basic spell of every school, so new wizards have more to throw early on.
   The item's details in the backpack and the Deck page list them.
+- **No wand drops before level 8** (`BattleClient.wandDropLevel`): below it, no wand comes from a monster's own drop,
+  the random loot or a ring's loot table, so new wizards keep the Training Staff. Shops and quests are unaffected.
 - **Decks are items** (Wizard101 style): the Apprentice Deck (20 spells, 4 copies each) to start, plus the Scholar's,
   Ironbound and Starfall decks (bigger, more copies, small stat bonuses) from loot and bosses. Equip one in the backpack
   or on the book's Deck tab; each deck keeps its own spells and battles draw from the equipped one.

@@ -318,6 +318,9 @@ namespace WizardsVRC
         [Tooltip("Random loot after a win (30%). Empty = any item a shop could sell that's within a few levels of the wizard " +
                  "(gear from 4 levels below up to their level, potions of their tier); quest rewards and boss drops never roll.")]
         public int[] lootTable = new int[0];
+        [Tooltip("No wand drops (a monster's own drop or random loot) for a wizard below this level: they keep the wand they " +
+                 "start with until then. Shops still sell wands.")]
+        public int wandDropLevel = 8;
 
         [Header("Defeat")]
         [Tooltip("Health (% of max) you are sent home with after being defeated.")]
@@ -1129,7 +1132,7 @@ namespace WizardsVRC
                 for (int i = 0; i < n; i++)
                 {
                     int id = itemDatabase.ids[i];
-                    if (id <= 4 || itemDatabase.IsUnique(id) || itemDatabase.IsDeck(id)) continue;
+                    if (id <= 4 || itemDatabase.IsUnique(id) || itemDatabase.IsDeck(id) || !CanDrop(id, level)) continue;
                     int req = itemDatabase.GetLevelReq(id);
                     int floor = itemDatabase.IsPotion(id) ? level - 7 : level - 4;
                     if (req > level || req < floor) continue;
@@ -1138,6 +1141,25 @@ namespace WizardsVRC
                 }
                 if (count == 0) return 0;
             }
+            return 0;
+        }
+
+        /// <summary>Whether this item may drop for a wizard of this level: no wands below wandDropLevel.</summary>
+        private bool CanDrop(int itemId, int level)
+        {
+            if (itemId <= 0) return false;
+            return level >= wandDropLevel || itemDatabase == null || itemDatabase.GetCategory(itemId) != CharacterData.EQUIP_WEAPON;
+        }
+
+        /// <summary>A random entry of this ring's loot table that may drop for the wizard (0 if none may).</summary>
+        private int PickFromTable(int level)
+        {
+            int count = 0;
+            for (int i = 0; i < lootTable.Length; i++) if (CanDrop(lootTable[i], level)) count++;
+            if (count == 0) return 0;
+            int pick = Random.Range(0, count);
+            for (int i = 0; i < lootTable.Length; i++)
+                if (CanDrop(lootTable[i], level) && pick-- == 0) return lootTable[i];
             return 0;
         }
 
@@ -1155,7 +1177,7 @@ namespace WizardsVRC
                 xp += cardDatabase.MonsterXp(id);
                 gold += cardDatabase.RollMonsterGold(id);
                 int item = cardDatabase.MonsterDropItem(id);
-                if (item > 0 && Random.Range(0, 100) < cardDatabase.MonsterDropChance(id) && c.AddItem(item, 1))
+                if (CanDrop(item, c.level) && Random.Range(0, 100) < cardDatabase.MonsterDropChance(id) && c.AddItem(item, 1))
                     drops += "\nLoot: " + itemDatabase.GetName(item);
             }
             if (xp == 0) { xp = 60 + 25 * manager.MonsterCount(); gold = Random.Range(30, 61); }
@@ -1185,7 +1207,7 @@ namespace WizardsVRC
             }
             if (drops.Length == 0 && Random.value < 0.3f)
             {
-                int itemId = lootTable != null && lootTable.Length > 0 ? lootTable[Random.Range(0, lootTable.Length)] : RollLoot(c.level);
+                int itemId = lootTable != null && lootTable.Length > 0 ? PickFromTable(c.level) : RollLoot(c.level);
                 if (itemId > 0 && c.AddItem(itemId, 1))
                 {
                     msg += "\nLoot: " + itemDatabase.GetName(itemId);
