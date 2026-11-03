@@ -10,8 +10,10 @@ namespace WizardsVRC.EditorTools
     /// the rest of its neighbourhood on the strip round the map: rooftops, chimneys and lamplit windows round a town, hills,
     /// trees and giant flowers round a garden, forest round a grove, crags and ruins round a keep, smokestacks and slag
     /// round the forges, warehouses round the docks, and moored boats, buoys and a lighthouse where it meets the water.
-    /// Far islets dot the sea round every street and the castle. None of it is solid; each street's props are merged into
-    /// one mesh per material.
+    /// Far islets dot the sea round every street and the castle. The land climbs away from each street in rock terraces,
+    /// in three rows, so the neighbourhood shows over the roofs of the street's edge buildings and a skyline of tall shapes
+    /// (towers, spires, smokestacks, giant trees, crags, sandstone spires) stands behind it. None of it is solid; each
+    /// street's props are merged into one mesh per material.
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
@@ -95,7 +97,16 @@ namespace WizardsVRC.EditorTools
                 }
             }
 
-            // ---- the neighbourhood on the strip round the map, in rows along each dry side
+            // ---- the neighbourhood on the strip round the map, in rows along each dry side. The land climbs away from
+            // the street: every piece stands on a rock terrace high enough that it shows over the roofs of the street's
+            // edge buildings (a player in the street sees the near row over the roofs, and the rows behind it higher still).
+            float roofline = Mathf.Max(8f, EdgeRoofline(g, z) - top);
+            var mouths = TunnelMouths(g, z, mouth);
+            float[] rowOut = { 9f, 26f, 39f };
+            float[] rowGapMin = { 9f, 9f, 20f }, rowGapMax = { 15f, 15f, 32f };
+            // How high each row's tops reach above the island (times the roofline, plus metres): enough that, from about
+            // 20 m into the street, each row shows over the edge roofs in front of it.
+            float[] rowRise = { 1.5f, 2.2f, 2.8f }, rowPlus = { 4f, 8f, 10f };
             for (int side = 0; side < 4; side++)
             {
                 if (wet[side]) continue;
@@ -104,18 +115,23 @@ namespace WizardsVRC.EditorTools
                 Vector3 along = ns ? Vector3.right : Vector3.forward;
                 Vector3 outward = side == 0 ? Vector3.forward : side == 1 ? Vector3.right : side == 2 ? Vector3.back : Vector3.left;
                 float edge = ns ? hh : hw;
-                foreach (float row in new[] { 9f, 26f })
+                float margin = side == 0 ? mN : side == 1 ? mE : side == 2 ? mS : mW;
+                for (int row = 0; row < rowOut.Length; row++)
                 {
-                    for (float u = -len / 2f + 6f; u < len / 2f - 6f; u += Rr(9f, 15f))
+                    for (float u = -len / 2f + 6f; u < len / 2f - 6f; u += Rr(rowGapMin[row], rowGapMax[row]))
                     {
-                        Vector3 p = along * u + outward * (edge + row + Rr(-3f, 3f));
+                        Vector3 p = along * u + outward * (edge + rowOut[row] + Rr(-3f, 3f));
                         p.y = top;
-                        Vector3 flat = new Vector3(p.x, 0f, p.z);
-                        if ((flat - new Vector3(mouth.x, 0, mouth.z)).magnitude < 75f) continue;   // keep clear of the tunnel's mountains
+                        if (NearTunnel(p, mouths)) continue;   // keep clear of the tunnels' mountains
                         if (p.x > hw + mE - 4f || p.x < -hw - mW + 4f || p.z > hh + mN - 4f || p.z < -hh - mS + 4f) continue;   // off the island
                         Quaternion face = Quaternion.LookRotation(-outward) * Quaternion.Euler(0, Rr(-12f, 12f), 0);
-                        if (desert) DesertBackdropProp(holder, st, p, face, row > 15f, rng, bld, roof, leaves, trunk, glow, rock, tm[6]);
-                        else BackdropProp(holder, st, garden, p, face, row > 15f, rng, bld, roof, leaves, trunk, glow, rock, z.accentColor);
+                        var piece = Child(holder, "Piece", Vector3.zero);
+                        if (row == 2) SkylineProp(piece, st, garden, desert, p, rng, bld, roof, leaves, trunk, glow, rock, tm[6], z.accentColor);
+                        else if (desert) DesertBackdropProp(piece, st, p, face, row > 0, rng, bld, roof, leaves, trunk, glow, rock, tm[6]);
+                        else BackdropProp(piece, st, garden, p, face, row > 0, rng, bld, roof, leaves, trunk, glow, rock, z.accentColor);
+                        float target = (roofline * rowRise[row] + rowPlus[row]) * Rr(0.9f, 1.12f);
+                        RaiseOnTerrace(holder, piece, root, p, target, outward, edge, margin, along, ns ? hw + mE : hh + mN, ns ? -hw - mW : -hh - mS,
+                            rock, isleTop, rng);
                     }
                 }
             }
@@ -142,11 +158,160 @@ namespace WizardsVRC.EditorTools
                 Lighthouse(holder, new Vector3(lh.x, seaY, lh.z), rock);
             }
             // Far islets (buttes, out on the desert) all round, inside the draw distance.
-            if (desert) DesertButtes(holder, Mathf.Max(hw, hh) + BackdropMargin + 60f, Mathf.Max(hw, hh) + BackdropMargin + 170f, seaY, 9, rng, rock, tm[6]);
+            // (Tall enough that their tops clear the street's roofline too, from the desert floor far below.)
+            if (desert) DesertButtes(holder, Mathf.Max(hw, hh) + BackdropMargin + 60f, Mathf.Max(hw, hh) + BackdropMargin + 170f, seaY, 9, rng, rock, tm[6],
+                top - seaY + roofline * 2.1f + 10f);
             else Islets(holder, Vector3.zero, Mathf.Max(hw, hh) + BackdropMargin + 40f, Mathf.Max(hw, hh) + BackdropMargin + 150f, seaY, 7, rng, rock, leaves, trunk);
 
             foreach (var t in holder.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = true;
             MergeRenderers(holder, "BackdropMesh");
+        }
+
+        /// <summary>The height (zone-local) of the tallest roofs round the map's edge: what the backdrop has to show over.</summary>
+        private static float EdgeRoofline(ZoneGrid g, ZoneDefinition z)
+        {
+            // As House() builds them: Dustwind's frontier buildings are 8-13 m and 6 m taller on the map's edge, the rest
+            // the zone's buildingHeight and 4 m taller on the edge; then the roof ridge and chimneys.
+            bool frontier = z.textureStyle == ZoneTextureStyle.Boomtown || z.textureStyle == ZoneTextureStyle.Desert || z.textureStyle == ZoneTextureStyle.Mine;
+            float house = frontier ? 8f + 5f + 6f + 2f : z.buildingHeight.y + 4f + 2.2f;
+            float ground = float.MinValue;
+            for (int x = 0; x < g.width; x++) ground = Mathf.Max(ground, Mathf.Max(g.Elevation(x, 0), g.Elevation(x, g.height - 1)));
+            for (int y = 0; y < g.height; y++) ground = Mathf.Max(ground, Mathf.Max(g.Elevation(0, y), g.Elevation(g.width - 1, y)));
+            return ground + house;
+        }
+
+        /// <summary>Every tunnel mouth on this map's edge: the way home, and a town's Street Gates (their mountains stand there).</summary>
+        private static List<Vector3> TunnelMouths(ZoneGrid g, ZoneDefinition z, Vector3 home)
+        {
+            var list = new List<Vector3> { home };
+            if (z.landmarks == null) return list;
+            foreach (var l in z.landmarks)
+            {
+                if (l == null || l.kind != LandmarkKind.StreetGate) continue;
+                var cells = g.Find(l.Symbol);
+                if (cells.Count == 0) continue;
+                Vector3 m, o;
+                TunnelMouth(g, z, cells[0], out m, out o);
+                list.Add(m);
+            }
+            return list;
+        }
+
+        private static bool NearTunnel(Vector3 p, List<Vector3> mouths)
+        {
+            foreach (var m in mouths)
+                if (new Vector2(p.x - m.x, p.z - m.z).magnitude < 80f) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Lifts a backdrop piece (built at ground level under 'piece') so its top reaches 'target' metres above the island,
+        /// and builds the rock terrace it stands on: a block of rock with a cap of the island's ground, boulders round its
+        /// foot. The terrace keeps inside the island's strip (never over the map, never past the cliffs).
+        /// </summary>
+        private static void RaiseOnTerrace(Transform holder, Transform piece, Transform root, Vector3 p, float target, Vector3 outward, float edge,
+            float margin, Vector3 along, float alongMax, float alongMin, Material rock, Material cap, System.Random rng)
+        {
+            float Rr(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+            var rends = piece.GetComponentsInChildren<Renderer>();
+            if (rends.Length == 0) return;
+            Bounds b = rends[0].bounds;
+            foreach (var r in rends) b.Encapsulate(r.bounds);
+            Vector3 lo = b.min - root.position, hi = b.max - root.position;
+            float lift = Mathf.Clamp(target - (hi.y - p.y), 0f, 52f);
+            if (lift < 1f) return;
+            piece.localPosition = new Vector3(0f, lift, 0f);
+
+            // The terrace's footprint: the piece's own, a little wider, clamped to the strip between the map and the cliffs.
+            float o0 = Vector3.Dot(lo, outward), o1 = Vector3.Dot(hi, outward);
+            float oMin = Mathf.Min(o0, o1) - 1.2f, oMax = Mathf.Max(o0, o1) + 1.2f;
+            oMin = Mathf.Max(oMin, edge + 0.6f);
+            oMax = Mathf.Min(oMax, edge + margin - 0.6f);
+            float a0 = Vector3.Dot(lo, along), a1 = Vector3.Dot(hi, along);
+            float aMin = Mathf.Max(Mathf.Min(a0, a1) - 1.2f, alongMin + 0.6f), aMax = Mathf.Min(Mathf.Max(a0, a1) + 1.2f, alongMax - 0.6f);
+            if (oMax - oMin < 2f || aMax - aMin < 2f) return;
+            Vector3 centre = outward * ((oMin + oMax) / 2f) + along * ((aMin + aMax) / 2f);
+            float wOut = oMax - oMin, wAlong = aMax - aMin;
+            Vector3 size = new Vector3(Mathf.Abs(along.x) * wAlong + Mathf.Abs(outward.x) * wOut, 0f, Mathf.Abs(along.z) * wAlong + Mathf.Abs(outward.z) * wOut);
+            float bottom = p.y - 1.5f, plinthTop = p.y + lift - 0.3f;
+            BackBlock(holder, "Terrace", new Vector3(centre.x, (bottom + plinthTop) / 2f, centre.z), new Vector3(size.x, plinthTop - bottom, size.z), rock, Quaternion.identity);
+            BackBlock(holder, "TerraceTop", new Vector3(centre.x, p.y + lift - 0.18f, centre.z), new Vector3(size.x + 0.5f, 0.45f, size.z + 0.5f), cap, Quaternion.identity);
+            // Boulders round its foot, on the far side and the ends (not toward the street, where they'd poke over the map).
+            for (int k = 0; k < 3; k++)
+            {
+                float t = Rr(-0.5f, 0.5f);
+                Vector3 foot = centre + outward * (wOut * 0.5f) + along * (t * wAlong);
+                float bs = Mathf.Min(lift * 0.5f, 9f);
+                Shape(holder, "TerraceRock", BlobMesh(), new Vector3(foot.x, p.y + bs * 0.25f, foot.z), new Vector3(Rr(0.7f, 1.2f) * bs * 1.4f, bs, Rr(0.7f, 1.2f) * bs), rock, false,
+                    Quaternion.Euler(0, Rr(0f, 360f), 0));
+            }
+        }
+
+        /// <summary>
+        /// The far row: the tall shapes that make the street's skyline over its rooftops (lantern towers and spires round a
+        /// town, smokestacks round the forges, giant trees round a garden, great pines round a grove, crags and broken
+        /// towers round a keep, sandstone spires round Dustwind).
+        /// </summary>
+        private static void SkylineProp(Transform holder, ZoneTextureStyle st, bool garden, bool desert, Vector3 p, System.Random rng,
+            Material bld, Material roof, Material leaves, Material trunk, Material glow, Material rock, Material sandTop, Color accent)
+        {
+            float Rr(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+            if (desert)
+            {
+                Butte(holder, p, Rr(8f, 14f), Rr(14f, 24f), rock, sandTop, Rr(0f, 360f));
+                return;
+            }
+            if (garden)
+            {
+                if (rng.NextDouble() < 0.65) RoundTree(holder, p, Rr(2.2f, 3f), leaves, trunk);
+                else GiantFlower(holder, p, Rr(12f, 18f), accent, rng);
+                return;
+            }
+            switch (st)
+            {
+                case ZoneTextureStyle.Forest:
+                    Conifer(holder, p, Rr(2.4f, 3.2f), leaves, trunk);
+                    Conifer(holder, p + new Vector3(Rr(-6f, 6f), 0, Rr(-6f, 6f)), Rr(1.6f, 2.2f), leaves, trunk);
+                    return;
+                case ZoneTextureStyle.Keep:
+                    if (rng.NextDouble() < 0.55) Crag(holder, p, Rr(18f, 28f), rock, rng);
+                    else RuinedTower(holder, p, Rr(14f, 22f), bld, rock);
+                    return;
+                case ZoneTextureStyle.Forge:
+                {
+                    var brick = PMat("Brick", new Color(0.45f, 0.25f, 0.2f), 2f);
+                    BackBlock(holder, "Foundry", p + new Vector3(0, 4f, 0), new Vector3(Rr(10f, 14f), 8f, Rr(8f, 11f)), bld, Quaternion.Euler(0, Rr(0f, 90f), 0));
+                    int stacks = rng.Next(2, 4);
+                    for (int k = 0; k < stacks; k++)
+                    {
+                        float h = Rr(14f, 22f);
+                        Shape(holder, "Smokestack", CylMesh(), p + new Vector3(-3f + k * 3f, h / 2f, Rr(-1.5f, 1.5f)), new Vector3(1.8f, h / 2f, 1.8f), brick, false, Quaternion.identity);
+                        Shape(holder, "StackLip", CylMesh(), p + new Vector3(-3f + k * 3f, h + 0.3f, 0), new Vector3(2.3f, 0.3f, 2.3f), bld, false, Quaternion.identity);
+                    }
+                    return;
+                }
+                default:
+                {
+                    if (rng.NextDouble() < 0.5)
+                    {
+                        // A lantern tower.
+                        float h = Rr(18f, 26f);
+                        Shape(holder, "LanternTower", CylMesh(), p + new Vector3(0, h / 2f, 0), new Vector3(3.2f, h / 2f, 3.2f), bld, false, Quaternion.identity);
+                        Shape(holder, "LanternTowerLight", GemMesh(), p + new Vector3(0, h + 1.6f, 0), new Vector3(2.2f, 2.6f, 2.2f), glow, false, Quaternion.identity);
+                        Shape(holder, "LanternTowerTop", ConeMesh(), p + new Vector3(0, h + 4.6f, 0), new Vector3(4.4f, 4.4f, 4.4f), roof, false, Quaternion.identity);
+                    }
+                    else
+                    {
+                        // A tall townhouse with a steep spire.
+                        float w = Rr(7f, 9f), h = Rr(16f, 24f);
+                        BackBlock(holder, "Spire", p + new Vector3(0, h / 2f, 0), new Vector3(w, h, w), bld, Quaternion.Euler(0, Rr(0f, 90f), 0));
+                        Shape(holder, "SpireRoof", ConeMesh(), p + new Vector3(0, h + w * 0.9f, 0), new Vector3(w * 1.2f, w * 0.95f, w * 1.2f), roof, false, Quaternion.Euler(0, 22.5f, 0));
+                        for (int r = 0; r < 3; r++)
+                            BackBlock(holder, "SpireWindow", p + new Vector3(0, h * (0.45f + r * 0.18f), -w / 2f - 0.04f), new Vector3(1f, 1.5f, 0.06f), glow, Quaternion.identity);
+                    }
+                    return;
+                }
+            }
         }
 
         /// <summary>A plain box with no collider (scenery nobody can reach).</summary>

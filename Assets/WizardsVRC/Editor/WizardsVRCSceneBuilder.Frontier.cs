@@ -212,8 +212,11 @@ namespace WizardsVRC.EditorTools
                 BackBlock(holder, "RanchWindow", p + face * new Vector3(Rr(-w * 0.3f, w * 0.3f), 2f, d / 2f + 0.2f), new Vector3(1f, 1.2f, 0.06f), glow, face);
         }
 
-        /// <summary>Distant buttes and mesas all round a Dustwind street, on the sand flats below it.</summary>
-        private static void DesertButtes(Transform holder, float r0, float r1, float floorY, int count, System.Random rng, Material rock, Material top)
+        /// <summary>
+        /// Distant buttes and mesas all round a Dustwind street, on the sand flats below it, at least about 'minHeight' tall
+        /// (enough to rise over the street's own rooftops) when it's given.
+        /// </summary>
+        private static void DesertButtes(Transform holder, float r0, float r1, float floorY, int count, System.Random rng, Material rock, Material top, float minHeight = 0f)
         {
             float Rr(float a, float b) => a + (float)rng.NextDouble() * (b - a);
             for (int k = 0; k < count; k++)
@@ -222,7 +225,9 @@ namespace WizardsVRC.EditorTools
                 Vector3 p = Quaternion.Euler(0, a, 0) * new Vector3(0, 0, Rr(r0, r1));
                 p.y = floorY;
                 bool mesa = rng.NextDouble() < 0.5;
-                Butte(holder, p, mesa ? Rr(30f, 55f) : Rr(10f, 18f), mesa ? Rr(18f, 30f) : Rr(28f, 45f), rock, top, Rr(0f, 360f));
+                float h = mesa ? Rr(18f, 30f) : Rr(28f, 45f);
+                if (minHeight > 0f) h = Mathf.Max(h, minHeight * (mesa ? Rr(0.8f, 0.95f) : Rr(0.95f, 1.15f)));
+                Butte(holder, p, mesa ? Rr(30f, 55f) : Rr(10f, 18f), h, rock, top, Rr(0f, 360f));
             }
         }
     }
