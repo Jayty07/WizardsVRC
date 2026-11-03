@@ -766,7 +766,7 @@ namespace WizardsVRC
                 detailName.text = itemDatabase.GetName(itemId) + "  (" + itemDatabase.GetCategoryName(itemDatabase.GetCategory(itemId)) + ")";
             if (detailBody != null)
             {
-                string spells = itemDatabase.ItemCardText(itemId);
+                string spells = itemDatabase.ItemCardTextFor(itemId, (int)c.school);
                 detailBody.text = itemDatabase.GetDescription(itemId) + "\n" + itemDatabase.GetStatSummary(itemId) + (spells.Length > 0 ? "\n" + spells : "");
             }
 

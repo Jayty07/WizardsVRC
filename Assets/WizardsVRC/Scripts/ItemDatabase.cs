@@ -524,33 +524,71 @@ namespace WizardsVRC
         public int[] itemCardItems = { 1, 1, 1, 1, 1, 1, 1 };
         [Tooltip("The Training Staff (item 1) gives one basic spell of every school: Fire, Ice, Storm, Life, Death, Myth, Balance.")]
         public int[] itemCardIds = { 100, 112, 124, 136, 148, 160, 172 };
+        [Tooltip("Every wand with no item cards of its own (all but the Training Staff) adds this many copies of a basic " +
+                 "attack to the battle deck: its school's basic spell, or for a wand any school can use, the wizard's own.")]
+        public int wandBasicCopies = 7;
         [Tooltip("For listing item cards by name.")]
         public CardDatabase cardDatabase;
+
+        /// <summary>This item has item cards of its own in itemCardItems.</summary>
+        public bool HasItemCards(int itemId)
+        {
+            if (itemCardItems == null || itemId == 0) return false;
+            for (int k = 0; k < itemCardItems.Length; k++) if (itemCardItems[k] == itemId) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// The basic attack a wand adds wandBasicCopies of (0 for none): any wand without item cards of its own gives its
+        /// school's basic spell, or for a wand of any school, the wielder's ('wielderSchool'; -1 when unknown gives 0).
+        /// </summary>
+        public int WandBasicSpell(int itemId, int wielderSchool)
+        {
+            if (wandBasicCopies <= 0 || itemId == 0 || GetCategory(itemId) != CharacterData.EQUIP_WEAPON || HasItemCards(itemId)) return 0;
+            int school = GetSchoolReq(itemId);
+            if (school < 0) school = wielderSchool;
+            if (school < 0 || school > 6) return 0;
+            return cardDatabase != null ? cardDatabase.BasicSpell(school) : 100 + school * CardDatabase.TIERS;
+        }
 
         /// <summary>How many item cards all of the character's equipped gear adds to the battle deck.</summary>
         public int EquippedItemCardCount(CharacterData c)
         {
-            if (c == null || itemCardItems == null || itemCardIds == null) return 0;
+            if (c == null) return 0;
             int n = 0;
             for (int s = 0; s < CharacterData.EQUIP_SLOTS; s++)
             {
                 int item = c.equipped[s];
                 if (item == 0) continue;
-                for (int k = 0; k < itemCardItems.Length && k < itemCardIds.Length; k++) if (itemCardItems[k] == item) n++;
+                if (itemCardItems != null && itemCardIds != null)
+                    for (int k = 0; k < itemCardItems.Length && k < itemCardIds.Length; k++) if (itemCardItems[k] == item) n++;
+                if (WandBasicSpell(item, (int)c.school) > 0) n += wandBasicCopies;
             }
             return n;
         }
 
         /// <summary>"Item spells: Ember Imp, Frost Mite..." for an item's details (empty when it gives none).</summary>
-        public string ItemCardText(int itemId)
+        public string ItemCardText(int itemId) { return ItemCardTextFor(itemId, -1); }
+
+        /// <summary>
+        /// The same, for a wizard of school 'wielderSchool' (-1 when unknown): a wand's basic attacks are named for the school
+        /// they'll be ("7 x Ember Imp"), or "your school's basic attack" when that depends on a wielder we don't know.
+        /// </summary>
+        public string ItemCardTextFor(int itemId, int wielderSchool)
         {
-            if (itemCardItems == null || itemCardIds == null) return "";
             string t = "";
-            for (int k = 0; k < itemCardItems.Length && k < itemCardIds.Length; k++)
+            if (itemCardItems != null && itemCardIds != null)
+                for (int k = 0; k < itemCardItems.Length && k < itemCardIds.Length; k++)
+                {
+                    if (itemCardItems[k] != itemId) continue;
+                    string n = cardDatabase != null ? cardDatabase.GetName(itemCardIds[k]) : itemCardIds[k].ToString();
+                    t += (t.Length == 0 ? "Item spells (added to your deck in battle): " : ", ") + n;
+                }
+            if (wandBasicCopies > 0 && GetCategory(itemId) == CharacterData.EQUIP_WEAPON && !HasItemCards(itemId))
             {
-                if (itemCardItems[k] != itemId) continue;
-                string n = cardDatabase != null ? cardDatabase.GetName(itemCardIds[k]) : itemCardIds[k].ToString();
-                t += (t.Length == 0 ? "Item spells (added to your deck in battle): " : ", ") + n;
+                int basic = WandBasicSpell(itemId, wielderSchool);
+                string what = basic > 0 && cardDatabase != null ? cardDatabase.GetName(basic) : "your school's basic attack";
+                t = "Item spells (added to your deck in battle): " + wandBasicCopies.ToString() + " x " + what;
             }
             return t;
         }

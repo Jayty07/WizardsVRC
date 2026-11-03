@@ -382,7 +382,9 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Item cards:** gear can carry spells (`ItemDatabase.itemCardItems` / `itemCardIds`). While it's equipped they join
   your battle deck for each fight, on top of your deck (they don't use its space), and you can cast them whatever your
   school. The starting Training Staff holds one basic spell of every school, so new wizards have more to throw early on.
-  The item's details in the backpack and the Deck page list them.
+  Every other wand (one with no item cards of its own) adds 7 copies of a basic attack (`ItemDatabase.wandBasicCopies`):
+  its school's basic spell, or your own school's for a wand any school can use. The item's details in the backpack and
+  the Deck page list them.
 - **No wand drops before level 8** (`BattleClient.wandDropLevel`): below it, no wand comes from a monster's own drop,
   the random loot or a ring's loot table, so new wizards keep the Training Staff. Shops and quests are unaffected.
 - **Decks are items** (Wizard101 style): the Apprentice Deck (20 spells, 4 copies each) to start, plus the Scholar's,

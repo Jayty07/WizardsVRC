@@ -1244,6 +1244,13 @@ namespace WizardsVRC
                         if (itemDatabase.itemCardItems[k] == item && cardDatabase.IndexOf(card) >= 0) _pile[_pileCount++] = card;
                     }
                 }
+            // Any other wand: copies of a basic attack (its school's, or yours for a wand of any school).
+            if (itemDatabase != null)
+            {
+                int basicCard = itemDatabase.WandBasicSpell(c.equipped[CharacterData.EQUIP_WEAPON], (int)c.school);
+                if (basicCard > 0 && cardDatabase.IndexOf(basicCard) >= 0)
+                    for (int k = 0; k < itemDatabase.wandBasicCopies && _pileCount < _pile.Length; k++) _pile[_pileCount++] = basicCard;
+            }
             if (_pileCount == 0)
             {
                 int basic = cardDatabase.BasicSpell((int)c.school);

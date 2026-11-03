@@ -50,7 +50,7 @@ namespace WizardsVRC
                 nameLabel.text = "<color=#" + Hex(itemDatabase.GetIconColor(itemId)) + ">" + itemDatabase.GetName(itemId) + "</color>\n<size=22>" +
                                  itemDatabase.GetCategoryName(cat) + "</size>";
             string body = itemDatabase.GetDescription(itemId) + "\n\n" + itemDatabase.GetStatSummary(itemId);
-            string cards = itemDatabase.ItemCardText(itemId);
+            string cards = itemDatabase.ItemCardTextFor(itemId, c != null ? (int)c.school : -1);
             if (cards.Length > 0) body += cards + "\n";
             int worn = 0;
             if (c != null && itemDatabase.IsEquippable(itemId) && cat >= 0 && cat < CharacterData.EQUIP_SLOTS) worn = c.equipped[cat];
