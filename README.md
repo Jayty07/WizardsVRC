@@ -347,9 +347,14 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   crackles and jitters, life breathes, death crawls with wisps, myth shimmers gold, balance pulses evenly. It flares when
   the spell is released. The symbols are drawn by `Tools/make_glyph_draw.py` (data maps in `Textures/CastDraw` and the
   pen paths in `Editor/GlyphPenData.cs`) and shown by the `WizardsVRC/GlyphDraw` shader.
+- **The duel circle** is laid on a stone dais with a gold trim: a band of carved slate flagstones holds the eight
+  seat sockets, linked by a glowing channel; inside it a star chart turns, a seven-point star joining the seven school
+  emblems; outside it a band of glowing runes turns the other way. A gold inlay splits the two sides, with a crystal
+  hovering over a plinth at each end, and motes drift up off the runes. Art by `Tools/make_duel_ring.py`
+  (`Textures/DuelRing*.png`); the older `DuelCircle*.png` art is still used by the tower and dungeon sigils.
 - **The turn clock** is set into the middle of the duel circle: a dial whose rim of 40 rune segments goes dark
   clockwise as the time to choose runs out (gold, then red and pulsing near the end), and a gold hand that sweeps the
-  timer, then points at each caster in turn (`Shaders/DuelClock.shader`, art by `Tools/make_duel_clock.py`).
+  timer, then points at each caster in turn (`Shaders/DuelClock.shader`, dial and hand by `Tools/make_duel_ring.py`).
 - **Picking a target:** with a spell picked, the seats it can go to glow on the floor (green for allies, red for
   enemies); click the combatant (or their button on the hand) to cast there.
 - **A fizzle** plays the cast as normal for its first 2 seconds (`BattleManager.fizzleCutSeconds`), then the cast sound

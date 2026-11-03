@@ -1065,7 +1065,7 @@ namespace WizardsVRC.EditorTools
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
         private const float DuelCircleRadius = 9.3f;
-        // Matches the seat sockets painted at 200/256 of the disc radius in DuelCircle.png.
+        // Matches the seat sockets painted at 200/256 of the disc radius in DuelRingBase.png (Tools/make_duel_ring.py).
         private const float DuelSeatRadius = DuelCircleRadius * 200f / 256f;
         private static readonly string[] FxKindNames = { "Shield", "Blade", "Trap" };
         // Shields at chest height, blades overhead, traps low (icons stand upright, so not on the ground).
@@ -1290,7 +1290,7 @@ namespace WizardsVRC.EditorTools
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (mat == null) { mat = new Material(sh); AssetDatabase.CreateAsset(mat, path); }
             mat.shader = sh;
-            mat.mainTexture = PixelTexture(TexturesDir + "/DuelClock.png");
+            mat.mainTexture = PixelTexture(TexturesDir + "/DuelRingClock.png");
             if (mat.HasProperty("_Cutoff")) mat.SetFloat("_Cutoff", 0.5f);
             EditorUtility.SetDirty(mat);
             return mat;
@@ -1417,10 +1417,8 @@ namespace WizardsVRC.EditorTools
 
             var ring = new GameObject("DuelRing");
             ring.transform.SetParent(root, false);
-            Material ringMat = Mat("DuelRing", new Color(0.95f, 0.8f, 0.35f));
-            ringMat.EnableKeyword("_EMISSION");
-            ringMat.SetColor("_EmissionColor", new Color(0.9f, 0.7f, 0.25f) * 1.5f);
-            // Duel circle: seat band (fixed), turning sigil and rune band, and the start flash (WizardsVRCSceneBuilder.CombatFx.cs).
+            // Duel circle: seat band (fixed), turning sigil and rune band, the dais and pylons, and the start flash
+            // (WizardsVRCSceneBuilder.CombatFx.cs; art from Tools/make_duel_ring.py).
             BuildCircleLayers(ring.transform, name, client);
 
             // Turn clock in the middle of the ring: the hand sweeps the planning timer, then points at each caster.
@@ -1436,11 +1434,11 @@ namespace WizardsVRC.EditorTools
             dial.isStatic = false;
             client.clockFace = dial.GetComponent<Renderer>();
             var hand = Child(clock, "Hand", new Vector3(0, 0.035f, 0));
-            FlatDecal(hand, "HandSprite", Vector3.zero, 2.6f, UnlitCutoutMat("DuelClockHand", PixelTexture(TexturesDir + "/DuelClockHand.png"))).isStatic = false;
+            FlatDecal(hand, "HandSprite", Vector3.zero, 2.6f, UnlitCutoutMat("DuelClockHand", PixelTexture(TexturesDir + "/DuelRingClockHand.png"))).isStatic = false;
             client.clockHand = hand;
             client.clockLabel = WorldText(ring.transform, "ClockLabel", new Vector3(0, 1.1f, 0), Quaternion.identity, new Vector2(700, 160), 0.004f, "", 44);
 
-            Texture2D seatTex = PixelTexture(TexturesDir + "/DuelSeatRing.png");
+            Texture2D seatTex = PixelTexture(TexturesDir + "/DuelRingSeat.png");
             Material seatEmpty = CutoutMat("DuelSeatEmpty", seatTex, new Color(0.45f, 0.42f, 0.5f), new Color(0.08f, 0.08f, 0.1f));
             client.seatEmptyMat = seatEmpty;
             client.seatSchoolMats = new Material[SchoolLabels.Length];
@@ -1561,14 +1559,22 @@ namespace WizardsVRC.EditorTools
             // The round / cast / result banner: big, high over the middle of the ring, readable from every seat.
             client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 6.4f, 0), Quaternion.identity, new Vector2(1800, 480), 0.008f, "", 64);
 
-            var divider = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            divider.name = "SideDivider";
-            divider.transform.SetParent(ring.transform, false);
-            divider.transform.localPosition = new Vector3(0, 0.035f, 0);
-            divider.transform.localScale = new Vector3(DuelCircleRadius * 2f - 1.2f, 0.02f, 0.12f);
-            divider.GetComponent<Renderer>().sharedMaterial = ringMat;
-            divider.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            Object.DestroyImmediate(divider.GetComponent<Collider>());
+            // The line between the two sides: a gold inlay with glowing studs, laid as two strips from the clock's rim out
+            // to the rune band (east and west, between the seats).
+            Material dividerMat = CutoutMat("DuelRingDivider", PixelTexture(TexturesDir + "/DuelRingDivider.png"), Color.white, new Color(0.85f, 0.68f, 0.32f));
+            float divIn = 2.15f, divOut = DuelCircleRadius * 234f / 256f - 0.1f;
+            for (int k = 0; k < 2; k++)
+            {
+                var divider = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                divider.name = "SideDivider";
+                divider.transform.SetParent(ring.transform, false);
+                divider.transform.localPosition = new Vector3((k == 0 ? 1f : -1f) * (divIn + divOut) / 2f, 0.035f, 0);
+                divider.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                divider.transform.localScale = new Vector3(divOut - divIn, 0.36f, 1f);
+                divider.GetComponent<Renderer>().sharedMaterial = dividerMat;
+                divider.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                Object.DestroyImmediate(divider.GetComponent<Collider>());
+            }
 
             var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             orb.name = "SpellOrb";

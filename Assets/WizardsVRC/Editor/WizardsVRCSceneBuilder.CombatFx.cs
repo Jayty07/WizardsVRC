@@ -43,32 +43,37 @@ namespace WizardsVRC.EditorTools
         // ================================================================== circle
 
         /// <summary>
-        /// The duel circle in three layers cut from DuelCircle.png: the seat band (fixed, so sockets stay under the seats),
-        /// the inner sigil and the outer rune band (they turn opposite ways). Plus the start flash: a white copy of the
-        /// circle that settles into it, a column of light, a light flash, sparks and the circle sound.
+        /// The duel circle (art from Tools/make_duel_ring.py): the carved stone seat band (fixed, so its sockets stay under
+        /// the seats), the star-chart sigil with the seven school emblems and the outer rune band (those two turn opposite
+        /// ways), laid on a stone dais with a gold trim, two crystals hovering at the ends of the line between the sides,
+        /// and motes rising off the rune band. Plus the start flash: a white copy of the circle that settles into it, a
+        /// column of light, a light flash, sparks and the circle sound. All of it is looks: no colliders.
         /// </summary>
         private static void BuildCircleLayers(Transform ring, string name, BattleClient client)
         {
             // Layers 1.5 cm apart (base, then sigil and runes, then seat rings, then the flash) so they never fight; the
             // whole ring is lifted RingLift above the ground.
             float d = DuelCircleRadius * 2f;
-            Color glow = new Color(0.35f, 0.35f, 0.4f);
+            Color glow = new Color(0.35f, 0.35f, 0.42f);
             FlatDecal(ring, "CircleBase", new Vector3(0, 0f, 0), d,
-                CutoutMat("DuelCircleBase", PixelTexture(TexturesDir + "/DuelCircleBase.png"), Color.white, glow));
+                CutoutMat("DuelRingBase", PixelTexture(TexturesDir + "/DuelRingBase.png"), Color.white, glow));
             Transform sigil = Child(ring, "SigilSpin", Vector3.zero);
-            Material sigilMat = CutoutMat("DuelCircleSigil", PixelTexture(TexturesDir + "/DuelCircleSigil.png"), Color.white, glow);
+            Material sigilMat = CutoutMat("DuelRingSigil", PixelTexture(TexturesDir + "/DuelRingSigil.png"), Color.white, glow);
             FlatDecal(sigil, "CircleSigil", new Vector3(0, 0.015f, 0), d, sigilMat);
             Transform runes = Child(ring, "RuneSpin", Vector3.zero);
             FlatDecal(runes, "CircleRunes", new Vector3(0, 0.015f, 0), d,
-                CutoutMat("DuelCircleRunes", PixelTexture(TexturesDir + "/DuelCircleRunes.png"), Color.white, glow * 1.3f));
+                CutoutMat("DuelRingRunes", PixelTexture(TexturesDir + "/DuelRingRunes.png"), Color.white, glow * 1.3f));
             client.circleSigil = sigil;
             client.circleRunes = runes;
             client.circleSigilMat = sigilMat;
             client.circleSigilGlow = glow;
+            BuildRingDais(ring);
+            BuildRingPylons(ring);
+            BuildRuneMotes(ring);
 
             // Start flash. Its own material per encounter (its glow is animated).
             Transform flash = Child(ring, "CircleFlash", new Vector3(0, 0.045f, 0));
-            Material flashMat = CutoutMat("DuelFlash_" + name, PixelTexture(TexturesDir + "/DuelCircle.png"), Color.white, Color.white * 3f);
+            Material flashMat = CutoutMat("DuelFlash_" + name, PixelTexture(TexturesDir + "/DuelRingFlash.png"), Color.white, Color.white * 3f);
             FlatDecal(flash, "FlashDisc", Vector3.zero, d, flashMat);
             flash.gameObject.SetActive(false);
             client.circleFlash = flash;
@@ -133,6 +138,156 @@ namespace WizardsVRC.EditorTools
             audio.rolloffMode = AudioRolloffMode.Linear;
             client.circleAudio = audio;
             client.circleSound = UiClip("combat_circle_active");
+        }
+
+        /// <summary>
+        /// The stone dais the circle is laid on: a lip just under the art's edge with a gold trim round the circle, sloping
+        /// down to the ground and on into it, so uneven ground never shows a gap under the floating art. No collider.
+        /// </summary>
+        private static void BuildRingDais(Transform ring)
+        {
+            var go = new GameObject("Dais");
+            go.transform.SetParent(ring, false);
+            go.AddComponent<MeshFilter>().sharedMesh = DaisMesh();
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.sharedMaterials = new[] { RingStoneMat(), RingGoldMat() };
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        private static Material RingStoneMat()
+        {
+            return PsxTexMat("DuelDais", new Color(0.56f, 0.57f, 0.72f), TileTexture(TerrainTexDir + "/StoneWall.png"), 1.4f);
+        }
+
+        private static Material RingGoldMat()
+        {
+            return PMat("DuelDaisGold", new Color(0.95f, 0.76f, 0.32f), 1f, new Color(0.45f, 0.32f, 0.08f));
+        }
+
+        private static Mesh _daisMesh;
+
+        /// <summary>
+        /// The dais as one mesh round the circle (shared by every ring in a build): submesh 0 the stone (lip, slope, the
+        /// buried skirt), submesh 1 the gold trim on the lip. Profiles are (radius, height) in the ring's space; the ground
+        /// is RingLift below it.
+        /// </summary>
+        private static Mesh DaisMesh()
+        {
+            if (_daisMesh != null) return _daisMesh;
+            float R = DuelCircleRadius, ground = -RingLift;
+            var stone = new[] { new Vector2(R - 0.05f, -0.008f), new Vector2(R + 0.16f, -0.008f), new Vector2(R + 0.62f, ground - 0.05f), new Vector2(R + 0.62f, ground - 0.6f) };
+            var gold = new[] { new Vector2(R - 0.005f, 0.004f), new Vector2(R + 0.11f, 0.004f), new Vector2(R + 0.11f, -0.008f) };
+            const int segs = 72;
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var stoneTris = new List<int>();
+            var goldTris = new List<int>();
+            System.Action<Vector2[], List<int>> strips = (profile, tris) =>
+            {
+                for (int p = 0; p + 1 < profile.Length; p++)
+                {
+                    int start = verts.Count;
+                    for (int i = 0; i <= segs; i++)
+                    {
+                        float a = i / (float)segs * Mathf.PI * 2f;
+                        Vector3 dir = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
+                        verts.Add(dir * profile[p].x + Vector3.up * profile[p].y);
+                        verts.Add(dir * profile[p + 1].x + Vector3.up * profile[p + 1].y);
+                        uvs.Add(new Vector2(i / (float)segs * 24f, 0f));
+                        uvs.Add(new Vector2(i / (float)segs * 24f, 1f));
+                    }
+                    for (int i = 0; i < segs; i++)
+                    {
+                        int v = start + i * 2;
+                        // Wound clockwise seen from above / outside, so the faces look up and outward.
+                        tris.AddRange(new[] { v, v + 1, v + 2, v + 1, v + 3, v + 2 });
+                    }
+                }
+            };
+            strips(stone, stoneTris);
+            strips(gold, goldTris);
+            var mesh = new Mesh { name = "DuelRingDais" };
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.subMeshCount = 2;
+            mesh.SetTriangles(stoneTris, 0);
+            mesh.SetTriangles(goldTris, 1);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            _daisMesh = mesh;
+            return mesh;
+        }
+
+        /// <summary>
+        /// A crystal hovering over a stone plinth at each end of the line between the two sides (east and west, clear of
+        /// every seat), bobbing and turning out of step (the shared float clips, WizardsVRCSceneBuilder.Magic.cs).
+        /// </summary>
+        private static void BuildRingPylons(Transform ring)
+        {
+            var stone = RingStoneMat();
+            var gold = RingGoldMat();
+            var crystal = PMat("DuelPylonCrystal", new Color(0.72f, 0.86f, 1f), 1f, new Color(0.42f, 0.58f, 0.95f));
+            float r = DuelCircleRadius + 0.42f, top = 0.5f, bottom = -RingLift - 0.3f;
+            for (int k = 0; k < 2; k++)
+            {
+                float side = k == 0 ? 1f : -1f;
+                var root = Child(ring, "Pylon" + k, new Vector3(side * r, 0f, 0f));
+                root.gameObject.isStatic = false;
+                Shape(root, "Plinth", CylMesh(), new Vector3(0, (top + bottom) / 2f, 0), new Vector3(0.5f, (top - bottom) / 2f, 0.5f), stone, false, Quaternion.identity);
+                Shape(root, "PlinthBand", CylMesh(), new Vector3(0, 0.08f, 0), new Vector3(0.56f, 0.03f, 0.56f), gold, false, Quaternion.identity);
+                Shape(root, "PlinthCap", CylMesh(), new Vector3(0, top + 0.04f, 0), new Vector3(0.62f, 0.04f, 0.62f), gold, false, Quaternion.identity);
+                Shape(root, "PlinthGem", GemMesh(), new Vector3(0, top + 0.12f, 0), new Vector3(0.14f, 0.1f, 0.14f), crystal, false, Quaternion.identity);
+                var pivot = Child(root, "Float_DuelPylon", new Vector3(0, 1.38f, 0));
+                var body = Child(pivot, "Body", Vector3.zero);
+                Shape(body, "Crystal", GemMesh(), Vector3.zero, new Vector3(0.34f, 0.62f, 0.34f), crystal, false, Quaternion.identity);
+                // Two small shards orbiting with it, one above and one below.
+                Shape(body, "ShardUp", GemMesh(), new Vector3(0.32f, 0.42f, 0f), new Vector3(0.08f, 0.14f, 0.08f), crystal, false, Quaternion.Euler(0, 0, -20f));
+                Shape(body, "ShardDown", GemMesh(), new Vector3(-0.32f, -0.4f, 0f), new Vector3(0.08f, 0.14f, 0.08f), crystal, false, Quaternion.Euler(0, 0, 160f));
+                foreach (var t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = false;
+                foreach (var col in root.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
+                foreach (var rr in root.GetComponentsInChildren<Renderer>(true)) rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                LoopAnimator(pivot.gameObject, FloatClip("DuelPylon", k, new FloatKind(0.09f, 8f, 2, 1)), AnimatorCullingMode.CullCompletely);
+            }
+        }
+
+        /// <summary>Faint gold motes drifting up off the rune band while the circle is up (it's only on during a duel).</summary>
+        private static void BuildRuneMotes(Transform ring)
+        {
+            var go = Child(ring, "RuneMotes", new Vector3(0, 0.05f, 0)).gameObject;
+            var ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.playOnAwake = true;
+            main.loop = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(1.6f, 2.6f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0f, 0.05f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.11f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.82f, 0.4f), new Color(0.75f, 0.9f, 1f));
+            main.simulationSpace = ParticleSystemSimulationSpace.Local;
+            main.maxParticles = 70;
+            main.cullingMode = ParticleSystemCullingMode.Pause;
+            var em = ps.emission;
+            em.rateOverTime = 16f;
+            var sh = ps.shape;
+            sh.shapeType = ParticleSystemShapeType.Circle;
+            sh.radius = DuelCircleRadius * 0.955f;
+            sh.radiusThickness = 0.02f;
+            sh.rotation = new Vector3(-90f, 0f, 0f);
+            var vel = ps.velocityOverLifetime;
+            vel.enabled = true;
+            vel.space = ParticleSystemSimulationSpace.World;
+            vel.x = new ParticleSystem.MinMaxCurve(0f, 0f);
+            vel.y = new ParticleSystem.MinMaxCurve(0.3f, 0.65f);
+            vel.z = new ParticleSystem.MinMaxCurve(0f, 0f);
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            var g = new Gradient();
+            g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0f, 1f) });
+            col.color = g;
+            var pr = go.GetComponent<ParticleSystemRenderer>();
+            pr.sharedMaterial = SparkleMat("DuelRingMote", new Color(1f, 0.85f, 0.5f));
+            pr.renderMode = ParticleSystemRenderMode.Billboard;
+            pr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         // ================================================================== pips
