@@ -56,6 +56,13 @@ namespace WizardsVRC.EditorTools
             for (int i = 0; i < letters.Count; i++)
             {
                 float ph = -i * 0.075f;
+                // Every axis is keyed, not just the ones that move: the Animator writes a whole position (and scale) at
+                // once, and an axis left out of the clip came out as 0, which stacked every letter in the middle.
+                float lx = letters[i].localPosition.x;
+                Keys(clip, "L" + i, "posx", 0f, lx, len, lx);
+                Keys(clip, "L" + i, "posz", 0f, 0f, len, 0f);
+                Keys(clip, "L" + i, "scalex", 0f, 1f, len, 1f);
+                Keys(clip, "L" + i, "scalez", 0f, 1f, len, 1f);
                 Wave(clip, "L" + i, "posy", len, 1, 0f, 0.04f, ph);
                 Wave(clip, "L" + i, "rotz", len, 1, 0f, 5f, ph + 0.25f);
                 Wave(clip, "L" + i, "roty", len, 1, 0f, 14f, ph + 0.1f);
