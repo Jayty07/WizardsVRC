@@ -43,6 +43,9 @@ namespace WizardsVRC
         [Tooltip("Circle mode: start angle (radians). Patrol mode: start distance along the route (metres).")]
         public float phaseOffset;
         public float aggroRadius = 2.5f;
+        [Tooltip("...and no more than this far above or below it (m). A tower's floors are stacked, so each floor's monsters " +
+                 "walk the same beat right over the ones below: without this, running into one ran into all of them.")]
+        public float aggroHeight = 5f;
         public GameObject body;
         public Text label;
         [Tooltip("The name tag turns to face you within this distance (m).")]
@@ -289,7 +292,7 @@ namespace WizardsVRC
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
             Vector3 mine = me.GetPosition();
-            if (FlatDistance(mine, pos) > aggroRadius) return;
+            if (FlatDistance(mine, pos) > aggroRadius || Mathf.Abs(mine.y - pos.y) > aggroHeight) return;
             _nextTry = Time.time + 1.5f;
             int to = PickLane(mine);
             if (to >= 0) laneManagers[to].RequestEngageWander(wandererIndex);
@@ -309,6 +312,7 @@ namespace WizardsVRC
                 BattleManager m = laneManagers[l];
                 BattleClient c = l < laneClients.Length ? laneClients[l] : null;
                 if (!Fighting(m) || c == null || c.arenaCenter == null || !m.HasFreeWizardSeat()) continue;
+                if (Mathf.Abs(mine.y - c.arenaCenter.position.y) > aggroHeight) continue;
                 float d = FlatDistance(mine, c.arenaCenter.position);
                 if (d <= bestD) { bestD = d; best = l; }
             }

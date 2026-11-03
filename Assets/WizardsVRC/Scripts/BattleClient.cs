@@ -103,6 +103,8 @@ namespace WizardsVRC
         public Transform[] stagingSpots;
         public Transform arenaCenter;
         public float engageRadius = 14f;
+        [Tooltip("Walking into the circle only counts this close to its height (m): a tower's rings are stacked one per floor.")]
+        public float engageHeight = 5f;
         public Transform clockHand;
         public Text clockLabel;
         [Tooltip("The clock dial set into the ring (DuelClock shader): its rim of segments shows the time left to choose.")]
@@ -739,13 +741,13 @@ namespace WizardsVRC
                 for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
                 ClearDefeats();
                 RefreshBodies(phase);
-                if (mySlot >= 0) ArriveAtArena(mySlot);
+                if (mySlot >= 0 && !InOtherFight()) ArriveAtArena(mySlot);
                 SetBanner("");
             }
             // Joined a wandering-monster fight during its join window: the battle id didn't change, so arrive now.
             // (Not right after leaving: after fleeing our seat is still listed until the owner processes it.)
             if (!_inBattle && mySlot >= 0 && manager.wanderMode && phase >= BattleManager.PHASE_JOINING && phase <= BattleManager.PHASE_PLAYBACK &&
-                Time.time >= _rejoinBlockUntil) ArriveAtArena(mySlot);
+                Time.time >= _rejoinBlockUntil && !InOtherFight()) ArriveAtArena(mySlot);
             if (phase >= BattleManager.PHASE_JOINING && phase <= BattleManager.PHASE_PLAYBACK && _inBattle && !_seated) TakeSeat();
 
             if (phase == BattleManager.PHASE_PLANNING && manager.round != _roundSeen)
@@ -880,6 +882,32 @@ namespace WizardsVRC
         }
 
         // ------------------------------------------------------------------ battle enter / leave
+
+        private float _nextDecline;
+
+        /// <summary>
+        /// Listed in this fight while already seated in another (a tower floor's monster run into in the same moment as
+        /// another floor's, say): a wizard fights one duel at a time, so instead of arriving here (and being teleported
+        /// between fights, then defeated in the ones you can't play), we give this seat up.
+        /// </summary>
+        private bool InOtherFight()
+        {
+            if (_inBattle || playerState == null || !playerState.inCombat) return false;
+            if (Time.time >= _nextDecline)
+            {
+                _nextDecline = Time.time + 2f;
+                // A frame later: we're inside OnBattleState, and the referee may be us.
+                SendCustomEventDelayedFrames(nameof(_DeclineFight), 1);
+            }
+            return true;
+        }
+
+        public void _DeclineFight()
+        {
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (manager == null || _inBattle || !Utilities.IsValid(me) || manager.FindWizardSlot(me.playerId) < 0) return;
+            manager.RequestFlee();
+        }
 
         private void ArriveAtArena(int slot)
         {
@@ -2731,8 +2759,9 @@ namespace WizardsVRC
             {
                 VRCPlayerApi me = Networking.LocalPlayer;
                 Vector3 p = me.GetPosition() - arenaCenter.position;
+                bool level = Mathf.Abs(p.y) <= engageHeight;
                 p.y = 0f;
-                if (p.magnitude <= engageRadius)
+                if (level && p.magnitude <= engageRadius)
                 {
                     _nextEngage = Time.time + 1f;
                     manager.RequestEngage();
@@ -2745,8 +2774,9 @@ namespace WizardsVRC
             {
                 VRCPlayerApi me = Networking.LocalPlayer;
                 Vector3 p = me.GetPosition() - arenaCenter.position;
+                bool level = Mathf.Abs(p.y) <= engageHeight;
                 p.y = 0f;
-                if (p.magnitude <= engageRadius)
+                if (level && p.magnitude <= engageRadius)
                 {
                     _nextEngage = Time.time + 1f;
                     manager.RequestEngageWander(-1);
