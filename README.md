@@ -215,7 +215,9 @@ decks) and Duel Master Holloway (a practice duel against training dummies that n
 ring) are **even fights**: one monster per wizard, starting with the one you touched; a second wizard brings in the next
 patrol monster to reach the circle, and other patrol monsters that wander into the circle fade away. Everywhere else a
 street fight also starts with only the monster(s) you ran into, and patrol monsters that wander into the circle take a
-free seat (up to the encounter's roster size plus one per extra wizard, four at most) and join from the next round.
+free seat (up to the encounter's roster size plus one per extra wizard, four at most) and join from the next round,
+but only while none of the fight's monsters has been defeated: a defeated monster is never replaced. Tower floors cap a
+solo wizard at two monsters, plus one per extra wizard.
 Bosses fight a solo wizard alone and bring one follower per extra wizard. Finishing the gardens opens the
 **Lantern Row** tunnel (now Lv 4-6: rank 1 wisps and snatchers, never more than two to a fight) and the boss arena pad. The locks are the Street Gates' *Required Quest* in the hub map.
 

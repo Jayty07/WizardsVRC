@@ -106,7 +106,8 @@ namespace WizardsVRC
         public int respawnSeconds = 20;
         [Tooltip("Even fight (for new players): the fight starts with only the monster that was touched. Each extra wizard " +
                  "lets one more patrol monster join when it reaches the ring; other patrol monsters that reach the ring fade " +
-                 "away. With no patrol monster left to come, the next roster monster joins at once.")]
+                 "away. With no patrol monster left to come, the next roster monster joins at once. In every fight, once one " +
+                 "of its monsters is defeated no other monster joins (no replacements).")]
         public bool evenFight;
         [Tooltip("Monster id of each patrol monster (index = Wanderer.wandererIndex).")]
         public int[] wandererMonsters = new int[0];
@@ -626,12 +627,12 @@ namespace WizardsVRC
             {
                 // Even fights: it joins while a wizard is still unmatched, or fades away; either way it's gone until the respawn.
                 wandererGone |= 1 << w;
-                if (EvenMonsterCount() < EvenWizardCount()) AddMonster(wandererMonsters[w]);
+                if (EvenMonsterCount() < EvenWizardCount() && !AnyMonsterDefeated()) AddMonster(wandererMonsters[w]);
                 Publish();
                 return;
             }
             // Like Wizard101: a monster that wanders into the circle takes a free seat and fights from the next round.
-            // With no seat free it just walks on through.
+            // With no seat free, or once one of the fight's monsters has been defeated, it just walks on through.
             if (!MonsterSeatFree()) return;
             wandererGone |= 1 << w;
             AddMonster(wandererMonsters[w]);
@@ -696,9 +697,9 @@ namespace WizardsVRC
                     if (touched)
                     {
                         wandererGone |= 1 << wanderer;
-                        if (EvenMonsterCount() < EvenWizardCount()) AddMonster(wandererMonsters[wanderer]);
+                        if (EvenMonsterCount() < EvenWizardCount() && !AnyMonsterDefeated()) AddMonster(wandererMonsters[wanderer]);
                     }
-                    if (EvenMonsterCount() < EvenWizardCount() && !AnyWandererLeft()) AddMonster(NextRosterMonster());
+                    if (EvenMonsterCount() < EvenWizardCount() && !AnyWandererLeft() && !AnyMonsterDefeated()) AddMonster(NextRosterMonster());
                 }
                 // A boss fight: each wizard who joins brings in one more of the boss's followers (up to its roster).
                 if (!evenFight && IsBossFight() && FollowerCount() < WizardCount() && MonsterSeatFree())
@@ -760,11 +761,23 @@ namespace WizardsVRC
         }
 
         /// <summary>
+        /// One of this fight's monsters (not a summon) has been defeated. Defeated monsters keep their seats until the fight
+        /// ends, so this reads straight from the synced seats (and holds if the fight changes owner).
+        /// </summary>
+        private bool AnyMonsterDefeated()
+        {
+            for (int s = SIDE; s < SLOTS; s++) if (Occupied(s) && !IsSummon(s) && hp[s] <= 0) return true;
+            return false;
+        }
+
+        /// <summary>
         /// A monster seat is free for one more of the group's monsters: the fight holds at most the encounter's size plus
-        /// one per extra wizard (summons aside), and never more than the four seats.
+        /// one per extra wizard (summons aside), and never more than the four seats. No replacements: once one of the
+        /// fight's monsters has been defeated, no other monster joins it (it walks on through the circle).
         /// </summary>
         private bool MonsterSeatFree()
         {
+            if (AnyMonsterDefeated()) return false;
             int cap = MonsterCap();
             int n = 0;
             bool free = false;
