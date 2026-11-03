@@ -51,6 +51,7 @@ namespace WizardsVRC.EditorTools
             public Color horn = new Color(0.92f, 0.86f, 0.7f);
             public Color mane2 = new Color(-1f, 0f, 0f);   // a unicorn's second mane colour (r < 0 = the hair)
             public float stand;                            // height of a crate it stands on (a kobold, to look you in the eye)
+            public float coatLength = 1f;                  // a coat's tails: 1 = to the knee, more = longer (trimmed in gold)
             public NpcBuild build = NpcBuild.Average;
             public float height = 1f;
             public bool feminine;
@@ -92,6 +93,7 @@ namespace WizardsVRC.EditorTools
         private static void ResetNpcModels()
         {
             _npcControllers.Clear();
+            _wingMesh = null;
             if (AssetDatabase.IsValidFolder(NpcDir)) AssetDatabase.DeleteAsset(NpcDir);
         }
 
@@ -214,7 +216,7 @@ namespace WizardsVRC.EditorTools
             {
                 float flare = L.outfit == NpcOutfit.Dress ? 1.75f : 1.95f;
                 Material lower = L.outfit == NpcOutfit.Bark ? skin : main;
-                NP(hips, "Skirt", ConeMesh(), new Vector3(0, -0.48f, 0), new Vector3(w * flare, 1.15f, d * 2.5f), lower);
+                Flare(hips, "Skirt", w, d, new Vector2(w * flare, d * 2.5f), 0.05f, -1.02f, lower);
                 if (L.outfit != NpcOutfit.Bark)
                     NP(hips, "Hem", CylMesh(), new Vector3(0, -1.0f, 0), new Vector3(w * flare * 1.01f, 0.035f, d * 2.52f), L.furTrim ? NpcMat(L, "Fur", new Color(0.93f, 0.93f, 0.95f)) : trim);
                 if (L.outfit == NpcOutfit.Bark)
@@ -231,13 +233,36 @@ namespace WizardsVRC.EditorTools
                 foreach (float x in new[] { -0.13f, 0.13f })
                 {
                     NP(hips, "Leg", CylMesh(), new Vector3(x, -0.5f, 0), new Vector3(0.21f, 0.5f, 0.23f), legs);
-                    NP(hips, "Boot", BlobMesh(), new Vector3(x, -0.98f, -0.05f), new Vector3(0.25f, 0.17f, 0.36f), L.outfit == NpcOutfit.Armor ? metal : leather);
+                    if (L.species == NpcSpecies.Draconian)
+                    {
+                        // Bare clawed feet.
+                        NP(hips, "Foot", BlobMesh(), new Vector3(x, -0.99f, -0.1f), new Vector3(0.24f, 0.13f, 0.38f), skin);
+                        for (int k = -1; k <= 1; k++)
+                            Spike(hips, "ToeClaw", new Vector3(x * 1.1f + k * 0.065f, -1.0f, -0.27f), new Vector3(k * 0.25f, -0.2f, -1f), 0.11f, 0.045f, NpcMat(L, "Horn", L.horn));
+                        Spike(hips, "HeelSpur", new Vector3(x, -0.97f, 0.06f), new Vector3(0, -0.3f, 1f), 0.08f, 0.04f, NpcMat(L, "Horn", L.horn));
+                    }
+                    else NP(hips, "Boot", BlobMesh(), new Vector3(x, -0.98f, -0.05f), new Vector3(0.25f, 0.17f, 0.36f), L.outfit == NpcOutfit.Armor ? metal : leather);
                 }
-                if (L.outfit == NpcOutfit.Coat) NP(hips, "CoatTails", ConeMesh(), new Vector3(0, -0.33f, 0), new Vector3(w * 1.55f, 0.72f, d * 1.9f), main);
-                if (L.outfit == NpcOutfit.Tunic) NP(hips, "TunicSkirt", ConeMesh(), new Vector3(0, -0.2f, 0), new Vector3(w * 1.4f, 0.45f, d * 1.75f), main);
+                if (L.outfit == NpcOutfit.Coat)
+                {
+                    float tailBottom = 0.05f - 0.75f * L.coatLength;
+                    Flare(hips, "CoatTails", w, d, new Vector2(w * 1.55f, d * 1.9f), 0.05f, tailBottom, main);
+                    if (L.coatLength > 1f)
+                    {
+                        // A long coat: open down the front, edged and hemmed in gold. The edges lie on the coat's front,
+                        // which leans out from the waist (the flare's front point) to the hem.
+                        float hgt = 0.05f - tailBottom, zTop = -d * 1.05f / 2f, zBot = -d * 1.9f / 2f;
+                        float lean = Mathf.Atan2(zTop - zBot, hgt) * Mathf.Rad2Deg, len = Mathf.Sqrt(hgt * hgt + (zTop - zBot) * (zTop - zBot));
+                        foreach (float x in new[] { -1f, 1f })
+                            NBox(hips, "CoatEdge", new Vector3(x * w * 0.07f, (0.05f + tailBottom) / 2f, (zTop + zBot) / 2f * 0.97f - 0.012f),
+                                new Vector3(0.045f, len, 0.02f), trim, new Vector3(lean, 0, 0));
+                        NP(hips, "CoatHem", CylMesh(), new Vector3(0, tailBottom + 0.02f, 0), new Vector3(w * 1.57f, 0.03f, d * 1.92f), trim);
+                    }
+                }
+                if (L.outfit == NpcOutfit.Tunic) Flare(hips, "TunicSkirt", w, d, new Vector2(w * 1.4f, d * 1.75f), 0.05f, -0.425f, main);
                 if (L.outfit == NpcOutfit.Armor)
                 {
-                    NP(hips, "Tassets", ConeMesh(), new Vector3(0, -0.24f, 0), new Vector3(w * 1.5f, 0.5f, d * 1.8f), metal);
+                    Flare(hips, "Tassets", w, d, new Vector2(w * 1.5f, d * 1.8f), 0.05f, -0.49f, metal);
                     NBox(hips, "Tabard", new Vector3(0, -0.28f, -d * 0.82f), new Vector3(w * 0.55f, 0.62f, 0.03f), main);
                 }
             }
@@ -320,11 +345,15 @@ namespace WizardsVRC.EditorTools
             if (L.stony)
                 for (int k = 0; k < 3; k++)   // crystals growing out of its shoulders
                     NP(spine, "Crystal" + k, GemMesh(), new Vector3((k - 1) * B.sh * 0.8f, 0.82f, 0.08f), new Vector3(0.1f, 0.26f, 0.1f), NpcMat(L, "Crystal", L.gem, 0.6f), new Vector3(0, 0, (k - 1) * 18f));
-            float neckW = L.species == NpcSpecies.Minotaur ? 0.28f : L.species == NpcSpecies.Unicorn ? 0.22f : L.species == NpcSpecies.Draconian ? 0.19f : 0.16f;
-            NP(spine, "Neck", CylMesh(), new Vector3(0, 0.72f, 0), new Vector3(neckW, 0.07f, neckW), skin);
+            float neckW = L.species == NpcSpecies.Minotaur ? 0.28f : L.species == NpcSpecies.Unicorn ? 0.22f : L.species == NpcSpecies.Draconian ? 0.17f : 0.16f;
+            // A Draconian's long neck carries the head up and out in front of the shoulders.
+            Vector3 neckAt = L.species == NpcSpecies.Draconian ? new Vector3(0, 0.9f, -0.1f) : new Vector3(0, 0.74f, 0);
+            if (L.species == NpcSpecies.Draconian)
+                NP(spine, "Neck", CylMesh(), new Vector3(0, 0.79f, -0.05f), new Vector3(neckW, 0.14f, neckW), skin, new Vector3(-24f, 0, 0));
+            else NP(spine, "Neck", CylMesh(), new Vector3(0, 0.72f, 0), new Vector3(neckW, 0.07f, neckW), skin);
 
             // ---- head
-            var neck = Pivot(spine, "Neck", new Vector3(0, 0.74f, 0), L.build == NpcBuild.Elder ? new Vector3(9f, 0, 0) : Vector3.zero);
+            var neck = Pivot(spine, "Neck", neckAt, L.build == NpcBuild.Elder ? new Vector3(9f, 0, 0) : Vector3.zero);
             var head = Pivot(neck, "Head", Vector3.zero);
             var hs = Pivot(head, "HeadShape", Vector3.zero);
             hs.localScale = Vector3.one * B.head;
@@ -335,7 +364,7 @@ namespace WizardsVRC.EditorTools
             Transform handL = BuildArm(spine, "L", 1f, B, L, L.left, main, hands);
             if (L.right != NpcItem.None) BuildItem(handR, model, L.right, L, -1f);
             if (L.left != NpcItem.None) BuildItem(handL, model, L.left, L, 1f);
-            if (L.species != NpcSpecies.Human) BuildSpeciesBody(hips, spine, B, L, skin, hairMat, gold);
+            if (L.species != NpcSpecies.Human) BuildSpeciesBody(hips, spine, handR, handL, B, L, skin, hairMat, gold);
 
             foreach (var t in model.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = false;
             foreach (var r in model.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -346,10 +375,10 @@ namespace WizardsVRC.EditorTools
             anim.cullingMode = AnimatorCullingMode.CullCompletely;
 
             // How tall it stands (hat included) and where its face is, in the parent's space.
-            float headTop = 1.05f + 0.74f + (0.49f + hatBase) * B.head;
+            float headTop = 1.05f + neckAt.y + (0.49f + hatBase) * B.head;
             if (L.build == NpcBuild.Elder) headTop -= 0.06f;
             top = headTop * B.scale + (L.ghost ? 0.15f : 0f) + L.stand;
-            faceY = (1.05f + 0.74f + 0.25f * B.head) * B.scale + (L.ghost ? 0.15f : 0f) + L.stand;
+            faceY = (1.05f + neckAt.y + 0.25f * B.head) * B.scale + (L.ghost ? 0.15f : 0f) + L.stand;
             NameTag(root, "NameTag", new Vector3(0, top + 0.4f, 0), title);
             HintTag(root, "TalkHint", new Vector3(0, top + 0.08f, 0), hint);
             var box = root.gameObject.AddComponent<BoxCollider>();
@@ -433,24 +462,29 @@ namespace WizardsVRC.EditorTools
             {
                 case NpcSpecies.Draconian:
                 {
-                    NP(h, "HeadBall", BlobMesh(), new Vector3(0, 0.27f, 0.03f), new Vector3(0.42f, 0.42f, 0.5f), skin);
-                    NP(h, "Snout", BlobMesh(), new Vector3(0, 0.22f, -0.2f), new Vector3(0.27f, 0.2f, 0.36f), skin);
-                    NP(h, "Jaw", BlobMesh(), new Vector3(0, 0.13f, -0.17f), new Vector3(0.24f, 0.12f, 0.32f), belly);
+                    NP(h, "HeadBall", BlobMesh(), new Vector3(0, 0.28f, 0.05f), new Vector3(0.4f, 0.38f, 0.46f), skin);
+                    NP(h, "Snout", BlobMesh(), new Vector3(0, 0.22f, -0.25f), new Vector3(0.24f, 0.18f, 0.48f), skin);
+                    NP(h, "Jaw", BlobMesh(), new Vector3(0, 0.13f, -0.21f), new Vector3(0.21f, 0.1f, 0.42f), belly);
+                    // Bony ridges along the top of the snout, up to the brow.
+                    Spike(h, "SnoutRidge", new Vector3(0, 0.29f, -0.36f), new Vector3(0, 1f, 0.6f), 0.06f, 0.04f, horn);
+                    Spike(h, "SnoutRidge", new Vector3(0, 0.31f, -0.25f), new Vector3(0, 1f, 0.6f), 0.07f, 0.045f, horn);
                     foreach (float x in new[] { -1f, 1f })
                     {
-                        NP(h, "Nostril", BlobMesh(), new Vector3(x * 0.045f, 0.27f, -0.37f), Vector3.one * 0.03f, nostril);
-                        Spike(h, "Fang", new Vector3(x * 0.07f, 0.17f, -0.3f), Vector3.down, 0.05f, 0.025f, NpcMat(L, "Fang", new Color(0.96f, 0.93f, 0.85f)));
-                        // Two pairs of horns swept back over the head, and smaller frills of spine behind the jaw.
-                        Spike(h, "Horn", new Vector3(x * 0.12f, 0.43f, 0.08f), new Vector3(x * 0.3f, 0.55f, 0.78f), 0.34f, 0.085f, horn);
-                        Spike(h, "HornSmall", new Vector3(x * 0.17f, 0.33f, 0.12f), new Vector3(x * 0.6f, 0.3f, 0.75f), 0.17f, 0.055f, horn);
-                        Spike(h, "Frill", new Vector3(x * 0.19f, 0.18f, 0.06f), new Vector3(x * 0.8f, -0.1f, 0.6f), 0.13f, 0.04f, hairMat);
+                        NP(h, "Nostril", BlobMesh(), new Vector3(x * 0.04f, 0.27f, -0.47f), Vector3.one * 0.028f, nostril);
+                        Spike(h, "Fang", new Vector3(x * 0.07f, 0.16f, -0.36f), Vector3.down, 0.05f, 0.025f, NpcMat(L, "Fang", new Color(0.96f, 0.93f, 0.85f)));
+                        // Long horns swept back from the brow, a shorter pair under them.
+                        Spike(h, "Horn", new Vector3(x * 0.11f, 0.42f, 0.02f), new Vector3(x * 0.25f, 0.45f, 0.85f), 0.4f, 0.085f, horn);
+                        Spike(h, "HornSmall", new Vector3(x * 0.16f, 0.32f, 0.1f), new Vector3(x * 0.5f, 0.2f, 0.85f), 0.22f, 0.06f, horn);
+                        // Fins swept back from the cheeks, like ears.
+                        NP(h, "CheekFin", BlobMesh(), new Vector3(x * 0.2f, 0.24f, 0.1f), new Vector3(0.035f, 0.16f, 0.24f), hairMat, new Vector3(-10f, x * 22f, 0));
+                        Spike(h, "FinSpine", new Vector3(x * 0.18f, 0.2f, 0.02f), new Vector3(x * 0.35f, 0.25f, 1f), 0.24f, 0.03f, horn);
                     }
-                    SpeciesEyes(h, L, 0.1f, 0.33f, -0.15f, new Vector3(0.075f, 0.055f, 0.04f), L.gem, 0.8f, true, false);
-                    // A crest of ember spines down the back of the head.
-                    Spike(h, "Crest", new Vector3(0, 0.48f, 0.05f), new Vector3(0, 1f, 0.5f), 0.13f, 0.06f, hairMat);
-                    Spike(h, "Crest", new Vector3(0, 0.44f, 0.17f), new Vector3(0, 0.8f, 0.7f), 0.11f, 0.05f, hairMat);
-                    Spike(h, "Crest", new Vector3(0, 0.35f, 0.26f), new Vector3(0, 0.5f, 0.9f), 0.09f, 0.045f, hairMat);
-                    return 0.14f;
+                    SpeciesEyes(h, L, 0.1f, 0.33f, -0.13f, new Vector3(0.075f, 0.055f, 0.04f), L.gem, 0.8f, true, false);
+                    // A crest of spines down the back of the head.
+                    Spike(h, "Crest", new Vector3(0, 0.47f, 0.08f), new Vector3(0, 1f, 0.6f), 0.12f, 0.06f, hairMat);
+                    Spike(h, "Crest", new Vector3(0, 0.42f, 0.2f), new Vector3(0, 0.7f, 0.8f), 0.1f, 0.05f, hairMat);
+                    Spike(h, "Crest", new Vector3(0, 0.33f, 0.28f), new Vector3(0, 0.4f, 1f), 0.08f, 0.045f, hairMat);
+                    return 0.12f;
                 }
                 case NpcSpecies.Minotaur:
                 {
@@ -531,9 +565,14 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>Tails (and a Draconian's folded wings) for the other peoples, on the hips and back.</summary>
-        private static void BuildSpeciesBody(Transform hips, Transform spine, NpcShape B, NpcLook L, Material skin, Material hairMat, Material gold)
+        private static void BuildSpeciesBody(Transform hips, Transform spine, Transform handR, Transform handL, NpcShape B, NpcLook L, Material skin,
+            Material hairMat, Material gold)
         {
             float d = B.d;
+            if (L.species == NpcSpecies.Draconian && !L.gloves)
+                foreach (var hand in new[] { handR, handL })
+                    for (int k = -1; k <= 1; k++)   // three hooked claws on each hand
+                        Spike(hand, "Claw", new Vector3(k * 0.04f, -0.07f, -0.03f), new Vector3(k * 0.2f, -1f, -0.5f), 0.1f, 0.03f, NpcMat(L, "Horn", L.horn));
             switch (L.species)
             {
                 case NpcSpecies.Draconian:
@@ -550,15 +589,16 @@ namespace WizardsVRC.EditorTools
                     if (L.species == NpcSpecies.Draconian)
                     {
                         NP(hips, "TailSpade", GemMesh(), new Vector3(0, -0.92f, d * 0.9f + 0.78f), new Vector3(0.16f, 0.2f, 0.04f), NpcMat(L, "Horn", L.horn), new Vector3(70f, 0, 0));
-                        // Folded wings over the shoulders: a bony arm with a claw, the membrane hanging from it.
-                        var membrane = NpcMat(L, "WingSkin", Color.Lerp(L.skin, Color.black, 0.35f));
+                        // Great wings spread wide from the shoulder blades: a bony arm out to a clawed wrist, fingers fanning
+                        // down, and the membrane stretched between them in scallops. On pivots, so the slouched idle can
+                        // flex them as she breathes.
+                        var membrane = NpcMat(L, "WingSkin", Color.Lerp(L.skin, new Color(0.3f, 0.08f, 0.04f), 0.3f));
+                        var claw = NpcMat(L, "Horn", L.horn);
                         foreach (float x in new[] { -1f, 1f })
                         {
-                            Vector3 from = new Vector3(x * 0.12f, 0.58f, d * 0.6f);
-                            Vector3 dir = new Vector3(x * 0.55f, 0.8f, 0.35f).normalized;
-                            NP(spine, "WingArm", CylMesh(), from + dir * 0.3f, new Vector3(0.05f, 0.3f, 0.05f), skin, Quaternion.FromToRotation(Vector3.up, dir).eulerAngles);
-                            Spike(spine, "WingClaw", from + dir * 0.6f, dir, 0.1f, 0.04f, NpcMat(L, "Horn", L.horn));
-                            NBox(spine, "Wing", from + dir * 0.32f + new Vector3(x * 0.05f, -0.22f, 0.06f), new Vector3(0.025f, 0.62f, 0.36f), membrane, new Vector3(-10f, x * 25f, x * -22f));
+                            var wing = Pivot(spine, x > 0f ? "WingL" : "WingR", new Vector3(x * 0.13f, 0.6f, d * 0.55f), new Vector3(-8f, -x * 15f, 0));
+                            wing.localScale = new Vector3(x * 1.25f, 1.25f, 1.25f);
+                            BuildWing(wing, skin, membrane, claw);
                         }
                     }
                     break;
@@ -580,6 +620,97 @@ namespace WizardsVRC.EditorTools
                     break;
                 }
             }
+        }
+
+        private static Mesh _wingMesh;
+
+        /// <summary>
+        /// One bat-like wing in its own space (out along +X, up +Y, swept back along +Z): bones from the root to the elbow and
+        /// a clawed wrist, four fingers fanning down from the wrist, and a two-sided membrane in scallops between them.
+        /// </summary>
+        private static void BuildWing(Transform wing, Material bone, Material membrane, Material claw)
+        {
+            Vector3 root = Vector3.zero, elbow = new Vector3(0.32f, 0.3f, 0.1f), wrist = new Vector3(0.62f, 0.62f, 0.16f);
+            Vector3[] tips = { new Vector3(1.25f, 0.42f, 0.22f), new Vector3(1.18f, -0.05f, 0.24f), new Vector3(0.86f, -0.42f, 0.22f), new Vector3(0.42f, -0.55f, 0.16f) };
+            WingBone(wing, root, elbow, 0.065f, bone);
+            WingBone(wing, elbow, wrist, 0.055f, bone);
+            foreach (var t in tips) WingBone(wing, wrist, t, 0.026f, bone);
+            Spike(wing, "WingClaw", wrist, new Vector3(0.15f, 1f, -0.1f), 0.16f, 0.05f, claw);
+            if (_wingMesh == null)
+            {
+                Vector3 body = new Vector3(0.06f, -0.42f, 0.04f);
+                // The edge, round from the elbow: root, body, then each finger tip with a scallop pulled in toward the wrist.
+                var edge = new List<Vector3> { elbow, root, body };
+                var tipsIn = new List<Vector3>(tips);
+                tipsIn.Reverse();
+                Vector3 prev = body;
+                foreach (var t in tipsIn)
+                {
+                    Vector3 mid = (prev + t) / 2f;
+                    edge.Add(mid + (wrist - mid) * 0.22f);
+                    edge.Add(t);
+                    prev = t;
+                }
+                var verts = new List<Vector3>();
+                var tris = new List<int>();
+                for (int i = 0; i + 1 < edge.Count; i++)
+                    foreach (bool back in new[] { false, true })
+                    {
+                        int v = verts.Count;
+                        verts.Add(wrist);
+                        verts.Add(back ? edge[i + 1] : edge[i]);
+                        verts.Add(back ? edge[i] : edge[i + 1]);
+                        tris.AddRange(new[] { v, v + 1, v + 2 });
+                    }
+                var mesh = new Mesh { name = "NpcDragonWing" };
+                mesh.SetVertices(verts);
+                mesh.SetTriangles(tris, 0);
+                mesh.SetUVs(0, new List<Vector2>(new Vector2[verts.Count]));
+                mesh.RecalculateNormals();
+                mesh.RecalculateBounds();
+                Directory.CreateDirectory(NpcDir);
+                AssetDatabase.CreateAsset(mesh, NpcDir + "/DragonWing.asset");
+                _wingMesh = mesh;
+            }
+            var mgo = new GameObject("WingMembrane");
+            mgo.transform.SetParent(wing, false);
+            mgo.AddComponent<MeshFilter>().sharedMesh = _wingMesh;
+            mgo.AddComponent<MeshRenderer>().sharedMaterial = membrane;
+        }
+
+        private static void WingBone(Transform wing, Vector3 a, Vector3 b, float width, Material mat)
+        {
+            Vector3 dir = b - a;
+            NP(wing, "WingBone", CylMesh(), (a + b) / 2f, new Vector3(width, dir.magnitude / 2f, width), mat, Quaternion.FromToRotation(Vector3.up, dir).eulerAngles);
+        }
+
+        /// <summary>
+        /// A skirt, coat tails, a tunic's skirt or armour's tassets on the hips: a flared tube whose top fits the waist
+        /// (just inside the belt, so it meets the torso with no pinch) and whose foot is 'bottom' wide and deep.
+        /// </summary>
+        private static GameObject Flare(Transform hips, string name, float w, float d, Vector2 bottom, float yTop, float yBottom, Material mat)
+        {
+            float kx = Mathf.Clamp(w * 1.03f / bottom.x, 0.2f, 1f), kz = Mathf.Clamp(d * 1.05f / bottom.y, 0.2f, 1f);
+            return NP(hips, name, FrustumMesh(kx, kz), new Vector3(0, (yTop + yBottom) / 2f, 0), new Vector3(bottom.x, yTop - yBottom, bottom.y), mat);
+        }
+
+        /// <summary>Radius 0.5 at the foot (y -0.5), kx and kz of that at the top (y 0.5), 8 sides, closed (shared per shape).</summary>
+        private static Mesh FrustumMesh(float kx, float kz)
+        {
+            kx = Mathf.Round(kx * 20f) / 20f;
+            kz = Mathf.Round(kz * 20f) / 20f;
+            var t = new List<Vector3>();
+            const int sides = 8;
+            for (int s = 0; s < sides; s++)
+            {
+                Vector3 a = Ring(s, sides, 0.5f, -0.5f), b = Ring(s + 1, sides, 0.5f, -0.5f);
+                Vector3 c = Ring(s + 1, sides, 0.5f, 0.5f), e = Ring(s, sides, 0.5f, 0.5f);
+                c.x *= kx; c.z *= kz; e.x *= kx; e.z *= kz;
+                Quad(t, a, b, c, e);
+                t.Add(new Vector3(0, 0.5f, 0)); t.Add(e); t.Add(c);
+                t.Add(new Vector3(0, -0.5f, 0)); t.Add(a); t.Add(b);
+            }
+            return SaveMesh("PSX_Flare_" + Mathf.RoundToInt(kx * 100f) + "_" + Mathf.RoundToInt(kz * 100f), t, Vector3.zero);
         }
 
         /// <summary>A person's face: head, ears, nose, eyes and brows, mouth, hair and beard.</summary>
@@ -1126,6 +1257,9 @@ namespace WizardsVRC.EditorTools
                     Wave(c, NpcArmR, "rotx", 6f, 2, 24f, 2f, 0.4f);
                     Wave(c, NpcArmL, "rotz", 6f, 1, 4f, 1.5f);
                     Wave(c, NpcArmR, "rotz", 6f, 1, -4f, 1.5f, 0.5f);
+                    // Wings (a Draconian's) lift a little with each breath.
+                    Wave(c, "Hips/Spine/WingL", "rotz", 6f, 2, 0f, 4f, 0.15f);
+                    Wave(c, "Hips/Spine/WingR", "rotz", 6f, 2, 0f, -4f, 0.15f);
                     break;
                 default:   // a ghost: drifting up and down, swaying
                     Wave(c, "Hips", "posy", 4f, 1, 1.12f, 0.1f);

@@ -49,13 +49,14 @@ namespace WizardsVRC.EditorTools
             {
                 case 0:
                     // Ignatia Embercrest, a Draconian: brisk, fierce and always hunched like a dragon over its hoard (her own
-                    // slouched idle). Crimson scales with an ember-gold belly, slit eyes glowing like coals, obsidian horns
-                    // swept back over a crest of flame-orange spines, folded wings and a spade-tipped tail; a charcoal robe banded
-                    // in flame orange with a red sash, gauntlet gloves, and a brazier rod burning in her hand.
-                    L = Look(NpcBuild.Average, true, new Color(0.66f, 0.2f, 0.13f), new Color(1f, 0.48f, 0.12f), NpcHair.Bald, NpcBeard.None, NpcOutfit.Robe,
-                        new Color(0.24f, 0.18f, 0.17f), new Color(0.5f, 0.12f, 0.08f), new Color(1f, 0.5f, 0.12f), NpcHat.None, Color.black, NpcItem.FlameRod);
-                    L.species = NpcSpecies.Draconian; L.belly = new Color(0.95f, 0.62f, 0.3f); L.horn = new Color(0.22f, 0.17f, 0.16f);
-                    L.height = 1.06f; L.sash = true; L.extra = new Color(0.78f, 0.15f, 0.08f); L.gloves = true; L.brows = 14f; L.gem = new Color(1f, 0.62f, 0.12f); L.idle = 4;
+                    // slouched idle, her wings lifting as she breathes). Orange scales with a pale gold belly, slit eyes glowing
+                    // like coals, a long snout ridged with bone, long horns and cheek fins swept back over a crest of spines, a
+                    // long neck carrying her head out in front, great bat wings spread wide, hooked claws on her hands and her
+                    // bare feet, a spade-tipped tail; a long green coat open down the front, edged and hemmed in gold, over red.
+                    L = Look(NpcBuild.Tall, true, new Color(0.88f, 0.46f, 0.16f), new Color(0.76f, 0.34f, 0.12f), NpcHair.Bald, NpcBeard.None, NpcOutfit.Coat,
+                        new Color(0.16f, 0.42f, 0.24f), new Color(0.6f, 0.13f, 0.08f), new Color(0.95f, 0.76f, 0.3f), NpcHat.None, Color.black, NpcItem.None);
+                    L.species = NpcSpecies.Draconian; L.belly = new Color(1f, 0.76f, 0.42f); L.horn = new Color(0.66f, 0.32f, 0.13f);
+                    L.height = 1.1f; L.coatLength = 1.45f; L.brows = 12f; L.gem = new Color(1f, 0.7f, 0.15f); L.idle = 4;
                     return L;
                 case 1:
                     // Halvard Rimeholt: a broad, jolly mountain of a man. White beard, rosy cheeks, a frost-blue greatcoat with
