@@ -48,11 +48,14 @@ namespace WizardsVRC.EditorTools
             switch (s)
             {
                 case 0:
-                    // Ignatia Embercrest: brisk and fierce. Black braids tied with ember ribbons, a charcoal robe banded in flame
-                    // orange with a red sash, gauntlet-like gloves, and a brazier rod burning in her hand.
-                    L = Look(NpcBuild.Average, true, SkinBrown, HairBlack, NpcHair.Braids, NpcBeard.None, NpcOutfit.Robe,
+                    // Ignatia Embercrest, a Draconian: brisk, fierce and always hunched like a dragon over its hoard (her own
+                    // slouched idle). Crimson scales with an ember-gold belly, slit eyes glowing like coals, obsidian horns
+                    // swept back over a crest of flame-orange spines, folded wings and a spade-tipped tail; a charcoal robe banded
+                    // in flame orange with a red sash, gauntlet gloves, and a brazier rod burning in her hand.
+                    L = Look(NpcBuild.Average, true, new Color(0.66f, 0.2f, 0.13f), new Color(1f, 0.48f, 0.12f), NpcHair.Bald, NpcBeard.None, NpcOutfit.Robe,
                         new Color(0.24f, 0.18f, 0.17f), new Color(0.5f, 0.12f, 0.08f), new Color(1f, 0.5f, 0.12f), NpcHat.None, Color.black, NpcItem.FlameRod);
-                    L.sash = true; L.extra = new Color(0.78f, 0.15f, 0.08f); L.gloves = true; L.brows = 10f; L.gem = new Color(1f, 0.5f, 0.15f); L.idle = 1;
+                    L.species = NpcSpecies.Draconian; L.belly = new Color(0.95f, 0.62f, 0.3f); L.horn = new Color(0.22f, 0.17f, 0.16f);
+                    L.height = 1.06f; L.sash = true; L.extra = new Color(0.78f, 0.15f, 0.08f); L.gloves = true; L.brows = 14f; L.gem = new Color(1f, 0.62f, 0.12f); L.idle = 4;
                     return L;
                 case 1:
                     // Halvard Rimeholt: a broad, jolly mountain of a man. White beard, rosy cheeks, a frost-blue greatcoat with
@@ -62,18 +65,23 @@ namespace WizardsVRC.EditorTools
                     L.height = 1.04f; L.furTrim = true; L.gloves = true; L.brows = -6f; L.gem = new Color(0.6f, 0.92f, 1f); L.idle = 0;
                     return L;
                 case 2:
-                    // Zephyra Voltwind: wiry and restless. A shock of violet hair, brass goggles pushed up, a tall-collared violet
-                    // coat piped in lightning yellow, and a copper coil rod with a crackling spark gem.
-                    L = Look(NpcBuild.Slim, true, SkinTan, new Color(0.6f, 0.38f, 0.9f), NpcHair.Wild, NpcBeard.None, NpcOutfit.Coat,
+                    // Zephyra Voltwind, a kobold from Bigdig: wiry, restless and loud, all big bright eyes and frilled ears edged
+                    // in lightning yellow. Slate-blue scales, a crest of violet spines, brass goggles pushed up, a tall-collared
+                    // violet coat piped in yellow (a size too big), brass-fingered gloves, a copper coil rod with a crackling spark
+                    // gem, and a crate to stand on so she can look her students in the eye.
+                    L = Look(NpcBuild.Small, true, new Color(0.36f, 0.44f, 0.66f), new Color(0.6f, 0.38f, 0.9f), NpcHair.Bald, NpcBeard.None, NpcOutfit.Coat,
                         new Color(0.38f, 0.14f, 0.58f), new Color(0.16f, 0.1f, 0.26f), new Color(1f, 0.86f, 0.2f), NpcHat.None, Color.black, NpcItem.SparkRod);
-                    L.height = 1.05f; L.goggles = true; L.highCollar = true; L.gloves = true; L.brows = 6f; L.gem = new Color(0.95f, 0.85f, 1f); L.idle = 1;
+                    L.species = NpcSpecies.Kobold; L.belly = new Color(0.8f, 0.84f, 0.95f); L.extra = new Color(1f, 0.84f, 0.3f); L.eyes = new Color(1f, 0.82f, 0.22f);
+                    L.height = 0.8f; L.stand = 0.45f; L.goggles = true; L.highCollar = true; L.gloves = true; L.brows = 6f; L.gem = new Color(0.95f, 0.85f, 1f); L.idle = 1;
                     return L;
                 case 3:
-                    // Briar Meadowsong: warm and motherly. Chestnut braids under a crown of blossoms, a leaf-green dress with a
-                    // cream gardener's apron, and a living vine staff that flowers at its tip.
-                    L = Look(NpcBuild.Stout, true, SkinLight, new Color(0.45f, 0.29f, 0.15f), NpcHair.Braids, NpcBeard.None, NpcOutfit.Dress,
+                    // Briar Meadowsong, a unicorn: warm and motherly. A pearl-white coat, a flowing mane in blossom pink and mint,
+                    // big gentle violet eyes, a spiral horn of pearl and gold that glows softly through her crown of blossoms; a
+                    // leaf-green dress with a cream gardener's apron, and a living vine staff that flowers at its tip.
+                    L = Look(NpcBuild.Stout, true, new Color(0.97f, 0.95f, 0.99f), new Color(1f, 0.68f, 0.82f), NpcHair.Long, NpcBeard.None, NpcOutfit.Dress,
                         new Color(0.26f, 0.55f, 0.26f), new Color(0.55f, 0.78f, 0.35f), new Color(1f, 0.62f, 0.75f), NpcHat.FlowerCrown, new Color(0.3f, 0.6f, 0.25f), NpcItem.VineStaff);
-                    L.apron = true; L.extra = new Color(0.94f, 0.9f, 0.76f); L.brows = -8f; L.idle = 0;
+                    L.species = NpcSpecies.Unicorn; L.mane2 = new Color(0.62f, 0.95f, 0.78f); L.belly = new Color(0.95f, 0.84f, 0.88f); L.horn = new Color(1f, 0.9f, 0.62f);
+                    L.eyes = new Color(0.34f, 0.16f, 0.46f); L.height = 1.04f; L.apron = true; L.extra = new Color(0.94f, 0.9f, 0.76f); L.brows = -8f; L.idle = 0;
                     return L;
                 case 4:
                     // Mortimer Gloamsby: tall, thin and courteous as an undertaker. Pale, a pencil moustache, a plum-black top
@@ -84,11 +92,13 @@ namespace WizardsVRC.EditorTools
                     L.brows = 3f; L.gem = new Color(0.45f, 1f, 0.6f); L.idle = 2;
                     return L;
                 case 5:
-                    // Orsolya Fablewright: a storyteller with a regal bearing. Long black hair, a gold laurel, a saffron robe with
-                    // a russet cape and sash, and an open book of legends floating, glowing, over her palm.
-                    L = Look(NpcBuild.Average, true, SkinDeep, HairBlack, NpcHair.Long, NpcBeard.None, NpcOutfit.Robe,
+                    // Orsolya Fablewright, a minotaur: a storyteller with a regal bearing, broad and towering. Deep brown fur, a
+                    // pale muzzle with a gold ring, ivory horns curling up and banded in gold, a long black mane under a gold
+                    // laurel; a saffron robe with a russet cape and sash, and an open book of legends floating, glowing, over her palm.
+                    L = Look(NpcBuild.Hulking, true, new Color(0.42f, 0.27f, 0.17f), HairBlack, NpcHair.Long, NpcBeard.None, NpcOutfit.Robe,
                         new Color(0.82f, 0.62f, 0.14f), new Color(0.42f, 0.24f, 0.1f), new Color(0.95f, 0.8f, 0.35f), NpcHat.Laurel, new Color(0.95f, 0.78f, 0.3f), NpcItem.None, NpcItem.OpenBook);
-                    L.height = 1.03f; L.cape = true; L.sash = true; L.extra = new Color(0.55f, 0.22f, 0.12f); L.brows = 2f; L.gem = new Color(1f, 0.9f, 0.5f); L.idle = 2;
+                    L.species = NpcSpecies.Minotaur; L.belly = new Color(0.78f, 0.64f, 0.56f); L.horn = new Color(0.94f, 0.88f, 0.72f);
+                    L.height = 1.04f; L.cape = true; L.sash = true; L.extra = new Color(0.55f, 0.22f, 0.12f); L.brows = 2f; L.gem = new Color(1f, 0.9f, 0.5f); L.idle = 2;
                     return L;
                 default:
                     // Sahra Dunewise: calm and weathered by the desert. A sand-coloured head wrap with a sun gem, layered tan
