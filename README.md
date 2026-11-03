@@ -169,7 +169,11 @@ nothing is taken back.
 - **Starshards** are the rare currency: 3 per boss, 1 per elite, 5 per boss tower (double the first time) and 8 for the
   Kraken. Spend them in the book's **Starshard Shop** tab (`ShopPages`) on elixirs (timed stat boosts that tick down
   while you play and never apply in PvP duels), titles, auras and spell skins (your casting glyph and spell flashes in
-  that colour).
+  that colour). Before you buy, the shop **tries the item on you**: its preview frame films your own avatar (VRChat's
+  mirror copy, as the book's portrait does) wearing the real aura, the title over your head, or your casting symbol
+  drawn in the skin's colour, with the camera swinging gently round you. A Surge aura plays a duel on loop (pips
+  building, a cast, the full-pips eruption). It's local to you, on the MirrorReflection layer, and only runs while the
+  shop is open on something you can try on (`ShopPreview`).
 - **Titles** show over your head and **auras** swirl round you, in the open world and in duels, seen by everyone
   (`PlayerCosmetics`, synced through a VRChat player object). Earn them by level, monsters, bosses, boss towers and the
   Kraken, or buy them. Pick what you wear in the book's **Wardrobe** tab (`WardrobePages`).

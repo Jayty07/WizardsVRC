@@ -554,21 +554,36 @@ namespace WizardsVRC.EditorTools
             pc.creatorRoot.SetActive(false);
             titleRoot.gameObject.SetActive(false);
 
+            ParticleSystem[] flares, maxFxs;
+            pc.auras = BuildAuraSet(go.transform, out flares, out maxFxs);
+            pc.auraFlares = flares;
+            pc.auraMaxFx = maxFxs;
+            ExtraBehaviours.Add(pc);
+            return pc;
+        }
+
+        /// <summary>
+        /// Every aura under 'root', one particle system each (index = aura), none playing: what a player wears, and the
+        /// Starshard Shop's try-on copy. The school Surges also get their cast Flare and full-pips eruption (null for the
+        /// other auras).
+        /// </summary>
+        private static ParticleSystem[] BuildAuraSet(Transform root, out ParticleSystem[] flares, out ParticleSystem[] maxFxs)
+        {
             var auras = new ParticleSystem[AuraNames.Length];
-            pc.auraFlares = new ParticleSystem[AuraNames.Length];
-            pc.auraMaxFx = new ParticleSystem[AuraNames.Length];
+            flares = new ParticleSystem[AuraNames.Length];
+            maxFxs = new ParticleSystem[AuraNames.Length];
             for (int i = 0; i < auras.Length; i++)
             {
                 if (i >= SurgeFirst)
                 {
                     // A school Surge: it grows with your pips in a duel, flares when you cast and erupts at full pips.
                     ParticleSystem flare, maxFx;
-                    auras[i] = SurgeAura(go.transform, i, i - SurgeFirst, out flare, out maxFx);
-                    pc.auraFlares[i] = flare;
-                    pc.auraMaxFx[i] = maxFx;
+                    auras[i] = SurgeAura(root, i, i - SurgeFirst, out flare, out maxFx);
+                    flares[i] = flare;
+                    maxFxs[i] = maxFx;
                     continue;
                 }
-                var ag = Child(go.transform, "Aura" + i, Vector3.zero).gameObject;
+                var ag = Child(root, "Aura" + i, Vector3.zero).gameObject;
                 var ps = ag.AddComponent<ParticleSystem>();
                 var main = ps.main;
                 main.playOnAwake = false;
@@ -607,9 +622,7 @@ namespace WizardsVRC.EditorTools
                 pr.renderMode = ParticleSystemRenderMode.Billboard;
                 auras[i] = ps;
             }
-            pc.auras = auras;
-            ExtraBehaviours.Add(pc);
-            return pc;
+            return auras;
         }
 
         /// <summary>Makes the cosmetics and shop systems and connects the book pages, notifications and tooltip to them.</summary>

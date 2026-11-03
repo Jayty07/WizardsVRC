@@ -7,7 +7,8 @@ namespace WizardsVRC
     /// <summary>
     /// The Starshard Shop: a window of blue prismatic crystal opened from the Starshard gem on the book. Categories down
     /// the left (Featured, Surge Auras, Auras, Titles, Spell Skins, Elixirs), a page of item tiles in the middle, and the
-    /// chosen item large on the right with its price and a Buy button; your Starshards at the top, and Get Starshards
+    /// chosen item on the right with its price and a Buy button: auras, titles and spell skins are tried on your own
+    /// avatar there (ShopPreview films you wearing them), elixirs show their picture. Your Starshards at the top, and Get Starshards
     /// when the world sells bundles in the VRChat store (StarshardStore). Starshards come from bosses, elites, towers and
     /// quests. Each entry is (kind, index) into CosmeticsDatabase: kind 0 title, 1 aura, 2 spell skin, 3 elixir.
     /// </summary>
@@ -76,6 +77,12 @@ namespace WizardsVRC
         public GameObject buyButton;
         public Text buyLabel;
 
+        [Header("Try-on")]
+        [Tooltip("Films your own avatar wearing the picked aura, title or spell skin (elixirs show their picture instead).")]
+        public ShopPreview preview;
+        [Tooltip("The frame holding the try-on film (shown instead of the icon).")]
+        public GameObject stageFrame;
+
         private int _cat;
         private int _page;
         private int _selected = -1;   // entry index
@@ -89,7 +96,11 @@ namespace WizardsVRC
             Draw();
         }
 
-        public void BackToBook() { if (book != null) book.ShowBackpack(); }
+        public void BackToBook()
+        {
+            if (preview != null) preview.Hide();
+            if (book != null) book.ShowBackpack();
+        }
         public void OpenVrcStore() { if (store != null) store.OpenStore(); }
 
         public void Cat0() { Category(0); }
@@ -261,11 +272,24 @@ namespace WizardsVRC
         {
             bool has = _selected >= 0;
             if (previewRoot != null && previewRoot.activeSelf != has) previewRoot.SetActive(has);
-            if (!has) return;
+            if (!has)
+            {
+                if (preview != null) preview.Hide();
+                return;
+            }
             int e = _selected;
             bool owned = Owned(e);
             int price = Price(e);
             Picture(e, previewIcon, previewOverlay);
+            // Auras, titles and spell skins are tried on your own avatar; elixirs keep their picture.
+            int kind = entryKinds[e];
+            Color skinColor = kind == 2 ? cosmetics.SkinColor(entryIndexes[e] + 1) : Color.white;
+            bool onYou = kind != 3 && preview != null && preview.Show(kind, entryIndexes[e], (int)c.school, skinColor, Name(e));
+            if (!onYou && preview != null) preview.Hide();
+            if (stageFrame != null && stageFrame.activeSelf != onYou) stageFrame.SetActive(onYou);
+            if (previewIcon != null && previewIcon.gameObject.activeSelf == onYou) previewIcon.gameObject.SetActive(!onYou);
+            if (previewGlow != null && previewGlow.gameObject.activeSelf == onYou) previewGlow.gameObject.SetActive(!onYou);
+            if (onYou && previewOverlay != null && previewOverlay.gameObject.activeSelf) previewOverlay.gameObject.SetActive(false);
             if (previewGlow != null) { Color g = previewIcon != null ? previewIcon.color : Color.white; g.a = 0.55f; previewGlow.color = g; }
             previewName.text = Name(e);
             previewKind.text = KindName(e);

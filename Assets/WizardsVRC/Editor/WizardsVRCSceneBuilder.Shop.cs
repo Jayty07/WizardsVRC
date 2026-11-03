@@ -12,7 +12,8 @@ namespace WizardsVRC.EditorTools
     /// The Starshard Shop window (ShopPages): opened from the Starshard gem on the book, it covers the whole book in blue
     /// prismatic crystal (art from Tools/make_shard_shop.py in Textures/Shop). A header with the title, your Starshards,
     /// Get Starshards and the way back to the book; categories down the left; a 3 x 3 page of item tiles; the chosen
-    /// item large on the right with its price and Buy. Light sweeps across the header and sparkles twinkle (an Animator).
+    /// item on the right with its price and Buy, tried on your own avatar in a live preview frame (BuildShopPreview).
+    /// Light sweeps across the header and sparkles twinkle (an Animator).
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
@@ -187,19 +188,28 @@ namespace WizardsVRC.EditorTools
             pages.tileSprite = ShopSprite("Tile");
             pages.tileSelectedSprite = ShopSprite("TileSel");
 
-            // ---- the chosen item
+            // ---- the chosen item: auras, titles and spell skins tried on your own avatar (ShopPreview), elixirs as a picture
             ShopImage(view, "Preview", new Vector2(690, -62), new Vector2(530, 930), "GlassPanel", 3f, Color.white);
             RectTransform pv = Rect(view, "PreviewContent", new Vector2(690, -62), new Vector2(530, 930));
             pages.previewRoot = pv.gameObject;
-            pages.previewGlow = ShopImage(pv, "Glow", new Vector2(0, 245), new Vector2(380, 380), "Glow", 6f, Color.white);
-            pages.previewIcon = ShopImage(pv, "Icon", new Vector2(0, 245), new Vector2(240, 240), "AuraRing", 1f, Color.white);
-            pages.previewOverlay = ShopImage(pv, "Glass", new Vector2(0, 245), new Vector2(240, 240), "ElixirGlass", 1f, Color.white);
-            pages.previewName = ShopLabel(pv, "Name", new Vector2(0, 70), new Vector2(490, 70), "", 42, TextAnchor.MiddleCenter, ShopText);
+            pages.previewGlow = ShopImage(pv, "Glow", new Vector2(0, 262), new Vector2(380, 380), "Glow", 6f, Color.white);
+            pages.previewIcon = ShopImage(pv, "Icon", new Vector2(0, 262), new Vector2(240, 240), "AuraRing", 1f, Color.white);
+            pages.previewOverlay = ShopImage(pv, "Glass", new Vector2(0, 262), new Vector2(240, 240), "ElixirGlass", 1f, Color.white);
+            var stageFrame = ShopImage(pv, "TryOn", new Vector2(0, 262), new Vector2(484, 400), "GlassPanel", 3f, Color.white);
+            pages.stageFrame = stageFrame.gameObject;
+            var film = Rect(stageFrame.transform, "Film", Vector2.zero, new Vector2(460, 376)).gameObject.AddComponent<RawImage>();
+            film.raycastTarget = false;
+            ShopLabel(stageFrame.transform, "OnYou", new Vector2(-150, 166), new Vector2(160, 34), "On you", 20, TextAnchor.MiddleCenter, ShopCyan);
+            var pipPlate = ShopImage(stageFrame.transform, "Pips", new Vector2(0, -160), new Vector2(440, 48), "PriceChip", 3f, Color.white);
+            var pipLabel = ShopLabel(pipPlate.transform, "Text", Vector2.zero, new Vector2(430, 46), "", 24, TextAnchor.MiddleCenter, ShopText);
+            pipPlate.gameObject.SetActive(false);
+            stageFrame.gameObject.SetActive(false);
+            pages.previewName = ShopLabel(pv, "Name", new Vector2(0, 24), new Vector2(490, 64), "", 42, TextAnchor.MiddleCenter, ShopText);
             pages.previewName.resizeTextForBestFit = true;
             pages.previewName.resizeTextMinSize = 24;
             pages.previewName.resizeTextMaxSize = 42;
-            pages.previewKind = ShopLabel(pv, "Kind", new Vector2(0, 22), new Vector2(490, 40), "", 24, TextAnchor.MiddleCenter, ShopCyan);
-            pages.previewBlurb = ShopLabel(pv, "Blurb", new Vector2(0, -110), new Vector2(470, 210), "", 24, TextAnchor.UpperCenter, ShopText);
+            pages.previewKind = ShopLabel(pv, "Kind", new Vector2(0, -24), new Vector2(490, 36), "", 24, TextAnchor.MiddleCenter, ShopCyan);
+            pages.previewBlurb = ShopLabel(pv, "Blurb", new Vector2(0, -126), new Vector2(470, 150), "", 24, TextAnchor.UpperCenter, ShopText);
             pages.previewBlurb.resizeTextForBestFit = true;
             pages.previewBlurb.resizeTextMinSize = 16;
             pages.previewBlurb.resizeTextMaxSize = 24;
@@ -217,7 +227,91 @@ namespace WizardsVRC.EditorTools
 
             ShopMagic(view, sheen.rectTransform, sparkles, (RectTransform)pages.previewGlow.transform);
             FillShopEntries(pages);
+            BuildShopPreview(pages, book.transform.parent, view.gameObject, film, pipPlate.gameObject, pipLabel);
             return view.gameObject;
+        }
+
+        /// <summary>
+        /// The shop's try-on stage (ShopPreview): a camera that films your avatar's mirror copy (the MirrorReflection layer,
+        /// like the book's portrait) into the preview frame, with a full copy of the auras players wear, a title over your
+        /// head and your casting symbol for spell skins. All of it is on the MirrorReflection layer, so your own view never
+        /// shows it, and it is switched off unless the shop is open on something you can try on.
+        /// </summary>
+        private static void BuildShopPreview(ShopPages pages, Transform holder, GameObject view, RawImage film, GameObject pipPlate, Text pipLabel)
+        {
+            int layer = LayerMask.NameToLayer("MirrorReflection");
+            if (layer < 0) layer = 18;
+            var go = Child(holder, "ShopPreview", Vector3.zero).gameObject;
+            var preview = UdonSharpUndo.AddComponent<ShopPreview>(go);
+            ExtraBehaviours.Add(preview);
+            pages.preview = preview;
+            preview.watchView = view;
+            var stage = Child(go.transform, "Stage", Vector3.zero);
+            preview.stageRoot = stage.gameObject;
+
+            // ---- the film
+            System.IO.Directory.CreateDirectory(MaterialsDir);
+            string path = MaterialsDir + "/ShopPreview.renderTexture";
+            var rt = AssetDatabase.LoadAssetAtPath<RenderTexture>(path);
+            if (rt == null)
+            {
+                rt = new RenderTexture(480, 400, 24, RenderTextureFormat.ARGB32);
+                AssetDatabase.CreateAsset(rt, path);
+            }
+            film.texture = rt;
+            var cam = Child(stage, "Camera", Vector3.zero).gameObject.AddComponent<Camera>();
+            cam.targetTexture = rt;
+            cam.cullingMask = 1 << layer;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.07f, 0.09f, 0.24f, 1f);   // the shop's deep prism blue
+            cam.fieldOfView = 40f;
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 20f;
+            cam.depth = -10f;
+            preview.previewCamera = cam;
+
+            // ---- every aura, built exactly as players wear them, round your feet
+            var feet = Child(stage, "Feet", Vector3.zero);
+            ParticleSystem[] flares, maxFxs;
+            preview.auras = BuildAuraSet(feet, out flares, out maxFxs);
+            preview.auraFlares = flares;
+            preview.auraMaxFx = maxFxs;
+            preview.feet = feet;
+            preview.pipPlate = pipPlate;
+            preview.pipLabel = pipLabel;
+
+            // ---- the title, drawn as PlayerCosmetics draws it over players' heads
+            var titleRoot = Child(stage, "Title", Vector3.zero);
+            var label = WorldText(titleRoot, "Label", Vector3.zero, Quaternion.identity, new Vector2(900, 120), 0.0045f, "", 48);
+            label.fontStyle = FontStyle.BoldAndItalic;
+            label.color = new Color(1f, 0.86f, 0.45f);
+            label.raycastTarget = false;
+            preview.titleRoot = titleRoot;
+            preview.titleLabel = label;
+            titleRoot.gameObject.SetActive(false);
+
+            // ---- your casting symbol (WizardsVRC/GlyphDraw), drawn in a spell skin's colour
+            var glyph = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            glyph.name = "Glyph";
+            glyph.transform.SetParent(stage, false);
+            Object.DestroyImmediate(glyph.GetComponent<Collider>());
+            var glyphR = glyph.GetComponent<Renderer>();
+            glyphR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            Material drawMat = GlyphDrawMat();
+            if (drawMat != null) glyphR.sharedMaterial = drawMat;
+            preview.glyph = glyphR;
+            int symbols = GlyphPenData.Labels.Length;
+            preview.glyphTex = new Texture2D[symbols];
+            for (int k = 0; k < symbols; k++)
+                preview.glyphTex[k] = DataTexture(TexturesDir + "/CastDraw/GlyphDraw" + GlyphPenData.Labels[k] + ".png");
+            glyph.SetActive(false);
+
+            foreach (var t in stage.GetComponentsInChildren<Transform>(true))
+            {
+                t.gameObject.layer = layer;
+                t.gameObject.isStatic = false;
+            }
+            stage.gameObject.SetActive(false);
         }
 
         /// <summary>The shop's icon on the book: the Starshard in its gold setting, glowing and gently pulsing, on its tab.</summary>
