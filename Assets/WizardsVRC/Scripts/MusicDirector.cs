@@ -11,6 +11,8 @@ namespace WizardsVRC
     ///   - Hub: in Starfall Castle's grounds and the keep, except inside the tavern (its jukebox plays there).
     ///   - Areas: any street, town, tower or secret-boss place with its own track (Zone > Music in the world data).
     ///     Walking into its box fades its track in and the old one out, with the same crossfade as the rest.
+    ///   - Dialogue: while a cutscene line or a tower leader's greeting is spoken by someone on the list (the Dominion),
+    ///     their theme plays instead of the area's, then the area's comes back.
     /// The awakening dream has its own sounds, so nothing plays until its creator opens. Tracks pause when faded out and
     /// carry on where they left off, unless marked to restart. The player's music volume (book settings) scales it all.
     /// </summary>
@@ -30,6 +32,15 @@ namespace WizardsVRC
         public PlayerState playerState;
         public CharacterCreator creator;
         public AwakeningSequence awakening;
+        public CutscenePlayer cutscenes;
+        [Tooltip("Every boss tower floor (their leader's greeting counts as dialogue).")]
+        public TowerFloor[] towerFloors;
+
+        [Header("Speakers with their own theme")]
+        [Tooltip("Speaker names as they appear over dialogue (e.g. Dominion Herald).")]
+        public string[] dialogueSpeakers;
+        [Tooltip("Which track (index into Sources) plays while each of them speaks.")]
+        public int[] dialogueTrack;
 
         [Header("Where the hub track plays")]
         [Tooltip("World-space boxes: the castle grounds, the keep.")]
@@ -116,6 +127,8 @@ namespace WizardsVRC
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return NONE;
             if (playerState != null && playerState.inCombat) return COMBAT;
+            int talk = DialogueTrack();
+            if (talk >= 0) return talk;
             if (creator != null && creator.IsOpen()) return CREATION;
             if (awakening != null && awakening.IsRunning()) return NONE;
             if (playerState != null && !playerState.HasCharacter()) return CREATION;
@@ -125,6 +138,38 @@ namespace WizardsVRC
             if (area >= 0) return area;
             if (InHub(p)) return HUB;
             return NONE;
+        }
+
+        /// <summary>The theme of whoever is speaking to the player right now, or -1.</summary>
+        private int DialogueTrack()
+        {
+            if (dialogueSpeakers == null || dialogueTrack == null || dialogueSpeakers.Length == 0) return -1;
+            if (cutscenes != null && cutscenes.IsPlaying())
+            {
+                int t = SpeakerTrack(cutscenes.CurrentSpeaker());
+                if (t >= 0) return t;
+            }
+            if (towerFloors != null)
+                for (int i = 0; i < towerFloors.Length; i++)
+                {
+                    TowerFloor f = towerFloors[i];
+                    if (f == null || !f.IsTalking()) continue;
+                    int t = SpeakerTrack(f.speaker);
+                    if (t >= 0) return t;
+                }
+            return -1;
+        }
+
+        private int SpeakerTrack(string speaker)
+        {
+            if (string.IsNullOrEmpty(speaker)) return -1;
+            for (int i = 0; i < dialogueSpeakers.Length && i < dialogueTrack.Length; i++)
+            {
+                if (dialogueSpeakers[i] != speaker) continue;
+                int t = dialogueTrack[i];
+                if (t >= 0 && sources != null && t < sources.Length) return t;
+            }
+            return -1;
         }
 
         /// <summary>The track of the first area box the player stands in, or -1.</summary>

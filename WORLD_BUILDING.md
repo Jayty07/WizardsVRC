@@ -294,7 +294,14 @@ off afterwards (tick **Music Restarts** to start it from the top each time inste
 **Tower Music Track** instead (else the World's **Tower Music Track**, else the zone's own music), crossfading as you
 step through the sigil and back; **Tower Music Restarts** starts it over on each visit. Zones that name the same file
 share one track, so it carries on across them. The hub zone's Music Track replaces the castle theme (`Music_Hub_Temp`).
-The rebuild log says how many zone tracks it found; a missing file is a yellow warning naming it.
+A World's **Dialogue Music Track** plays while one of its **Dialogue Music Speakers** is talking (the speaker name over a
+cutscene line, or a tower leader's greeting), then the area's music comes back; World 1 and 2 use it for the Dominion
+(`Music_Dialogue_Dominion`). Combat beats dialogue, dialogue beats the area. The rebuild log says how many tracks it
+found; a missing file is a yellow warning naming it.
+
+Defaults as shipped: Sunpetal Gardens, Lantern Row, Tidewatch Docks, Kiln Street, Thornhollow Grove and Copperbottom Mine
+each have a `Music_Zone_<Key>` track, World 1's towers share `Music_Tower_World1`, and the Dominion has its theme. Existing
+world data folders get these on the v24 upgrade wherever the field is still blank.
 
 ### Performance (culling)
 

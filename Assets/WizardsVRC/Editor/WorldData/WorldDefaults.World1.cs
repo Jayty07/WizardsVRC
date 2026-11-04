@@ -17,6 +17,7 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             z.textureStyle = ZoneTextureStyle.Docks;
             z.zoneKey = "TidewatchDocks";
+            z.musicTrack = "Music_Zone_TidewatchDocks";
             z.displayName = "Tidewatch Docks";
             z.levelRange = "Lv 7-9";
             z.height = 800f;
@@ -156,6 +157,7 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             z.textureStyle = ZoneTextureStyle.Forge;
             z.zoneKey = "KilnStreet";
+            z.musicTrack = "Music_Zone_KilnStreet";
             z.displayName = "Kiln Street";
             z.levelRange = "Lv 8-10";
             z.height = 900f;
@@ -260,6 +262,7 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             z.textureStyle = ZoneTextureStyle.Forest;
             z.zoneKey = "ThornhollowGrove";
+            z.musicTrack = "Music_Zone_ThornhollowGrove";
             z.displayName = "Thornhollow Grove";
             z.levelRange = "Lv 10-11";
             z.height = 1000f;

@@ -21,7 +21,8 @@ namespace WizardsVRC.EditorTools
         /// <summary>Volume for a zone's own track (at full music volume), like the hub theme's.</summary>
         private const float AreaMusicVolume = 0.24f;
 
-        private static MusicDirector BuildMusic(Transform systems, PlayerState playerState, Bounds hubBounds, Transform interiorRoot, InventoryBook book, WorldBuild wb)
+        private static MusicDirector BuildMusic(Transform systems, PlayerState playerState, Bounds hubBounds, Transform interiorRoot, InventoryBook book, WorldBuild wb,
+            CutscenePlayer cutscenes)
         {
             var go = Child(systems, "MusicDirector", Vector3.zero).gameObject;
             var music = UdonSharpUndo.AddComponent<MusicDirector>(go);
@@ -66,6 +67,41 @@ namespace WizardsVRC.EditorTools
             music.areaMax = areaMax.ToArray();
             music.areaTrack = areaTrack.ToArray();
             music.areaNames = areaNames.ToArray();
+
+            // Dialogue themes: each world's track for the speakers it lists (a cutscene line or a tower leader's greeting).
+            var speakers = new System.Collections.Generic.List<string>();
+            var speakerTrack = new System.Collections.Generic.List<int>();
+            if (wb != null && wb.data != null && wb.data.worlds != null)
+                foreach (var w in wb.data.worlds)
+                {
+                    if (w == null || !w.includeInBuild || w.dialogueMusicSpeakers == null) continue;
+                    string t = MusicTrackName(w.dialogueMusicTrack);
+                    if (t.Length == 0) continue;
+                    int idx;
+                    if (!trackIndex.TryGetValue(t, out idx))
+                    {
+                        if (MusicClip(t) == null)
+                        {
+                            if (missing.Add(t)) Debug.LogWarning("[WizardsVRC] Music: no " + t + ".mp3 / .ogg / .wav in " + MusicDir + " (" + w.displayName + "'s Dialogue Music Track); nothing plays for it.");
+                            continue;
+                        }
+                        idx = names.Count;
+                        trackIndex[t] = idx;
+                        names.Add(t);
+                        volumes.Add(AreaMusicVolume);
+                        restarts.Add(false);
+                    }
+                    foreach (var who in w.dialogueMusicSpeakers)
+                    {
+                        if (string.IsNullOrEmpty(who) || speakers.Contains(who.Trim())) continue;
+                        speakers.Add(who.Trim());
+                        speakerTrack.Add(idx);
+                    }
+                }
+            music.dialogueSpeakers = speakers.ToArray();
+            music.dialogueTrack = speakerTrack.ToArray();
+            music.cutscenes = cutscenes;
+            music.towerFloors = Object.FindObjectsOfType<TowerFloor>(true);
 
             music.sources = new AudioSource[names.Count];
             music.trackVolume = volumes.ToArray();
@@ -119,7 +155,7 @@ namespace WizardsVRC.EditorTools
             music.quietHeights = heights.ToArray();
             if (book != null) book.music = music;
             Debug.Log("[WizardsVRC] Music: hub, combat and character creation themes, " + (names.Count - MusicTracks.Length) +
-                      " zone track(s) in " + areaMin.Count + " area(s) (quiet in " + centers.Count + " jukebox room(s)).");
+                      " more track(s) in " + areaMin.Count + " area(s) and for " + speakers.Count + " speaker(s) (quiet in " + centers.Count + " jukebox room(s)).");
             return music;
         }
 

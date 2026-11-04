@@ -39,6 +39,9 @@ namespace WizardsVRC
 
         public bool IsPlaying() { return _current != null; }
 
+        /// <summary>Who is speaking right now ("" when no cutscene is playing). MusicDirector picks a theme by it.</summary>
+        public string CurrentSpeaker() { return _current != null ? _current.SpeakerAt(_line) : ""; }
+
         private void Start()
         {
             if (screenRoot != null) screenRoot.SetActive(false);

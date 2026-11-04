@@ -38,6 +38,9 @@ namespace WizardsVRC
         public int clearShards = 5;
 
         private bool _here;
+
+        /// <summary>True while the leader's greeting is showing to this player (MusicDirector picks a theme by its speaker).</summary>
+        public bool IsTalking() { return dialogRoot != null && dialogRoot.activeSelf; }
         private float _shownAt = -100f;
         private float _next;
 

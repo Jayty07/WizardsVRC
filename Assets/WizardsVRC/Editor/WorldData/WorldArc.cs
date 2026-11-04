@@ -42,5 +42,10 @@ namespace WizardsVRC.EditorTools.WorldData
         public string musicTrack = "";
         [Tooltip("Background music inside every boss tower of this world whose zone has no Tower Music Track of its own. Blank = the zone's music.")]
         public string towerMusicTrack = "";
+        [Tooltip("A theme that plays while one of the Dialogue Music Speakers below talks (a cutscene line, a tower leader's greeting), " +
+                 "instead of the area's music: file name in Audio/Music, no extension. Blank = none.")]
+        public string dialogueMusicTrack = "";
+        [Tooltip("Speaker names, exactly as shown over their lines (e.g. Dominion Herald, Captain Vesper).")]
+        public List<string> dialogueMusicSpeakers = new List<string>();
     }
 }
