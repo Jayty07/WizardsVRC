@@ -429,6 +429,15 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   dream). Tracks crossfade; the hub and creation tracks carry on where they left off. The book's Settings page has
   **Music: Full / Medium / Quiet / Off** (remembered). Tracks are `Audio/Music/Music_Hub_Temp.mp3` (a placeholder),
   `Music_Combat_World1.mp3` and `Music_CharacterCreation.mp3`; replace a file with one of the same name to change it.
+  Any zone can have its own track too: drop the file into `Audio/Music` and type its name (without `.mp3`) into the
+  zone's **Music Track** (Zone > Music in the World Creator, or a World's **Music Track** for all of its zones). It
+  crossfades in as you walk out of the tunnel into the zone and out as you leave, follows you into the zone's secret
+  boss place, and gives way to the combat theme in duels. Boss towers play the zone's **Tower Music Track** (or the
+  world's) instead, falling back to the zone's music. Zones that share a file share the music. A world's **Dialogue
+  Music Track** plays while anyone on its **Dialogue Music Speakers** list talks (a cutscene line, a tower leader's
+  greeting); the Dominion's theme is wired this way. Current files: `Music_Zone_SunpetalGardens`, `Music_Zone_LanternRow`,
+  `Music_Zone_TidewatchDocks`, `Music_Zone_KilnStreet`, `Music_Zone_ThornhollowGrove`, `Music_Zone_CopperbottomMine`,
+  `Music_Tower_World1` (every World 1 boss tower) and `Music_Dialogue_Dominion`.
 - **Monster AI:** monsters heal an ally under 45% health (a monster that heals itself waits 2 rounds before healing
   again), sometimes put a blade or shield on themselves first, and otherwise cast their biggest affordable attack
   (occasionally saving pips).

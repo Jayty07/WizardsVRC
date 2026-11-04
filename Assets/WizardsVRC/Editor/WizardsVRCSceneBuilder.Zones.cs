@@ -48,6 +48,57 @@ namespace WizardsVRC.EditorTools
             public readonly List<Bounds> cullBounds = new List<Bounds>();
             /// <summary>Street zones for the skylines (where each lies is worked out once the hub is known).</summary>
             public readonly List<SkyArea> skyAreas = new List<SkyArea>();
+            /// <summary>Boxes with their own background music (a zone, its tower, its secret boss place) and the track in each.</summary>
+            public readonly List<Bounds> musicBounds = new List<Bounds>();
+            public readonly List<string> musicTracks = new List<string>();
+            public readonly List<bool> musicRestarts = new List<bool>();
+            public readonly List<string> musicNames = new List<string>();
+
+            /// <summary>Plays the zone's music (or its world's) inside the box, if it has any; a tower box plays the tower track.</summary>
+            public void MusicArea(ZoneDefinition z, Bounds b, string what, bool tower = false)
+            {
+                string track = ZoneMusicTrack(z, data, tower);
+                if (string.IsNullOrEmpty(track)) return;
+                bool towerTrack = tower && track != ZoneMusicTrack(z, data, false);
+                musicBounds.Add(b);
+                musicTracks.Add(track);
+                musicRestarts.Add(towerTrack ? z.towerMusicRestarts : z.musicRestarts);
+                musicNames.Add(what);
+            }
+        }
+
+        /// <summary>
+        /// The music file (no extension) for a zone: its own, else its world's; "" for none. For its boss tower: the
+        /// zone's Tower Music Track, else the world's, else the zone's ordinary music.
+        /// </summary>
+        private static string ZoneMusicTrack(ZoneDefinition z, WorldDataStore.Data data, bool tower)
+        {
+            if (z == null) return "";
+            WorldArc world = null;
+            if (data != null && data.worlds != null)
+                foreach (var w in data.worlds)
+                    if (w != null && w.zones != null && w.zones.Contains(z.zoneKey)) { world = w; break; }
+            if (tower)
+            {
+                string tt = MusicTrackName(z.towerMusicTrack);
+                if (tt.Length == 0 && world != null) tt = MusicTrackName(world.towerMusicTrack);
+                if (tt.Length > 0) return tt;
+            }
+            string t = MusicTrackName(z.musicTrack);
+            if (t.Length == 0 && world != null) t = MusicTrackName(world.musicTrack);
+            return t;
+        }
+
+        /// <summary>A track name as typed, tidied: trimmed, without a folder or a .mp3 / .ogg / .wav ending.</summary>
+        private static string MusicTrackName(string typed)
+        {
+            if (string.IsNullOrEmpty(typed)) return "";
+            string t = typed.Trim().Replace('\\', '/');
+            int slash = t.LastIndexOf('/');
+            if (slash >= 0) t = t.Substring(slash + 1);
+            string lower = t.ToLowerInvariant();
+            if (lower.EndsWith(".mp3") || lower.EndsWith(".ogg") || lower.EndsWith(".wav")) t = t.Substring(0, t.Length - 4);
+            return t;
         }
 
         // ================================================================== monsters
@@ -460,6 +511,7 @@ namespace WizardsVRC.EditorTools
             ClearTunnelPaths(root);
             wb.cullRoots.Add(root.gameObject);
             wb.cullBounds.Add(ZoneCullBounds(root.position, W, H));
+            wb.MusicArea(z, ZoneCullBounds(root.position, W, H), z.displayName);
             root.gameObject.SetActive(false);
         }
 

@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 23;
+        public const int CurrentVersion = 24;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -190,6 +190,53 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 21) UpgradeTo21();
             if (from < 22) UpgradeTo22();
             if (from < 23) UpgradeTo23();
+            if (from < 24) UpgradeTo24();
+        }
+
+        /// <summary>
+        /// v24: music. Zones and worlds whose Music Track fields are still blank get the default tracks (Sunpetal Gardens,
+        /// Lantern Row, Tidewatch Docks, Kiln Street, Thornhollow Grove, Copperbottom Mine; World 1's tower theme; the
+        /// Dominion's dialogue theme and speakers). Anything already filled in is left alone.
+        /// </summary>
+        private static void UpgradeTo24()
+        {
+            var report = new List<string>();
+            var fills = new Dictionary<string, System.Action<ZoneDefinition>>();
+            foreach (var d in World1Zones) fills[d.key] = d.fill;
+            foreach (var d in World2Zones) fills[d.key] = d.fill;
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                System.Action<ZoneDefinition> fill;
+                if (z == null || !fills.TryGetValue(z.zoneKey, out fill)) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                fill(fresh);
+                bool dirty = false;
+                if (string.IsNullOrEmpty(z.musicTrack) && !string.IsNullOrEmpty(fresh.musicTrack)) { z.musicTrack = fresh.musicTrack; dirty = true; }
+                if (string.IsNullOrEmpty(z.towerMusicTrack) && !string.IsNullOrEmpty(fresh.towerMusicTrack)) { z.towerMusicTrack = fresh.towerMusicTrack; dirty = true; }
+                Object.DestroyImmediate(fresh);
+                if (dirty) { EditorUtility.SetDirty(z); report.Add(z.displayName); }
+            }
+            foreach (var w in FindAll<WorldArc>())
+            {
+                if (w == null) continue;
+                var fresh = ScriptableObject.CreateInstance<WorldArc>();
+                if (w.order == 1) WorldDefaults.FillWorld1(fresh, new List<Questline>());
+                else if (w.order == 2) WorldDefaults.FillWorld2(fresh, new List<Questline>());
+                else { Object.DestroyImmediate(fresh); continue; }
+                bool dirty = false;
+                if (string.IsNullOrEmpty(w.musicTrack) && !string.IsNullOrEmpty(fresh.musicTrack)) { w.musicTrack = fresh.musicTrack; dirty = true; }
+                if (string.IsNullOrEmpty(w.towerMusicTrack) && !string.IsNullOrEmpty(fresh.towerMusicTrack)) { w.towerMusicTrack = fresh.towerMusicTrack; dirty = true; }
+                if (string.IsNullOrEmpty(w.dialogueMusicTrack) && !string.IsNullOrEmpty(fresh.dialogueMusicTrack))
+                {
+                    w.dialogueMusicTrack = fresh.dialogueMusicTrack;
+                    if (w.dialogueMusicSpeakers == null) w.dialogueMusicSpeakers = new List<string>();
+                    foreach (var who in fresh.dialogueMusicSpeakers) if (!w.dialogueMusicSpeakers.Contains(who)) w.dialogueMusicSpeakers.Add(who);
+                    dirty = true;
+                }
+                Object.DestroyImmediate(fresh);
+                if (dirty) { EditorUtility.SetDirty(w); report.Add(w.displayName); }
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data: music tracks set for " + string.Join(", ", report) + ".");
         }
 
         /// <summary>World 2's town and streets (world data v23).</summary>

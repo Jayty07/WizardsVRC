@@ -35,5 +35,17 @@ namespace WizardsVRC.EditorTools.WorldData
         public List<Questline> storylines = new List<Questline>();
         [Tooltip("Zone keys of the areas in this world (for the checks).")]
         public List<string> zones = new List<string>();
+
+        [Header("Music")]
+        [Tooltip("Background music in every zone of this world that has no Music Track of its own: the file name in " +
+                 "Assets/WizardsVRC/Audio/Music without its extension. Blank = none.")]
+        public string musicTrack = "";
+        [Tooltip("Background music inside every boss tower of this world whose zone has no Tower Music Track of its own. Blank = the zone's music.")]
+        public string towerMusicTrack = "";
+        [Tooltip("A theme that plays while one of the Dialogue Music Speakers below talks (a cutscene line, a tower leader's greeting), " +
+                 "instead of the area's music: file name in Audio/Music, no extension. Blank = none.")]
+        public string dialogueMusicTrack = "";
+        [Tooltip("Speaker names, exactly as shown over their lines (e.g. Dominion Herald, Captain Vesper).")]
+        public List<string> dialogueMusicSpeakers = new List<string>();
     }
 }

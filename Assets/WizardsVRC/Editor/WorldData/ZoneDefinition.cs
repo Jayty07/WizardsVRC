@@ -218,6 +218,20 @@ namespace WizardsVRC.EditorTools.WorldData
                  "the others where they lie (the castle, the other streets), so it decides how big and hazy it looks.")]
         [Range(400f, 4000f)] public float horizonDistance = 1100f;
 
+        [Header("Music")]
+        [Tooltip("Background music while you're in this zone (and its boss tower / secret boss place): the file name in " +
+                 "Assets/WizardsVRC/Audio/Music without its extension, e.g. Music_LanternRow. It crossfades in as you arrive and out " +
+                 "as you leave, like the hub and combat themes. Blank = its world's Music Track, or none. The hub's own track replaces " +
+                 "the castle theme.")]
+        public string musicTrack = "";
+        [Tooltip("Start this track from the top each time you come back (otherwise it carries on where it left off).")]
+        public bool musicRestarts;
+        [Tooltip("Background music inside this zone's boss tower instead of the zone's track (file name in Audio/Music, no " +
+                 "extension). Blank = its world's Tower Music Track, else the zone's own music. Duels still switch to the combat theme.")]
+        public string towerMusicTrack = "";
+        [Tooltip("Start the tower track from the top each time you enter the tower.")]
+        public bool towerMusicRestarts;
+
         [Header("Performance")]
         [Tooltip("Small props (lamps, windows, flowers, stalls, merlons...) stop drawing beyond about this many metres. " +
                  "The whole zone is also switched off for a player who isn't in it, and nothing past the fog is drawn.")]

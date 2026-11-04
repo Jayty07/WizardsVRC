@@ -440,6 +440,7 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             DesertLook(z, ZoneTextureStyle.Mine);
             z.zoneKey = "CopperbottomMine";
+            z.musicTrack = "Music_Zone_CopperbottomMine";
             z.displayName = "Copperbottom Mine";
             z.levelRange = "Lv 16-18";
             z.height = 1500f;
@@ -1367,6 +1368,8 @@ namespace WizardsVRC.EditorTools.WorldData
             w.includeInBuild = true;
             w.order = 2;
             w.displayName = "Dustwind";
+            w.dialogueMusicTrack = "Music_Dialogue_Dominion";
+            w.dialogueMusicSpeakers = new List<string> { "Railmaster Ironhand Calloway" };
             w.levelRange = "Lv 13-25";
             w.goal = World2Goal;
             w.goalQuest = 43;

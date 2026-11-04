@@ -174,7 +174,9 @@ namespace WizardsVRC.EditorTools
             wb.behaviours.Add(floor);
 
             wb.cullRoots.Add(root.gameObject);
-            wb.cullBounds.Add(new Bounds(root.position + new Vector3(0, 25f, 0), new Vector3(200f, 120f, 200f)));
+            var secretBox = new Bounds(root.position + new Vector3(0, 25f, 0), new Vector3(200f, 120f, 200f));
+            wb.cullBounds.Add(secretBox);
+            wb.MusicArea(z, secretBox, sb.displayName);
             root.gameObject.SetActive(false);
             Debug.Log("[WizardsVRC World] " + z.displayName + ": " + sb.displayName + (desert ? " on its ghost train (" + sb.entranceLabel : " beneath the waves (" + sb.entranceLabel + " by the water") +
                       ", quest " + sb.questId + ").");

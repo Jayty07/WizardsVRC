@@ -341,8 +341,8 @@ namespace WizardsVRC.EditorTools
             Debug.Log("[WizardsVRC] Interface sounds on " + WireUiSounds(scene, uiAudio) + " buttons.");
             streets.Add(uiAudio);
 
-            // Background music: hub, combat and character creation themes (local to each player).
-            streets.Add(BuildMusic(systems.transform, playerState, hubPlan.cullBounds, interior.root, book));
+            // Background music: hub, combat and character creation themes, plus each zone's own track (local to each player).
+            streets.Add(BuildMusic(systems.transform, playerState, hubPlan.cullBounds, interior.root, book, wb, (CutscenePlayer)cutscenes[0]));
 
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
             toSync.AddRange(opening);

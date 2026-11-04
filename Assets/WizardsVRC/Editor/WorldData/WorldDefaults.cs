@@ -138,6 +138,7 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             z.textureStyle = ZoneTextureStyle.Town;
             z.zoneKey = "LanternRow";
+            z.musicTrack = "Music_Zone_LanternRow";
             z.displayName = "Lantern Row";
             z.levelRange = "Lv 4-6";
             z.height = 600f;
@@ -1278,6 +1279,7 @@ namespace WizardsVRC.EditorTools.WorldData
         {
             z.textureStyle = ZoneTextureStyle.Garden;
             z.zoneKey = "SunpetalGardens";
+            z.musicTrack = "Music_Zone_SunpetalGardens";
             z.displayName = "Sunpetal Gardens";
             z.levelRange = "Lv 1-3";
             z.height = 700f;
@@ -1557,6 +1559,9 @@ namespace WizardsVRC.EditorTools.WorldData
             w.includeInBuild = true;
             w.order = 1;
             w.displayName = "Starfall Isle";
+            w.towerMusicTrack = "Music_Tower_World1";
+            w.dialogueMusicTrack = "Music_Dialogue_Dominion";
+            w.dialogueMusicSpeakers = new List<string> { "Dominion Herald", "Captain Vesper", "Sergeant Halvek Roan", "Merchant Selwyn" };
             w.levelRange = "Lv 1-13 (ends around Lv 10-15)";
             w.goal = World1Goal;
             w.goalQuest = QuestManager.QUEST_PROPHECY;

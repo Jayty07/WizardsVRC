@@ -283,6 +283,26 @@ Colour** and **Fog Colour** are swapped in as you arrive (Lantern Row is at dusk
 Round the castle the sea rolls with long swells and whitecaps (`Materials/PSX_SeaSwell`) and surf breaks against the
 island (`PSXSurf` shader, `Materials/PSX_Surf`).
 
+### Music
+
+Each zone can have its own background music. Put the file (`.mp3`, `.ogg` or `.wav`) in `Assets/WizardsVRC/Audio/Music`
+and type its name without the extension into the zone's **Music Track** (Zone > *Music*), e.g. `Music_LanternRow`. Leave
+it blank to use its World's **Music Track** (World > *Music*), or none. The track fades in over 2 s as you step out of
+the tunnel into the zone's box and the old one fades out over 1.2 s, the same crossfade as the castle and combat themes.
+It keeps playing in the zone's secret boss place, stops for the combat theme in a duel, and comes back where it left
+off afterwards (tick **Music Restarts** to start it from the top each time instead). The zone's boss tower plays its
+**Tower Music Track** instead (else the World's **Tower Music Track**, else the zone's own music), crossfading as you
+step through the sigil and back; **Tower Music Restarts** starts it over on each visit. Zones that name the same file
+share one track, so it carries on across them. The hub zone's Music Track replaces the castle theme (`Music_Hub_Temp`).
+A World's **Dialogue Music Track** plays while one of its **Dialogue Music Speakers** is talking (the speaker name over a
+cutscene line, or a tower leader's greeting), then the area's music comes back; World 1 and 2 use it for the Dominion
+(`Music_Dialogue_Dominion`). Combat beats dialogue, dialogue beats the area. The rebuild log says how many tracks it
+found; a missing file is a yellow warning naming it.
+
+Defaults as shipped: Sunpetal Gardens, Lantern Row, Tidewatch Docks, Kiln Street, Thornhollow Grove and Copperbottom Mine
+each have a `Music_Zone_<Key>` track, World 1's towers share `Music_Tower_World1`, and the Dominion has its theme. Existing
+world data folders get these on the v24 upgrade wherever the field is still blank.
+
 ### Performance (culling)
 
 Every zone is culled on each player's own client automatically, so you don't have to do anything when you add one:
