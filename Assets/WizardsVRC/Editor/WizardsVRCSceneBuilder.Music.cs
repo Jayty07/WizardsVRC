@@ -8,7 +8,7 @@ namespace WizardsVRC.EditorTools
     /// <summary>
     /// Background music (MusicDirector): the hub theme in the castle, the combat theme in duels, the character creation
     /// theme on the select screen and in the creator, and each zone's own track (Zone > Music, or its World's) inside the
-    /// zone, its boss tower and its secret boss place. Tracks live in Audio/Music; swap a file (same name) to change a
+    /// zone and its secret boss place, with a tower track (or the zone's) in its boss tower. Tracks live in Audio/Music; swap a file (same name) to change a
     /// track. Music_Hub_Temp is a placeholder until the real hub theme is in (the hub zone's Music Track replaces it).
     /// </summary>
     public static partial class WizardsVRCSceneBuilder

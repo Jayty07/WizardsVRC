@@ -226,6 +226,11 @@ namespace WizardsVRC.EditorTools.WorldData
         public string musicTrack = "";
         [Tooltip("Start this track from the top each time you come back (otherwise it carries on where it left off).")]
         public bool musicRestarts;
+        [Tooltip("Background music inside this zone's boss tower instead of the zone's track (file name in Audio/Music, no " +
+                 "extension). Blank = its world's Tower Music Track, else the zone's own music. Duels still switch to the combat theme.")]
+        public string towerMusicTrack = "";
+        [Tooltip("Start the tower track from the top each time you enter the tower.")]
+        public bool towerMusicRestarts;
 
         [Header("Performance")]
         [Tooltip("Small props (lamps, windows, flowers, stalls, merlons...) stop drawing beyond about this many metres. " +

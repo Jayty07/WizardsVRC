@@ -54,27 +54,39 @@ namespace WizardsVRC.EditorTools
             public readonly List<bool> musicRestarts = new List<bool>();
             public readonly List<string> musicNames = new List<string>();
 
-            /// <summary>Plays the zone's music (or its world's) inside the box, if it has any.</summary>
-            public void MusicArea(ZoneDefinition z, Bounds b, string what)
+            /// <summary>Plays the zone's music (or its world's) inside the box, if it has any; a tower box plays the tower track.</summary>
+            public void MusicArea(ZoneDefinition z, Bounds b, string what, bool tower = false)
             {
-                string track = ZoneMusicTrack(z, data);
+                string track = ZoneMusicTrack(z, data, tower);
                 if (string.IsNullOrEmpty(track)) return;
+                bool towerTrack = tower && track != ZoneMusicTrack(z, data, false);
                 musicBounds.Add(b);
                 musicTracks.Add(track);
-                musicRestarts.Add(z.musicRestarts);
+                musicRestarts.Add(towerTrack ? z.towerMusicRestarts : z.musicRestarts);
                 musicNames.Add(what);
             }
         }
 
-        /// <summary>The music file (no extension) for a zone: its own, else its world's; "" for none.</summary>
-        private static string ZoneMusicTrack(ZoneDefinition z, WorldDataStore.Data data)
+        /// <summary>
+        /// The music file (no extension) for a zone: its own, else its world's; "" for none. For its boss tower: the
+        /// zone's Tower Music Track, else the world's, else the zone's ordinary music.
+        /// </summary>
+        private static string ZoneMusicTrack(ZoneDefinition z, WorldDataStore.Data data, bool tower)
         {
             if (z == null) return "";
+            WorldArc world = null;
+            if (data != null && data.worlds != null)
+                foreach (var w in data.worlds)
+                    if (w != null && w.zones != null && w.zones.Contains(z.zoneKey)) { world = w; break; }
+            if (tower)
+            {
+                string tt = MusicTrackName(z.towerMusicTrack);
+                if (tt.Length == 0 && world != null) tt = MusicTrackName(world.towerMusicTrack);
+                if (tt.Length > 0) return tt;
+            }
             string t = MusicTrackName(z.musicTrack);
-            if (t.Length > 0 || data == null || data.worlds == null) return t;
-            foreach (var w in data.worlds)
-                if (w != null && w.zones != null && w.zones.Contains(z.zoneKey)) return MusicTrackName(w.musicTrack);
-            return "";
+            if (t.Length == 0 && world != null) t = MusicTrackName(world.musicTrack);
+            return t;
         }
 
         /// <summary>A track name as typed, tidied: trimmed, without a folder or a .mp3 / .ogg / .wav ending.</summary>

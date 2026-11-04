@@ -340,7 +340,7 @@ namespace WizardsVRC.EditorTools
             var towerBox = new Bounds(troot.position + new Vector3(0, floors * TowerFloorH * 0.5f, 0),
                 new Vector3(TowerRoomR * 2f + 40f, floors * TowerFloorH + 140f, TowerRoomR * 2f + 40f));
             wb.cullBounds.Add(towerBox);
-            wb.MusicArea(z, towerBox, towerName);
+            wb.MusicArea(z, towerBox, towerName, true);
             troot.gameObject.SetActive(false);
             Debug.Log("[WizardsVRC World] " + z.displayName + ": " + towerName + " (" + TowerWaves + " wave floors, then " + bossName + ").");
         }

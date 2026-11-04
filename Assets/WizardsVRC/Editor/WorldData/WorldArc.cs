@@ -40,5 +40,7 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("Background music in every zone of this world that has no Music Track of its own: the file name in " +
                  "Assets/WizardsVRC/Audio/Music without its extension. Blank = none.")]
         public string musicTrack = "";
+        [Tooltip("Background music inside every boss tower of this world whose zone has no Tower Music Track of its own. Blank = the zone's music.")]
+        public string towerMusicTrack = "";
     }
 }
