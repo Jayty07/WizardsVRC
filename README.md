@@ -429,6 +429,10 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   dream). Tracks crossfade; the hub and creation tracks carry on where they left off. The book's Settings page has
   **Music: Full / Medium / Quiet / Off** (remembered). Tracks are `Audio/Music/Music_Hub_Temp.mp3` (a placeholder),
   `Music_Combat_World1.mp3` and `Music_CharacterCreation.mp3`; replace a file with one of the same name to change it.
+  Any zone can have its own track too: drop the file into `Audio/Music` and type its name (without `.mp3`) into the
+  zone's **Music Track** (Zone > Music in the World Creator, or a World's **Music Track** for all of its zones). It
+  crossfades in as you walk out of the tunnel into the zone and out as you leave, follows you into the zone's boss tower
+  and secret boss place, and gives way to the combat theme in duels. Zones that share a file share the music.
 - **Monster AI:** monsters heal an ally under 45% health (a monster that heals itself waits 2 rounds before healing
   again), sometimes put a blade or shield on themselves first, and otherwise cast their biggest affordable attack
   (occasionally saving pips).

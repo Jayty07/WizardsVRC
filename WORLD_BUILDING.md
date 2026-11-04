@@ -283,6 +283,17 @@ Colour** and **Fog Colour** are swapped in as you arrive (Lantern Row is at dusk
 Round the castle the sea rolls with long swells and whitecaps (`Materials/PSX_SeaSwell`) and surf breaks against the
 island (`PSXSurf` shader, `Materials/PSX_Surf`).
 
+### Music
+
+Each zone can have its own background music. Put the file (`.mp3`, `.ogg` or `.wav`) in `Assets/WizardsVRC/Audio/Music`
+and type its name without the extension into the zone's **Music Track** (Zone > *Music*), e.g. `Music_LanternRow`. Leave
+it blank to use its World's **Music Track** (World > *Music*), or none. The track fades in over 2 s as you step out of
+the tunnel into the zone's box and the old one fades out over 1.2 s, the same crossfade as the castle and combat themes.
+It keeps playing in the zone's boss tower and secret boss place, stops for the combat theme in a duel, and comes back
+where it left off afterwards (tick **Music Restarts** to start it from the top each time instead). Zones that name the
+same file share one track, so it carries on across them. The hub zone's Music Track replaces the castle theme
+(`Music_Hub_Temp`). The rebuild log says how many zone tracks it found; a missing file is a yellow warning naming it.
+
 ### Performance (culling)
 
 Every zone is culled on each player's own client automatically, so you don't have to do anything when you add one:

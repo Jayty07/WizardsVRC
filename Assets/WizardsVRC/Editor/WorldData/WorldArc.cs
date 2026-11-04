@@ -35,5 +35,10 @@ namespace WizardsVRC.EditorTools.WorldData
         public List<Questline> storylines = new List<Questline>();
         [Tooltip("Zone keys of the areas in this world (for the checks).")]
         public List<string> zones = new List<string>();
+
+        [Header("Music")]
+        [Tooltip("Background music in every zone of this world that has no Music Track of its own: the file name in " +
+                 "Assets/WizardsVRC/Audio/Music without its extension. Blank = none.")]
+        public string musicTrack = "";
     }
 }
