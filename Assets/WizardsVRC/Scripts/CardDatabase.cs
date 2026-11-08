@@ -282,8 +282,8 @@ namespace WizardsVRC
         public const int CAM_STANDARD = 0, CAM_LOW = 1, CAM_CRANE = 2, CAM_FOLLOW = 3, CAM_REVERSE = 4;
 
         // Per delivery (index = CINE_*): seconds into the release when it hits, and how long the release lasts.
-        private float[] _cineStrikes = { 1.0f, 0.55f, 0.95f, 1.0f, 1.6f, 1.35f, 1.05f, 0.45f, 1.45f, 0.6f, 1.2f, 1.15f, 1.25f };
-        private float[] _cineReleases = { 1.4f, 1.0f, 1.35f, 1.4f, 2.0f, 1.9f, 1.45f, 1.5f, 1.8f, 1.0f, 1.6f, 1.55f, 1.65f };
+        private float[] _cineStrikes = { 1.4f, 0.8f, 1.3f, 1.4f, 2.2f, 1.9f, 1.5f, 0.7f, 2.0f, 0.85f, 1.7f, 1.6f, 1.75f };
+        private float[] _cineReleases = { 2.0f, 1.4f, 1.9f, 2.0f, 2.8f, 2.7f, 2.1f, 2.1f, 2.6f, 1.4f, 2.3f, 2.2f, 2.35f };
 
         private Color _generalColor = new Color(0.6f, 0.6f, 0.65f);
 

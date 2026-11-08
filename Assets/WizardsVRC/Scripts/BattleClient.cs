@@ -1778,10 +1778,11 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// An attack spell's turn, played by SpellCinematic from its recipe (the same beats on every client): a wizard's is a
-        /// cinematic, cast from the middle of the ring (the caster is taken there and back by their own client), a
-        /// monster's is cast from its seat. BattleClient still draws the symbol and plays the cast sound through the
-        /// wind-up, lands the results at the strike and sends a summoned creature along the spell's path.
+        /// An attack spell's turn, played by SpellCinematic from its recipe (the same beats on every client): a cinematic,
+        /// cast from the middle of the ring to the target. A wizard caster is taken there and back by their own client, a
+        /// monster's body is moved there on every client, and everyone else in the fight watches it on the film screen.
+        /// BattleClient still draws the symbol and plays the cast sound through the wind-up, lands the results at the
+        /// strike and sends a summoned creature along the spell's path.
         /// </summary>
         private void PlayStyled(int actor, int target, int card)
         {
@@ -1805,11 +1806,19 @@ namespace WizardsVRC
             }
             Vector3 fwd = aim - from;
             VRCPlayerApi local = Networking.LocalPlayer;
-            bool me = _stepCine && Utilities.IsValid(local) && manager.slotIds[actor] == local.playerId;
+            // The caster (a wizard on this client) gets the fade and the move; everyone else in the fight watches the film.
+            bool me = _stepCine && Utilities.IsValid(local) && manager.IsPlayerSeat(actor) && manager.slotIds[actor] == local.playerId;
+            bool watch = _stepCine && !me && _inBattle && _seated && !_leaving;
+            // A monster steps into the middle of the ring to cast too.
+            Transform body = !manager.IsPlayerSeat(actor) && manager.MonsterAt(actor) > 0 ? BodyOf(actor) : null;
+            if (body != null && !body.gameObject.activeInHierarchy) body = null;
+            bool creature = cardDatabase.AnimMode(card) == 1 && _stepAnim != null;
+            float targetScale = target >= 0 && target < BattleManager.SLOTS && target != actor ? SeatScale(target) : 1f;
             float inSec = _stepCine ? manager.cineInSeconds : 0f;
             float after = _stepCine ? manager.CineAfter(card) : manager.plainAfterSeconds;
             float outSec = _stepCine ? manager.cineOutSeconds : 0f;
-            spellCinematic.Begin(this, me, _stepCine, seats[actor], from, fwd, aim, school, cardDatabase.CineStyle(card), cardDatabase.GetPipCost(card),
+            spellCinematic.Prepare(this, me, watch, _stepCine, seats[actor], body, creature, targetScale);
+            spellCinematic.Begin(from, fwd, aim, school, cardDatabase.CineStyle(card), cardDatabase.GetPipCost(card),
                 cardDatabase.IsAoe(card), SeatScale(actor), manager.SlotName(actor), cardDatabase.GetName(card),
                 inSec, manager.CastSeconds(school), cardDatabase.CineStrike(card), cardDatabase.CineRelease(card), after, outSec);
             if (inSec > 0f) SendCustomEventDelayedSeconds(nameof(_StyledWindUp), inSec);
@@ -1834,6 +1843,12 @@ namespace WizardsVRC
         public void _StyledWindUp()
         {
             if (!_playing || !_stepStyled || manager.phase != BattleManager.PHASE_PLAYBACK) return;
+            // A monster in the middle of the ring rears up / raises its arms again as it casts there.
+            if (_stepCine)
+            {
+                MonsterRig rig = RigOf(_stepActor);
+                if (rig != null) rig.Cast();
+            }
             StartCast(_stepActor, _stepTarget, _stepSchool);
             SendCustomEventDelayedSeconds(nameof(_StyledRelease), manager.CastSeconds(_stepSchool));
         }

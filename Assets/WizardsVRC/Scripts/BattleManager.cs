@@ -65,8 +65,9 @@ namespace WizardsVRC
         /// <summary>This hit's stun was stopped by the target's stun shield.</summary>
         public const int FLAG_STUNBLOCK = 32;
         /// <summary>
-        /// On the first entry of a wizard's attack spell that went off: the cast plays as a cinematic (the caster is taken
-        /// to the middle of the ring, casts from there, the film camera shows it landing, they're returned to their seat).
+        /// On the first entry of an attack spell that went off (a wizard's or a monster's): the cast plays as a cinematic
+        /// (the caster is taken to the middle of the ring and casts from there, everyone in the fight watches it on the
+        /// film screen, the caster goes back to their seat).
         /// </summary>
         public const int FLAG_CINE = 64;
 
@@ -97,14 +98,14 @@ namespace WizardsVRC
         [Tooltip("After a fizzle cuts off, this long before the next caster.")]
         public float fizzleAfterSeconds = 1.2f;
 
-        [Header("Spell cinematics (a wizard's attack spell: see FLAG_CINE and SpellCinematic)")]
+        [Header("Spell cinematics (every attack spell: see FLAG_CINE and SpellCinematic)")]
         [Tooltip("Fading to black, being taken to the middle of the ring and fading back in, before the wind-up.")]
         public float cineInSeconds = 0.9f;
         [Tooltip("Fading out, back to the seat and fading in again, after the spell has landed.")]
         public float cineOutSeconds = 0.8f;
         [Tooltip("How long the shots of the spell landing hold after its effect, plus this much more per pip.")]
-        public float cineAfterSeconds = 0.7f;
-        public float cineAfterPerPip = 0.2f;
+        public float cineAfterSeconds = 1.0f;
+        public float cineAfterPerPip = 0.25f;
         [Tooltip("A monster's attack spell (no cinematic): how long it settles after its release, before the next caster.")]
         public float plainAfterSeconds = 0.4f;
 
@@ -155,6 +156,14 @@ namespace WizardsVRC
         public int critMultiplier = 200;
         [Tooltip("Critical chance % of boss monsters.")]
         public int bossCritPct = 5;
+        [Header("Boss healing (a boss is never sure to heal)")]
+        [Tooltip("A boss may heal itself or an ally once one is under this % of its health.")]
+        [Range(1, 100)] public int bossHealBelowPct = 60;
+        [Tooltip("Chance % a boss heals in a round when the hurt one is just under that, rising to bossHealChanceLow as it nears 0.")]
+        [Range(0, 100)] public int bossHealChance = 25;
+        [Range(0, 100)] public int bossHealChanceLow = 55;
+        [Tooltip("Rounds a boss waits after any heal before it can heal again (other monsters wait 2 after healing themselves).")]
+        public int bossHealGraceRounds = 4;
         [Tooltip("Zone encounters: places the duel ring may appear (shared by every monster group in the street). A fight " +
                  "forms at the free spot nearest the wizard who touched the monster. Empty = the ring stays where it was built.")]
         public Transform[] ringSpots;
@@ -307,7 +316,7 @@ namespace WizardsVRC
             return wind + (anim > 0f ? anim : impactSeconds);
         }
 
-        /// <summary>A wizard's attack spell that plays as a cinematic (see FLAG_CINE).</summary>
+        /// <summary>An attack spell that plays as a cinematic (see FLAG_CINE).</summary>
         public bool IsCineAct(int i) { return i >= 0 && i < actCount && (actFlags[i] & FLAG_CINE) != 0 && IsCastAct(i); }
 
         /// <summary>How long the shots of a cinematic spell hold after it lands (longer for bigger spells).</summary>
@@ -1357,19 +1366,34 @@ namespace WizardsVRC
                 else if (!cardDatabase.TargetsAllies(spell) && (attack == 0 || cardDatabase.GetPipCost(spell) > cardDatabase.GetPipCost(attack))) attack = spell;
             }
 
+            bool boss = cardDatabase.IsBossMonster(monster);
+            int below = boss ? bossHealBelowPct : 45;
             int hurt = -1;
             for (int i = 0; i < SIDE; i++)
             {
                 int a = mySide * SIDE + i;
-                if (Alive(a) && hp[a] * 100 < maxHp[a] * 45 && (hurt < 0 || hp[a] * 1000 / maxHp[a] < hp[hurt] * 1000 / maxHp[hurt])) hurt = a;
+                if (Alive(a) && hp[a] * 100 < maxHp[a] * below && (hurt < 0 || hp[a] * 1000 / maxHp[a] < hp[hurt] * 1000 / maxHp[hurt])) hurt = a;
             }
-            // Healing grace: a monster that healed itself waits 2 rounds before it heals again.
             if (heal != 0 && hurt >= 0 && round >= _healReady[s])
             {
-                _pickCard[s] = heal;
-                _pickTarget[s] = hurt;
-                if (hurt == s) _healReady[s] = round + 3;
-                return;
+                // A boss only might heal: likelier the lower the hurt one's health (bossHealChance just under the line,
+                // bossHealChanceLow near 0). Other monsters always heal a badly hurt ally.
+                bool go = true;
+                if (boss)
+                {
+                    float low = 1f - Mathf.Clamp01(hp[hurt] * 100f / Mathf.Max(1, maxHp[hurt]) / Mathf.Max(1, below));
+                    int chance = Mathf.RoundToInt(Mathf.Lerp(bossHealChance, bossHealChanceLow, low));
+                    go = Random.Range(0, 100) < chance;
+                }
+                if (go)
+                {
+                    _pickCard[s] = heal;
+                    _pickTarget[s] = hurt;
+                    // Healing grace: a boss waits bossHealGraceRounds after any heal; another monster 2 after healing itself.
+                    if (boss) _healReady[s] = round + 1 + Mathf.Max(0, bossHealGraceRounds);
+                    else if (hurt == s) _healReady[s] = round + 3;
+                    return;
+                }
             }
             if (buff != 0 && Random.value < 0.4f) { _pickCard[s] = buff; _pickTarget[s] = s; return; }
 
@@ -1550,8 +1574,8 @@ namespace WizardsVRC
         {
             int first = actCount;
             CastSpell(s, cardId, target, group);
-            // A wizard's attack spell that went off plays as a cinematic (every client times it from this flag).
-            if (actCount > first && IsCastAct(first) && IsPlayerSeat(s) && slotIds[s] > 0 && cardDatabase.CineStyle(cardId) != 0)
+            // An attack spell that went off plays as a cinematic, a wizard's or a monster's (every client times it from this flag).
+            if (actCount > first && IsCastAct(first) && Occupied(s) && !IsSummon(s) && cardDatabase.CineStyle(cardId) != 0)
                 actFlags[first] |= FLAG_CINE;
         }
 

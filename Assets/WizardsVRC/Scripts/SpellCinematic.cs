@@ -17,15 +17,17 @@ namespace WizardsVRC
     /// flourish round the caster as they wind up, how the film shoots it, and the shape and number of its bolts. A spell that
     /// summons a creature sends the creature along the same path. Everything grows with the spell's pips.
     ///
-    /// A wizard's cast (cinematic):
-    ///   in        the view irises shut in the school's colour, they vanish from their seat and appear in the middle of
-    ///             the ring (their own client teleports them), and the view opens
-    ///   wind-up   first person: the school's rune draws itself on the floor under them while the wind-up flourish plays
-    ///             (BattleClient draws the symbol in the air in front of them and plays the cast sound, as ever)
-    ///   release   the screen cuts to film (CutscenePlayer, the NPC cutscene screen) as the spell flies
+    /// Every attack spell is a cinematic, a wizard's or a monster's:
+    ///   in        the caster vanishes from their seat in a burst and appears in the middle of the ring facing their target
+    ///             (a wizard's own client teleports them, with their view irising shut and open in their school's colour;
+    ///             a monster's body is moved there on every client)
+    ///   wind-up   the school's rune draws itself on the floor under them while the wind-up flourish plays (BattleClient
+    ///             draws the symbol in the air in front of them and plays the cast sound, as ever). The caster sees it in
+    ///             first person; everyone else in the fight already watches it on the film screen, the camera circling them
+    ///   release   the caster's screen cuts to film too (CutscenePlayer, the NPC cutscene screen) as the spell flies from
+    ///             the middle of the ring to its target, stopping at the target (a creature pulls up in front of it)
     ///   strike    the hit, shaken; then the shots hold while it settles (longer for bigger spells)
-    ///   out       the view irises shut, they're back in their seat, it opens again
-    /// A monster's attack spell plays the same choreography from its seat, without the fade, move or film.
+    ///   out       the caster vanishes back to their seat (a wizard's view irises shut and open again)
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SpellCinematic : UdonSharpBehaviour
@@ -112,7 +114,19 @@ namespace WizardsVRC
         // ------------------------------------------------------------------ state
         private bool _on;
         private bool _me;
+        private bool _watch;
         private bool _cine;
+        private bool _creature;
+        private float _tScale = 1f;
+        // A monster caster's body, moved to the middle of the ring and back.
+        private Transform _casterBody;
+        private Vector3 _bodyLocalPos;
+        private Quaternion _bodyLocalRot;
+        private bool _bodyMoved;
+        // Distance scale (lateral swings, arcs) and where the spell meets its target / where a creature pulls up.
+        private float _reach = 1f;
+        private Vector3 _hit;
+        private Vector3 _stop;
         private BattleClient _owner;
         private float _t0;
         private int _cue;
@@ -186,28 +200,44 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// Starts an attack spell's choreography. 'seat' is the caster's seat; 'from' is where they cast from (the middle
-        /// of the ring for a cinematic, else their seat), facing 'fwd'; 'aim' is the target (the middle of the side an area
-        /// spell hits). 'style' is CardDatabase.CineStyle. 'cinematic' = a wizard's cast (fade, move, film for 'me', the
-        /// local caster). 'body' is the caster's size (big monsters cast from higher). Times: in (fade and move), wind (the
-        /// wind-up), strike (into the release, when it hits), release (its whole flight), after (the shots of it
-        /// landing), out (back to the seat).
+        /// First half of starting an attack spell (then <see cref="Begin"/>): who is watching and what moves. 'me' = the
+        /// local player is the (wizard) caster: fade, teleport and film from the release; 'watch' = the local player is
+        /// in the fight: film from the wind-up. 'cinematic' = cast from the middle of the ring. 'seat' is the caster's
+        /// seat, 'body' a monster caster's body (moved to the middle), 'creature' = the spell sends a creature along its
+        /// path (it pulls up in front of the target), 'targetScale' the target's size.
         /// </summary>
-        public void Begin(BattleClient owner, bool me, bool cinematic, Transform seat, Vector3 from, Vector3 fwd, Vector3 aim, int school, int style,
-                          int pips, bool aoe, float body, string caster, string spell,
-                          float inSec, float windSec, float strikeSec, float releaseSec, float afterSec, float outSec)
+        public void Prepare(BattleClient owner, bool me, bool watch, bool cinematic, Transform seat, Transform body, bool creature, float targetScale)
         {
             if (_on) Abort(true);
-            if (seat == null) return;
             _owner = owner;
             _cine = cinematic;
             _me = me && cinematic;
-            _seatPos = seat.position;
-            _seatRot = seat.rotation;
+            _watch = watch && cinematic && !_me;
+            _creature = creature;
+            _tScale = Mathf.Clamp(targetScale, 0.5f, 3f);
+            _casterBody = cinematic ? body : null;
+            _bodyMoved = false;
+            if (seat != null)
+            {
+                _seatPos = seat.position;
+                _seatRot = seat.rotation;
+            }
+        }
+
+        /// <summary>
+        /// Starts the attack spell's choreography (after <see cref="Prepare"/>): cast from 'from' (the middle of the ring
+        /// for a cinematic, else the seat) facing 'fwd' at 'aim' (the target, or the middle of the side an area spell
+        /// hits). 'style' is CardDatabase.CineStyle; 'body' the caster's size (big monsters cast from higher). Times: in
+        /// (vanish and appear), wind (the wind-up), strike (into the release, when it hits), release (its whole flight),
+        /// after (the shots of it landing), out (back to the seat).
+        /// </summary>
+        public void Begin(Vector3 from, Vector3 fwd, Vector3 aim, int school, int style, int pips, bool aoe, float body, string caster, string spell,
+                          float inSec, float windSec, float strikeSec, float releaseSec, float afterSec, float outSec)
+        {
             _from = from;
             _ground = from.y;
             fwd.y = 0f;
-            _fwd = fwd.sqrMagnitude > 0.0001f ? fwd.normalized : seat.forward;
+            _fwd = fwd.sqrMagnitude > 0.0001f ? fwd.normalized : _seatRot * Vector3.forward;
             _right = Vector3.Cross(Vector3.up, _fwd).normalized;
             _aim = aim;
             _body = Mathf.Clamp(body, 0.5f, 3f);
@@ -220,6 +250,14 @@ namespace WizardsVRC
             _spell = spell;
             _color = glyphColors != null && _look < glyphColors.Length ? glyphColors[_look] : Color.white;
             _hand = _from + _fwd * (0.55f * _body) + Vector3.up * (1.35f * _body) + _right * (0.15f * _body);
+            // Everything is laid out for the real distance from the middle of the ring to the target, and stops at it:
+            // bolts meet the front of the target's body, a creature pulls up a stride short.
+            Vector3 flat = _aim - _from;
+            flat.y = 0f;
+            _reach = Mathf.Clamp(flat.magnitude / 7f, 0.45f, 1.4f);
+            float front = _aoe ? 0f : 0.35f * _tScale;
+            _hit = _aim - _fwd * front + Vector3.up * (1.0f * (_aoe ? 1f : _tScale));
+            _stop = _aim - _fwd * ((_aoe ? 1.6f : 1.3f) * _tScale);
 
             _delivery = style & 15;
             if (_delivery == 0) _delivery = CardDatabase.CINE_LANCE;
@@ -245,7 +283,10 @@ namespace WizardsVRC
             _teleported = false;
             _returned = false;
             _filmOn = false;
-            _auraAcc = _emberAcc = _spiralAcc = _trailAcc = 0f;
+            _auraAcc = 0f;
+            _emberAcc = 0f;
+            _spiralAcc = 0f;
+            _trailAcc = 0f;
             _headCount = 0;
             _carrier = null;
             _carrierAnim = null;
@@ -288,9 +329,20 @@ namespace WizardsVRC
                     SendCustomEventDelayedFrames(nameof(_ReturnNow), 1);
                 }
             }
+            if (_watch && _filmOn && cutscenePlayer != null) cutscenePlayer.StopFilm();
             _filmOn = false;
+            RestoreBody();
             _carrier = null;
             HideRig();
+        }
+
+        /// <summary>A monster caster's body back in its seat.</summary>
+        private void RestoreBody()
+        {
+            if (!_bodyMoved || _casterBody == null) { _bodyMoved = false; return; }
+            _casterBody.localPosition = _bodyLocalPos;
+            _casterBody.localRotation = _bodyLocalRot;
+            _bodyMoved = false;
         }
 
         public void _ReturnNow()
@@ -317,7 +369,7 @@ namespace WizardsVRC
             AnimatePortals(t);
             AnimateImpact(t, dt);
             AnimateLight(t);
-            if (_me) Film(t);
+            if (_me || _watch) Film(t);
         }
 
         public override void PostLateUpdate()
@@ -365,6 +417,14 @@ namespace WizardsVRC
                         local.TeleportTo(_from, Quaternion.LookRotation(_fwd, Vector3.up), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, false);
                         _teleported = true;
                     }
+                    // A monster's body steps into the middle of the ring too.
+                    if (_casterBody != null && !_bodyMoved)
+                    {
+                        _bodyLocalPos = _casterBody.localPosition;
+                        _bodyLocalRot = _casterBody.localRotation;
+                        _casterBody.SetPositionAndRotation(_from, Quaternion.LookRotation(_fwd, Vector3.up));
+                        _bodyMoved = true;
+                    }
                     Burst(portalBurst, _from + Vector3.up * 1f, 60);
                 }
             }
@@ -378,6 +438,13 @@ namespace WizardsVRC
                     runeCircle.gameObject.SetActive(true);
                 }
                 if (fxLight != null) { fxLight.color = _color; fxLight.intensity = 0f; fxLight.range = 6f * _scale; fxLight.gameObject.SetActive(true); }
+                // Everyone else in the fight watches the whole cast on the film screen.
+                if (_watch && cutscenePlayer != null && !cutscenePlayer.IsPlaying())
+                {
+                    cutscenePlayer.PlayFilm(_caster, _spell + "!", Color.Lerp(_color, Color.white, 0.35f));
+                    _filmOn = cutscenePlayer.IsFilming();
+                    if (_filmOn) Film(t);
+                }
             }
             if (_cue == 3 && t >= _tRel)
             {
@@ -407,6 +474,7 @@ namespace WizardsVRC
                     _returned = true;
                     local.TeleportTo(_seatPos, _seatRot, VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, false);
                 }
+                RestoreBody();
             }
             if (_cue == 7 && t >= _tEnd) Finish();
         }
@@ -420,6 +488,9 @@ namespace WizardsVRC
                 if (Utilities.IsValid(local)) local.Immobilize(false);
             }
             SetFade(0f);
+            if (_filmOn && cutscenePlayer != null) cutscenePlayer.StopFilm();
+            _filmOn = false;
+            RestoreBody();
             _on = false;
             _carrier = null;
             HideRig();
@@ -430,8 +501,7 @@ namespace WizardsVRC
         /// <summary>The spell is let go: sparks off the hand, its bolts set off on their paths, and (for the caster) the film.</summary>
         private void Release()
         {
-            Vector3 hit = _aim + Vector3.up * 1.0f;
-            Vector3 dir = hit - _hand;
+            Vector3 dir = _hit - _hand;
             if (releaseBurst != null)
             {
                 releaseBurst.transform.position = _hand;
@@ -457,7 +527,7 @@ namespace WizardsVRC
                 beam.localScale = new Vector3(0.01f, 0.01f, 0.01f);
                 beam.gameObject.SetActive(true);
             }
-            if (_me && cutscenePlayer != null && !cutscenePlayer.IsPlaying())
+            if (_me && !_filmOn && cutscenePlayer != null && !cutscenePlayer.IsPlaying())
             {
                 cutscenePlayer.PlayFilm(_caster, _spell + "!", Color.Lerp(_color, Color.white, 0.35f));
                 _filmOn = cutscenePlayer.IsFilming();
@@ -485,22 +555,24 @@ namespace WizardsVRC
             float strike = _tStrike - _tRel;
             float relLen = _tRelEnd - _tRel;
             Vector3 up = Vector3.up;
-            Vector3 hit = _aim + up * 1.0f;
-            float spread = _aoe ? 2.6f : 1.1f;
+            float k = _reach;                       // swings and arcs sized to the distance from the middle of the ring
+            float spread = (_aoe ? 2.4f : 0.9f) * Mathf.Min(1f, k + 0.2f);
             float lift = 1f + 0.5f * _height;
             for (int i = 0; i < _headCount; i++)
             {
                 float from = 0f, to = strike, launch = 0f;
+                // The main bolt meets the front of the target; a creature riding it pulls up a stride short.
+                Vector3 hit = i == 0 && _creature ? _stop + up * 1.0f : _hit;
                 Vector3 A = _hand, B = _hand, C = hit, D = hit;
                 float side = (i % 2 == 0 ? 1f : -1f) * _flip;
                 int pair = (i + 1) / 2;
                 int d = _delivery;
                 if (d == CardDatabase.CINE_LANCE)
                 {
-                    Vector3 off = _right * ((i - (n - 1) * 0.5f) * 0.45f);
+                    Vector3 off = _right * ((i - (n - 1) * 0.5f) * 0.4f);
                     A = _hand + off;
-                    D = hit + off * (_aoe ? 2.5f : 0.4f);
-                    from = 0.05f * i;
+                    D = hit + off * (_aoe ? 2.5f : 0.3f);
+                    from = 0.06f * i;
                 }
                 else if (d == CardDatabase.CINE_HELIX)
                 {
@@ -509,48 +581,48 @@ namespace WizardsVRC
                 }
                 else if (d == CardDatabase.CINE_VOLLEY)
                 {
-                    float s = side * (0.9f + 0.45f * pair);
+                    float sw = side * (0.7f + 0.35f * pair) * k;
                     A = _hand + _right * (side * 0.12f);
                     D = hit;
-                    if (_aoe || i > 0) D += _right * (side * 0.35f * pair * (_aoe ? 2.2f : 1f)) + _fwd * (((i % 3) - 1) * (_aoe ? 0.8f : 0.25f));
-                    B = Vector3.Lerp(A, D, 0.3f) + _right * s + up * (0.8f * lift + 0.25f * pair);
-                    C = Vector3.Lerp(A, D, 0.7f) + _right * (s * 0.6f) + up * (0.6f * lift);
-                    from = i == 0 ? 0f : 0.06f * i;
-                    to = i == 0 ? strike : Mathf.Min(relLen - 0.05f, strike + 0.04f * i);
+                    if (_aoe || i > 0) D += _right * (side * 0.3f * pair * (_aoe ? 2.2f : 1f)) - _fwd * (_aoe ? 0f : 0.1f * pair);
+                    B = Vector3.Lerp(A, D, 0.3f) + _right * sw + up * ((0.7f * lift + 0.2f * pair) * k);
+                    C = Vector3.Lerp(A, D, 0.7f) + _right * (sw * 0.55f) + up * (0.5f * lift * k);
+                    from = i == 0 ? 0f : 0.07f * i;
+                    to = i == 0 ? strike : Mathf.Min(relLen - 0.05f, strike + 0.05f * i);
                 }
                 else if (d == CardDatabase.CINE_METEOR)
                 {
                     Vector3 land = hit;
-                    if (i > 0) land += (_right * Mathf.Cos(i * 2.4f) + _fwd * Mathf.Sin(i * 2.4f)) * spread;
+                    if (i > 0) land = _aim + (_right * Mathf.Cos(i * 2.4f) + _fwd * Mathf.Sin(i * 2.4f)) * spread + up * 0.9f;
                     A = _hand;
-                    B = _from + up * (9f + 2f * _height) + _fwd * 1.5f + _right * (side * 0.8f * pair);
-                    C = land + up * (11f + 2f * _height) - _fwd * 2f;
+                    B = _from + up * ((8f + 1.5f * _height) * Mathf.Max(0.8f, k)) + _fwd * (0.8f * k) + _right * (side * 0.6f * pair);
+                    C = land + up * ((9f + 1.5f * _height) * Mathf.Max(0.8f, k)) - _fwd * (1.2f * k);
                     D = land;
-                    from = 0.08f * i;
-                    to = i == 0 ? strike : Mathf.Min(relLen - 0.05f, strike + 0.07f * i);
+                    from = 0.09f * i;
+                    to = i == 0 ? strike : Mathf.Min(relLen - 0.05f, strike + 0.08f * i);
                 }
                 else if (d == CardDatabase.CINE_RAIN)
                 {
                     float ang = i * 137.5f * Mathf.Deg2Rad;
                     float r = i == 0 ? 0f : spread * (0.35f + 0.65f * ((i * 0.618f) % 1f));
-                    Vector3 land = _aim + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r + up * 0.2f;
-                    A = land + up * (8.5f + _height) + _fwd * (0.6f * _flip);
+                    Vector3 land = i == 0 ? new Vector3(hit.x, _aim.y + 0.2f, hit.z) : _aim + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r + up * 0.2f;
+                    A = land + up * (8.5f + _height) - _fwd * (0.5f * _flip);
                     D = land;
-                    float span = Mathf.Max(0.3f, strike - 0.25f);
-                    float fall = 0.45f;
+                    float span = Mathf.Max(0.3f, strike - 0.3f);
+                    float fall = 0.55f;
                     if (i == 0) { from = strike - fall; to = strike; }
                     else
                     {
-                        from = 0.12f + span * ((i - 1) / (float)Mathf.Max(1, n - 1));
+                        from = 0.15f + span * ((i - 1) / (float)Mathf.Max(1, n - 1));
                         to = Mathf.Min(relLen - 0.05f, from + fall);
                     }
                 }
                 else if (d == CardDatabase.CINE_GROUND)
                 {
-                    Vector3 off = i == 0 ? Vector3.zero : _right * (side * 0.8f * pair);
+                    Vector3 off = i == 0 ? Vector3.zero : _right * (side * 0.7f * pair * k);
                     A = new Vector3(_from.x, _ground + 0.12f, _from.z) + _fwd * (0.7f * _body) + off * 0.3f;
-                    D = new Vector3(_aim.x, _aim.y + 0.12f, _aim.z) + off;
-                    from = 0.05f * i;
+                    D = new Vector3(hit.x, _aim.y + 0.12f, hit.z) + off;
+                    from = 0.06f * i;
                 }
                 else if (d == CardDatabase.CINE_BEAM)
                 {
@@ -561,9 +633,9 @@ namespace WizardsVRC
                 }
                 else if (d == CardDatabase.CINE_ORBIT)
                 {
-                    float fly = 0.32f;
-                    launch = strike - fly - 0.09f * i;
-                    launch = Mathf.Max(0.25f, launch);
+                    float fly = 0.4f;
+                    launch = strike - fly - 0.11f * i;
+                    launch = Mathf.Max(0.3f, launch);
                     A = OrbitPos(i, n, launch);
                     D = hit;
                     if (_aoe && i > 0) D += (_right * Mathf.Cos(i * 2.1f) + _fwd * Mathf.Sin(i * 2.1f)) * (spread * 0.7f);
@@ -574,15 +646,15 @@ namespace WizardsVRC
                 {
                     A = _hand;
                     D = hit;
-                    if (i > 0) D += _right * (side * 0.5f * pair * (_aoe ? 3f : 1f));
-                    from = 0.04f * i;
+                    if (i > 0) D += _right * (side * 0.45f * pair * (_aoe ? 3f : 1f));
+                    from = 0.05f * i;
                 }
                 else if (d == CardDatabase.CINE_PORTAL)
                 {
-                    // Into a ring at the hand, out of one high behind the target, down on to it.
+                    // Into a ring at the hand, out of one high over the front of the target, and down on to it.
                     A = _hand;
                     B = _hand + _fwd * 0.7f;
-                    C = _aim + _fwd * (1.6f + 0.2f * i) + _right * (side * 0.6f * pair) + up * (3.4f + 0.4f * _height);
+                    C = new Vector3(hit.x, _aim.y, hit.z) - _fwd * (0.5f + 0.2f * i) + _right * (side * 0.5f * pair) + up * (3.4f + 0.4f * _height);
                     D = hit;
                     if (portals != null && portals.Length > 1)
                     {
@@ -590,23 +662,23 @@ namespace WizardsVRC
                         Vector3 down = (D - C).normalized;
                         if (portals[1] != null) portals[1].SetPositionAndRotation(C, Quaternion.FromToRotation(up, down));
                     }
-                    from = 0.06f * i;
+                    from = 0.07f * i;
                 }
                 else if (d == CardDatabase.CINE_WAVE)
                 {
-                    float gap = _aoe ? 1.3f : 0.75f;
-                    float off = (i == 0 ? 0f : side * gap * pair);
+                    float gap = (_aoe ? 1.2f : 0.7f) * Mathf.Min(1f, k + 0.2f);
+                    float off = i == 0 ? 0f : side * gap * pair;
                     A = new Vector3(_from.x, _ground + 0.55f, _from.z) + _fwd * (0.9f * _body) + _right * off;
-                    D = new Vector3(_aim.x, _aim.y + 0.7f, _aim.z) + _right * (off * (_aoe ? 0.9f : 0.45f));
+                    D = new Vector3(hit.x, _aim.y + 0.7f, hit.z) + _right * (off * (_aoe ? 0.9f : 0.4f));
                 }
                 else // CINE_BOOMERANG
                 {
-                    float s = (i == 0 ? 1f : -1f) * _flip;
+                    float sw = (i == 0 ? 1f : -1f) * _flip * 3.0f * k;
                     A = _hand;
-                    B = _hand + _right * (s * 4.2f) + _fwd * 0.6f + up * (0.4f * lift);
-                    C = hit + _right * (s * 4.2f) - _fwd * 1.2f + up * (0.6f * lift);
+                    B = _hand + _right * sw + _fwd * (0.4f * k) + up * (0.4f * lift);
+                    C = hit + _right * (sw * 0.9f) - _fwd * (1.4f * k) + up * (0.5f * lift);
                     D = hit;
-                    from = 0.14f * i;
+                    from = 0.16f * i;
                 }
                 _hA[i] = A; _hB[i] = B; _hC[i] = C; _hD[i] = D;
                 _hFrom[i] = _tRel + from;
@@ -617,12 +689,12 @@ namespace WizardsVRC
                 if (h == null) continue;
                 h.gameObject.SetActive(false);
                 h.position = HeadPos(i, 0f, _hFrom[i]);
-                float size = i == 0 && _carrier == null ? 1f : 0.55f;
+                float size = i == 0 && !_creature ? 1f : 0.55f;
                 if (d == CardDatabase.CINE_RAIN) size = i == 0 ? 0.8f : 0.45f;
                 if (d == CardDatabase.CINE_BEAM) size = 0.9f;
                 size *= 0.75f + 0.08f * _pips;
                 h.localScale = new Vector3(size, size, size);
-                ShowShape(i, i == 0 && _carrier != null ? -1 : _shape);
+                ShowShape(i, i == 0 && (_carrier != null || _creature) ? -1 : _shape);
             }
         }
 
@@ -697,7 +769,7 @@ namespace WizardsVRC
             float f = k / (float)K;
             Vector3 p = Vector3.Lerp(A, D, f);
             if (k == 0 || k == K) return p;
-            float swing = ((k % 2 == 0) ? 1f : -1f) * _flip * (i % 2 == 0 ? 1f : -1f) * 0.9f * (1f - f * 0.6f);
+            float swing = ((k % 2 == 0) ? 1f : -1f) * _flip * (i % 2 == 0 ? 1f : -1f) * 0.9f * _reach * (1f - f * 0.6f);
             return p + _right * swing + Vector3.up * (Mathf.Sin(k * 2.1f + i) * 0.35f);
         }
 
@@ -787,7 +859,7 @@ namespace WizardsVRC
             {
                 // Thrown back off the target, then gone in a burst of sparkles.
                 float r = t - _tStrike;
-                Vector3 back = _aim - _fwd * (1.0f + 0.9f * Ease(r / 0.3f));
+                Vector3 back = _stop - _fwd * (0.9f * Ease(r / 0.3f));
                 p = back + Vector3.up * (Mathf.Sin(Mathf.Clamp01(r / 0.3f) * Mathf.PI) * 0.4f);
                 if (_carrierFlyer) p += Vector3.up * 0.4f;
                 float vanish = Mathf.Clamp01((r - 0.35f) / 0.4f);
@@ -815,7 +887,7 @@ namespace WizardsVRC
             if (beam == null || !beam.gameObject.activeSelf) return;
             if (t >= _tRelEnd) { beam.gameObject.SetActive(false); return; }
             Vector3 start = _carrier != null ? _from + _fwd * (1.7f * _body) + Vector3.up * (1.2f * _body) : _hand;
-            Vector3 end = _aim + Vector3.up * 1.0f;
+            Vector3 end = _hit;
             Vector3 d = end - start;
             float len = d.magnitude;
             float k = t - _tRel;
@@ -862,7 +934,7 @@ namespace WizardsVRC
         /// <summary>It hits, each kind of impact its own way, everything sized by the spell.</summary>
         private void Strike()
         {
-            Vector3 at = _aim + Vector3.up * 1.0f;
+            Vector3 at = _creature ? Vector3.Lerp(_stop + Vector3.up * 1.0f, _hit, 0.6f) : _hit;
             float big = _scale * (_aoe ? 1.4f : 1f);
             int im = _impact;
             float burstMul = im == CardDatabase.IMPACT_NOVA ? 1.6f : im == CardDatabase.IMPACT_IMPLODE ? 1.4f :
@@ -902,7 +974,7 @@ namespace WizardsVRC
             }
             if (spikes != null && im == CardDatabase.IMPACT_SPIKES)
             {
-                float r0 = _aoe ? 1.6f : 0.7f, r1 = _aoe ? 3.2f : 1.6f;
+                float r0 = (_aoe ? 1.4f : 0.7f) * _tScale, r1 = (_aoe ? 2.8f : 1.5f) * _tScale;
                 for (int i = 0; i < spikes.Length && i < 8; i++)
                 {
                     if (spikes[i] == null) continue;
@@ -990,8 +1062,9 @@ namespace WizardsVRC
                     float rk = (r - gap * i) / (im == CardDatabase.IMPACT_RINGS ? 0.8f : 0.65f);
                     if (rk < 0f) continue;
                     if (rk >= 1f) { ring.gameObject.SetActive(false); continue; }
-                    float far = (im == CardDatabase.IMPACT_NOVA ? 9f : im == CardDatabase.IMPACT_RINGS ? 4f + 1.6f * i : 5f) + 0.8f * _pips;
-                    float sz = Mathf.Lerp(0.6f, far * (_aoe ? 1.5f : 1f), 1f - (1f - rk) * (1f - rk));
+                    // Sized to the ring: they spread round the target without swamping the whole circle.
+                    float far = (im == CardDatabase.IMPACT_NOVA ? 6f + 0.45f * _pips : im == CardDatabase.IMPACT_RINGS ? 3f + 1.2f * i + 0.35f * _pips : 3.5f + 0.4f * _pips) * _tScale;
+                    float sz = Mathf.Lerp(0.6f, far * (_aoe ? 1.4f : 1f), 1f - (1f - rk) * (1f - rk));
                     ring.localScale = new Vector3(sz, Mathf.Max(0.01f, 1f - rk), sz);
                 }
             if (impactPillar != null && impactPillar.gameObject.activeSelf)
@@ -1151,8 +1224,20 @@ namespace WizardsVRC
 
         private void Film(float t)
         {
-            if (!_filmOn || cutscenePlayer == null || t < _tRel || t >= _tAfter) return;
+            if (!_filmOn || cutscenePlayer == null || t < _tCast || t >= _tAfter) return;
             if (!cutscenePlayer.IsFilming()) { _filmOn = false; return; }
+            if (t < _tRel)
+            {
+                // The wind-up (watchers): the camera circles the caster in the middle of the ring as the rune draws itself,
+                // drawing in closer as the spell gathers.
+                float w = Mathf.Clamp01((t - _tCast) / Mathf.Max(0.1f, _tRel - _tCast));
+                float ang = (35f + 70f * w) * _flip;
+                Vector3 round = Quaternion.Euler(0f, ang, 0f) * (_fwd * (4.2f - 1.4f * w) * Mathf.Max(1f, _body * 0.9f));
+                Vector3 wpos = _from + round + Vector3.up * ((1.1f + 0.9f * (1f - w)) * _body);
+                Vector3 wlook = _from + Vector3.up * (1.25f * _body);
+                cutscenePlayer.SetFilmShot(wpos, Quaternion.LookRotation(wlook - wpos, Vector3.up));
+                return;
+            }
             float u = t - _tRel;
             float strike = _tStrike - _tRel;
             bool alwaysHero = _cam == CardDatabase.CAM_LOW || _cam == CardDatabase.CAM_CRANE || _cam == CardDatabase.CAM_REVERSE;
@@ -1167,23 +1252,23 @@ namespace WizardsVRC
                 float k = u / hero;
                 if (cam == CardDatabase.CAM_LOW)
                 {
-                    pos = _from + _fwd * 1.9f + _right * (0.9f * _flip) + up * 0.35f;
+                    pos = _from + _fwd * (1.9f * _body) + _right * (0.9f * _flip) + up * 0.35f;
                     look = _from + up * (1.5f * _body);
                 }
                 else if (cam == CardDatabase.CAM_CRANE)
                 {
-                    pos = _from + up * (4.5f - 0.6f * k) + _fwd * 1.2f + _right * 1.0f;
-                    look = _from + up * 1.0f;
+                    pos = _from + up * ((4.5f - 0.6f * k) * _body) + _fwd * (1.2f * _body) + _right * 1.0f;
+                    look = _from + up * (1.0f * _body);
                 }
                 else if (cam == CardDatabase.CAM_REVERSE)
                 {
                     pos = _aim + _fwd * 3.2f + _right * (1.2f * _flip) + up * 1.6f;
-                    look = _from + up * 1.4f;
+                    look = _from + up * (1.4f * _body);
                 }
                 else
                 {
-                    look = _from + up * 1.35f + _fwd * 0.3f;
-                    pos = Vector3.Lerp(_from + _fwd * 2.4f + _right * (1.3f * _flip) + up * 1.25f, look, 0.15f * k);
+                    look = _from + up * (1.35f * _body) + _fwd * 0.3f;
+                    pos = Vector3.Lerp(_from + _fwd * (2.4f * _body) + _right * (1.3f * _flip * _body) + up * (1.25f * _body), look, 0.15f * k);
                 }
             }
             else if (u < strike)

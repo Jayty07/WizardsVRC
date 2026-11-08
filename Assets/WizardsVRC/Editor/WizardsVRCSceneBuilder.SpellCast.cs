@@ -305,7 +305,7 @@ namespace WizardsVRC.EditorTools
             cine.portalBurst = CinePS(rig, "PortalBurst", spark0, sparks, 0.6f, 1.0f, 1.5f, 4.5f, 0.08f, 0.22f, -0.2f, ParticleSystemShapeType.Sphere, 0.5f, 500);
 
             // ---- release
-            var release = CinePS(rig, "ReleaseBurst", glow0, glows, 0.3f, 0.55f, 6f, 11f, 0.12f, 0.35f, 0f, ParticleSystemShapeType.Cone, 0.08f, 300);
+            var release = CinePS(rig, "ReleaseBurst", glow0, glows, 0.3f, 0.5f, 3.5f, 7f, 0.12f, 0.35f, 0f, ParticleSystemShapeType.Cone, 0.08f, 300);
             var rshape = release.shape;
             rshape.angle = 16f;
             cine.releaseBurst = release;
@@ -342,7 +342,7 @@ namespace WizardsVRC.EditorTools
             cine.portals = new[] { Portal(rig, "PortalIn", ring0, glow0, rings, glows), Portal(rig, "PortalOut", ring0, glow0, rings, glows) };
 
             // ---- impact
-            cine.impactBurst = CinePS(rig, "ImpactBurst", spark0, sparks, 0.4f, 0.9f, 3f, 9f, 0.1f, 0.3f, 0.2f, ParticleSystemShapeType.Sphere, 0.4f, 800);
+            cine.impactBurst = CinePS(rig, "ImpactBurst", spark0, sparks, 0.4f, 0.8f, 2f, 6f, 0.1f, 0.3f, 0.2f, ParticleSystemShapeType.Sphere, 0.4f, 800);
             var shards = CinePS(rig, "ShardBurst", spark0, sparks, 0.8f, 1.4f, 4f, 8f, 0.06f, 0.14f, 1.2f, ParticleSystemShapeType.Sphere, 0.3f, 500);
             var sr = shards.GetComponent<ParticleSystemRenderer>();
             sr.renderMode = ParticleSystemRenderMode.Stretch;

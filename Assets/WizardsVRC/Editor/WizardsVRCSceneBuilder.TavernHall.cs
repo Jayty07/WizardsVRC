@@ -13,120 +13,119 @@ namespace WizardsVRC.EditorTools
 {
     /// <summary>
     /// The Crystal Tap's hall, after the Aureion Collegium concept sheet: a radial tower round the Starfall Crystal.
-    ///   - The middle is a theatre: two rings of velvet seats (the back one raised) face a four-sided screen hung round the
-    ///     fountain under the crystal; it's the tavern's video player (TavernJukebox), controls on a lectern by the bar.
-    ///   - Seven school nooks round the ground floor, under the gallery: Life's garden, Storm's arcane lounge, Ice's crystal
-    ///     study, Death's quiet reliquary, Fire's hearth lounge, Myth's archive and Balance's concord (with the mirror),
-    ///     each with its banner, carpet, light and curios; the bar stays on the east side, the doors at north, west, south.
-    ///   - A gallery (mezzanine) ring on columns, reached by two stairs, with a railing over the theatre, school banners
-    ///     hanging from its edge, and ten rooms off it: a bed, a desk and chair, a window with sunlight coming in, and
-    ///     its own screen and video player (loaded only while you're near, heard only in the room).
-    ///   - Sunbeams come down through the open roof and the windows; a ring chandelier hangs over the theatre.
+    ///   - The central core: a round bar ring round the fountain (the barkeep inside it, stools round it, mugs on it), a
+    ///     lounge ring of couches, armchairs and tables on a round velvet rug, and the theatre: a four-sided screen hung
+    ///     round the fountain under the crystal, the tavern's video player (TavernJukebox), controls on a lectern in the
+    ///     entrance hall. The core is open right up to the oculus, with a ring chandelier.
+    ///   - Seven school wedges round it under the gallery, each behind its own stone arch with a lantern: Ice's crystal
+    ///     study (east), Fire's hearth lounge, Balance's concord (north, with the mirror), Myth's archive and stories,
+    ///     Death's quiet reliquary, Life's garden nook and Storm's arcane lounge, each with its banner, carpet, light,
+    ///     curios and a pair of couches by its arch. The eighth wedge (south) is the entrance hall.
+    ///   - The gallery: a ring over the wedges reached by a double stair rising round the core's edge to a landing at the
+    ///     Balance arch, a railing all round, and ten rooms off it (a bed, a desk and chair, a window with sunlight, its own
+    ///     screen and video player). Over the rooms a wall hangs the seven school banners where the core can see them.
+    ///   - Sunbeams come down through the oculus and the upper drum's windows.
     /// Angles: 0 = east, 90 = north (as the rest of the tavern).
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
-        private const float MezzY = 5.8f, MezzThick = 0.35f, WalkIn = 11f, RoomIn = 13.6f, RoomH = 3.2f;
+        private const float MezzY = 6.6f, MezzThick = 0.35f, WalkIn = 12.3f, RoomIn = 16.0f, RoomH = 3.6f;
+        /// <summary>Where the wedge walls start (a column at each), with the arches between them.</summary>
+        private const float PartIn = 13.3f;
+        private const float ArchSpring = 3.4f, ArchRise = 2.3f;
         private const int TavernRooms = 10;
-        /// <summary>The school nooks: school (SchoolLabels index), first and last bearing.</summary>
+        /// <summary>The school wedges: school (SchoolLabels index), first and last bearing. The south one (247.5-292.5) is the entrance hall.</summary>
         private static readonly Vector3[] TavernNooks =
         {
-            new Vector3(3, 34f, 82f),     // Life: the garden nook
-            new Vector3(2, 98f, 135f),    // Storm: the arcane lounge
-            new Vector3(1, 135f, 172f),   // Ice: the crystal study
-            new Vector3(4, 188f, 225f),   // Death: the quiet reliquary
-            new Vector3(0, 225f, 262f),   // Fire: the hearth lounge
-            new Vector3(5, 278f, 302f),   // Myth: the archive
-            new Vector3(6, 302f, 326f),   // Balance: the concord (and the mirror)
+            new Vector3(1, -22.5f, 22.5f),    // Ice: the crystal study (east)
+            new Vector3(0, 22.5f, 67.5f),     // Fire: the hearth lounge
+            new Vector3(6, 67.5f, 112.5f),    // Balance: the concord (north, with the mirror)
+            new Vector3(5, 112.5f, 157.5f),   // Myth: the archive and stories
+            new Vector3(4, 157.5f, 202.5f),   // Death: the quiet reliquary (west)
+            new Vector3(3, 202.5f, 247.5f),   // Life: the garden nook
+            new Vector3(2, 292.5f, 337.5f),   // Storm: the arcane lounge
         };
-        /// <summary>The two stairs up to the gallery: their middle bearing and which way they climb (+1 toward higher bearings).</summary>
-        private static readonly Vector2[] TavernStairs = { new Vector2(52f, 1f), new Vector2(308f, -1f) };
-        private const float StairD = 10.1f, StairHalfRun = 4.25f, StairW = 1.3f;
+        private const float FoyerA = 270f;
+        /// <summary>The double stair: each flight's middle bearing and which way it climbs (+1 toward higher bearings); both arrive at the landing in front of the Balance arch.</summary>
+        private static readonly Vector2[] TavernStairs = { new Vector2(60f, 1f), new Vector2(120f, -1f) };
+        private const float StairD = 10.4f, StairHalfRun = 4.85f, StairW = 1.4f;
+        /// <summary>The landing: from where one flight's top arrives to the other's, out to the gallery's edge.</summary>
+        private const float LandingA0 = 85f, LandingA1 = 95f, LandingIn = 10.2f;
+        /// <summary>Where the first room starts (rooms are 36 degrees each); its windows then miss the entrance's sign.</summary>
+        private const float TavernRoomA0 = 18f;
 
         private static Mesh _shaftMesh;
 
-        /// <summary>The whole hall inside the walls (the bar, walls, floor and roof are TavernLandmark's).</summary>
+        /// <summary>The whole hall inside the walls (the walls, floor, roofs, entrance and bell are TavernLandmark's).</summary>
         private static void TavernHall(Transform t, Vector3 c, float R, List<UdonSharpBehaviour> behaviours, List<GameObject> mugs, List<Vector3> avoid,
             Material stone, Material gold, Material wood, Material darkWood, Material planks, Material ceiling, Material beam, Material window,
-            Material plaster, Material velvet, Material glow, Material flame, Material pewter, Material foam)
+            Material plaster, Material velvet, Material glow, Material flame, Material pewter, Material foam, Material wallStone, Material trimStone)
         {
-            float wallIn = R - 0.8f;
             var plum = PsxTexMat("TavernPlumVelvet", new Color(0.52f, 0.24f, 0.66f), TileTexture(StreetTexDir + "/Velvet.png"), 1f);
             var sun = ShaftMat("TavernSunShaft", new Color(1f, 0.8f, 0.5f, 0.32f));
 
             TavernGallery(t, c, R, stone, gold, darkWood, planks, ceiling, plaster);
+            TavernWedgeWalls(t, c, R, gold, darkWood, wallStone, trimStone, glow, beam);
+            TavernUpperWall(t, c, R, gold, plaster);
             var rooms = new List<TavernJukebox>();
             for (int k = 0; k < TavernRooms; k++)
                 rooms.Add(TavernRoom(t, c, R, k, behaviours, gold, wood, darkWood, plaster, window, glow, flame, sun, plum));
-            TavernJukebox theatre = TavernTheatre(t, c, R, behaviours, avoid, gold, darkWood, plum, velvet, glow);
+            TavernJukebox theatre = TavernTheatre(t, c, R, behaviours, gold, darkWood, glow);
             theatre.mutedInside = rooms.ToArray();
+            TavernCore(t, c, R, behaviours, mugs, avoid, gold, wood, darkWood, plum, velvet, pewter, foam);
             foreach (var n in TavernNooks)
+            {
                 TavernNook(t, c, R, (int)n.x, n.y, n.z, behaviours, mugs, gold, wood, darkWood, stone, velvet, plum, glow, flame, pewter, foam, window, sun);
-
-            // ---- school banners hanging from the gallery's edge over the theatre, one by each nook (Life's, Myth's and
-            // Balance's moved along, clear of the stairs that climb under the gallery's edge there)
-            foreach (var n in TavernNooks)
-            {
-                int s = (int)n.x;
-                float a = (n.y + n.z) / 2f;
-                if (s == 3) a = 86f;
-                else if (s == 5) a = 276f;
-                else if (s == 6) a = 338f;
-                var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                q.name = "GalleryBanner";
-                Object.DestroyImmediate(q.GetComponent<Collider>());
-                q.transform.SetParent(t, false);
-                q.transform.localPosition = TPolar(c, WalkIn - 0.25f, a, MezzY - MezzThick - 1.45f);
-                q.transform.localRotation = TFacing(a);   // its face (-Z) turned to the middle
-                q.transform.localScale = new Vector3(1.2f, 2.1f, 1f);
-                q.GetComponent<Renderer>().sharedMaterial = ClassMat("ClassBanner" + SchoolLabels[s], "Banner" + SchoolLabels[s] + ".png", Vector2.one, 0.5f);
-                Deco(t, PrimitiveType.Cube, "GalleryBannerRod", TPolar(c, WalkIn - 0.25f, a, MezzY - MezzThick - 0.35f), new Vector3(1.4f, 0.07f, 0.07f), gold, TFacing(a), false);
+                WedgeLounge(t, c, R, (int)n.x, (n.y + n.z) / 2f, behaviours, gold, wood, darkWood);
             }
+            TavernFoyer(t, c, R, velvet, gold, darkWood, wood, glow);
 
-            // ---- the ring chandelier over the theatre, and lanterns under the gallery between the columns
-            const float chR = 8.6f, chY = 10.6f;
-            for (int i = 0; i < 32; i++)
+            // ---- the ring chandelier over the lounge, hung from the cone on four chains
+            const float chR = 9.2f, chY = 11.4f;
+            for (int i = 0; i < 40; i++)
             {
-                float a = i * 11.25f;
-                Deco(t, PrimitiveType.Cube, "ChandelierRing", TPolar(c, chR, a, chY), new Vector3(2f * chR * Mathf.Sin(5.625f * Mathf.Deg2Rad) + 0.05f, 0.12f, 0.22f), gold, TFacing(a), false);
+                float a = i * 9f;
+                Deco(t, PrimitiveType.Cube, "ChandelierRing", TPolar(c, chR, a, chY), new Vector3(2f * chR * Mathf.Sin(4.5f * Mathf.Deg2Rad) + 0.05f, 0.14f, 0.26f), gold, TFacing(a), false);
                 if (i % 2 == 0)
                 {
-                    Shape(t, "ChandelierCandle", CylMesh(), TPolar(c, chR, a, chY + 0.22f), new Vector3(0.1f, 0.12f, 0.1f), PMat("CandleWax", new Color(0.9f, 0.88f, 0.8f), 1f), false, Quaternion.identity);
-                    Shape(t, "ChandelierFlame", BlobMesh(), TPolar(c, chR, a, chY + 0.45f), new Vector3(0.09f, 0.16f, 0.09f), flame, false, Quaternion.identity);
+                    Shape(t, "ChandelierCandle", CylMesh(), TPolar(c, chR, a, chY + 0.24f), new Vector3(0.11f, 0.13f, 0.11f), PMat("CandleWax", new Color(0.9f, 0.88f, 0.8f), 1f), false, Quaternion.identity);
+                    Shape(t, "ChandelierFlame", BlobMesh(), TPolar(c, chR, a, chY + 0.48f), new Vector3(0.1f, 0.18f, 0.1f), flame, false, Quaternion.identity);
                 }
             }
             float roofAtCh = TavernRoofY(R, chR);
             for (int k = 0; k < 4; k++)
             {
                 float a = 45f + 90f * k;
-                Deco(t, PrimitiveType.Cube, "ChandelierChain", TPolar(c, chR, a, (chY + roofAtCh) / 2f), new Vector3(0.06f, roofAtCh - chY, 0.06f), beam, Quaternion.identity, false);
-                PointLight(t, TPolar(c, chR, a, chY - 0.6f), new Color(1f, 0.82f, 0.6f), 16f, 1.2f);
+                Deco(t, PrimitiveType.Cube, "ChandelierChain", TPolar(c, chR, a, (chY + roofAtCh) / 2f), new Vector3(0.07f, roofAtCh - chY, 0.07f), beam, Quaternion.identity, false);
+                PointLight(t, TPolar(c, chR, a, chY - 0.6f), new Color(1f, 0.82f, 0.6f), 18f, 1.25f);
+            }
+
+            // ---- sunbeams: down through the oculus onto the lounge's west side, and slanting in through the drum's windows
+            foreach (float a in new[] { 150f, 195f, 240f })
+            {
+                Vector3 top = TPolar(c, ConeR1 - 0.3f, a, ConeY1 - 0.3f);
+                Vector3 bottom = TPolar(c, 9.0f, a, TavernFloorY);
+                LightShaft(t, "OculusSunbeam", top, bottom, 2.4f, sun);
             }
             for (int k = 0; k < 12; k++)
             {
-                float a = 30f * k;
-                float ceilY = MezzY - MezzThick;
-                Deco(t, PrimitiveType.Cube, "ArcadeChain", TPolar(c, 12.6f, a, ceilY - 0.3f), new Vector3(0.05f, 0.6f, 0.05f), beam, Quaternion.identity, false);
-                Shape(t, "ArcadeLantern", GemMesh(), TPolar(c, 12.6f, a, ceilY - 0.85f), new Vector3(0.4f, 0.6f, 0.4f), glow, false, Quaternion.identity);
-            }
-
-            // ---- sunbeams down through the open roof onto the theatre's west side
-            foreach (float a in new[] { 150f, 195f, 240f })
-            {
-                Vector3 top = TPolar(c, 4.2f, a, TavernWallH + TavernRoofRise - 0.4f);   // from the opening's edge, clear of the crystal
-                Vector3 bottom = TPolar(c, 9.4f, a, TavernFloorY);
-                LightShaft(t, "RoofSunbeam", top, bottom, 2.4f, sun);
+                float a = 7.5f + 30f * k;   // the drum's windows (every fourth of its 48 pieces)
+                if (AngleGap(a, 195f) > 70f) continue;
+                Vector3 top = TPolar(c, DrumIn - 0.1f, a, (DrumY0 + DrumY1) / 2f + 0.6f);
+                Vector3 bottom = TPolar(c, 5.6f, a + 8f, TavernFloorY + 1.2f);
+                LightShaft(t, "DrumSunbeam", top, bottom, 1.4f, sun);
             }
         }
 
-        /// <summary>How high the inside of the roof is at radius r (it rises from the wall's top to the open middle).</summary>
+        /// <summary>How high the inside of the roof is at radius r: the cone over the open middle, the low roof over the gallery.</summary>
         private static float TavernRoofY(float R, float r)
         {
-            float r0 = R + 1.4f, r1 = 4.6f, yr0 = TavernWallH + 0.35f;
-            return yr0 + (r0 - r) / (r0 - r1) * TavernRoofRise - 0.35f;
+            if (r <= DrumIn) return ConeY0 + (ConeR0 - r) / (ConeR0 - ConeR1) * (ConeY1 - ConeY0) - 0.35f;
+            float r0 = R + LowRoofOver;
+            return LowRoofOutY + (r0 - r) / (r0 - LowRoofInR) * (LowRoofInY - LowRoofOutY) - 0.35f;
         }
 
-        // ================================================================== the gallery
+        // ================================================================== the gallery and the double stair
 
         private static void TavernGallery(Transform t, Vector3 c, float R, Material stone, Material gold, Material darkWood, Material planks, Material ceiling, Material plaster)
         {
@@ -134,122 +133,294 @@ namespace WizardsVRC.EditorTools
             float under = MezzY - MezzThick;
             var top = new MeshBuilder();
             var bottom = new MeshBuilder();
-            SectorBlock(top, c, WalkIn, wallIn, 0f, 360f, under, MezzY, 72, true, false, true);
-            SectorBlock(bottom, c, WalkIn, wallIn, 0f, 360f, under, MezzY, 72, false, true, false);
+            SectorBlock(top, c, WalkIn, wallIn, 0f, 360f, under, MezzY, 96, true, false, true);
+            SectorBlock(bottom, c, WalkIn, wallIn, 0f, 360f, under, MezzY, 96, false, true, false);
+            // The landing the two flights arrive at, out in front of the Balance arch.
+            SectorBlock(top, c, LandingIn, WalkIn + 0.05f, LandingA0, LandingA1, under, MezzY, 4, true, false, true);
+            SectorBlock(bottom, c, LandingIn, WalkIn + 0.05f, LandingA0, LandingA1, under, MezzY, 4, false, true, false);
             TavernMesh(t, "GalleryFloor", top, planks, true);
-            // A landing just past the top of each stair, closing the sliver between its end and the gallery's edge.
-            foreach (var st in TavernStairs)
-            {
-                Vector3 along = TDir(st.x + 90f) * st.y;
-                Vector3 end = TPolar(c, StairD, st.x, 0f) + along * StairHalfRun;
-                Block(t, "GalleryLanding", end + along * 0.45f + new Vector3(0, MezzY - MezzThick / 2f, 0), new Vector3(StairW + 0.5f, MezzThick, 0.9f), planks, Quaternion.LookRotation(along));
-            }
             TavernMesh(t, "GalleryCeiling", bottom, ceiling, false);
+
+            // The edge: a dark wood fascia and gold trim (round the landing where it sticks out).
+            var landGap = new List<Vector2> { new Vector2(LandingA0, LandingA1) };
             var fascia = new MeshBuilder();
-            SectorBlock(fascia, c, WalkIn - 0.14f, WalkIn + 0.02f, 0f, 360f, under - 0.5f, MezzY + 0.02f, 72, true, true, true);
-            TavernMesh(t, "GalleryFascia", fascia, darkWood, false);
             var trim = new MeshBuilder();
-            SectorBlock(trim, c, WalkIn - 0.2f, WalkIn - 0.12f, 0f, 360f, under - 0.56f, under - 0.44f, 72, true, true, true);
-            SectorBlock(trim, c, WalkIn - 0.2f, WalkIn - 0.12f, 0f, 360f, MezzY - 0.1f, MezzY + 0.04f, 72, true, true, true);
+            foreach (var sp in ArcSpans(0f, 360f, landGap))
+            {
+                int segs = Mathf.Max(2, Mathf.CeilToInt((sp.y - sp.x) / 4f));
+                SectorBlock(fascia, c, WalkIn - 0.14f, WalkIn + 0.02f, sp.x, sp.y, under - 0.05f, MezzY + 0.02f, segs, true, true, true);
+                SectorBlock(trim, c, WalkIn - 0.2f, WalkIn - 0.12f, sp.x, sp.y, MezzY - 0.1f, MezzY + 0.04f, segs, true, true, true);
+                SectorBlock(trim, c, WalkIn - 0.2f, WalkIn - 0.12f, sp.x, sp.y, under - 0.1f, under + 0.02f, segs, true, true, true);
+            }
+            SectorBlock(fascia, c, LandingIn - 0.14f, LandingIn + 0.02f, LandingA0, LandingA1, under - 0.05f, MezzY + 0.02f, 4, true, true, true);
+            SectorBlock(trim, c, LandingIn - 0.2f, LandingIn - 0.12f, LandingA0, LandingA1, MezzY - 0.1f, MezzY + 0.04f, 4, true, true, true);
+            TavernMesh(t, "GalleryFascia", fascia, darkWood, false);
             TavernMesh(t, "GalleryTrim", trim, gold, false);
 
-            // ---- columns under the gallery's edge (none where a stair arrives)
-            for (int k = 0; k < 12; k++)
-            {
-                float a = 15f + 30f * k;
-                if (AngleGap(a, 75f) < 5f || AngleGap(a, 285f) < 5f) continue;
-                Vector3 b = TPolar(c, WalkIn + 0.35f, a, 0f);
-                float h = under - TavernFloorY;
-                Shape(t, "GalleryColumn", CylMesh(), b + new Vector3(0, TavernFloorY + h / 2f, 0), new Vector3(0.62f, h / 2f, 0.62f), stone, true, Quaternion.identity);
-                Shape(t, "GalleryColumnBase", CylMesh(), b + new Vector3(0, TavernFloorY + 0.15f, 0), new Vector3(0.86f, 0.15f, 0.86f), gold, false, Quaternion.identity);
-                Shape(t, "GalleryColumnCap", CylMesh(), b + new Vector3(0, under - 0.18f, 0), new Vector3(0.9f, 0.18f, 0.9f), gold, false, Quaternion.identity);
-            }
-
-            // ---- the railing round the gallery's edge: posts, a handrail, a bottom rail, and an invisible wall to lean on
+            // ---- the railing: round the gallery's edge (open where the stairs and landing meet it) and round the landing
             var rail = new MeshBuilder();
             var guard = new MeshBuilder();
-            var gaps = new List<Vector2>();
-            foreach (var st in TavernStairs)
-            {
-                float topA = st.x + st.y * Mathf.Atan2(StairHalfRun, StairD) * Mathf.Rad2Deg;
-                gaps.Add(new Vector2(topA - 6f, topA + 6f));
-            }
-            var spans = ArcSpans(0f, 360f, gaps);
-            foreach (var sp in spans)
-            {
-                int segs = Mathf.Max(2, Mathf.CeilToInt((sp.y - sp.x) / 5f));
-                SectorBlock(rail, c, WalkIn - 0.02f, WalkIn + 0.12f, sp.x, sp.y, MezzY + 0.95f, MezzY + 1.05f, segs, true, true, true);
-                SectorBlock(rail, c, WalkIn + 0.01f, WalkIn + 0.09f, sp.x, sp.y, MezzY + 0.1f, MezzY + 0.16f, segs, true, true, true);
-                SectorBlock(guard, c, WalkIn - 0.05f, WalkIn + 0.15f, sp.x, sp.y, MezzY, MezzY + 1.3f, segs, false, false, true);
-                for (float a = sp.x + 1f; a < sp.y - 0.5f; a += 2.4f)
-                    SectorBlock(rail, c, WalkIn + 0.02f, WalkIn + 0.08f, a, a + 0.3f, MezzY + 0.16f, MezzY + 0.95f, 1, false, false, true);
-            }
+            var gaps = new List<Vector2> { new Vector2(LandingA0 - 2f, LandingA1 + 2f) };
+            foreach (var sp in ArcSpans(0f, 360f, gaps)) RailArc(rail, guard, c, WalkIn, sp.x, sp.y);
+            RailArc(rail, guard, c, LandingIn, LandingA0, LandingA1);
             TavernMesh(t, "GalleryRail", rail, gold, false);
             TavernCollider(t, "GalleryRailGuard", guard);
 
-            // ---- the stairs: straight flights along the gallery's inner edge, rising toward the north and south doors
+            // ---- the double stair: open-tread flights along the core's edge, rising from in front of the Fire and Myth arches
             foreach (var st in TavernStairs)
             {
                 Vector3 mid = TPolar(c, StairD, st.x, 0f);
                 Vector3 along = TDir(st.x + 90f) * st.y;
                 Vector3 bottomP = mid - along * StairHalfRun + new Vector3(0, TavernFloorY, 0);
                 Vector3 topP = mid + along * StairHalfRun + new Vector3(0, MezzY, 0);
-                Stairs(t, "GalleryStair", bottomP, topP, StairW, darkWood);
-                // A handrail on the open (inner) side, and gold nosing at the foot.
+                OpenStairs(t, "GalleryStair", bottomP, topP, StairW, planks, darkWood);
+                // A handrail on the open (inner) side, and posts.
                 Vector3 inner = -TDir(st.x) * (StairW / 2f + 0.05f);
                 Vector3 r0 = bottomP + inner + new Vector3(0, 0.95f, 0), r1 = topP + inner + new Vector3(0, 0.95f, 0);
-                var hand = Deco(t, PrimitiveType.Cube, "StairRail", (r0 + r1) / 2f, new Vector3(0.1f, 0.1f, (r1 - r0).magnitude), gold, Quaternion.LookRotation(r1 - r0), true);
-                for (int k = 0; k <= 6; k++)
+                Deco(t, PrimitiveType.Cube, "StairRail", (r0 + r1) / 2f, new Vector3(0.1f, 0.1f, (r1 - r0).magnitude), gold, Quaternion.LookRotation(r1 - r0), true);
+                for (int k = 0; k <= 7; k++)
                 {
-                    Vector3 p = Vector3.Lerp(bottomP, topP, k / 6f) + inner;
+                    Vector3 p = Vector3.Lerp(bottomP, topP, k / 7f) + inner;
                     Deco(t, PrimitiveType.Cube, "StairPost", p + new Vector3(0, 0.48f, 0), new Vector3(0.08f, 0.95f, 0.08f), gold, Quaternion.identity, false);
                 }
+                // And the same on the outer side for the upper middle, where the drop is greatest (the gallery's edge takes over near the top).
+                Vector3 outer = TDir(st.x) * (StairW / 2f + 0.05f);
+                Vector3 h0 = Vector3.Lerp(bottomP, topP, 0.4f) + outer + new Vector3(0, 0.95f, 0), h1 = Vector3.Lerp(bottomP, topP, 0.85f) + outer + new Vector3(0, 0.95f, 0);
+                Deco(t, PrimitiveType.Cube, "StairRail", (h0 + h1) / 2f, new Vector3(0.1f, 0.1f, (h1 - h0).magnitude), gold, Quaternion.LookRotation(h1 - h0), true);
             }
         }
 
-        /// <summary>The parts of a0..a1 (degrees) outside the gaps.</summary>
+        /// <summary>One run of railing at radius r from a0 to a1: handrail, bottom rail, posts, and an invisible wall to lean on.</summary>
+        private static void RailArc(MeshBuilder rail, MeshBuilder guard, Vector3 c, float r, float a0, float a1)
+        {
+            int segs = Mathf.Max(2, Mathf.CeilToInt((a1 - a0) / 4f));
+            SectorBlock(rail, c, r - 0.02f, r + 0.12f, a0, a1, MezzY + 0.95f, MezzY + 1.05f, segs, true, true, true);
+            SectorBlock(rail, c, r + 0.01f, r + 0.09f, a0, a1, MezzY + 0.1f, MezzY + 0.16f, segs, true, true, true);
+            SectorBlock(guard, c, r - 0.05f, r + 0.15f, a0, a1, MezzY, MezzY + 1.3f, segs, false, false, true);
+            float step = 2.4f * 12.3f / r;
+            for (float a = a0 + 1f; a < a1 - 0.5f; a += step)
+                SectorBlock(rail, c, r + 0.02f, r + 0.08f, a, a + 0.3f, MezzY + 0.16f, MezzY + 0.95f, 1, false, false, true);
+        }
+
+        /// <summary>
+        /// A flight of open stairs: a tread every 20 cm or so, two stringers, nothing underneath (the arches stay in view),
+        /// over an invisible ramp so players walk up smoothly.
+        /// </summary>
+        private static void OpenStairs(Transform root, string name, Vector3 bottom, Vector3 top, float width, Material tread, Material stringer)
+        {
+            var t = new GameObject(name).transform;
+            t.SetParent(root, false);
+            Vector3 flat = new Vector3(top.x - bottom.x, 0, top.z - bottom.z);
+            float rise = top.y - bottom.y, run = flat.magnitude;
+            int n = Mathf.Max(1, Mathf.CeilToInt(rise / 0.2f));
+            var rot = Quaternion.LookRotation(flat.normalized);
+            Vector3 dir = flat.normalized, side = Vector3.Cross(Vector3.up, dir);
+            for (int i = 0; i < n; i++)
+            {
+                float h = (i + 1) * rise / n;
+                Vector3 p = bottom + dir * (run * (i + 0.5f) / n);
+                Deco(t, PrimitiveType.Cube, "Tread", new Vector3(p.x, bottom.y + h - 0.05f, p.z), new Vector3(width, 0.1f, run / n + 0.04f), tread, rot, false);
+            }
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Vector3 a = bottom + side * (s * width / 2f) + Vector3.up * -0.1f, b = top + side * (s * width / 2f) + Vector3.up * -0.1f;
+                Deco(t, PrimitiveType.Cube, "Stringer", (a + b) / 2f, new Vector3(0.12f, 0.36f, (b - a).magnitude), stringer, Quaternion.LookRotation(b - a), false);
+            }
+            // The invisible ramp runs on a little past the top so the step onto the landing is smooth.
+            Ramp(t, "StairCollider", bottom, top + dir * 0.4f, width, tread);
+            var col = t.Find("StairCollider");
+            Object.DestroyImmediate(col.GetComponent<MeshRenderer>());
+            Object.DestroyImmediate(col.GetComponent<MeshFilter>());
+        }
+
+        // ================================================================== the wedges' walls and arches
+
+        /// <summary>
+        /// Eight walls from the core's edge to the outer wall split the ground floor into wedges, holding up the gallery: a
+        /// stone column at the front of each, and between each pair a stone arch with filled spandrels, a gold keystone and
+        /// a lantern hanging in it.
+        /// </summary>
+        private static void TavernWedgeWalls(Transform t, Vector3 c, float R, Material gold, Material darkWood, Material wallStone, Material trimStone,
+            Material glow, Material chain)
+        {
+            float wallIn = R - 0.8f;
+            float under = MezzY - MezzThick;
+            for (int k = 0; k < 8; k++)
+            {
+                float b = 22.5f + 45f * k;
+                float len = wallIn - PartIn;
+                Block(t, "WedgeWall", TPolar(c, PartIn + len / 2f, b, under / 2f), new Vector3(0.5f, under, len), wallStone, TFacing(b));
+                Block(t, "ArchColumn", TPolar(c, PartIn, b, under / 2f), new Vector3(0.95f, under, 0.95f), trimStone, TFacing(b));
+                Deco(t, PrimitiveType.Cube, "ArchColumnBase", TPolar(c, PartIn, b, TavernFloorY + 0.18f), new Vector3(1.2f, 0.36f, 1.2f), gold, TFacing(b), false);
+                Deco(t, PrimitiveType.Cube, "ArchColumnCap", TPolar(c, PartIn, b, ArchSpring - 0.15f), new Vector3(1.15f, 0.28f, 1.15f), gold, TFacing(b), false);
+            }
+            float half = 22.5f * Mathf.Deg2Rad;
+            for (int k = 0; k < 8; k++)
+            {
+                float ac = 45f * k;
+                Vector3 fwd = TDir(ac), side = Vector3.Cross(Vector3.up, fwd);
+                Vector3 mid = TPolar(c, PartIn * Mathf.Cos(half), ac, 0f);
+                float hs = PartIn * Mathf.Sin(half) - 0.48f;
+                ArchBand(t, mid, side, fwd, hs, ArchSpring, ArchRise, under - 0.05f, 0.6f, trimStone, wallStone, gold);
+                // A lantern on a chain in the arch.
+                Vector3 crown = mid + Vector3.up * (ArchSpring + ArchRise - 0.2f);
+                Deco(t, PrimitiveType.Cube, "ArchLanternChain", crown + Vector3.down * 0.35f, new Vector3(0.05f, 0.7f, 0.05f), chain, Quaternion.identity, false);
+                Shape(t, "ArchLantern", GemMesh(), crown + Vector3.down * 0.95f, new Vector3(0.42f, 0.65f, 0.42f), glow, false, Quaternion.identity);
+            }
+        }
+
+        /// <summary>The wall over the rooms' fronts, up to the low roof, with each school's banner over its wedge (seen from the core).</summary>
+        private static void TavernUpperWall(Transform t, Vector3 c, float R, Material gold, Material plaster)
+        {
+            float y0 = MezzY + RoomH + 0.18f, y1 = TavernRoofY(R, RoomIn) + 0.3f;
+            var wall = new MeshBuilder();
+            SectorBlock(wall, c, RoomIn - 0.15f, RoomIn + 0.15f, 0f, 360f, y0, y1, 96, false, false, true);
+            TavernMesh(t, "UpperWall", wall, plaster, false);
+            var band = new MeshBuilder();
+            SectorBlock(band, c, RoomIn - 0.22f, RoomIn - 0.14f, 0f, 360f, y0 - 0.02f, y0 + 0.16f, 96, true, true, true);
+            TavernMesh(t, "UpperWallBand", band, gold, false);
+            foreach (var n in TavernNooks)
+            {
+                int s = (int)n.x;
+                float a = (n.y + n.z) / 2f;
+                var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                q.name = "UpperBanner";
+                Object.DestroyImmediate(q.GetComponent<Collider>());
+                q.transform.SetParent(t, false);
+                q.transform.localPosition = TPolar(c, RoomIn - 0.2f, a, (y0 + y1) / 2f);
+                q.transform.localRotation = TFacing(a);   // its face (-Z) turned to the middle
+                q.transform.localScale = new Vector3(1.8f, 3.4f, 1f);
+                q.GetComponent<Renderer>().sharedMaterial = ClassMat("ClassBanner" + SchoolLabels[s], "Banner" + SchoolLabels[s] + ".png", Vector2.one, 0.5f);
+                Deco(t, PrimitiveType.Cube, "UpperBannerRod", TPolar(c, RoomIn - 0.25f, a, (y0 + y1) / 2f + 1.8f), new Vector3(2.1f, 0.08f, 0.08f), gold, TFacing(a), false);
+            }
+            WorldText(t, "UpperWallName", TPolar(c, RoomIn - 0.25f, FoyerA, (y0 + y1) / 2f), TFacing(FoyerA), new Vector2(1400, 220), 0.006f, "The Crystal Tap", 90)
+                .color = new Color(1f, 0.85f, 0.45f);
+        }
+
+        // ================================================================== the core: bar ring, lounge, theatre
+
+        /// <summary>
+        /// The bar: a ring round the fountain (a gap on the west side), its top lined with taps, bottles and mugs, stools
+        /// all round, kegs inside by the gap. The lounge: a round velvet rug with a gold rim, and eight groups round it of
+        /// a couch, two armchairs and a table, all facing the screens over the fountain.
+        /// </summary>
+        private static void TavernCore(Transform t, Vector3 c, float R, List<UdonSharpBehaviour> behaviours, List<GameObject> mugs, List<Vector3> avoid,
+            Material gold, Material wood, Material darkWood, Material plum, Material velvet, Material pewter, Material foam)
+        {
+            var carpet = PsxTexMat("TheatreCarpet", new Color(0.42f, 0.16f, 0.5f), TileTexture(StreetTexDir + "/Velvet.png"), 1.2f);
+            var rug = new MeshBuilder();
+            SectorBlock(rug, c, 6.9f, 10.0f, 0f, 360f, TavernFloorY, TavernFloorY + 0.03f, 72, true, false, false);
+            TavernMesh(t, "LoungeRug", rug, carpet, false);
+            var rim = new MeshBuilder();
+            SectorBlock(rim, c, 9.95f, 10.15f, 0f, 360f, TavernFloorY, TavernFloorY + 0.04f, 72, true, false, false);
+            SectorBlock(rim, c, 6.75f, 6.92f, 0f, 360f, TavernFloorY, TavernFloorY + 0.04f, 72, true, false, false);
+            SectorBlock(rim, c, 12.0f, 12.12f, 0f, 360f, TavernFloorY, TavernFloorY + 0.025f, 72, true, false, false);
+            TavernMesh(t, "LoungeRugRim", rim, gold, false);
+
+            // ---- the bar ring
+            const float barIn = 5.0f, barOut = 5.8f;
+            var counter = new MeshBuilder();
+            var barTop = new MeshBuilder();
+            var footRail = new MeshBuilder();
+            foreach (var sp in ArcSpans(0f, 360f, new List<Vector2> { new Vector2(171f, 189f) }))
+            {
+                int segs = Mathf.Max(2, Mathf.CeilToInt((sp.y - sp.x) / 6f));
+                SectorBlock(counter, c, barIn, barOut, sp.x, sp.y, TavernFloorY, 1.1f, segs, false, false, true);
+                SectorBlock(barTop, c, barIn - 0.12f, barOut + 0.2f, sp.x, sp.y, 1.1f, 1.2f, segs, true, true, true);
+                SectorBlock(footRail, c, barOut + 0.18f, barOut + 0.25f, sp.x, sp.y, 0.25f, 0.31f, segs, true, true, true);
+            }
+            TavernMesh(t, "BarCounter", counter, darkWood, true);
+            TavernMesh(t, "BarTop", barTop, wood, true);
+            TavernMesh(t, "BarFootRail", footRail, gold, false);
+            for (float a = 10f; a < 360f; a += 20f)
+            {
+                if (AngleGap(a, 180f) < 18f) continue;
+                Vector3 p = TPolar(c, 6.45f, a, 0f);
+                if (Near(avoid, p, 1.2f)) continue;
+                MakeSeat(t, "BarStool", p, -TDir(a), 0.78f, darkWood, gold, behaviours);
+            }
+            foreach (float a in new[] { 25f, 75f, 125f, 235f, 285f, 315f, 355f })
+                mugs.Add(MakeMug(t, TPolar(c, 5.45f, a, 1.21f), pewter, foam));
+            foreach (float a in new[] { -9f, 9f })
+            {
+                Shape(t, "Tap", CylMesh(), TPolar(c, 5.25f, a, 1.45f), new Vector3(0.12f, 0.25f, 0.12f), gold, false, Quaternion.identity);
+                Shape(t, "TapHandle", CylMesh(), TPolar(c, 5.25f, a, 1.85f), new Vector3(0.08f, 0.18f, 0.08f), darkWood, false, Quaternion.identity);
+            }
+            var bottleMats = new[]
+            {
+                PMat("BottleGreen", new Color(0.2f, 0.6f, 0.3f), 1f, new Color(0.05f, 0.2f, 0.08f)), PMat("BottleAmber", new Color(0.85f, 0.5f, 0.15f), 1f, new Color(0.25f, 0.12f, 0.02f)),
+                PMat("BottleBlue", new Color(0.3f, 0.45f, 0.95f), 1f, new Color(0.08f, 0.12f, 0.3f)), PMat("BottleRed", new Color(0.75f, 0.15f, 0.25f), 1f, new Color(0.2f, 0.03f, 0.06f)),
+            };
+            int bi = 0;
+            foreach (float a in new[] { 45f, 100f, 145f, 215f, 260f, 300f })
+                for (int b = 0; b < 3; b++)
+                    Shape(t, "Bottle", CylMesh(), TPolar(c, 5.2f, a - 2.5f + b * 2.5f, 1.42f), new Vector3(0.16f, 0.22f, 0.16f), bottleMats[(bi++) % 4], false, Quaternion.identity);
+            foreach (float a in new[] { 160f, 200f })
+                for (int k = 0; k < 2; k++)
+                    Shape(t, "Keg", CylMesh(), TPolar(c, 4.35f, a, 0.55f + k * 0.95f), new Vector3(0.9f, 0.48f, 0.9f), darkWood, k == 0, Quaternion.identity);
+
+            // ---- the lounge: a couch, two armchairs and a table in each of eight places round the rug, facing the screens
+            for (int k = 0; k < 8; k++)
+            {
+                float b = 22.5f + 45f * k;
+                Vector3 table = TPolar(c, 7.7f, b, TavernFloorY);
+                if (!Near(avoid, table, 1.4f)) StudyTable(t, table, wood, darkWood, null, pewter, foam);
+                LoungeSeat(t, c, 9.0f, b, avoid, k % 2 == 0 ? velvet : plum, darkWood, gold, behaviours, 1.7f);
+                foreach (float da in new[] { -12f, 12f })
+                    LoungeSeat(t, c, 8.25f, b + da, avoid, k % 2 == 0 ? plum : velvet, darkWood, gold, behaviours, 0.78f);
+            }
+        }
+
+        /// <summary>The runs of a0..a1 (degrees) left once the gaps (x..y each, inside a0..a1, not overlapping) are cut out.</summary>
         private static List<Vector2> ArcSpans(float a0, float a1, List<Vector2> gaps)
         {
-            var spans = new List<Vector2> { new Vector2(a0, a1) };
-            foreach (var g in gaps)
+            var sorted = new List<Vector2>(gaps);
+            sorted.Sort((p, q) => p.x.CompareTo(q.x));
+            var spans = new List<Vector2>();
+            float from = a0;
+            foreach (var g in sorted)
             {
-                var next = new List<Vector2>();
-                foreach (var s in spans)
-                {
-                    if (g.y <= s.x || g.x >= s.y) { next.Add(s); continue; }
-                    if (g.x > s.x) next.Add(new Vector2(s.x, g.x));
-                    if (g.y < s.y) next.Add(new Vector2(g.y, s.y));
-                }
-                spans = next;
+                if (g.x > from + 0.01f) spans.Add(new Vector2(from, Mathf.Min(g.x, a1)));
+                from = Mathf.Max(from, g.y);
             }
+            if (a1 > from + 0.01f) spans.Add(new Vector2(from, a1));
             return spans;
         }
 
-        // ================================================================== the theatre
-
-        private static TavernJukebox TavernTheatre(Transform t, Vector3 c, float R, List<UdonSharpBehaviour> behaviours, List<Vector3> avoid,
-            Material gold, Material darkWood, Material plum, Material velvet, Material glow)
+        /// <summary>True when bearing a is within 'gap' degrees of a room's window (Tavern.cs keeps the outside pilasters off them).</summary>
+        private static bool NearRoomWindow(float a, float gap)
         {
-            // ---- seats: a ring on the floor and a raised ring behind it, facing the middle; aisles at the doors and the bar
-            var dais = new MeshBuilder();
-            const float r1 = 7.0f, r2 = 8.55f, daisH = 0.42f;
-            foreach (float aisle in new[] { 0f, 90f, 180f, 270f })
-            {
-                float a0 = aisle + 7f, a1 = aisle + 83f;
-                SectorBlock(dais, c, 7.85f, 9.25f, a0, a1, 0f, TavernFloorY + daisH, 16, true, false, true);
-                for (float a = a0 + 6f; a <= a1 - 5.9f; a += 12f) TheatreSeat(t, c, r1, a, TavernFloorY, avoid, plum, darkWood, gold, behaviours);
-                for (float a = a0 + 5f; a <= a1 - 4.9f; a += 10f) TheatreSeat(t, c, r2, a, TavernFloorY + daisH, avoid, plum, darkWood, gold, behaviours);
-            }
-            TavernMesh(t, "TheatreDais", dais, PsxTexMat("TheatreCarpet", new Color(0.42f, 0.16f, 0.5f), TileTexture(StreetTexDir + "/Velvet.png"), 1.2f), true);
-            var daisEdge = new MeshBuilder();
-            foreach (float aisle in new[] { 0f, 90f, 180f, 270f })
-                SectorBlock(daisEdge, c, 7.83f, 7.9f, aisle + 7f, aisle + 83f, TavernFloorY + daisH - 0.06f, TavernFloorY + daisH + 0.02f, 16, true, true, true);
-            TavernMesh(t, "TheatreDaisEdge", daisEdge, gold, false);
+            for (int k = 0; k < TavernRooms; k++)
+                if (AngleGap(a, TavernRoomA0 + (k + 0.5f) * 360f / TavernRooms) < gap) return true;
+            return false;
+        }
 
-            // ---- the screens: four faces round the fountain, under the crystal, tipped down toward the seats
+        private static bool Near(List<Vector3> pts, Vector3 p, float dist)
+        {
+            if (pts == null) return false;
+            foreach (var v in pts)
+            {
+                float dx = v.x - p.x, dz = v.z - p.z;
+                if (dx * dx + dz * dz < dist * dist) return true;
+            }
+            return false;
+        }
+
+        /// <summary>A chair or couch at radius r, bearing a, facing the middle (skipped on a quest object).</summary>
+        private static void LoungeSeat(Transform t, Vector3 c, float r, float a, List<Vector3> avoid, Material cushion, Material frame, Material gold,
+            List<UdonSharpBehaviour> behaviours, float width)
+        {
+            Vector3 p = TPolar(c, r, a, TavernFloorY);
+            if (Near(avoid, p, 1.6f)) return;
+            MakeChair(t, width > 1.2f ? "LoungeCouch" : "LoungeChair", p, -TDir(a), cushion, frame, gold, behaviours, width, true);
+        }
+
+        /// <summary>The theatre: four screens round the fountain under the crystal (tipped down to the lounge), the tavern's player, its lectern in the entrance hall.</summary>
+        private static TavernJukebox TavernTheatre(Transform t, Vector3 c, float R, List<UdonSharpBehaviour> behaviours, Material gold, Material darkWood, Material glow)
+        {
             RenderTexture rt = TheatreRenderTexture();
             Material screenMat = TheatreScreenMat(rt);
-            const float half = 3.95f, screenY = 4.6f, tip = 15f;
+            const float half = 3.95f, screenY = 4.7f, tip = 15f;
             var screens = Child(t, "TheatreScreens", c + new Vector3(0, screenY, 0));
             for (int k = 0; k < 4; k++)
             {
@@ -266,13 +437,13 @@ namespace WizardsVRC.EditorTools
                 q.name = "TheatreScreen";
                 Object.DestroyImmediate(q.GetComponent<Collider>());
                 q.transform.SetParent(face, false);
-                q.transform.localScale = new Vector3(6f, 3.375f, 1f);   // a quad shows its -Z side: out toward the seats
+                q.transform.localScale = new Vector3(6f, 3.375f, 1f);   // a quad shows its -Z side: out toward the lounge
                 var qr = q.GetComponent<Renderer>();
                 qr.sharedMaterial = screenMat;
                 qr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 foreach (var col in face.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
             }
-            // Chains from the corners up into the roof.
+            // Chains from the corners up into the cone.
             float cornerR = half * 1.41f;
             float roofY = TavernRoofY(R, cornerR);
             for (int k = 0; k < 4; k++)
@@ -283,7 +454,7 @@ namespace WizardsVRC.EditorTools
                 Shape(t, "ScreenFinial", GemMesh(), TPolar(c, cornerR, a, y0), new Vector3(0.35f, 0.5f, 0.35f), gold, false, Quaternion.identity);
             }
 
-            // ---- the player: heard everywhere in the tavern except the rooms; controls on a lectern in the bar aisle
+            // ---- the player: heard everywhere in the tavern except the rooms; controls on a lectern in the entrance hall
             var centre = Child(t, "JukeboxCentre", c);
             AudioSource speaker;
             var video = TavernVideoPlayer(t, "TheatrePlayer", c + new Vector3(0, screenY, 0), null, rt, out speaker);
@@ -295,25 +466,50 @@ namespace WizardsVRC.EditorTools
             jukebox.radius = R - 0.8f;
             jukebox.height = TavernWallH + TavernRoofRise;
             behaviours.Add(jukebox);
-            Vector3 lectern = TPolar(c, 10.3f, 0f, TavernFloorY);
-            TavernVideoControls(t, jukebox, lectern, TFacing(180f), false, "The Crystal Tap Theatre",
+            float la = FoyerA - 11f;
+            Vector3 lectern = TPolar(c, 13.9f, la, TavernFloorY);
+            TavernVideoControls(t, jukebox, lectern, TFacing(la + 180f), false, "The Crystal Tap Theatre",
                 "Paste a YouTube link and press Play: it plays on the theatre screens for everyone in the tavern (not in the rooms upstairs). Mute and volume are just for you.",
                 darkWood);
             return jukebox;
         }
 
-        private static void TheatreSeat(Transform t, Vector3 c, float r, float a, float floorY, List<Vector3> avoid, Material cushion, Material frame, Material gold,
-            List<UdonSharpBehaviour> behaviours)
+        /// <summary>The entrance hall (the south wedge): a red runner from the door to the lounge, urns of greenery, lantern posts, a welcome board.</summary>
+        private static void TavernFoyer(Transform t, Vector3 c, float R, Material velvet, Material gold, Material darkWood, Material wood, Material glow)
         {
-            Vector3 p = TPolar(c, r, a, floorY);
-            if (avoid != null)
-                foreach (var v in avoid)
-                {
-                    Vector3 d = v - p;
-                    d.y = 0f;
-                    if (d.sqrMagnitude < 1.6f * 1.6f) return;
-                }
-            MakeChair(t, "TheatreSeat", p, -TDir(a), cushion, frame, gold, behaviours, 0.72f, true);
+            float wallIn = R - 0.8f;
+            float len = wallIn - WalkIn + 0.6f;
+            Block(t, "FoyerRunner", TPolar(c, (WalkIn + wallIn) / 2f, FoyerA, TavernFloorY + 0.015f), new Vector3(2.4f, 0.03f, len), velvet, TFacing(FoyerA));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Deco(t, PrimitiveType.Cube, "FoyerRunnerEdge", TPolar(c, (WalkIn + wallIn) / 2f, FoyerA, TavernFloorY + 0.02f) + Vector3.Cross(Vector3.up, TDir(FoyerA)) * (s * 1.22f),
+                    new Vector3(0.06f, 0.035f, len), gold, TFacing(FoyerA), false);
+                var leaves = PMat("TreeLeaves", new Color(0.3f, 0.62f, 0.25f), 1f);
+                Vector3 urn = TPolar(c, wallIn - 1.6f, FoyerA + s * 9f, TavernFloorY);
+                Shape(t, "FoyerUrn", CylMesh(), urn + new Vector3(0, 0.45f, 0), new Vector3(0.9f, 0.45f, 0.9f), PMat("UrnStone", new Color(0.72f, 0.68f, 0.76f), 1f), true, Quaternion.identity);
+                Shape(t, "FoyerFern", BlobMesh(), urn + new Vector3(0, 1.3f, 0), new Vector3(1.3f, 1.0f, 1.3f), leaves, false, Quaternion.identity);
+                Vector3 lp = TPolar(c, 15.6f, FoyerA + s * 13f, TavernFloorY);
+                Block(t, "FoyerLanternPost", lp + new Vector3(0, 1.3f, 0), new Vector3(0.18f, 2.6f, 0.18f), darkWood);
+                Shape(t, "FoyerLantern", GemMesh(), lp + new Vector3(0, 2.85f, 0), new Vector3(0.5f, 0.75f, 0.5f), glow, false, Quaternion.identity);
+            }
+            float ba = FoyerA + 11f;
+            Vector3 board = TPolar(c, 13.9f, ba, TavernFloorY);
+            Block(t, "WelcomeBoardPost", board + new Vector3(0, 0.75f, 0), new Vector3(0.16f, 1.5f, 0.16f), darkWood);
+            Block(t, "WelcomeBoard", board + new Vector3(0, 1.75f, 0), new Vector3(1.6f, 1.0f, 0.1f), darkWood, TFacing(ba + 180f));
+            WorldText(t, "WelcomeText", board + new Vector3(0, 1.75f, 0) + TDir(ba) * 0.07f, TFacing(ba + 180f), new Vector2(700, 420), 0.002f,
+                "Welcome to the Crystal Tap!\n\nBar & theatre in the middle\nSchool wedges all round\nRooms upstairs (stairs at the Balance arch)", 40).color = new Color(1f, 0.88f, 0.6f);
+            PointLight(t, TPolar(c, 17f, FoyerA, 4.6f), new Color(1f, 0.82f, 0.6f), 11f, 1.1f);
+        }
+
+        /// <summary>By each wedge's arch: a pair of couches facing over a low table (the wedge's own corner is further in, TavernNook).</summary>
+        private static void WedgeLounge(Transform t, Vector3 c, float R, int s, float ac, List<UdonSharpBehaviour> behaviours, Material gold, Material wood, Material darkWood)
+        {
+            var cushion = PMat("NookCushion" + SchoolLabels[s], Color.Lerp(SchoolColors[s], new Color(0.3f, 0.15f, 0.35f), 0.35f), 1f);
+            var w = Child(t, "WedgeLounge" + SchoolLabels[s], TPolar(c, 14.6f, ac, TavernFloorY));
+            w.localRotation = TFacing(ac);
+            StudyTable(w, new Vector3(0f, 0f, 0f), wood, darkWood, null, null, null);
+            foreach (float sx in new[] { -1f, 1f })
+                MakeChair(w, "WedgeCouch", new Vector3(sx * 1.7f, 0f, 0f), new Vector3(-sx, 0f, 0f), cushion, darkWood, gold, behaviours, 1.5f, true);
         }
 
         private static RenderTexture TheatreRenderTexture()
@@ -437,7 +633,7 @@ namespace WizardsVRC.EditorTools
         {
             float wallIn = R - 0.8f;
             float span = 360f / TavernRooms;
-            float a0 = k * span, a1 = a0 + span, ac = a0 + span / 2f;
+            float a0 = TavernRoomA0 + k * span, a1 = a0 + span, ac = a0 + span / 2f;
             float rc = (RoomIn + wallIn) / 2f, depth = wallIn - RoomIn;
 
             // ---- walls: a partition on its first side (the next room builds the other), the gallery wall with a doorway
@@ -598,8 +794,8 @@ namespace WizardsVRC.EditorTools
             // A window or two in the outer wall beside it, with a sunbeam slanting in.
             foreach (float sx in new[] { -1f, 1f })
             {
-                if (hw < 4f || s == 0) break;
-                float wx = sx * (hw - 1.4f);
+                if (s == 0) break;
+                float wx = sx * wallIn * Mathf.Sin(7.5f * Mathf.Deg2Rad);
                 float wz = RoomWallZ(wallIn, rc, wx);
                 Deco(nook, PrimitiveType.Cube, "NookWindow", new Vector3(wx, 3.1f, wz - 0.03f), new Vector3(1.1f, 1.6f, 0.05f), window, Quaternion.identity, false);
                 LightShaft(nook, "NookSunbeam", new Vector3(wx, 3.7f, wz - 0.1f), new Vector3(wx * 0.8f, 0f, wz - 3.6f), 1.2f, sun);

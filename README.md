@@ -85,10 +85,10 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Shaders/PSXCommon.cginc` | The PS1 tricks the PSX shaders share: vertex snap, 15-bit ordered dither in chunky virtual pixels (`PSX_DITHER_RES`, 480 across), steady per-vertex random |
 | `Assets/WizardsVRC/Shaders/PSXWater.shader`, `PSXWaterfall.shader` | Spyro-style PSX water (vertex waves with a brightness shimmer and optional whitecaps, two scrolling pixel ripple layers, sparkles, affine warp, 15-bit dithered colour) and waterfall (racing streaks, foamy lip and foot, sway). Materials `Materials/PSX_Water`, `PSX_SeaSwell` (the open sea), `PSX_WaterFoam`, `PSX_Waterfall` are made once and then yours to tune; put them on any subdivided plane / sheet |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Round.cs` | The round hub's curtain wall and towers, the **duelling circle** (PvP encounter + countdown zone) and the health / mana orbs |
-| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Tavern.cs` | The round **Tavern** landmark (the hub's Crystal Tap): walls, doors, roof open over the Starfall Crystal, the curved bar with its stools, sit-able seats (`Seat`: VRCStation), synced mug pickups and the bell that resets them (`MugReset`) |
+| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Tavern.cs` | The round **Tavern** landmark (the hub's Crystal Tap, 45 m across): a tall stone drum with pilasters, a string course and cornice, the grand arched entrance on the south with steps, lanterns and the sign, school banners round the outside, a low roof ring up to a clerestory drum and a cone roof with an oculus over the Starfall Crystal, sit-able seats (`Seat`: VRCStation), synced mug pickups and the bell that resets them (`MugReset`) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.SpellStyles.cs` | Each attack spell's recipe (how it travels, how it lands, its wind-up, film style, bolt count, shape, handedness and arc), checked so no two travel and land alike |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.SpellCast.cs` | Builds the rune board and casting wand, the choreography rig (rune, rings, column, bolts, beam, portals, bursts, spikes, stamp, light) re-coloured per school at runtime, and the fade sphere; ring art by `Tools/make_spell_ring.py`, sounds by `Tools/make_spell_cast_sounds.py` |
-| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.TavernHall.cs` | The Crystal Tap's hall (after the Aureion Collegium concept): a **theatre** round the fountain (two rings of velvet seats facing a four-sided screen hung under the crystal, the tavern's `TavernJukebox`, controls on a lectern by the bar); **seven school nooks** under the gallery (Life's garden, Storm's arcane lounge, Ice's crystal study, Death's reliquary, Fire's hearth lounge, Myth's archive, Balance's concord with the mirror toggle `LocalToggle`); a **gallery** on columns with two stairs, a railing and school banners; **ten rooms** off it, each with a bed, a desk and chair, a window with sunlight streaming in and its **own screen and video player** (loads only while you're near, heard only in the room, Stop button); a ring chandelier, and **sunbeams** through the roof and windows (`Tools/make_light_shaft.py`) |
+| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.TavernHall.cs` | The Crystal Tap's hall (after the Aureion Collegium concept), a radial tower round the crystal: the **core** (a round bar ring round the fountain with stools, taps, bottles and kegs; a lounge ring of couches, armchairs and tables on a round velvet rug; the **theatre**, a four-sided screen hung under the crystal with the tavern's `TavernJukebox` and its controls on a lectern in the entrance hall), open up to the oculus; **seven school wedges** behind stone arches with lanterns (Ice's crystal study, Fire's hearth lounge, Balance's concord with the mirror toggle `LocalToggle`, Myth's archive, Death's reliquary, Life's garden, Storm's arcane lounge), each with couches by its arch, and the entrance hall in the eighth; a **gallery** over the wedges reached by a **double stair** to a landing at the Balance arch, with a railing and the school banners on the wall over the rooms; **ten rooms** off it, each with a bed, a desk and chair, a window with sunlight streaming in and its **own screen and video player** (loads only while you're near, heard only in the room, Stop button); a ring chandelier, and **sunbeams** through the roof and windows (`Tools/make_light_shaft.py`) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Terrain.cs` | Zone ground from the map + **height map**, as merged per-chunk meshes: every cell a column to its height with stone walls down to lower neighbours, cobbles / lawns / pond beds, optional **rounded corners** (outer corners cut, inner corners filled, path-lawn corners curved), kerbs, copings, iron **railings** (drops, ponds, stair handrails, optional path edges), stairs with stringers, water, waterfalls |
 | `Assets/WizardsVRC/Shaders/PSXSkyline.shader` | Skybox: gradient sky plus a pixel-art skyline strip round the horizon (the other areas where they lie, far isles, sea, clouds), 15-bit dithered |
 | `Assets/WizardsVRC/Shaders/PSXSurf.shader` | Surf on a ring round an island: churning foam at the rocks and breaking wave lines rolling in |
@@ -406,7 +406,11 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   spell is let go the cutscene screen (the one NPC cutscenes play on) cuts to film: a shot of you letting go (the film
   camera sees your own avatar through its mirror copy), then the spell's flight, a close, shaken shot of the hit, and a
   wide shot turning round the ring while it settles (longer for more pips; Skip closes the screen). Then the view shuts,
-  you're back in your seat, and it opens. Everyone else sees you go to the middle and cast from there. Timings:
+  you're back in your seat, and it opens. Everyone else in the fight sees you go to the middle and cast from there, and
+  their cutscene screen films it too (a circling shot from the wind-up on). **Monsters' attack spells are cinematics as
+  well:** the monster walks to the middle of the ring, casts from there and goes back to its seat, filmed for everyone
+  in the fight. Every spell flies **from the middle of the ring to its target's seat** and lands on the target's front
+  (a creature pulls up just short of it), its path and impact scaled to that distance, so nothing overshoots. Timings:
   `cineInSeconds`, `cineOutSeconds`, `cineAfterSeconds` + `cineAfterPerPip`; each delivery has its own strike and release
   times (`CardDatabase.CineStrike / CineRelease`). Sounds: `Audio/Cast/Spell_*.wav`.
 - **A fizzle** plays the cast as normal for its first 2 seconds (`BattleManager.fizzleCutSeconds`), then the cast sound
@@ -494,9 +498,14 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   Music Track** plays while anyone on its **Dialogue Music Speakers** list talks (a cutscene line, a tower leader's
   greeting); the Dominion's theme is wired this way. Current files: `Music_Zone_SunpetalGardens`, `Music_Zone_LanternRow`,
   `Music_Zone_TidewatchDocks`, `Music_Zone_KilnStreet`, `Music_Zone_ThornhollowGrove`, `Music_Zone_CopperbottomMine`,
-  `Music_Tower_World1` (every World 1 boss tower) and `Music_Dialogue_Dominion`.
+  `Music_Tower_World1` (every World 1 boss tower) and `Music_Dialogue_Dominion`. World data v26 fills in the zone
+  music for zones that were left blank (Sunpetal Gardens, Lantern Row and the rest of World 1 and 2) without touching
+  tracks you've set; the build log lists any music area still without a track. A track that stops (or never started)
+  is started again within a second while you're in its area.
 - **Monster AI:** monsters heal an ally under 45% health (a monster that heals itself waits 2 rounds before healing
-  again), sometimes put a blade or shield on themselves first, and otherwise cast their biggest affordable attack
+  again). **Bosses are never sure to heal:** below `BattleManager.bossHealBelowPct` (60%) a boss only heals on a chance,
+  `bossHealChance` (25%) at the threshold rising to `bossHealChanceLow` (55%) near 0, and after any heal it waits
+  `bossHealGraceRounds` (4) rounds before it can heal again. Monsters sometimes put a blade or shield on themselves first, and otherwise cast their biggest affordable attack
   (occasionally saving pips).
 
 - **Spell design:** each school has a 12-spell tree on the Wizard101 milestones (L1 low-pip attack, L5 secondary

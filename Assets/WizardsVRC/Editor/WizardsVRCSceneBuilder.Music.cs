@@ -89,6 +89,8 @@ namespace WizardsVRC.EditorTools
                     areaTrack.Add(idx);
                     areaNames.Add(wb.musicNames[i] + ": " + t);
                 }
+            if (wb != null && wb.silentAreas.Count > 0)
+                Debug.Log("[WizardsVRC] Music: no track set for " + string.Join(", ", wb.silentAreas) + " (Zone > Music Track, or its World's): the hub theme or silence plays there.");
             music.areaMin = areaMin.ToArray();
             music.areaMax = areaMax.ToArray();
             music.areaTrack = areaTrack.ToArray();

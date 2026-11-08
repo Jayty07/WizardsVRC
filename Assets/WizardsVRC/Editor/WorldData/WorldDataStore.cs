@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 25;
+        public const int CurrentVersion = 26;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -192,6 +192,38 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 23) UpgradeTo23();
             if (from < 24) UpgradeTo24();
             if (from < 25) UpgradeTo25();
+            if (from < 26) UpgradeTo26();
+        }
+
+        /// <summary>
+        /// v26: zone music, again. v24 set the default tracks only for the later streets, so Sunpetal Gardens and Lantern Row
+        /// (the first streets most players walk) kept a blank Music Track and stayed silent. Every stock zone whose Music
+        /// Track or Tower Music Track is still blank gets its default now; anything filled in is left alone.
+        /// </summary>
+        private static void UpgradeTo26()
+        {
+            var fills = new Dictionary<string, System.Action<ZoneDefinition>>
+            {
+                { "StarfallCastle", WorldDefaults.FillStarfallCastle },
+                { "SunpetalGardens", WorldDefaults.FillSunpetalGardens },
+                { "LanternRow", WorldDefaults.FillLanternRow },
+            };
+            foreach (var d in World1Zones) fills[d.key] = d.fill;
+            foreach (var d in World2Zones) fills[d.key] = d.fill;
+            var report = new List<string>();
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                System.Action<ZoneDefinition> fill;
+                if (z == null || !fills.TryGetValue(z.zoneKey, out fill)) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                fill(fresh);
+                bool dirty = false;
+                if (string.IsNullOrEmpty(z.musicTrack) && !string.IsNullOrEmpty(fresh.musicTrack)) { z.musicTrack = fresh.musicTrack; dirty = true; }
+                if (string.IsNullOrEmpty(z.towerMusicTrack) && !string.IsNullOrEmpty(fresh.towerMusicTrack)) { z.towerMusicTrack = fresh.towerMusicTrack; dirty = true; }
+                Object.DestroyImmediate(fresh);
+                if (dirty) { EditorUtility.SetDirty(z); report.Add(z.displayName + " (" + z.musicTrack + ")"); }
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (v26): music tracks set for " + string.Join(", ", report) + ".");
         }
 
         /// <summary>

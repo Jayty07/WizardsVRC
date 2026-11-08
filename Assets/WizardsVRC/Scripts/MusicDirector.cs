@@ -65,6 +65,10 @@ namespace WizardsVRC
 
         private float[] _level;
         private bool[] _started;
+        // A streamed track can take a moment to start: Play / UnPause is asked at most once a second, and if an UnPause
+        // didn't get it going the next try is a fresh Play.
+        private float[] _retry;
+        private bool[] _unpauseTried;
         private int _want = NONE;
         private float _next;
         private float _master = 1f;
@@ -74,6 +78,8 @@ namespace WizardsVRC
             int n = sources != null ? sources.Length : 0;
             _level = new float[n];
             _started = new bool[n];
+            _retry = new float[n];
+            _unpauseTried = new bool[n];
             for (int i = 0; i < n; i++)
                 if (sources[i] != null) { sources[i].volume = 0f; sources[i].loop = true; sources[i].spatialBlend = 0f; }
         }
@@ -101,11 +107,13 @@ namespace WizardsVRC
                 float target = on ? 1f : 0f;
                 float rate = on ? 1f / Mathf.Max(0.05f, fadeInSeconds) : 1f / Mathf.Max(0.05f, fadeOutSeconds);
                 _level[i] = Mathf.MoveTowards(_level[i], target, rate * dt);
-                if (on && !s.isPlaying)
+                if (s.isPlaying) _unpauseTried[i] = false;
+                else if (on && Time.time >= _retry[i])
                 {
-                    if (_started[i] && !Restarts(i)) s.UnPause();
-                    else s.Play();
+                    if (_started[i] && !Restarts(i) && !_unpauseTried[i]) { s.UnPause(); _unpauseTried[i] = true; }
+                    else { s.Play(); _unpauseTried[i] = false; }
                     _started[i] = true;
+                    _retry[i] = Time.time + 1f;
                 }
                 float tv = trackVolume != null && i < trackVolume.Length ? trackVolume[i] : 0.3f;
                 s.volume = _level[i] * tv * _master;
