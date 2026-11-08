@@ -55,14 +55,14 @@ namespace WizardsVRC.EditorTools
 
             Color ink = new Color(0.24f, 0.16f, 0.09f);
             Color outline = new Color(0.12f, 0.09f, 0.14f);
-            p.name = CardText(rt, "Name", new Vector2(0, mini ? 108 : 110), new Vector2(mini ? 132 : 118, mini ? 34 : 26), mini ? 22 : 15, TextAnchor.MiddleCenter,
+            p.name = CardText(rt, "Name", new Vector2(0, mini ? 108 : 110), new Vector2(mini ? 132 : 124, mini ? 34 : 28), mini ? 22 : 18, TextAnchor.MiddleCenter,
                 new Color(1f, 0.94f, 0.63f));
             p.name.fontStyle = FontStyle.Bold;
             p.name.resizeTextForBestFit = true;
             p.name.resizeTextMinSize = mini ? 12 : 9;
-            p.name.resizeTextMaxSize = mini ? 24 : 15;
+            p.name.resizeTextMaxSize = mini ? 24 : 18;
             p.name.gameObject.AddComponent<Outline>().effectColor = outline;
-            p.pips = CardText(rt, "Pips", new Vector2(-75, 114), new Vector2(34, 34), mini ? 26 : 22, TextAnchor.MiddleCenter, Color.white);
+            p.pips = CardText(rt, "Pips", new Vector2(-75, 114), new Vector2(38, 38), mini ? 28 : 27, TextAnchor.MiddleCenter, Color.white);
             p.pips.fontStyle = FontStyle.Bold;
             p.pips.gameObject.AddComponent<Outline>().effectColor = outline;
             var artGo = new GameObject("Art", typeof(RectTransform));
@@ -74,17 +74,17 @@ namespace WizardsVRC.EditorTools
             artGo.SetActive(false);
             if (!mini)
             {
-                p.accuracy = CardText(rt, "Accuracy", new Vector2(-60, -21), new Vector2(54, 26), 13, TextAnchor.MiddleCenter, ink);
+                p.accuracy = CardText(rt, "Accuracy", new Vector2(-60, -21), new Vector2(58, 28), 16, TextAnchor.MiddleCenter, ink);
                 p.accuracy.fontStyle = FontStyle.Bold;
                 // Short text with icons (CardDatabase.GetCardText). Truncate, not overflow, so best fit really shrinks it
                 // to the parchment (with overflow on, Unity lets it run off the card instead).
-                p.info = CardText(rt, "Info", new Vector2(0, -66), new Vector2(156, 56), 14, TextAnchor.MiddleCenter, ink);
+                p.info = CardText(rt, "Info", new Vector2(0, -66), new Vector2(160, 60), 18, TextAnchor.MiddleCenter, ink);
                 p.info.resizeTextForBestFit = true;
-                p.info.resizeTextMinSize = 8;
-                p.info.resizeTextMaxSize = 14;
+                p.info.resizeTextMinSize = 9;
+                p.info.resizeTextMaxSize = 18;
                 p.info.verticalOverflow = VerticalWrapMode.Truncate;
                 p.info.lineSpacing = 0.9f;
-                p.school = CardText(rt, "School", new Vector2(0, -106), new Vector2(140, 20), 12, TextAnchor.MiddleCenter, new Color(0.62f, 0.52f, 0.36f));
+                p.school = CardText(rt, "School", new Vector2(0, -106), new Vector2(150, 22), 15, TextAnchor.MiddleCenter, new Color(0.62f, 0.52f, 0.36f));
             }
             // The same pixel font as the cards in your hand (it has the school and effect icons the card text uses), drawn
             // crisply by the canvas the card sits on.

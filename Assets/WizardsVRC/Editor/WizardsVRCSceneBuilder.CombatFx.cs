@@ -422,7 +422,7 @@ namespace WizardsVRC.EditorTools
                 go.AddComponent<Canvas>().renderMode = RenderMode.WorldSpace;
                 var rt = (RectTransform)go.transform;
                 rt.sizeDelta = new Vector2(900, 260);
-                rt.localScale = Vector3.one * 0.0055f;
+                rt.localScale = Vector3.one * 0.0072f;
                 Text t = Label(go.transform, "Text", new Vector2(60, 0), new Vector2(760, 260), "", 76, TextAnchor.MiddleCenter);
                 t.fontStyle = FontStyle.Bold;
                 t.horizontalOverflow = HorizontalWrapMode.Overflow;

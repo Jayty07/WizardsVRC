@@ -36,6 +36,10 @@ namespace WizardsVRC
         public float openDistance = 0.85f;
         [Tooltip("In VR the book opens at most this far away (m), within easy reach of a controller.")]
         public float vrDistance = 0.6f;
+        [Tooltip("How much bigger the book opens in VR than its built size, for reading (its distance stays the same).")]
+        public float vrScale = 1.2f;
+        [Tooltip("The same on a desktop screen.")]
+        public float desktopScale = 1.08f;
         public KeyCode toggleKey = KeyCode.B;
         [Tooltip("In VR (no keyboard) the jump button opens and closes the book, and doesn't jump.")]
         public bool vrJumpOpensBook = true;
@@ -78,6 +82,7 @@ namespace WizardsVRC
         public Text musicSettingLabel;
         [Tooltip("Which hip the casting wand waits at (CastPattern), right or left.")]
         public Text wandSettingLabel;
+        public Text vrHudSettingLabel;
         public CastPattern castPattern;
         [Tooltip("Background music (the Music setting sets its volume).")]
         public MusicDirector music;
@@ -334,11 +339,24 @@ namespace WizardsVRC
             RefreshSettings("");
         }
 
+        // VR: the HUD in your view (low, bigger) or over your left hand (remembered).
+        private const string HudWristKey = "wz_hud_wrist";
+
+        public void SettingToggleVrHud()
+        {
+            if (hud == null) return;
+            hud.vrWrist = !hud.vrWrist;
+            PlayerData.SetBool(HudWristKey, hud.vrWrist);
+            RefreshSettings("");
+        }
+
         public override void OnPlayerRestored(VRCPlayerApi player)
         {
             if (!Utilities.IsValid(player) || !player.isLocal) return;
             bool on;
             bool left;
+            bool wrist;
+            if (hud != null && PlayerData.TryGetBool(player, HudWristKey, out wrist)) hud.vrWrist = wrist;
             if (castPattern != null && PlayerData.TryGetBool(player, WandKey, out left)) castPattern.leftHip = left;
             if (PlayerData.TryGetBool(player, WarpKey, out on)) _warpOn = on;
             ApplyWarp();
@@ -391,6 +409,7 @@ namespace WizardsVRC
             if (warpSettingLabel != null) warpSettingLabel.text = "PS1 wobble: " + (_warpOn ? "On" : "Off");
             if (musicSettingLabel != null) musicSettingLabel.text = MusicText();
             if (wandSettingLabel != null) wandSettingLabel.text = "Wand hand: " + (castPattern != null && castPattern.leftHip ? "Left" : "Right");
+            if (vrHudSettingLabel != null) vrHudSettingLabel.text = "VR HUD: " + (hud != null && hud.vrWrist ? "Over left hand" : "In view");
             if (changeCharacterLabel != null) changeCharacterLabel.text = Time.time <= _confirmUntil ? "Press again to confirm" : "Change Character";
             if (settingsStatus != null) settingsStatus.text = status;
         }
@@ -478,7 +497,7 @@ namespace WizardsVRC
                 bookRoot.transform.position = head.position + forward * d + Vector3.down * 0.12f * d / openDistance;
                 // Nearer, smaller: it looks the same size wherever it ends up.
                 if (_bookScale == Vector3.zero) _bookScale = bookRoot.transform.localScale;
-                bookRoot.transform.localScale = _bookScale * (d / Mathf.Max(0.1f, openDistance));
+                bookRoot.transform.localScale = _bookScale * (d / Mathf.Max(0.1f, openDistance)) * (local.IsUserInVR() ? vrScale : desktopScale);
                 bookRoot.transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
             }
             _open = true;

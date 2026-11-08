@@ -567,6 +567,28 @@ namespace WizardsVRC
             return n;
         }
 
+        /// <summary>
+        /// Fills 'into' with every item spell the character's equipped gear adds to the battle deck, each copy on its own
+        /// (the Deck page's item row); returns how many it put in (at most into.Length).
+        /// </summary>
+        public int EquippedItemCards(CharacterData c, int[] into)
+        {
+            if (c == null || into == null) return 0;
+            int n = 0;
+            for (int s = 0; s < CharacterData.EQUIP_SLOTS; s++)
+            {
+                int item = c.equipped[s];
+                if (item == 0) continue;
+                if (itemCardItems != null && itemCardIds != null)
+                    for (int k = 0; k < itemCardItems.Length && k < itemCardIds.Length; k++)
+                        if (itemCardItems[k] == item && n < into.Length) into[n++] = itemCardIds[k];
+                int basic = WandBasicSpell(item, (int)c.school);
+                if (basic > 0)
+                    for (int k = 0; k < wandBasicCopies && n < into.Length; k++) into[n++] = basic;
+            }
+            return n;
+        }
+
         /// <summary>"Item spells: Ember Lance, Frost Shard..." for an item's details (empty when it gives none).</summary>
         public string ItemCardText(int itemId) { return ItemCardTextFor(itemId, -1); }
 

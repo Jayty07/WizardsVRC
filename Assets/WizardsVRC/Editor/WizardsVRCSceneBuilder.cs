@@ -765,11 +765,11 @@ namespace WizardsVRC.EditorTools
                 GameObject b = Button(left, "Slot" + s, slotPos[s], new Vector2(230, 115), "", new Color(0.55f, 0.48f, 0.38f), target, "Slot" + s);
                 book.slotIcons[s] = b.GetComponent<Image>();
                 Text t = b.GetComponentInChildren<Text>();
-                t.fontSize = 22;
+                t.fontSize = 24;
                 book.slotLabels[s] = t;
             }
 
-            book.statsLabel = InkLabel(left, "Stats", new Vector2(0, -290), new Vector2(800, 135), "", 23, TextAnchor.MiddleCenter);
+            book.statsLabel = InkLabel(left, "Stats", new Vector2(0, -290), new Vector2(800, 135), "", 25, TextAnchor.MiddleCenter);
             book.statusLabel = InkLabel(left, "Status", new Vector2(0, -385), new Vector2(800, 50), "", 26, TextAnchor.MiddleCenter);
             Button(left, "Close", new Vector2(-250, -460), new Vector2(220, 65), "Close", new Color(0.45f, 0.25f, 0.15f), target, "CloseBook");
             Button(left, "ToggleHud", new Vector2(250, -460), new Vector2(220, 65), "HUD On/Off", new Color(0.45f, 0.25f, 0.15f), hudTarget, "ToggleHud");
@@ -781,7 +781,7 @@ namespace WizardsVRC.EditorTools
             for (int t = 0; t < tabs.Length; t++)
             {
                 GameObject b = Button(right, "Tab" + t, new Vector2(-378 + t * 84, 460), new Vector2(80, 60), tabs[t], new Color(0.45f, 0.3f, 0.18f), target, "Tab" + t);
-                b.GetComponentInChildren<Text>().fontSize = 17;
+                b.GetComponentInChildren<Text>().fontSize = 19;
                 book.tabImages[t] = b.GetComponent<Image>();
             }
 
@@ -796,9 +796,9 @@ namespace WizardsVRC.EditorTools
                 var pos = new Vector2(-300 + col * 200, 270 - row * 180);
                 GameObject b = Button(right, "Cell" + i, pos, new Vector2(185, 165), "", Color.gray, target, "Cell" + i);
                 Text nameText = b.GetComponentInChildren<Text>();
-                nameText.fontSize = 20;
+                nameText.fontSize = 22;
                 nameText.alignment = TextAnchor.LowerCenter;
-                Text countText = Label(b.transform, "Count", new Vector2(55, 60), new Vector2(70, 36), "", 24, TextAnchor.UpperRight);
+                Text countText = Label(b.transform, "Count", new Vector2(55, 60), new Vector2(70, 36), "", 27, TextAnchor.UpperRight);
                 book.cellRoots[i] = b;
                 book.cellIcons[i] = b.GetComponent<Image>();
                 book.cellNames[i] = nameText;
@@ -812,7 +812,7 @@ namespace WizardsVRC.EditorTools
             RectTransform details = Panel(right, "Details", new Vector2(0, -375), new Vector2(810, 250), new Color(0.82f, 0.74f, 0.58f));
             book.detailsPanel = details.gameObject;
             book.detailName = InkLabel(details, "ItemName", new Vector2(-110, 95), new Vector2(570, 50), "", 30, TextAnchor.MiddleLeft);
-            book.detailBody = InkLabel(details, "ItemBody", new Vector2(-110, -25), new Vector2(570, 180), "", 22, TextAnchor.UpperLeft);
+            book.detailBody = InkLabel(details, "ItemBody", new Vector2(-110, -25), new Vector2(570, 180), "", 24, TextAnchor.UpperLeft);
             book.actionButton = Button(details, "Action", new Vector2(300, -60), new Vector2(180, 80), "Equip", new Color(0.25f, 0.5f, 0.3f), target, "DoAction");
             book.actionLabel = book.actionButton.GetComponentInChildren<Text>();
             details.gameObject.SetActive(false);
@@ -865,16 +865,19 @@ namespace WizardsVRC.EditorTools
             RectTransform right = Panel(view, "RightPage", new Vector2(445, 0), new Vector2(850, 1020), Parchment);
 
             InkLabel(left, "Title", new Vector2(0, 430), new Vector2(800, 60), "Settings", 44, TextAnchor.MiddleCenter);
-            GameObject hudBtn = Button(left, "HudToggle", new Vector2(0, 260), new Vector2(560, 85), "On-screen HUD: On", brown, target, nameof(InventoryBook.SettingToggleHud));
+            GameObject hudBtn = Button(left, "HudToggle", new Vector2(0, 310), new Vector2(560, 85), "On-screen HUD: On", brown, target, nameof(InventoryBook.SettingToggleHud));
             book.hudSettingLabel = hudBtn.GetComponentInChildren<Text>();
-            GameObject guideBtn = Button(left, "GuideToggle", new Vector2(0, 150), new Vector2(560, 85), "Quest arrow: On", brown, target, nameof(InventoryBook.SettingToggleGuide));
+            // VR: the HUD low in your view (bigger), or floating over your left hand.
+            GameObject vrHudBtn = Button(left, "VrHudToggle", new Vector2(0, 205), new Vector2(560, 85), "VR HUD: In view", brown, target, nameof(InventoryBook.SettingToggleVrHud));
+            book.vrHudSettingLabel = vrHudBtn.GetComponentInChildren<Text>();
+            GameObject guideBtn = Button(left, "GuideToggle", new Vector2(0, 100), new Vector2(560, 85), "Quest arrow: On", brown, target, nameof(InventoryBook.SettingToggleGuide));
             book.guideSettingLabel = guideBtn.GetComponentInChildren<Text>();
             // PS1 wobble: the vertex snap and texture swim (some players find it uncomfortable in VR).
-            GameObject warpBtn = Button(left, "WarpToggle", new Vector2(0, 40), new Vector2(560, 85), "PS1 wobble: Off", brown, target, nameof(InventoryBook.SettingToggleWarp));
+            GameObject warpBtn = Button(left, "WarpToggle", new Vector2(0, -5), new Vector2(560, 85), "PS1 wobble: Off", brown, target, nameof(InventoryBook.SettingToggleWarp));
             book.warpSettingLabel = warpBtn.GetComponentInChildren<Text>();
-            Button(left, "SaveNow", new Vector2(0, -70), new Vector2(560, 85), "Save Now", new Color(0.25f, 0.45f, 0.3f), target, nameof(InventoryBook.SettingSaveNow));
-            Button(left, "GoHome", new Vector2(0, -180), new Vector2(560, 85), "Return to Starfall Castle", new Color(0.3f, 0.35f, 0.55f), target, nameof(InventoryBook.SettingGoHome));
-            book.settingsStatus = InkLabel(left, "Status", new Vector2(0, -290), new Vector2(760, 60), "", 26, TextAnchor.MiddleCenter);
+            Button(left, "SaveNow", new Vector2(0, -110), new Vector2(560, 85), "Save Now", new Color(0.25f, 0.45f, 0.3f), target, nameof(InventoryBook.SettingSaveNow));
+            Button(left, "GoHome", new Vector2(0, -215), new Vector2(560, 85), "Return to Starfall Castle", new Color(0.3f, 0.35f, 0.55f), target, nameof(InventoryBook.SettingGoHome));
+            book.settingsStatus = InkLabel(left, "Status", new Vector2(0, -315), new Vector2(760, 60), "", 26, TextAnchor.MiddleCenter);
             Button(left, "Close", new Vector2(0, -440), new Vector2(260, 65), "Close", new Color(0.45f, 0.25f, 0.15f), target, nameof(InventoryBook.CloseBook));
 
             InkLabel(right, "Title", new Vector2(0, 430), new Vector2(800, 60), "Character", 44, TextAnchor.MiddleCenter);
@@ -892,103 +895,194 @@ namespace WizardsVRC.EditorTools
             view.gameObject.SetActive(false);
         }
 
+        /// <summary>
+        /// The Deck bookmark, laid out like a card game's spell deck screen (DeckPages): the "Spell Deck" plaque across the
+        /// top with a round icon per school to filter by; on the left the deck shown with every card as its own square
+        /// (click to take it out), on the right six big cards of the spells you know (click to add a copy), with how many
+        /// copies the deck holds under each and page arrows down the sides.
+        /// </summary>
         private static void BuildDeckPages(RectTransform root, InventoryBook book, DeckPages deck, PlayerHUD hud)
         {
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(deck);
             UdonBehaviour bookTarget = UdonSharpEditorUtility.GetBackingUdonBehaviour(book);
-            Color tabOff = new Color(0.45f, 0.3f, 0.18f);
+            Color brown = new Color(0.45f, 0.3f, 0.18f);
+            Color faint = new Color(0.4f, 0.3f, 0.2f);
+            Color outlineCol = new Color(0.12f, 0.09f, 0.14f);
 
             RectTransform view = Rect(root, "DeckView", Vector2.zero, new Vector2(1800, 1100));
             book.deckView = view.gameObject;
             RectTransform left = Panel(view, "LeftPage", new Vector2(-445, 0), new Vector2(850, 1020), Parchment);
             RectTransform right = Panel(view, "RightPage", new Vector2(445, 0), new Vector2(850, 1020), Parchment);
 
-            // ---- left page: deck (flip through the deck items you own, equip one)
-            InkLabel(left, "Title", new Vector2(0, 450), new Vector2(800, 55), "Decks", 40, TextAnchor.MiddleCenter);
-            Button(left, "PrevDeck", new Vector2(-340, 385), new Vector2(90, 55), "<", tabOff, target, nameof(DeckPages.PrevDeck));
-            deck.deckNameLabel = InkLabel(left, "DeckName", new Vector2(-40, 385), new Vector2(480, 55), "", 30, TextAnchor.MiddleCenter);
-            Button(left, "NextDeck", new Vector2(260, 385), new Vector2(90, 55), ">", tabOff, target, nameof(DeckPages.NextDeck));
-            deck.equipDeckButton = Button(left, "EquipDeck", new Vector2(355, 385), new Vector2(90, 55), "Equip", new Color(0.25f, 0.5f, 0.3f), target, nameof(DeckPages.EquipShownDeck));
-            deck.equipDeckButton.GetComponentInChildren<Text>().fontSize = 22;
-            deck.deckTitle = InkLabel(left, "DeckTitle", new Vector2(0, 320), new Vector2(800, 45), "", 24, TextAnchor.MiddleCenter);
+            // ---- left page: the deck, every card its own square
+            Button(left, "PrevDeck", new Vector2(-372, 428), new Vector2(70, 62), "<", brown, target, nameof(DeckPages.PrevDeck));
+            deck.deckNameLabel = InkLabel(left, "DeckName", new Vector2(0, 428), new Vector2(640, 62), "", 36, TextAnchor.MiddleCenter);
+            deck.deckNameLabel.resizeTextForBestFit = true;
+            deck.deckNameLabel.resizeTextMinSize = 24;
+            deck.deckNameLabel.resizeTextMaxSize = 36;
+            deck.deckNameLabel.verticalOverflow = VerticalWrapMode.Truncate;
+            Button(left, "NextDeck", new Vector2(372, 428), new Vector2(70, 62), ">", brown, target, nameof(DeckPages.NextDeck));
+            deck.deckTitle = InkLabel(left, "DeckTitle", new Vector2(0, 382), new Vector2(810, 40), "", 24, TextAnchor.MiddleCenter);
+            deck.deckTitle.resizeTextForBestFit = true;
+            deck.deckTitle.resizeTextMinSize = 16;
+            deck.deckTitle.resizeTextMaxSize = 24;
+            deck.deckTitle.verticalOverflow = VerticalWrapMode.Truncate;
 
-            int deckCells = DeckPages.DECK_CELLS;
-            // The deck's spells as small cards (the same art as in battle), each with how many copies it holds.
-            deck.deckCellRoots = new GameObject[deckCells];
-            deck.deckCellIcons = new Image[deckCells];
-            deck.deckCellNames = new Text[deckCells];
-            deck.deckCellCounts = new Text[deckCells];
-            deck.deckCellPips = new Text[deckCells];
-            deck.deckCellArts = new RawImage[deckCells];
-            for (int i = 0; i < deckCells; i++)
+            // The deck: nine squares across, six rows (the biggest deck holds 52).
+            const int cols = 9;
+            const float pitch = 84f, square = 78f;
+            int slots = DeckPages.DECK_SLOTS;
+            deck.deckSlotRoots = new GameObject[slots];
+            deck.deckSlotFrames = new Image[slots];
+            deck.deckSlotArts = new RawImage[slots];
+            deck.deckSlotPips = new Text[slots];
+            deck.deckSlotNames = new Text[slots];
+            for (int i = 0; i < slots; i++)
             {
-                int col = i % 5, row = i / 5;
-                var card = CardFace(left, "DeckCell" + i, new Vector2(-264 + col * 132, 222 - row * 160), 0.55f, true, target, "DeckCell" + i);
-                Text countText = CardText(card.root.transform, "Count", new Vector2(58, -112), new Vector2(80, 44), 34, TextAnchor.MiddleRight, Color.white);
-                countText.fontStyle = FontStyle.Bold;
-                countText.gameObject.AddComponent<Outline>().effectColor = new Color(0.12f, 0.09f, 0.14f);
-                deck.deckCellRoots[i] = card.root;
-                deck.deckCellIcons[i] = card.frame;
-                deck.deckCellNames[i] = card.name;
-                deck.deckCellPips[i] = card.pips;
-                deck.deckCellArts[i] = card.art;
-                deck.deckCellCounts[i] = countText;
+                int col = i % cols, row = i / cols;
+                var pos = new Vector2(-pitch * (cols - 1) / 2f + col * pitch, 318f - row * pitch);
+                DeckSquare(left, "DeckSlot" + i, pos, square, target, "DeckSlot" + i, out deck.deckSlotRoots[i], out deck.deckSlotFrames[i],
+                    out deck.deckSlotArts[i], out deck.deckSlotPips[i], out deck.deckSlotNames[i]);
             }
-            deck.statusLabel = InkLabel(left, "Status", new Vector2(0, -385), new Vector2(800, 50), "", 26, TextAnchor.MiddleCenter);
-            Button(left, "Close", new Vector2(-250, -460), new Vector2(220, 65), "Close", new Color(0.45f, 0.25f, 0.15f), bookTarget, "CloseBook");
 
-            // ---- right page: spellbook
-            InkLabel(right, "Title", new Vector2(0, 450), new Vector2(800, 55), "Spellbook", 40, TextAnchor.MiddleCenter);
-            string[] filters = { "All", "School", "General" };
-            deck.filterImages = new Image[filters.Length];
-            for (int f = 0; f < filters.Length; f++)
+            // Under it, the item spells your gear adds in battle (DeckPages fills them; pointing at or clicking one shows its details).
+            GoldRule(left, "ItemRule", new Vector2(0, -152), 740f);
+            deck.itemLabel = InkLabel(left, "ItemLabel", new Vector2(0, -176), new Vector2(780, 32), "", 22, TextAnchor.MiddleCenter);
+            int items = DeckPages.ITEM_SLOTS;
+            deck.itemSlotRoots = new GameObject[items];
+            deck.itemSlotFrames = new Image[items];
+            deck.itemSlotArts = new RawImage[items];
+            deck.itemSlotPips = new Text[items];
+            deck.itemSlotNames = new Text[items];
+            for (int i = 0; i < items; i++)
             {
-                GameObject b = Button(right, "Filter" + f, new Vector2(-200 + f * 200, 385), new Vector2(180, 55), filters[f], tabOff, target, "Filter" + f);
+                int col = i % DeckPages.ITEM_ROW, row = i / DeckPages.ITEM_ROW;
+                var pos = new Vector2(-pitch * (DeckPages.ITEM_ROW - 1) / 2f + col * pitch, -228f - row * pitch);
+                DeckSquare(left, "ItemSlot" + i, pos, square, target, "HoverItem" + i, out deck.itemSlotRoots[i], out deck.itemSlotFrames[i],
+                    out deck.itemSlotArts[i], out deck.itemSlotPips[i], out deck.itemSlotNames[i]);
+            }
+            deck.statusLabel = InkLabel(left, "Status", new Vector2(0, -392), new Vector2(810, 40), "", 23, TextAnchor.MiddleCenter);
+            deck.statusLabel.resizeTextForBestFit = true;
+            deck.statusLabel.resizeTextMinSize = 16;
+            deck.statusLabel.resizeTextMaxSize = 23;
+            deck.statusLabel.verticalOverflow = VerticalWrapMode.Truncate;
+            Button(left, "Close", new Vector2(-260, -458), new Vector2(230, 62), "Close", new Color(0.45f, 0.25f, 0.15f), bookTarget, "CloseBook");
+            deck.equipDeckButton = Button(left, "EquipDeck", new Vector2(260, -458), new Vector2(230, 62), "Equip Deck", new Color(0.25f, 0.5f, 0.3f), target, nameof(DeckPages.EquipShownDeck));
+
+            // ---- across the top: the "Spell Deck" plaque and a round icon per school (All, Fire, Ice, Storm, Myth | Life, Death, Balance, General)
+            const float headerY = 505f;
+            Panel(view, "DeckHeaderBar", new Vector2(0, headerY), new Vector2(1240, 90), new Color(0.28f, 0.17f, 0.1f, 0.97f));
+            GoldRule(view, "DeckHeaderRuleTop", new Vector2(0, headerY + 44f), 1240f);
+            GoldRule(view, "DeckHeaderRuleBottom", new Vector2(0, headerY - 44f), 1240f);
+            TitlePlate(view, "DeckHeaderTitle", new Vector2(0, headerY), new Vector2(340, 78), "Spell Deck", new Color(0.62f, 0.42f, 0.78f), 38);
+            string[] icons = { "", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General" };
+            float[] iconX = { -567f, -479f, -391f, -303f, -215f, 215f, 303f, 391f, 479f };
+            deck.filterImages = new Image[DeckPages.FILTERS];
+            for (int f = 0; f < DeckPages.FILTERS; f++)
+            {
+                GameObject b = Button(view, "Filter" + f, new Vector2(iconX[f], headerY), new Vector2(80, 80), "", new Color(0.42f, 0.32f, 0.26f), target, "Filter" + f);
                 Text t = b.GetComponentInChildren<Text>();
-                t.fontSize = 24;
-                if (f == DeckPages.FILTER_SCHOOL) deck.schoolFilterLabel = t;
-                deck.filterImages[f] = b.GetComponent<Image>();
+                Image ring = b.GetComponent<Image>();
+                SetUiSprite(ring, UiSprite("PortraitNeutral"), 1.3f);
+                ring.type = Image.Type.Simple;
+                ring.preserveAspect = true;
+                Image disc = UiImage(b.transform, "Disc", Vector2.zero, new Vector2(62, 62), "PortraitBack", Color.white, 1.3f);
+                disc.raycastTarget = false;
+                disc.preserveAspect = true;
+                if (icons[f] == "")
+                {
+                    t.text = "All";
+                    t.fontSize = 24;
+                    t.color = new Color(1f, 0.9f, 0.6f);
+                    t.transform.SetAsLastSibling();
+                }
+                else
+                {
+                    Object.DestroyImmediate(t.gameObject);
+                    var iconGo = new GameObject("Icon", typeof(RectTransform));
+                    iconGo.transform.SetParent(b.transform, false);
+                    ((RectTransform)iconGo.transform).sizeDelta = new Vector2(48, 48);
+                    var img = iconGo.AddComponent<RawImage>();
+                    img.raycastTarget = false;
+                    img.texture = PixelTexture(FxIconDir + "/School" + icons[f] + ".png");
+                }
+                deck.filterImages[f] = ring;
             }
+            // A gold gem closing the right-hand row (five icons on the left, four and the gem on the right).
+            RectTransform endGem = Panel(view, "DeckHeaderGem", new Vector2(567f, headerY), new Vector2(30, 30), new Color(0.95f, 0.75f, 0.3f));
+            endGem.localRotation = Quaternion.Euler(0, 0, 45f);
 
-            int bookCells = DeckPages.BOOK_CELLS;
-            // Every spell you know, as a card.
-            deck.bookCellRoots = new GameObject[bookCells];
-            deck.bookCellIcons = new Image[bookCells];
-            deck.bookCellNames = new Text[bookCells];
-            deck.bookCellPips = new Text[bookCells];
-            deck.bookCellArts = new RawImage[bookCells];
-            for (int i = 0; i < bookCells; i++)
+            // ---- right page: the spells you know in the chosen school, six big cards to a page
+            deck.filterTitle = InkLabel(right, "FilterTitle", new Vector2(0, 428), new Vector2(700, 58), "", 36, TextAnchor.MiddleCenter);
+            InkLabel(right, "Hint", new Vector2(0, 384), new Vector2(760, 32), "Click a card to put a copy in your deck.", 20, TextAnchor.MiddleCenter).color = faint;
+            int cells = DeckPages.BOOK_CELLS;
+            deck.bookCellRoots = new GameObject[cells];
+            deck.bookCellIcons = new Image[cells];
+            deck.bookCellNames = new Text[cells];
+            deck.bookCellPips = new Text[cells];
+            deck.bookCellArts = new RawImage[cells];
+            deck.bookCellAccuracies = new Text[cells];
+            deck.bookCellInfos = new Text[cells];
+            deck.bookCellSchools = new Text[cells];
+            deck.bookCellCounts = new Text[cells];
+            deck.bookCellBadges = new Image[cells];
+            const float cardScale = 1.08f;
+            for (int i = 0; i < cells; i++)
             {
-                int col = i % 4, row = i / 4;
-                var card = CardFace(right, "BookCell" + i, new Vector2(-270 + col * 180, 268 - row * 163), 0.56f, true, target, "BookCell" + i);
+                int col = i % 3, row = i / 3;
+                var pos = new Vector2(-255f + col * 255f, row == 0 ? 205f : -170f);
+                var card = CardFace(right, "BookCell" + i, pos, cardScale, false, target, "BookCell" + i);
                 deck.bookCellRoots[i] = card.root;
                 deck.bookCellIcons[i] = card.frame;
                 deck.bookCellNames[i] = card.name;
                 deck.bookCellPips[i] = card.pips;
                 deck.bookCellArts[i] = card.art;
+                deck.bookCellAccuracies[i] = card.accuracy;
+                deck.bookCellInfos[i] = card.info;
+                deck.bookCellSchools[i] = card.school;
+                card.root.SetActive(false);
+                // How many copies the deck holds, on a little plaque under the card.
+                RectTransform badge = Panel(right, "InDeck" + i, pos + new Vector2(0f, -140f * cardScale - 24f), new Vector2(206, 36), new Color(0.45f, 0.36f, 0.28f));
+                Text count = Label(badge, "Text", Vector2.zero, new Vector2(206, 36), "", 22, TextAnchor.MiddleCenter);
+                count.gameObject.AddComponent<Outline>().effectColor = outlineCol;
+                deck.bookCellCounts[i] = count;
+                deck.bookCellBadges[i] = badge.GetComponent<Image>();
+                badge.gameObject.SetActive(false);
             }
-            Button(right, "PrevPage", new Vector2(-300, -180), new Vector2(150, 60), "<", tabOff, target, "PrevPage");
-            deck.pageLabel = InkLabel(right, "Page", new Vector2(0, -180), new Vector2(420, 50), "Page 1 / 1", 26, TextAnchor.MiddleCenter);
-            Button(right, "NextPage", new Vector2(300, -180), new Vector2(150, 60), ">", tabOff, target, "NextPage");
-
-            RectTransform details = Panel(right, "Details", new Vector2(0, -360), new Vector2(810, 270), new Color(0.82f, 0.74f, 0.58f));
-            deck.detailsPanel = details.gameObject;
-            // The selected spell as a full card, its details beside it.
-            var big = CardFace(details, "SpellCard", new Vector2(-305, 0), 0.88f, false, null, null);
-            deck.detailFrame = big.frame;
-            deck.detailCardName = big.name;
-            deck.detailPips = big.pips;
-            deck.detailArt = big.art;
-            deck.detailAccuracy = big.accuracy;
-            deck.detailInfo = big.info;
-            deck.detailSchool = big.school;
-            deck.detailName = InkLabel(details, "SpellName", new Vector2(0, 100), new Vector2(380, 50), "", 30, TextAnchor.MiddleLeft);
-            deck.detailBody = InkLabel(details, "SpellBody", new Vector2(0, -25), new Vector2(380, 190), "", 20, TextAnchor.UpperLeft);
-            deck.addButton = Button(details, "Add", new Vector2(300, 40), new Vector2(180, 70), "Add", new Color(0.25f, 0.5f, 0.3f), target, "AddSelected");
-            deck.removeButton = Button(details, "Remove", new Vector2(300, -55), new Vector2(180, 70), "Remove", new Color(0.55f, 0.25f, 0.2f), target, "RemoveSelected");
-            details.gameObject.SetActive(false);
+            Button(right, "PrevPage", new Vector2(-399, 15), new Vector2(46, 170), "<", brown, target, nameof(DeckPages.PrevPage));
+            Button(right, "NextPage", new Vector2(399, 15), new Vector2(46, 170), ">", brown, target, nameof(DeckPages.NextPage));
+            deck.pageLabel = InkLabel(right, "Page", new Vector2(0, -425), new Vector2(420, 50), "Page 1 / 1", 28, TextAnchor.MiddleCenter);
 
             view.gameObject.SetActive(false);
+        }
+
+        /// <summary>A card square on the Deck page: a button framed in the card's school colour, its art, its pip cost in the corner, and its name when it has no art.</summary>
+        private static void DeckSquare(Transform parent, string name, Vector2 pos, float square, UdonBehaviour target, string eventName,
+            out GameObject root, out Image frame, out RawImage art, out Text pips, out Text label)
+        {
+            Color outlineCol = new Color(0.12f, 0.09f, 0.14f);
+            GameObject b = Button(parent, name, pos, new Vector2(square, square), "", new Color(0.62f, 0.54f, 0.42f, 0.55f), target, eventName);
+            Object.DestroyImmediate(b.GetComponentInChildren<Text>().gameObject);
+            var artGo = new GameObject("Art", typeof(RectTransform));
+            artGo.transform.SetParent(b.transform, false);
+            ((RectTransform)artGo.transform).sizeDelta = new Vector2(square - 14f, square - 14f);
+            art = artGo.AddComponent<RawImage>();
+            art.raycastTarget = false;
+            artGo.SetActive(false);
+            label = CardText(b.transform, "Name", Vector2.zero, new Vector2(square - 8f, square - 8f), 15, TextAnchor.MiddleCenter, Color.white);
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 9;
+            label.resizeTextMaxSize = 15;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.gameObject.AddComponent<Outline>().effectColor = outlineCol;
+            pips = CardText(b.transform, "Pips", new Vector2(-square / 2f + 15f, square / 2f - 15f), new Vector2(30, 30), 22, TextAnchor.MiddleCenter, Color.white);
+            pips.fontStyle = FontStyle.Bold;
+            var po = pips.gameObject.AddComponent<Outline>();
+            po.effectColor = outlineCol;
+            po.effectDistance = new Vector2(2f, -2f);
+            root = b;
+            frame = b.GetComponent<Image>();
+            b.SetActive(false);
         }
 
         private static Text InkLabel(Transform parent, string name, Vector2 pos, Vector2 size, string text, int fontSize, TextAnchor anchor)
@@ -1459,7 +1553,21 @@ namespace WizardsVRC.EditorTools
             var hand = Child(clock, "Hand", new Vector3(0, 0.035f, 0));
             FlatDecal(hand, "HandSprite", Vector3.zero, 2.6f, UnlitCutoutMat("DuelClockHand", PixelTexture(TexturesDir + "/DuelRingClockHand.png"))).isStatic = false;
             client.clockHand = hand;
-            client.clockLabel = WorldText(ring.transform, "ClockLabel", new Vector3(0, 1.1f, 0), Quaternion.identity, new Vector2(700, 160), 0.004f, "", 44);
+            // Over the clock, from the bottom up: whose turn it is, the round / cast banner (below), and the round timer
+            // (the seconds left to choose, red and ticking for the last ten: BattleClient.UpdateTimer).
+            client.clockLabel = WorldText(ring.transform, "ClockLabel", new Vector3(0, 1.2f, 0), Quaternion.identity, new Vector2(900, 180), 0.005f, "", 48);
+            client.timerLabel = WorldText(ring.transform, "RoundTimer", new Vector3(0, 2.95f, 0), Quaternion.identity, new Vector2(420, 220), 0.006f, "", 110);
+            client.timerLabel.fontStyle = FontStyle.Bold;
+            client.timerLabel.GetComponent<Outline>().effectDistance = new Vector2(3f, -3f);
+            var tickAudio = Child(ring.transform, "ClockAudio", new Vector3(0, 1.5f, 0)).gameObject.AddComponent<AudioSource>();
+            tickAudio.playOnAwake = false;
+            tickAudio.spatialBlend = 0.6f;
+            tickAudio.minDistance = 10f;
+            tickAudio.maxDistance = 40f;
+            tickAudio.rolloffMode = AudioRolloffMode.Linear;
+            client.clockAudio = tickAudio;
+            client.clockTick = UiClip("Clock_Tick");
+            client.clockTickLast = UiClip("Clock_TickLast");
 
             Texture2D seatTex = PixelTexture(TexturesDir + "/DuelRingSeat.png");
             Material seatEmpty = CutoutMat("DuelSeatEmpty", seatTex, new Color(0.45f, 0.42f, 0.5f), new Color(0.08f, 0.08f, 0.1f));
@@ -1549,7 +1657,7 @@ namespace WizardsVRC.EditorTools
                 }
                 client.seatScales[s] = seatScale;
                 client.overheadLabels[s] = WorldText(root, "Label" + s, pos + new Vector3(0, labelHeight, 0), Quaternion.identity,
-                    new Vector2(600, 160), 0.004f, "", 36);
+                    new Vector2(760, 200), 0.005f, "", 40);
 
                 float fxScale = Mathf.Max(1f, seatScale);
                 for (int kind = 0; kind < 3; kind++)
@@ -1579,8 +1687,9 @@ namespace WizardsVRC.EditorTools
             // With a spell picked, the seats it can go to glow (green allies, red enemies) and can be clicked.
             BuildSeatTargets(client);
 
-            // The round / cast / result banner: big, high over the middle of the ring, readable from every seat.
-            client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 6.4f, 0), Quaternion.identity, new Vector2(1800, 480), 0.008f, "", 64);
+            // The round / cast / result banner: just over the clock in the middle of the ring (under the round timer),
+            // readable from every seat.
+            client.bannerLabel = WorldText(root, "Banner", new Vector3(0, 2.1f, 0), Quaternion.identity, new Vector2(1150, 260), 0.0062f, "", 58);
 
             // The line between the two sides: a gold inlay with glowing studs, laid as two strips from the clock's rim out
             // to the rune band (east and west, between the seats).
@@ -1851,16 +1960,16 @@ namespace WizardsVRC.EditorTools
             Panel(root, "Background", Vector2.zero, new Vector2(1600, 960), new Color(0.06f, 0.05f, 0.1f, 0.38f));
             Panel(root, "TopBar", new Vector2(0, 385), new Vector2(1560, 160), new Color(0.12f, 0.1f, 0.2f, 0.55f));
             GoldRule(root, "TopRule", new Vector2(0, 300), 1480f);
-            client.partyLabel = Label(root, "Party", new Vector2(-470, 385), new Vector2(600, 150), "", 18, TextAnchor.MiddleLeft);
-            client.statusLabel = Label(root, "Status", new Vector2(320, 385), new Vector2(900, 150), "", 24, TextAnchor.MiddleLeft);
+            client.partyLabel = Label(root, "Party", new Vector2(-470, 385), new Vector2(600, 150), "", 23, TextAnchor.MiddleLeft);
+            client.statusLabel = Label(root, "Status", new Vector2(320, 385), new Vector2(900, 150), "", 30, TextAnchor.MiddleLeft);
 
             // ---- targets, laid out like the duel circle: enemies on the far row, allies on the near row
             int slots = BattleManager.SLOTS;
             client.targetButtons = new GameObject[slots];
             client.targetLabels = new Text[slots];
             // Row titles on carved boards: red for the enemies' row, blue for your side.
-            TitlePlate(root, "EnemiesTitle", new Vector2(-690, 240), new Vector2(170, 56), "Enemies", new Color(1f, 0.55f, 0.5f), 20);
-            TitlePlate(root, "AlliesTitle", new Vector2(-690, 140), new Vector2(170, 56), "Allies", new Color(0.55f, 0.75f, 1f), 20);
+            TitlePlate(root, "EnemiesTitle", new Vector2(-690, 240), new Vector2(170, 56), "Enemies", new Color(1f, 0.55f, 0.5f), 25);
+            TitlePlate(root, "AlliesTitle", new Vector2(-690, 140), new Vector2(170, 56), "Allies", new Color(0.55f, 0.75f, 1f), 25);
             for (int t = 0; t < slots; t++)
             {
                 bool enemy = t >= BattleManager.SIDE;
@@ -1871,7 +1980,8 @@ namespace WizardsVRC.EditorTools
                 float bx = enemy ? -420 + i * 290 : 450 - i * 290;
                 GameObject b = Button(root, "Target" + t, new Vector2(bx, enemy ? 240 : 140), new Vector2(270, 82), "", c, target, "Target" + t);
                 Text label = b.GetComponentInChildren<Text>();
-                label.fontSize = 20;
+                label.fontSize = 25;
+                label.lineSpacing = 0.9f;
                 client.targetLabels[t] = label;
                 client.targetButtons[t] = b;
                 b.SetActive(false);
@@ -1907,13 +2017,13 @@ namespace WizardsVRC.EditorTools
                 frameImg.sprite = client.cardFrames[7];
                 frameImg.type = Image.Type.Simple;
                 // Positions follow the 80 x 112 frame art (x 2.45, y 2.5 on this 196 x 280 card).
-                client.cardNames[i] = CardText(brt, "Name", new Vector2(0, 110), new Vector2(118, 26), 15, TextAnchor.MiddleCenter, nameGold);
+                client.cardNames[i] = CardText(brt, "Name", new Vector2(0, 110), new Vector2(124, 28), 18, TextAnchor.MiddleCenter, nameGold);
                 client.cardNames[i].fontStyle = FontStyle.Bold;
                 client.cardNames[i].resizeTextForBestFit = true;
                 client.cardNames[i].resizeTextMinSize = 9;
-                client.cardNames[i].resizeTextMaxSize = 15;
+                client.cardNames[i].resizeTextMaxSize = 18;
                 client.cardNames[i].gameObject.AddComponent<Outline>().effectColor = new Color(0.12f, 0.09f, 0.14f);
-                client.cardPips[i] = CardText(brt, "Pips", new Vector2(-75, 114), new Vector2(34, 34), 22, TextAnchor.MiddleCenter, Color.white);
+                client.cardPips[i] = CardText(brt, "Pips", new Vector2(-75, 114), new Vector2(38, 38), 27, TextAnchor.MiddleCenter, Color.white);
                 client.cardPips[i].fontStyle = FontStyle.Bold;
                 client.cardPips[i].gameObject.AddComponent<Outline>().effectColor = new Color(0.12f, 0.09f, 0.14f);
                 // Art window: the card's painted picture fills it (WizardsVRCSceneBuilder.CardArt.cs).
@@ -1925,18 +2035,18 @@ namespace WizardsVRC.EditorTools
                 ((RectTransform)artGo.transform).sizeDelta = new Vector2(142, 95);   // the frame's whole picture window (116 x 76 art)
                 artGo.SetActive(false);
                 client.cardArts[i] = art;
-                client.cardAccuracies[i] = CardText(brt, "Accuracy", new Vector2(-60, -21), new Vector2(54, 26), 13, TextAnchor.MiddleCenter, ink);
+                client.cardAccuracies[i] = CardText(brt, "Accuracy", new Vector2(-60, -21), new Vector2(58, 28), 16, TextAnchor.MiddleCenter, ink);
                 client.cardAccuracies[i].fontStyle = FontStyle.Bold;
                 // Short text with icons (CardDatabase.GetCardText). Truncate, not overflow, so best fit really shrinks it
                 // to the parchment (with overflow on, Unity lets it run off the card instead).
-                Text info = CardText(brt, "Info", new Vector2(0, -66), new Vector2(156, 56), 14, TextAnchor.MiddleCenter, ink);
+                Text info = CardText(brt, "Info", new Vector2(0, -66), new Vector2(160, 60), 18, TextAnchor.MiddleCenter, ink);
                 info.resizeTextForBestFit = true;
-                info.resizeTextMinSize = 8;
-                info.resizeTextMaxSize = 14;
+                info.resizeTextMinSize = 9;
+                info.resizeTextMaxSize = 18;
                 info.verticalOverflow = VerticalWrapMode.Truncate;
                 info.lineSpacing = 0.9f;
                 client.cardInfos[i] = info;
-                client.cardSchools[i] = CardText(brt, "School", new Vector2(0, -106), new Vector2(140, 20), 12, TextAnchor.MiddleCenter, new Color(0.62f, 0.52f, 0.36f));
+                client.cardSchools[i] = CardText(brt, "School", new Vector2(0, -106), new Vector2(150, 22), 15, TextAnchor.MiddleCenter, new Color(0.62f, 0.52f, 0.36f));
                 AddHoverEvents(b, target, "HoverCard" + i, "UnhoverCard" + i);
                 client.cardImages[i] = b.GetComponent<Image>();
                 b.SetActive(false);

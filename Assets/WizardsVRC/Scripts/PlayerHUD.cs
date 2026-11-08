@@ -59,6 +59,18 @@ namespace WizardsVRC
         public float followSpeed = 14f;
         public bool hudEnabled = true;
 
+        [Header("VR")]
+        [Tooltip("In VR the HUD sits lower and nearer the middle of your view than on a screen (where the lenses are sharp), turned to face your eyes.")]
+        public Vector3 headOffsetVR = new Vector3(-0.19f, -0.26f, 0.62f);
+        [Tooltip("In VR the HUD is drawn this much bigger, so its words are easy to read.")]
+        public float vrScale = 1.5f;
+        [Tooltip("VR: the HUD floats over your left hand instead, facing you (Settings > VR HUD), out of your view until you look at your hand.")]
+        public bool vrWrist;
+        [Tooltip("How far over your left hand the wrist HUD floats (m), and its size.")]
+        public float wristHeight = 0.12f;
+        public float wristScale = 1.0f;
+        private Vector3 _baseScale;
+
         private float _nextRefresh;
         private float _xpShown;
         private int _xpLevel;
@@ -91,11 +103,34 @@ namespace WizardsVRC
             // It moves with your head exactly (no lag when you walk or run, so it never falls behind you); only turning
             // your head is eased a little, for comfort.
             Transform tr = hudRoot.transform;
+            if (_baseScale == Vector3.zero) _baseScale = tr.localScale;
             float t = Mathf.Clamp01(Time.deltaTime * followSpeed);
             Quaternion rot = _hasRot ? Quaternion.Slerp(_rot, head.rotation, t) : head.rotation;
             _rot = rot;
             _hasRot = true;
-            tr.SetPositionAndRotation(head.position + rot * headOffset, rot);
+            if (!local.IsUserInVR())
+            {
+                tr.SetPositionAndRotation(head.position + rot * headOffset, rot);
+                tr.localScale = _baseScale;
+            }
+            else if (vrWrist)
+            {
+                // Over the left hand, upright and facing your eyes, so a glance at your hand reads it.
+                Vector3 hand = local.GetTrackingData(VRCPlayerApi.TrackingDataType.LeftHand).position;
+                Vector3 pos = hand + Vector3.up * wristHeight;
+                Vector3 look = pos - head.position;
+                look.y = look.y * 0.5f;
+                tr.SetPositionAndRotation(pos, look.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(look, Vector3.up) : rot);
+                tr.localScale = _baseScale * wristScale;
+            }
+            else
+            {
+                // Low and a little left of the middle of your view, bigger, and turned to face your eyes.
+                Vector3 pos = head.position + rot * headOffsetVR;
+                Vector3 look = pos - head.position;
+                tr.SetPositionAndRotation(pos, look.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(look, rot * Vector3.up) : rot);
+                tr.localScale = _baseScale * vrScale;
+            }
 
             if (Time.time >= _nextRefresh)
             {

@@ -5,80 +5,272 @@ using UnityEngine.UI;
 namespace WizardsVRC
 {
     /// <summary>
-    /// The book's Deck tab. Left page: one of your deck items (unique cards with copy counts), arrows to flip through
-    /// the decks you own, and Equip. Right page: the spellbook (known spells, filter tabs, paged grid) and a details box
-    /// with Add/Remove. Each deck item keeps its own cards; battles use the equipped one. Capacity and copies per spell
-    /// come from the deck item (ItemDatabase.deckCapacity / deckMaxCopies).
+    /// The book's Deck tab, laid out like a card game's spell deck screen.
+    ///   - Across the top: the "Spell Deck" plaque with a round icon for each school (and All / General), which filters
+    ///     the spells on the right page.
+    ///   - Left page: the deck item shown (flip through the decks you own with the arrows, Equip one), and every card in
+    ///     it as its own square, copies side by side, then empty squares up to the deck's size. Click a square to take
+    ///     that copy out; hover for the spell's details.
+    ///   - Under the deck: the item spells your equipped gear adds to it in battle (a wand's basic attacks and the like),
+    ///     each copy its own square; they don't use the deck's space and can't be taken out here (change the gear).
+    ///   - Right page: the spells you know in the chosen school, six full cards to a page, each with how many copies the
+    ///     deck holds. Click a card to put a copy in; hover for its details. Page arrows down the sides.
+    /// Each deck item keeps its own cards; battles use the equipped one. Capacity and copies per spell come from the deck
+    /// item (ItemDatabase.deckCapacity / deckMaxCopies).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class DeckPages : UdonSharpBehaviour
     {
-        public const int DECK_CELLS = CardDatabase.DECK_MAX;
-        public const int BOOK_CELLS = 12;
+        /// <summary>Squares on the left page: every copy of every card (the biggest deck holds 52).</summary>
+        public const int DECK_SLOTS = 54;
+        /// <summary>Squares in the item spell row under the deck (two rows of nine).</summary>
+        public const int ITEM_SLOTS = 18;
+        public const int ITEM_ROW = 9;
+        public const int BOOK_CELLS = 6;
+        /// <summary>Filters, in the order of the icons across the top: All, then the schools, then General.</summary>
+        public const int FILTERS = 9;
         public const int FILTER_ALL = 0;
-        public const int FILTER_SCHOOL = 1;
-        public const int FILTER_GENERAL = 2;
 
         public PlayerState playerState;
         public CardDatabase cardDatabase;
         public ItemDatabase itemDatabase;
+        public ItemTooltip tooltip;
 
-        [Header("Left page: deck")]
-        public Text deckTitle;
+        [Header("Left page: the deck")]
         public Text deckNameLabel;
+        public Text deckTitle;
         public GameObject equipDeckButton;
-        public GameObject[] deckCellRoots;
-        [Tooltip("Each deck cell is a small spell card: its frame, name, pip cost and art.")]
-        public Image[] deckCellIcons;
-        public Text[] deckCellNames;
-        public Text[] deckCellCounts;
-        public Text[] deckCellPips;
-        public RawImage[] deckCellArts;
+        [Tooltip("One square per card in the deck (copies side by side): its frame (school colour), art, pip cost and, without art, its name.")]
+        public GameObject[] deckSlotRoots;
+        public Image[] deckSlotFrames;
+        public RawImage[] deckSlotArts;
+        public Text[] deckSlotPips;
+        public Text[] deckSlotNames;
+        [Tooltip("The item spell row under the deck: the same squares, for the spells your gear adds.")]
+        public Text itemLabel;
+        public GameObject[] itemSlotRoots;
+        public Image[] itemSlotFrames;
+        public RawImage[] itemSlotArts;
+        public Text[] itemSlotPips;
+        public Text[] itemSlotNames;
         public Text statusLabel;
 
-        [Header("Right page: spellbook")]
+        [Header("Top: school filters")]
+        [Tooltip("The round school icons across the top (FILTERS of them): their backing discs light up for the chosen one.")]
         public Image[] filterImages;
-        public Text schoolFilterLabel;
+
+        [Header("Right page: the spells you know")]
+        public Text filterTitle;
         public GameObject[] bookCellRoots;
-        [Tooltip("Each spellbook cell is a small spell card: its frame, name, pip cost and art.")]
         public Image[] bookCellIcons;
         public Text[] bookCellNames;
         public Text[] bookCellPips;
         public RawImage[] bookCellArts;
+        public Text[] bookCellAccuracies;
+        public Text[] bookCellInfos;
+        public Text[] bookCellSchools;
+        [Tooltip("Under each card: how many copies the deck holds of it (its plaque goes green while you can add more).")]
+        public Text[] bookCellCounts;
+        public Image[] bookCellBadges;
         public Text pageLabel;
-        public GameObject detailsPanel;
-        public Text detailName;
-        public Text detailBody;
-        [Header("The selected spell as a full card")]
-        public Image detailFrame;
-        public Text detailCardName;
-        public Text detailPips;
-        public RawImage detailArt;
-        public Text detailAccuracy;
-        public Text detailInfo;
-        public Text detailSchool;
-        public GameObject addButton;
-        public GameObject removeButton;
 
-        private Color _tabOn = new Color(0.85f, 0.65f, 0.3f);
-        private Color _tabOff = new Color(0.45f, 0.3f, 0.18f);
+        private Color _tabOn = new Color(1f, 0.85f, 0.45f);
+        private Color _tabOff = new Color(0.42f, 0.32f, 0.26f);
+        private Color _slotEmpty = new Color(0.62f, 0.54f, 0.42f, 0.55f);
+        private Color _badgeRoom = new Color(0.3f, 0.5f, 0.3f);
+        private Color _badgeFull = new Color(0.55f, 0.3f, 0.22f);
+        private Color _badgeNone = new Color(0.45f, 0.36f, 0.28f);
+
+        // School shown by each filter icon (-2 = all, -1 = General): All, Fire, Ice, Storm, Myth, Life, Death, Balance, General.
+        private int[] _filterSchool = { -2, 0, 1, 2, 5, 3, 4, 6, -1 };
+        private string[] _filterNames = { "All", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General" };
 
         private int _deckItem;
         private int[] _owned = new int[CharacterData.INVENTORY_SLOTS + 1];
         private int _ownedCount;
         private int _filter;
         private int _page;
-        private int _selected;
 
-        private int[] _deckUnique = new int[DECK_CELLS];
-        private int _deckUniqueCount;
-        private int[] _known = new int[64];
+        private int[] _slots = new int[DECK_SLOTS];   // the card in each square, copies together
+        private int _slotCount;
+        private int[] _unique = new int[DECK_SLOTS];
+        private int _uniqueCount;
+        private int[] _items = new int[ITEM_SLOTS];
+        private int _itemCount;
+        private int[] _known = new int[96];
         private int _knownCount;
 
         // ------------------------------------------------------------------ uGUI events
 
         public void PrevDeck() { StepDeck(-1); }
         public void NextDeck() { StepDeck(1); }
+
+        public void Filter0() { SetFilter(0); }
+        public void Filter1() { SetFilter(1); }
+        public void Filter2() { SetFilter(2); }
+        public void Filter3() { SetFilter(3); }
+        public void Filter4() { SetFilter(4); }
+        public void Filter5() { SetFilter(5); }
+        public void Filter6() { SetFilter(6); }
+        public void Filter7() { SetFilter(7); }
+        public void Filter8() { SetFilter(8); }
+
+        public void DeckSlot0() { RemoveSlot(0); }
+        public void DeckSlot1() { RemoveSlot(1); }
+        public void DeckSlot2() { RemoveSlot(2); }
+        public void DeckSlot3() { RemoveSlot(3); }
+        public void DeckSlot4() { RemoveSlot(4); }
+        public void DeckSlot5() { RemoveSlot(5); }
+        public void DeckSlot6() { RemoveSlot(6); }
+        public void DeckSlot7() { RemoveSlot(7); }
+        public void DeckSlot8() { RemoveSlot(8); }
+        public void DeckSlot9() { RemoveSlot(9); }
+        public void DeckSlot10() { RemoveSlot(10); }
+        public void DeckSlot11() { RemoveSlot(11); }
+        public void DeckSlot12() { RemoveSlot(12); }
+        public void DeckSlot13() { RemoveSlot(13); }
+        public void DeckSlot14() { RemoveSlot(14); }
+        public void DeckSlot15() { RemoveSlot(15); }
+        public void DeckSlot16() { RemoveSlot(16); }
+        public void DeckSlot17() { RemoveSlot(17); }
+        public void DeckSlot18() { RemoveSlot(18); }
+        public void DeckSlot19() { RemoveSlot(19); }
+        public void DeckSlot20() { RemoveSlot(20); }
+        public void DeckSlot21() { RemoveSlot(21); }
+        public void DeckSlot22() { RemoveSlot(22); }
+        public void DeckSlot23() { RemoveSlot(23); }
+        public void DeckSlot24() { RemoveSlot(24); }
+        public void DeckSlot25() { RemoveSlot(25); }
+        public void DeckSlot26() { RemoveSlot(26); }
+        public void DeckSlot27() { RemoveSlot(27); }
+        public void DeckSlot28() { RemoveSlot(28); }
+        public void DeckSlot29() { RemoveSlot(29); }
+        public void DeckSlot30() { RemoveSlot(30); }
+        public void DeckSlot31() { RemoveSlot(31); }
+        public void DeckSlot32() { RemoveSlot(32); }
+        public void DeckSlot33() { RemoveSlot(33); }
+        public void DeckSlot34() { RemoveSlot(34); }
+        public void DeckSlot35() { RemoveSlot(35); }
+        public void DeckSlot36() { RemoveSlot(36); }
+        public void DeckSlot37() { RemoveSlot(37); }
+        public void DeckSlot38() { RemoveSlot(38); }
+        public void DeckSlot39() { RemoveSlot(39); }
+        public void DeckSlot40() { RemoveSlot(40); }
+        public void DeckSlot41() { RemoveSlot(41); }
+        public void DeckSlot42() { RemoveSlot(42); }
+        public void DeckSlot43() { RemoveSlot(43); }
+        public void DeckSlot44() { RemoveSlot(44); }
+        public void DeckSlot45() { RemoveSlot(45); }
+        public void DeckSlot46() { RemoveSlot(46); }
+        public void DeckSlot47() { RemoveSlot(47); }
+        public void DeckSlot48() { RemoveSlot(48); }
+        public void DeckSlot49() { RemoveSlot(49); }
+        public void DeckSlot50() { RemoveSlot(50); }
+        public void DeckSlot51() { RemoveSlot(51); }
+        public void DeckSlot52() { RemoveSlot(52); }
+        public void DeckSlot53() { RemoveSlot(53); }
+
+        public void HoverSlot0() { HoverSlot(0); }
+        public void HoverSlot1() { HoverSlot(1); }
+        public void HoverSlot2() { HoverSlot(2); }
+        public void HoverSlot3() { HoverSlot(3); }
+        public void HoverSlot4() { HoverSlot(4); }
+        public void HoverSlot5() { HoverSlot(5); }
+        public void HoverSlot6() { HoverSlot(6); }
+        public void HoverSlot7() { HoverSlot(7); }
+        public void HoverSlot8() { HoverSlot(8); }
+        public void HoverSlot9() { HoverSlot(9); }
+        public void HoverSlot10() { HoverSlot(10); }
+        public void HoverSlot11() { HoverSlot(11); }
+        public void HoverSlot12() { HoverSlot(12); }
+        public void HoverSlot13() { HoverSlot(13); }
+        public void HoverSlot14() { HoverSlot(14); }
+        public void HoverSlot15() { HoverSlot(15); }
+        public void HoverSlot16() { HoverSlot(16); }
+        public void HoverSlot17() { HoverSlot(17); }
+        public void HoverSlot18() { HoverSlot(18); }
+        public void HoverSlot19() { HoverSlot(19); }
+        public void HoverSlot20() { HoverSlot(20); }
+        public void HoverSlot21() { HoverSlot(21); }
+        public void HoverSlot22() { HoverSlot(22); }
+        public void HoverSlot23() { HoverSlot(23); }
+        public void HoverSlot24() { HoverSlot(24); }
+        public void HoverSlot25() { HoverSlot(25); }
+        public void HoverSlot26() { HoverSlot(26); }
+        public void HoverSlot27() { HoverSlot(27); }
+        public void HoverSlot28() { HoverSlot(28); }
+        public void HoverSlot29() { HoverSlot(29); }
+        public void HoverSlot30() { HoverSlot(30); }
+        public void HoverSlot31() { HoverSlot(31); }
+        public void HoverSlot32() { HoverSlot(32); }
+        public void HoverSlot33() { HoverSlot(33); }
+        public void HoverSlot34() { HoverSlot(34); }
+        public void HoverSlot35() { HoverSlot(35); }
+        public void HoverSlot36() { HoverSlot(36); }
+        public void HoverSlot37() { HoverSlot(37); }
+        public void HoverSlot38() { HoverSlot(38); }
+        public void HoverSlot39() { HoverSlot(39); }
+        public void HoverSlot40() { HoverSlot(40); }
+        public void HoverSlot41() { HoverSlot(41); }
+        public void HoverSlot42() { HoverSlot(42); }
+        public void HoverSlot43() { HoverSlot(43); }
+        public void HoverSlot44() { HoverSlot(44); }
+        public void HoverSlot45() { HoverSlot(45); }
+        public void HoverSlot46() { HoverSlot(46); }
+        public void HoverSlot47() { HoverSlot(47); }
+        public void HoverSlot48() { HoverSlot(48); }
+        public void HoverSlot49() { HoverSlot(49); }
+        public void HoverSlot50() { HoverSlot(50); }
+        public void HoverSlot51() { HoverSlot(51); }
+        public void HoverSlot52() { HoverSlot(52); }
+        public void HoverSlot53() { HoverSlot(53); }
+
+        public void BookCell0() { AddCell(0); }
+        public void BookCell1() { AddCell(1); }
+        public void BookCell2() { AddCell(2); }
+        public void BookCell3() { AddCell(3); }
+        public void BookCell4() { AddCell(4); }
+        public void BookCell5() { AddCell(5); }
+
+        public void HoverBook0() { HoverBook(0); }
+        public void HoverBook1() { HoverBook(1); }
+        public void HoverBook2() { HoverBook(2); }
+        public void HoverBook3() { HoverBook(3); }
+        public void HoverBook4() { HoverBook(4); }
+        public void HoverBook5() { HoverBook(5); }
+
+        public void HoverItem0() { HoverItem(0); }
+        public void HoverItem1() { HoverItem(1); }
+        public void HoverItem2() { HoverItem(2); }
+        public void HoverItem3() { HoverItem(3); }
+        public void HoverItem4() { HoverItem(4); }
+        public void HoverItem5() { HoverItem(5); }
+        public void HoverItem6() { HoverItem(6); }
+        public void HoverItem7() { HoverItem(7); }
+        public void HoverItem8() { HoverItem(8); }
+        public void HoverItem9() { HoverItem(9); }
+        public void HoverItem10() { HoverItem(10); }
+        public void HoverItem11() { HoverItem(11); }
+        public void HoverItem12() { HoverItem(12); }
+        public void HoverItem13() { HoverItem(13); }
+        public void HoverItem14() { HoverItem(14); }
+        public void HoverItem15() { HoverItem(15); }
+        public void HoverItem16() { HoverItem(16); }
+        public void HoverItem17() { HoverItem(17); }
+
+        public void Unhover() { if (tooltip != null) tooltip.Hide(); }
+
+        public void PrevPage()
+        {
+            _page = _page > 0 ? _page - 1 : PageCount() - 1;
+            Refresh();
+        }
+
+        public void NextPage()
+        {
+            _page = _page < PageCount() - 1 ? _page + 1 : 0;
+            Refresh();
+        }
 
         /// <summary>Equip the deck shown on the left page (battles draw from it).</summary>
         public void EquipShownDeck()
@@ -101,109 +293,24 @@ namespace WizardsVRC
             Refresh();
         }
 
-        public void Filter0() { SetFilter(0); }
-        public void Filter1() { SetFilter(1); }
-        public void Filter2() { SetFilter(2); }
-
-        public ItemTooltip tooltip;
-        public void HoverDeck0() { HoverDeck(0); }
-        public void HoverDeck1() { HoverDeck(1); }
-        public void HoverDeck2() { HoverDeck(2); }
-        public void HoverDeck3() { HoverDeck(3); }
-        public void HoverDeck4() { HoverDeck(4); }
-        public void HoverDeck5() { HoverDeck(5); }
-        public void HoverDeck6() { HoverDeck(6); }
-        public void HoverDeck7() { HoverDeck(7); }
-        public void HoverDeck8() { HoverDeck(8); }
-        public void HoverDeck9() { HoverDeck(9); }
-        public void HoverDeck10() { HoverDeck(10); }
-        public void HoverDeck11() { HoverDeck(11); }
-        public void HoverDeck12() { HoverDeck(12); }
-        public void HoverDeck13() { HoverDeck(13); }
-        public void HoverDeck14() { HoverDeck(14); }
-        public void HoverDeck15() { HoverDeck(15); }
-        public void HoverDeck16() { HoverDeck(16); }
-        public void HoverDeck17() { HoverDeck(17); }
-        public void HoverDeck18() { HoverDeck(18); }
-        public void HoverDeck19() { HoverDeck(19); }
-        public void HoverBook0() { HoverBook(0); }
-        public void HoverBook1() { HoverBook(1); }
-        public void HoverBook2() { HoverBook(2); }
-        public void HoverBook3() { HoverBook(3); }
-        public void HoverBook4() { HoverBook(4); }
-        public void HoverBook5() { HoverBook(5); }
-        public void HoverBook6() { HoverBook(6); }
-        public void HoverBook7() { HoverBook(7); }
-        public void HoverBook8() { HoverBook(8); }
-        public void HoverBook9() { HoverBook(9); }
-        public void HoverBook10() { HoverBook(10); }
-        public void HoverBook11() { HoverBook(11); }
-        public void Unhover() { if (tooltip != null) tooltip.Hide(); }
-
-        private void HoverDeck(int cell)
+        /// <summary>Called by InventoryBook when the Deck tab is opened.</summary>
+        public void Open()
         {
-            if (tooltip == null || cell >= _deckUniqueCount || deckCellRoots == null) return;
-            tooltip.ShowSpell(_deckUnique[cell], deckCellRoots[cell].transform);
+            if (HasCharacter()) _deckItem = playerState.current.equipped[CharacterData.EQUIP_DECK];
+            SetStatus("");
+            Refresh();
         }
 
-        private void HoverBook(int cell)
+        // ------------------------------------------------------------------ adding and taking out
+
+        /// <summary>A card on the right page clicked: one more copy of it into the deck shown.</summary>
+        private void AddCell(int cell)
         {
             int i = _page * BOOK_CELLS + cell;
-            if (tooltip == null || i >= _knownCount || bookCellRoots == null) return;
-            tooltip.ShowSpell(_known[i], bookCellRoots[cell].transform);
-        }
-
-        public void DeckCell0() { SelectDeckCell(0); }
-        public void DeckCell1() { SelectDeckCell(1); }
-        public void DeckCell2() { SelectDeckCell(2); }
-        public void DeckCell3() { SelectDeckCell(3); }
-        public void DeckCell4() { SelectDeckCell(4); }
-        public void DeckCell5() { SelectDeckCell(5); }
-        public void DeckCell6() { SelectDeckCell(6); }
-        public void DeckCell7() { SelectDeckCell(7); }
-        public void DeckCell8() { SelectDeckCell(8); }
-        public void DeckCell9() { SelectDeckCell(9); }
-        public void DeckCell10() { SelectDeckCell(10); }
-        public void DeckCell11() { SelectDeckCell(11); }
-        public void DeckCell12() { SelectDeckCell(12); }
-        public void DeckCell13() { SelectDeckCell(13); }
-        public void DeckCell14() { SelectDeckCell(14); }
-        public void DeckCell15() { SelectDeckCell(15); }
-        public void DeckCell16() { SelectDeckCell(16); }
-        public void DeckCell17() { SelectDeckCell(17); }
-        public void DeckCell18() { SelectDeckCell(18); }
-        public void DeckCell19() { SelectDeckCell(19); }
-
-        public void BookCell0() { SelectBookCell(0); }
-        public void BookCell1() { SelectBookCell(1); }
-        public void BookCell2() { SelectBookCell(2); }
-        public void BookCell3() { SelectBookCell(3); }
-        public void BookCell4() { SelectBookCell(4); }
-        public void BookCell5() { SelectBookCell(5); }
-        public void BookCell6() { SelectBookCell(6); }
-        public void BookCell7() { SelectBookCell(7); }
-        public void BookCell8() { SelectBookCell(8); }
-        public void BookCell9() { SelectBookCell(9); }
-        public void BookCell10() { SelectBookCell(10); }
-        public void BookCell11() { SelectBookCell(11); }
-
-        public void PrevPage()
-        {
-            if (_page > 0) _page--;
-            Refresh();
-        }
-
-        public void NextPage()
-        {
-            if (_page < PageCount() - 1) _page++;
-            Refresh();
-        }
-
-        public void AddSelected()
-        {
-            if (!HasCharacter() || _selected <= 0) return;
+            if (!HasCharacter() || i >= _knownCount) return;
+            int card = _known[i];
             CharacterData c = playerState.current;
-            if (!cardDatabase.Knows(c, _selected)) { SetStatus("You haven't learned that spell yet."); return; }
+            if (!cardDatabase.Knows(c, card)) { SetStatus("You haven't learned that spell yet."); return; }
             if (_deckItem <= 0) { SetStatus("You don't own a deck. Find one, then equip it."); return; }
             if (playerState.inCombat) { SetStatus("You can't change decks in the middle of a duel."); return; }
             int list = c.DeckListFor(_deckItem, true);
@@ -211,32 +318,45 @@ namespace WizardsVRC
             int cap = itemDatabase.GetDeckCapacity(_deckItem);
             int copies = itemDatabase.GetDeckMaxCopies(_deckItem);
             if (c.DeckCount(list) >= cap) { SetStatus("This deck is full (" + cap.ToString() + " spells)."); return; }
-            if (c.CountInDeck(list, _selected) >= copies) { SetStatus("This deck holds at most " + copies.ToString() + " copies of one spell."); return; }
-            if (!c.AddToDeck(list, _selected)) return;
+            if (c.CountInDeck(list, card) >= copies) { SetStatus("This deck holds at most " + copies.ToString() + " copies of one spell."); return; }
+            if (!c.AddToDeck(list, card)) return;
             playerState.MarkDirty();
-            SetStatus("Added " + cardDatabase.GetName(_selected) + ".");
+            SetStatus("Added " + cardDatabase.GetName(card) + " (" + c.CountInDeck(list, card).ToString() + " / " + copies.ToString() + ").");
             Refresh();
         }
 
-        public void RemoveSelected()
+        /// <summary>A square on the left page clicked: that copy comes out of the deck.</summary>
+        private void RemoveSlot(int slot)
         {
-            if (!HasCharacter() || _selected <= 0) return;
+            if (!HasCharacter() || slot >= _slotCount) return;
+            int card = _slots[slot];
             CharacterData c = playerState.current;
             if (playerState.inCombat) { SetStatus("You can't change decks in the middle of a duel."); return; }
             int list = c.DeckListFor(_deckItem, false);
-            if (list < 0 || !c.RemoveFromDeck(list, _selected)) return;
+            if (list < 0 || !c.RemoveFromDeck(list, card)) return;
             playerState.MarkDirty();
-            SetStatus("Removed " + cardDatabase.GetName(_selected) + ".");
+            if (tooltip != null) tooltip.Hide();
+            SetStatus("Took out " + cardDatabase.GetName(card) + ".");
             Refresh();
         }
 
-        /// <summary>Called by InventoryBook when the Deck tab is opened.</summary>
-        public void Open()
+        private void HoverSlot(int slot)
         {
-            if (HasCharacter()) _deckItem = playerState.current.equipped[CharacterData.EQUIP_DECK];
-            _selected = 0;
-            SetStatus("");
-            Refresh();
+            if (tooltip == null || slot >= _slotCount || deckSlotRoots == null || slot >= deckSlotRoots.Length) return;
+            tooltip.ShowSpell(_slots[slot], deckSlotRoots[slot].transform);
+        }
+
+        private void HoverItem(int slot)
+        {
+            if (tooltip == null || slot >= _itemCount || itemSlotRoots == null || slot >= itemSlotRoots.Length) return;
+            tooltip.ShowSpell(_items[slot], itemSlotRoots[slot].transform);
+        }
+
+        private void HoverBook(int cell)
+        {
+            int i = _page * BOOK_CELLS + cell;
+            if (tooltip == null || i >= _knownCount || bookCellRoots == null || cell >= bookCellRoots.Length) return;
+            tooltip.ShowSpell(_known[i], bookCellRoots[cell].transform);
         }
 
         // ------------------------------------------------------------------ state
@@ -251,7 +371,6 @@ namespace WizardsVRC
             for (int i = 0; i < _ownedCount; i++) if (_owned[i] == _deckItem) at = i;
             at = (at + dir + _ownedCount) % _ownedCount;
             _deckItem = _owned[at];
-            _selected = 0;
             SetStatus("");
             Refresh();
         }
@@ -268,31 +387,15 @@ namespace WizardsVRC
                 if (id == 0 || c.inventoryCounts[i] == 0 || itemDatabase == null || !itemDatabase.IsDeck(id)) continue;
                 bool seen = false;
                 for (int k = 0; k < _ownedCount; k++) if (_owned[k] == id) seen = true;
-                if (!seen) _owned[_ownedCount++] = id;
+                if (!seen && _ownedCount < _owned.Length) _owned[_ownedCount++] = id;
             }
         }
 
         private void SetFilter(int filter)
         {
-            _filter = filter;
+            _filter = Mathf.Clamp(filter, 0, FILTERS - 1);
             _page = 0;
-            Refresh();
-        }
-
-        private void SelectDeckCell(int cell)
-        {
-            if (cell >= _deckUniqueCount) return;
-            _selected = _deckUnique[cell];
-            SetStatus("");
-            Refresh();
-        }
-
-        private void SelectBookCell(int cell)
-        {
-            int i = _page * BOOK_CELLS + cell;
-            if (i >= _knownCount) return;
-            _selected = _known[i];
-            SetStatus("");
+            if (tooltip != null) tooltip.Hide();
             Refresh();
         }
 
@@ -303,32 +406,43 @@ namespace WizardsVRC
 
         private void BuildLists(CharacterData c)
         {
-            _deckUniqueCount = 0;
             BuildOwned(c);
             bool stillOwned = false;
             for (int i = 0; i < _ownedCount; i++) if (_owned[i] == _deckItem) stillOwned = true;
             if (!stillOwned) _deckItem = _ownedCount > 0 ? _owned[0] : 0;
+
+            // The deck's cards, each spell's copies together, in the order the spells were first put in.
+            _uniqueCount = 0;
+            _slotCount = 0;
             int list = c.DeckListFor(_deckItem, false);
             int len = list >= 0 ? c.DeckCount(list) : 0;
             for (int k = 0; k < len; k++)
             {
                 int id = c.deckCards[list * CharacterData.DECK_SIZE + k];
                 bool seen = false;
-                for (int u = 0; u < _deckUniqueCount; u++)
-                    if (_deckUnique[u] == id) { seen = true; break; }
-                if (!seen && _deckUniqueCount < DECK_CELLS) _deckUnique[_deckUniqueCount++] = id;
+                for (int u = 0; u < _uniqueCount; u++)
+                    if (_unique[u] == id) { seen = true; break; }
+                if (!seen && _uniqueCount < _unique.Length) _unique[_uniqueCount++] = id;
+            }
+            for (int u = 0; u < _uniqueCount; u++)
+            {
+                int n = c.CountInDeck(list, _unique[u]);
+                for (int k = 0; k < n && _slotCount < DECK_SLOTS; k++) _slots[_slotCount++] = _unique[u];
             }
 
+            // The item spells your gear adds in battle.
+            _itemCount = itemDatabase != null ? itemDatabase.EquippedItemCards(c, _items) : 0;
+
+            // The spells you know in the chosen school (school spells first when showing all, cheapest first as listed).
             _knownCount = 0;
-            int n = cardDatabase.Count();
-            for (int i = 0; i < n && _knownCount < _known.Length; i++)
+            int want = _filterSchool[_filter];
+            int total = cardDatabase.Count();
+            for (int i = 0; i < total && _knownCount < _known.Length; i++)
             {
                 int id = cardDatabase.IdAt(i);
                 if (!cardDatabase.Knows(c, id)) continue;
                 int school = cardDatabase.GetSchool(id);
-                if (_filter == FILTER_SCHOOL && school == CardDatabase.GENERAL) continue;
-                if (_filter == FILTER_GENERAL && school != CardDatabase.GENERAL) continue;
-                _known[_knownCount++] = id;
+                if (want == -2 || school == want) _known[_knownCount++] = id;
             }
         }
 
@@ -342,7 +456,6 @@ namespace WizardsVRC
             BuildLists(c);
 
             int list = c.DeckListFor(_deckItem, false);
-            int count = list >= 0 ? c.DeckCount(list) : 0;
             bool equipped = _deckItem > 0 && c.equipped[CharacterData.EQUIP_DECK] == _deckItem;
             int cap = _deckItem > 0 ? itemDatabase.GetDeckCapacity(_deckItem) : 0;
             int copies = _deckItem > 0 ? itemDatabase.GetDeckMaxCopies(_deckItem) : 0;
@@ -350,55 +463,87 @@ namespace WizardsVRC
                 deckNameLabel.text = _deckItem > 0 ? itemDatabase.GetName(_deckItem) + (equipped ? "  (equipped)" : "") : "No deck";
             if (deckTitle != null)
                 deckTitle.text = _deckItem > 0
-                    ? count.ToString() + " / " + cap.ToString() + " spells, up to " + copies.ToString() + " copies each" + ItemCardNote(c) + (_ownedCount > 1 ? "   (" + _ownedCount.ToString() + " decks owned)" : "")
+                    ? _slotCount.ToString() + " / " + cap.ToString() + " spells   -   up to " + copies.ToString() + " of each" + ItemCardNote(c) + (_ownedCount > 1 ? "   -   " + _ownedCount.ToString() + " decks" : "")
                     : "Find a deck and equip it.";
             if (equipDeckButton != null) equipDeckButton.SetActive(_deckItem > 0 && !equipped);
 
-            for (int cell = 0; cell < DECK_CELLS; cell++)
+            // ---- the deck's squares: cards, then empty slots up to its size
+            int shown = Mathf.Min(DECK_SLOTS, Mathf.Max(cap, _slotCount));
+            for (int slot = 0; slot < DECK_SLOTS; slot++)
             {
-                bool has = cell < _deckUniqueCount;
-                if (deckCellRoots != null && cell < deckCellRoots.Length && deckCellRoots[cell] != null) deckCellRoots[cell].SetActive(has);
-                if (!has) continue;
-                int id = _deckUnique[cell];
-                Image frame = ImageAt(deckCellIcons, cell);
-                cardDatabase.FillCard(id, frame, TextAt(deckCellNames, cell), TextAt(deckCellPips, cell), ArtAt(deckCellArts, cell), null, null, null, false);
-                if (frame != null && id == _selected) frame.color = _picked;
-                Text countText = TextAt(deckCellCounts, cell);
-                if (countText != null) countText.text = "x" + c.CountInDeck(list, id).ToString();
+                GameObject root = deckSlotRoots != null && slot < deckSlotRoots.Length ? deckSlotRoots[slot] : null;
+                if (root == null) continue;
+                bool on = slot < shown;
+                if (root.activeSelf != on) root.SetActive(on);
+                if (on) DrawSquare(ImageAt(deckSlotFrames, slot), ArtAt(deckSlotArts, slot), TextAt(deckSlotPips, slot), TextAt(deckSlotNames, slot), slot < _slotCount ? _slots[slot] : 0);
             }
 
-            if (schoolFilterLabel != null) schoolFilterLabel.text = cardDatabase.SchoolName((int)c.school);
+            // ---- the item spells from your gear: a row of nine squares (two when there are more)
+            int itemTotal = itemDatabase != null ? itemDatabase.EquippedItemCardCount(c) : 0;
+            if (itemLabel != null)
+                itemLabel.text = itemTotal > 0 ? "Item spells from your gear: " + itemTotal.ToString() + "  (added in battle)" : "Item spells from your gear: none";
+            int itemShown = _itemCount > ITEM_ROW ? ITEM_SLOTS : ITEM_ROW;
+            for (int slot = 0; slot < ITEM_SLOTS; slot++)
+            {
+                GameObject root = itemSlotRoots != null && slot < itemSlotRoots.Length ? itemSlotRoots[slot] : null;
+                if (root == null) continue;
+                bool on = slot < itemShown;
+                if (root.activeSelf != on) root.SetActive(on);
+                if (on) DrawSquare(ImageAt(itemSlotFrames, slot), ArtAt(itemSlotArts, slot), TextAt(itemSlotPips, slot), TextAt(itemSlotNames, slot), slot < _itemCount ? _items[slot] : 0);
+            }
+
+            // ---- the school icons across the top
             if (filterImages != null)
                 for (int f = 0; f < filterImages.Length; f++)
                     if (filterImages[f] != null) filterImages[f].color = f == _filter ? _tabOn : _tabOff;
+            if (filterTitle != null)
+                filterTitle.text = (_filter == FILTER_ALL ? "All your spells" : _filterNames[_filter] + " spells") + "   (" + _knownCount.ToString() + ")";
 
+            // ---- the spells you know, six to a page
             _page = Mathf.Clamp(_page, 0, PageCount() - 1);
             for (int cell = 0; cell < BOOK_CELLS; cell++)
             {
                 int i = _page * BOOK_CELLS + cell;
                 bool has = i < _knownCount;
-                if (bookCellRoots != null && cell < bookCellRoots.Length && bookCellRoots[cell] != null) bookCellRoots[cell].SetActive(has);
+                GameObject root = bookCellRoots != null && cell < bookCellRoots.Length ? bookCellRoots[cell] : null;
+                if (root != null && root.activeSelf != has) root.SetActive(has);
+                Text count = TextAt(bookCellCounts, cell);
+                Image badge = ImageAt(bookCellBadges, cell);
+                if (badge != null && badge.gameObject.activeSelf != has) badge.gameObject.SetActive(has);
                 if (!has) continue;
                 int id = _known[i];
-                Image frame = ImageAt(bookCellIcons, cell);
-                cardDatabase.FillCard(id, frame, TextAt(bookCellNames, cell), TextAt(bookCellPips, cell), ArtAt(bookCellArts, cell), null, null, null, false);
-                if (frame != null && id == _selected) frame.color = _picked;
+                cardDatabase.FillCard(id, ImageAt(bookCellIcons, cell), TextAt(bookCellNames, cell), TextAt(bookCellPips, cell), ArtAt(bookCellArts, cell),
+                    TextAt(bookCellAccuracies, cell), TextAt(bookCellInfos, cell), TextAt(bookCellSchools, cell), false);
+                int inDeck = list >= 0 ? c.CountInDeck(list, id) : 0;
+                if (count != null) count.text = _deckItem > 0 ? "In deck: " + inDeck.ToString() + " / " + copies.ToString() : "No deck";
+                if (badge != null)
+                    badge.color = _deckItem <= 0 ? _badgeNone : (inDeck >= copies || _slotCount >= cap) ? _badgeFull : inDeck > 0 ? _badgeRoom : _badgeNone;
             }
             if (pageLabel != null) pageLabel.text = "Page " + (_page + 1).ToString() + " / " + PageCount().ToString();
-
-            bool show = _selected > 0;
-            if (detailsPanel != null) detailsPanel.SetActive(show);
-            if (!show) return;
-            int inDeck = list >= 0 ? c.CountInDeck(list, _selected) : 0;
-            if (detailName != null) detailName.text = cardDatabase.GetName(_selected);
-            cardDatabase.FillCard(_selected, detailFrame, detailCardName, detailPips, detailArt, detailAccuracy, detailInfo, detailSchool, false);
-            if (detailBody != null)
-                detailBody.text = cardDatabase.GetDetailsFor(c, _selected) + "\nIn this deck: " + inDeck.ToString() + " / " + copies.ToString();
-            if (addButton != null) addButton.SetActive(cardDatabase.Knows(c, _selected));
-            if (removeButton != null) removeButton.SetActive(inDeck > 0);
         }
 
-        private Color _picked = new Color(1f, 1f, 0.72f);
+        /// <summary>One square: the card's school colour, its art (the middle of a wide picture), pip cost, and its name when it has no art; 0 = an empty slot.</summary>
+        private void DrawSquare(Image frame, RawImage art, Text pips, Text nm, int id)
+        {
+            if (id == 0)
+            {
+                if (frame != null) frame.color = _slotEmpty;
+                if (art != null && art.gameObject.activeSelf) art.gameObject.SetActive(false);
+                if (pips != null) pips.text = "";
+                if (nm != null) nm.text = "";
+                return;
+            }
+            if (frame != null) frame.color = cardDatabase.GetColor(id);
+            Texture t = cardDatabase.ArtFor(id);
+            if (art != null)
+            {
+                art.texture = t;
+                if (t != null) art.uvRect = t.width > t.height ? new Rect(0.5f - 0.5f * t.height / t.width, 0f, (float)t.height / t.width, 1f) : new Rect(0f, 0f, 1f, 1f);
+                if (art.gameObject.activeSelf != (t != null)) art.gameObject.SetActive(t != null);
+            }
+            if (pips != null) pips.text = cardDatabase.GetPipCost(id).ToString();
+            if (nm != null) nm.text = t == null ? cardDatabase.GetName(id) : "";
+        }
 
         private Image ImageAt(Image[] a, int i) { return a != null && i >= 0 && i < a.Length ? a[i] : null; }
         private Text TextAt(Text[] a, int i) { return a != null && i >= 0 && i < a.Length ? a[i] : null; }
@@ -409,16 +554,18 @@ namespace WizardsVRC
             return playerState != null && playerState.HasCharacter() && playerState.current != null;
         }
 
+        /// <summary>A message under the deck; with none, how the page works.</summary>
         private void SetStatus(string message)
         {
-            if (statusLabel != null) statusLabel.text = message;
+            if (statusLabel != null)
+                statusLabel.text = message.Length > 0 ? message : "<color=#8A7458>Click a card in the deck to take it out. Point at any card for its details.</color>";
         }
 
-        /// <summary>"  + 7 item spells from your gear" (Wizard101 item cards), or empty.</summary>
+        /// <summary>"   -   + 7 item spells from your gear" (item cards), or empty.</summary>
         private string ItemCardNote(CharacterData c)
         {
             int n = itemDatabase != null ? itemDatabase.EquippedItemCardCount(c) : 0;
-            return n > 0 ? "  + " + n.ToString() + " item spell" + (n > 1 ? "s" : "") + " from your gear" : "";
+            return n > 0 ? "   -   + " + n.ToString() + " item spell" + (n > 1 ? "s" : "") + " from gear" : "";
         }
     }
 }

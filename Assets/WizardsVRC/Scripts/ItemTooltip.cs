@@ -24,8 +24,17 @@ namespace WizardsVRC
         [Tooltip("How far right of the pointed-at element the pop-up sits (m), and how far towards you.")]
         public float sideOffset = 0.2f;
         public float forwardOffset = 0.03f;
+        [Tooltip("The book's canvas: the pop-up grows and shrinks with it (the book opens bigger in VR, smaller when it has to come closer).")]
+        public Transform scaleWith;
+        private Vector3 _baseScale;
+        private float _refScale;
 
-        private void Start() { Hide(); }
+        private void Start()
+        {
+            if (root != null) _baseScale = root.transform.localScale;
+            if (scaleWith != null) _refScale = scaleWith.localScale.x;
+            Hide();
+        }
 
         public void Hide()
         {
@@ -36,8 +45,11 @@ namespace WizardsVRC
         {
             if (root == null || anchor == null) return;
             Transform t = root.transform;
+            float k = 1f;
+            if (scaleWith != null && _refScale > 0f && anchor.IsChildOf(scaleWith)) k = scaleWith.localScale.x / _refScale;
+            if (_baseScale != Vector3.zero) t.localScale = _baseScale * k;
             t.rotation = anchor.rotation;
-            t.position = anchor.position + anchor.right * sideOffset - anchor.forward * forwardOffset;
+            t.position = anchor.position + anchor.right * sideOffset * k - anchor.forward * forwardOffset * k;
             root.SetActive(true);
         }
 

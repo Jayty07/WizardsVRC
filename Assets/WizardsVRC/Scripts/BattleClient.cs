@@ -107,6 +107,15 @@ namespace WizardsVRC
         public float engageHeight = 5f;
         public Transform clockHand;
         public Text clockLabel;
+        [Tooltip("The round timer: the seconds left to choose, big over the banner (red for the last ten).")]
+        public Text timerLabel;
+        [Tooltip("Ticks once a second for the last ten seconds of choosing (clockTick; clockTickLast for the last three).")]
+        public AudioSource clockAudio;
+        public AudioClip clockTick;
+        public AudioClip clockTickLast;
+        private int _tickedSecond = -1;
+        private float _timerPulse;
+        private bool _centreHidden;
         [Tooltip("The clock dial set into the ring (DuelClock shader): its rim of segments shows the time left to choose.")]
         public Renderer clockFace;
         private Material _clockMat;
@@ -3096,16 +3105,19 @@ namespace WizardsVRC
             {
                 float left = Mathf.Clamp01((manager.phaseEndMs - manager.Now()) / (manager.planningSeconds * 1000f));
                 target = 360f * (1f - left);
-                label = "Choose your spells\n" + manager.SecondsLeft().ToString() + "s";
+                label = "Choose your spells";
+                UpdateTimer(manager.SecondsLeft(), true);
             }
             else if (phase == BattleManager.PHASE_PLAYBACK && _clockActor >= 0 && _clockActor < seats.Length)
             {
                 Vector3 d = arenaCenter.InverseTransformPoint(seats[_clockActor].position);
                 target = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
                 label = manager.SlotName(_clockActor) + "'s turn";
+                UpdateTimer(0, false);
             }
             else
             {
+                UpdateTimer(0, false);
                 target = 0f;
                 label = phase == BattleManager.PHASE_JOINING ? "Battle!" : "";
             }
@@ -3122,6 +3134,34 @@ namespace WizardsVRC
             Quaternion want = Quaternion.Euler(0f, target, 0f);
             clockHand.localRotation = phase == BattleManager.PHASE_PLANNING ? want : Quaternion.RotateTowards(clockHand.localRotation, want, 540f * Time.deltaTime);
             if (clockLabel != null) clockLabel.text = label;
+        }
+
+        /// <summary>
+        /// The round timer over the banner: the seconds left while spells are chosen, gold, then red for the last ten, when
+        /// each new second ticks (a brighter tick for the last three) and the number pops. Blank otherwise.
+        /// </summary>
+        private void UpdateTimer(int secs, bool on)
+        {
+            if (timerLabel == null) return;
+            string want = on ? secs.ToString() : "";
+            if (timerLabel.text != want) timerLabel.text = want;
+            if (!on) { _tickedSecond = -1; _timerPulse = 0f; return; }
+            bool late = secs <= 10;
+            timerLabel.color = late ? new Color(1f, 0.34f, 0.26f) : new Color(1f, 0.86f, 0.45f);
+            if (secs != _tickedSecond)
+            {
+                // A new second in the last ten (not the first one seen, so arriving late doesn't tick).
+                if (_tickedSecond >= 0 && late && secs > 0)
+                {
+                    _timerPulse = 1f;
+                    AudioClip clip = secs <= 3 && clockTickLast != null ? clockTickLast : clockTick;
+                    if (clockAudio != null && clip != null && clockAudio.gameObject.activeInHierarchy) clockAudio.PlayOneShot(clip);
+                }
+                _tickedSecond = secs;
+            }
+            _timerPulse = Mathf.MoveTowards(_timerPulse, 0f, Time.deltaTime * 3f);
+            float sc = 1f + 0.3f * _timerPulse * _timerPulse;
+            timerLabel.transform.localScale = new Vector3(sc, sc, 1f);
         }
 
         /// <summary>The target glows turn slowly and breathe; all off once you're out of the fight.</summary>
@@ -3156,7 +3196,12 @@ namespace WizardsVRC
         {
             AnimateSeatGlows();
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) { UpdateClock(); SpinFx(); AnimateSummon(); AnimateCircle(); AnimatePips(); AnimateGauges(); }
-            else if (_clockMat != null && _clockShown != 1f) { _clockMat.SetFloat("_Remaining", 1f); _clockShown = 1f; }   // idle ring: the dial at rest, full
+            else
+            {
+                if (_clockMat != null && _clockShown != 1f) { _clockMat.SetFloat("_Remaining", 1f); _clockShown = 1f; }   // idle ring: the dial at rest, full
+                if (timerLabel != null && timerLabel.text.Length > 0) UpdateTimer(0, false);
+                if (_centreHidden) { _centreHidden = false; ShowCentreText(true); }
+            }
             if (manager != null && manager.phase >= BattleManager.PHASE_JOINING) FaceViewer();
             AnimateFlash();
             AnimateDefeats();
@@ -3858,6 +3903,24 @@ namespace WizardsVRC
                     if (overheadLabels[i] != null && overheadLabels[i].text.Length > 0) Billboard(overheadLabels[i].transform.parent, head);
             if (bannerLabel != null && bannerLabel.text.Length > 0) Billboard(bannerLabel.transform.parent, head);
             if (clockLabel != null && clockLabel.text.Length > 0) Billboard(clockLabel.transform.parent, head);
+            if (timerLabel != null && timerLabel.text.Length > 0) Billboard(timerLabel.transform.parent, head);
+            // The clock's words, the banner and the timer stand over the middle of the ring: hidden for you while you're
+            // there yourself (casting a spell's cinematic), so they're never inside your head.
+            bool near = false;
+            if (arenaCenter != null)
+            {
+                Vector3 d = head - arenaCenter.position;
+                d.y = 0f;
+                near = d.sqrMagnitude < 2.6f;
+            }
+            if (near != _centreHidden) { _centreHidden = near; ShowCentreText(!near); }
+        }
+
+        private void ShowCentreText(bool on)
+        {
+            if (bannerLabel != null) bannerLabel.transform.parent.gameObject.SetActive(on);
+            if (clockLabel != null) clockLabel.transform.parent.gameObject.SetActive(on);
+            if (timerLabel != null) timerLabel.transform.parent.gameObject.SetActive(on);
         }
 
         private void Billboard(Transform t, Vector3 head)

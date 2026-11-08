@@ -683,6 +683,7 @@ namespace WizardsVRC.EditorTools
             tip.playerState = playerState;
             tip.itemDatabase = itemDb;
             tip.cardDatabase = cardDb;
+            tip.scaleWith = book.bookRoot != null ? book.bookRoot.transform : null;
             book.tooltip = tip;
             deck.tooltip = tip;
 
@@ -712,11 +713,14 @@ namespace WizardsVRC.EditorTools
             if (book.slotIcons != null)
                 for (int i = 0; i < book.slotIcons.Length; i++)
                     if (book.slotIcons[i] != null) AddHoverEvents(book.slotIcons[i].gameObject, bt, "HoverSlot" + i, nameof(InventoryBook.Unhover));
-            if (deck.deckCellRoots != null)
-                for (int i = 0; i < deck.deckCellRoots.Length && i < 20; i++)
-                    if (deck.deckCellRoots[i] != null) AddHoverEvents(deck.deckCellRoots[i], dt, "HoverDeck" + i, nameof(DeckPages.Unhover));
+            if (deck.deckSlotRoots != null)
+                for (int i = 0; i < deck.deckSlotRoots.Length && i < DeckPages.DECK_SLOTS; i++)
+                    if (deck.deckSlotRoots[i] != null) AddHoverEvents(deck.deckSlotRoots[i], dt, "HoverSlot" + i, nameof(DeckPages.Unhover));
+            if (deck.itemSlotRoots != null)
+                for (int i = 0; i < deck.itemSlotRoots.Length && i < DeckPages.ITEM_SLOTS; i++)
+                    if (deck.itemSlotRoots[i] != null) AddHoverEvents(deck.itemSlotRoots[i], dt, "HoverItem" + i, nameof(DeckPages.Unhover));
             if (deck.bookCellRoots != null)
-                for (int i = 0; i < deck.bookCellRoots.Length && i < 12; i++)
+                for (int i = 0; i < deck.bookCellRoots.Length && i < DeckPages.BOOK_CELLS; i++)
                     if (deck.bookCellRoots[i] != null) AddHoverEvents(deck.bookCellRoots[i], dt, "HoverBook" + i, nameof(DeckPages.Unhover));
         }
     }

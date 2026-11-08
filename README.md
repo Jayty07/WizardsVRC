@@ -52,7 +52,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/ItemDatabase.cs`, `Tools/make_items.py` | World 1's 74 items (gear for every slot and school, potions, decks), generated from one level budget per stat; quest rewards and boss drops are unique. See *Items (World 1)* in [WORLD_BUILDING.md](WORLD_BUILDING.md) |
 | `Assets/WizardsVRC/Scripts/InventoryBook.cs` | Backpack book: live avatar portrait (MirrorReflection-layer camera → RenderTexture), equipment slots + stats (left page), tabbed paged item grid + Equip/Unequip (right page) |
 | `Assets/WizardsVRC/Scripts/CardDatabase.cs` | Spell cards, level/school learning rules, deck limits. Card faces show short Wizard101-style text with icons (`GetCardText`: numbers with school, damage, shield, blade, trap, heal, stun, over-time, accuracy, minion and break icons); the details box keeps the full sentence (`GetEffectText`) |
-| `Assets/WizardsVRC/Scripts/DeckPages.cs` | Book's Deck tab: flip through the deck items you own, edit and equip them (left), spellbook with Add/Remove (right) |
+| `Assets/WizardsVRC/Scripts/DeckPages.cs` | Book's Deck tab, laid out like a spell deck screen: the "Spell Deck" plaque with a round icon per school (All, the seven schools, General) to filter by; the deck shown (flip through and equip the decks you own) with every card as its own square (click to take one out) and, under it, a row of the item spells your gear adds in battle; six big cards of the spells you know on the right (click to add a copy), each with how many the deck holds, page arrows down the sides; pointing at any card shows its details |
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
 | `Assets/WizardsVRC/Scripts/CastPattern.cs`, `PatternWand.cs` | Drawing a spell's rune before it's sent (spells under 100% accuracy): the board of points along the school's symbol, the hip wand in VR (a local pickup; `PatternWand` relays its grab and drop), numbered points on desktop, the quality that cuts the fizzle chance |
@@ -63,7 +63,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/TavernJukebox.cs` | The tavern's synced video player: link, start time and pause are synced (anyone can change the song), everyone seeks to the same point, retries when VRChat rate-limits loads, and fades the speaker so it's only heard inside the tavern; mute and volume are per player. **Big screen** (synced) brings the screen down in front of the curtains at 2.2x the size for watching videos |
 | `Assets/WizardsVRC/Scripts/FireFlicker.cs` | The tavern hearth's stylised fire: layered flame tongues stretch and sway, embers rise and the light flickers (local; only while you're near) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Magic.cs` | Hub atmosphere: crystals, gems, wisps and curios that hover and turn (native looping clips, a halo of shards round the Starfall Crystal), each classroom's motes and floating curios (embers, snow, sparks, pollen, wisps, glitter, sand), the tavern stage's finished front (nosing, velvet fascia, footlights, proscenium pillars, header and valance, backdrop), the hearth fire, and the hub's occlusion culling setup and bake |
-| `Assets/WizardsVRC/Scripts/PlayerHUD.cs` | Head-following HUD: name, level, health, mana, gold, and a segmented XP bar (fills in steps; on level-up it fills, flashes and starts again) |
+| `Assets/WizardsVRC/Scripts/PlayerHUD.cs` | Head-following HUD: name, level, health, mana, gold, and a segmented XP bar (fills in steps; on level-up it fills, flashes and starts again). In VR it sits lower and nearer the middle of your view, 1.5x bigger and turned to face your eyes (`headOffsetVR`, `vrScale`), or floats over your left hand (Settings > **VR HUD**, remembered) |
 | `Assets/WizardsVRC/Scripts/EventRelay.cs` | Interact → `SendCustomEvent` on a target (backpack pedestal) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.cs` | Generates the scene and wires all references/buttons |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Zones.cs` | Builds zones, monster tables and authored quests from the world data |
@@ -157,9 +157,10 @@ Saves happen on create, on select/swap (the previous character is saved first), 
 ## The book
 
 **B** (desktop), the hub button or the backpack pedestal opens it. Bookmarks: **Pack** (equipment and items),
-**Deck** (decks and spells, shown as the same spell cards as in battle), **Quests**, and **Settings** (HUD and quest-arrow toggles, Save Now, Return to Starfall
+**Deck** (decks and spells, shown as the same spell cards as in battle), **Quests**, and **Settings** (HUD and quest-arrow toggles, **VR HUD** (in view or over your left hand), Save Now, Return to Starfall
 Castle, music volume, **Wand hand** (which hip the casting wand waits at in VR, remembered), and Change Character, which saves and takes you back to the select room). All of the book's text uses the pixel
-font, like the signs and the duel ring.
+font, like the signs and the duel ring. The book opens 1.2x bigger in VR (`InventoryBook.vrScale`; 1.08x on a screen,
+`desktopScale`), and the pop-up details grow with it.
 
 On the **Quests** page, **Abandon** (click it twice to confirm) wipes an active quest's progress from your save, so it
 counts as never started: its quest giver offers it again (givers check your saved quests), quest objects it used come
@@ -386,6 +387,10 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **The turn clock** is set into the middle of the duel circle: a dial whose rim of 40 rune segments goes dark
   clockwise as the time to choose runs out (gold, then red and pulsing near the end), and a gold hand that sweeps the
   timer, then points at each caster in turn (`Shaders/DuelClock.shader`, dial and hand by `Tools/make_duel_ring.py`).
+  Over it, from the bottom up: whose turn it is, the round / cast banner, and the **round timer**: the seconds left to
+  choose, gold, then red for the last ten, when every second ticks (`Audio/UI/Clock_Tick.wav`, a brighter
+  `Clock_TickLast.wav` for the last three; `Tools/make_clock_tick.py`) and the number pops. They're hidden for you while
+  you stand in the middle yourself (casting a cinematic).
 - **Picking a target:** with a spell picked, the seats it can go to glow on the floor (green for allies, red for
   enemies); click the combatant (or their button on the hand) to cast there.
 - **Drawing the rune (`CastPattern`):** a spell under 100% accuracy (with your bonuses and Focus) isn't sent the moment
