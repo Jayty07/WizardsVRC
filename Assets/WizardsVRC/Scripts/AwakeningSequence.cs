@@ -112,10 +112,20 @@ namespace WizardsVRC
 
         public bool IsRunning() { return _running; }
 
+        private bool _blackout;
+        private float _blackoutUntil;
+
         private void Start()
         {
-            SetActive(lids, false);
             SetActive(subtitleRoot, false);
+            // Eyes shut from the moment you join until IntroFlow knows whether you're new: otherwise a new player sees
+            // the study (and the wizard standing in it) for a few seconds before the opening starts in the dark.
+            _blackout = true;
+            _blackoutUntil = Time.time + 25f;   // never stuck in the dark if the saves don't load
+            if (lidRenderer != null && _lidMat == null) _lidMat = lidRenderer.material;
+            _open = 0f; _flash = 0f; _tint = 0.3f; _vignette = 0.8f;
+            ApplyLids();
+            SetActive(lids, true);
             if (visions != null)
             {
                 _visionBase = new Vector3[visions.Length];
@@ -132,6 +142,7 @@ namespace WizardsVRC
         public void Begin(int slot)
         {
             if (_running) return;
+            _blackout = false;
             _slot = slot;
             _running = true;
             _waitingCreator = false;
@@ -319,9 +330,23 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ every frame
 
+        /// <summary>IntroFlow: a returning player (no opening to play): open your eyes on the study.</summary>
+        public void EndBlackout()
+        {
+            if (!_blackout) return;
+            _blackout = false;
+            if (!_running) SetActive(lids, false);
+        }
+
         private void Update()
         {
-            if (!_running) return;
+            if (!_running)
+            {
+                if (!_blackout) return;
+                if (Time.time > _blackoutUntil) { EndBlackout(); return; }
+                FollowHead(Time.deltaTime);
+                return;
+            }
             float dt = Time.deltaTime;
             if (!_waitingCreator && Time.time >= _beatEnd) Next();
             if (!_running) return;

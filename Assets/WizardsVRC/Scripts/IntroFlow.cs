@@ -28,16 +28,20 @@ namespace WizardsVRC
         public void _Check()
         {
             if (_decided) return;
-            if (saveManager == null || selectUI == null) return;
+            if (saveManager == null || selectUI == null) { if (awakening != null) awakening.EndBlackout(); return; }
             if (!saveManager.isReady)
             {
                 SendCustomEventDelayedSeconds(nameof(_Check), 0.5f);
                 return;
             }
             _decided = true;
-            if (!selectUI.IsNewPlayer()) return;
-            int slot = selectUI.FirstEmptySlot();
-            if (slot < 0) return;
+            int slot = selectUI.IsNewPlayer() ? selectUI.FirstEmptySlot() : -1;
+            if (slot < 0)
+            {
+                // Returning: nothing to play, open your eyes on the character select.
+                if (awakening != null) awakening.EndBlackout();
+                return;
+            }
             if (awakening != null) awakening.Begin(slot);
             else selectUI.PromptSchool();
         }
