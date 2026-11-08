@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 24;
+        public const int CurrentVersion = 25;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -191,6 +191,35 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 22) UpgradeTo22();
             if (from < 23) UpgradeTo23();
             if (from < 24) UpgradeTo24();
+            if (from < 25) UpgradeTo25();
+        }
+
+        /// <summary>
+        /// v25: Ashwick the Snuffer (Lantern Row's boss) made easier: 800 health instead of 1200 (+350 per extra wizard instead
+        /// of +500), and Night Leech (his 240-360 drain) is gone, so Grave Ghast is his biggest hit. Each value only if it's
+        /// still the old default.
+        /// </summary>
+        private static void UpgradeTo25()
+        {
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            var m = cat != null ? cat.Find(7) : null;
+            if (m == null) return;
+            var changed = new List<string>();
+            if (m.health == 1200) { m.health = 800; changed.Add("800 health"); }
+            if (m.healthPerExtraWizard == 500) { m.healthPerExtraWizard = 350; changed.Add("+350 per extra wizard"); }
+            if (m.spells != null && m.spells.Count == 4 && m.spells[0] == 148 && m.spells[1] == 149 && m.spells[2] == 150 && m.spells[3] == 154)
+            {
+                m.spells.RemoveAt(3);
+                changed.Add("no Night Leech");
+            }
+            if (changed.Count == 0)
+            {
+                Debug.Log("[WizardsVRC] Monster 7 (" + m.name + ") has edited stats, so they were left as you set them.");
+                return;
+            }
+            if (m.notes != null && !m.notes.Contains("Toned down")) m.notes += " Toned down: 800 health, no Night Leech.";
+            EditorUtility.SetDirty(cat);
+            Debug.Log("[WizardsVRC] Upgraded world data (v25): " + m.name + " made easier (" + string.Join(", ", changed) + ").");
         }
 
         /// <summary>

@@ -36,8 +36,10 @@ namespace WizardsVRC.EditorTools.WorldData
                 M(5, "Gloom Wisp", School.Death, 4, 240, false, 0, new[] { 148 }, 45, 8, 16, 10, 20, 0.6f, new Color(0.35f, 0.4f, 0.55f), "Lantern Row. Hovers in pairs."),
                 M(6, "Lantern Snatcher", School.Myth, 5, 300, false, 0, new[] { 160, 161 }, 60, 10, 22, 11, 25, 0.9f, new Color(0.45f, 0.35f, 0.25f),
                   "Lantern Row. Goblin-like thieves carrying stolen lamp-flames."),
-                M(7, "Ashwick the Snuffer", School.Death, 6, 1200, true, 500, new[] { 148, 149, 150, 154 }, 220, 60, 110, 62, 40, 1.6f, new Color(0.2f, 0.22f, 0.3f),
-                  "Lantern Row boss in the Snuffer's Tower. Drops the Ironbound Deck."),
+                // No Night Leech (a 240-360 drain that could take most of a level 5 wizard's health in one hit) and less
+                // health: his biggest hit is Grave Ghast (110-170).
+                M(7, "Ashwick the Snuffer", School.Death, 6, 800, true, 350, new[] { 148, 149, 150 }, 220, 60, 110, 62, 40, 1.6f, new Color(0.2f, 0.22f, 0.3f),
+                  "Lantern Row boss in the Snuffer's Tower. Drops the Ironbound Deck. Toned down: 800 health, no Night Leech."),
                 M(8, "Puddle Newt", School.Ice, 1, 170, false, 0, new[] { 112 }, 20, 4, 10, 0, 0, 0.6f, new Color(0.45f, 0.7f, 0.85f), "Sunpetal Gardens ponds."),
                 M(9, "Thistle Sprout", School.Life, 1, 150, false, 0, new[] { 136 }, 18, 3, 9, 0, 0, 0.6f, new Color(0.45f, 0.75f, 0.3f), "Sunpetal Gardens. Walking weeds; the first monsters most wizards fight."),
                 M(10, "Mischief Moth", School.Myth, 2, 190, false, 0, new[] { 160 }, 28, 5, 12, 11, 15, 0.7f, new Color(0.8f, 0.7f, 0.95f), "Sunpetal Gardens rose beds. Drops moth dust (quest 14)."),
