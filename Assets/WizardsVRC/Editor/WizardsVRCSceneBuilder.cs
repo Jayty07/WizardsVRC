@@ -743,6 +743,9 @@ namespace WizardsVRC.EditorTools
             book.extraViews = new[] { BuildStatsPages(root, book), BuildNoticesPages(root, book), BuildWardrobePages(root, book), BuildShopPages(root, book), BuildMapPages(root, book) };
             book.extraPages = new UdonSharpBehaviour[] { null, null, BookWardrobe, BookShop, BookMap };
             canvasGo.transform.Find("Spine")?.SetAsLastSibling();
+            // The Deck page's "Spell Deck" header runs across the spine, so that page draws over it (its two pages leave
+            // the spine showing between them).
+            canvasGo.transform.Find("DeckView")?.SetAsLastSibling();
             // The map spreads over both pages (and the spine).
             canvasGo.transform.Find("MapView")?.SetAsLastSibling();
             // The shop window covers the whole book, tabs and spine too.
