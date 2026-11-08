@@ -33,6 +33,8 @@ namespace WizardsVRC
         public ItemDatabase itemDatabase;
         public GameObject bookRoot;
         public float openDistance = 0.85f;
+        [Tooltip("In VR the book opens at most this far away (m), within easy reach of a controller.")]
+        public float vrDistance = 0.6f;
         public KeyCode toggleKey = KeyCode.B;
 
         [Header("Bookmark tabs")]
@@ -122,9 +124,11 @@ namespace WizardsVRC
         private bool _open;
         private int _view;
 
+        private Vector3 _bookScale = Vector3.zero;
+
         private void Start()
         {
-            if (bookRoot != null) bookRoot.SetActive(false);
+            if (bookRoot != null) { _bookScale = bookRoot.transform.localScale; bookRoot.SetActive(false); }
             SetPortraitActive(false);
         }
 
@@ -428,7 +432,12 @@ namespace WizardsVRC
                 forward.y = 0f;
                 if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
                 forward.Normalize();
-                bookRoot.transform.position = head.position + forward * openDistance + Vector3.down * 0.12f;
+                bookRoot.SetActive(false);   // not in its own way
+                float d = ClearDistance(local, head.position, forward, openDistance);
+                bookRoot.transform.position = head.position + forward * d + Vector3.down * 0.12f * d / openDistance;
+                // Nearer, smaller: it looks the same size wherever it ends up.
+                if (_bookScale == Vector3.zero) _bookScale = bookRoot.transform.localScale;
+                bookRoot.transform.localScale = _bookScale * (d / Mathf.Max(0.1f, openDistance));
                 bookRoot.transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
             }
             _open = true;
@@ -442,6 +451,26 @@ namespace WizardsVRC
             else if (_view == VIEW_SETTINGS) RefreshSettings("");
             else if (_view >= FIRST_EXTRA_VIEW) OpenExtra();
             else Refresh();
+        }
+
+
+        // Everything solid except players, UI and walk-through layers.
+        private const int MenuBlockMask = ~((1 << 2) | (1 << 5) | (1 << 9) | (1 << 10) | (1 << 12) | (1 << 17) | (1 << 18));
+
+        /// <summary>
+        /// How far ahead of your head a panel can float with nothing in the way: a table, a wall or the person you're
+        /// talking to between you and it blocks a VR controller's pointer (and in VR it starts closer, within easy reach).
+        /// Checked from your eyes and from hand height.
+        /// </summary>
+        private float ClearDistance(VRCPlayerApi local, Vector3 head, Vector3 forward, float want)
+        {
+            if (local.IsUserInVR()) want = Mathf.Min(want, vrDistance);
+            float d = want;
+            RaycastHit hit;
+            if (Physics.SphereCast(head, 0.18f, forward, out hit, want + 0.3f, MenuBlockMask, QueryTriggerInteraction.Ignore)) d = Mathf.Min(d, hit.distance - 0.12f);
+            Vector3 hands = head + Vector3.down * 0.55f;
+            if (Physics.SphereCast(hands, 0.12f, forward, out hit, want + 0.3f, MenuBlockMask, QueryTriggerInteraction.Ignore)) d = Mathf.Min(d, hit.distance - 0.1f);
+            return Mathf.Max(0.35f, d);
         }
 
         public void CloseBook()
