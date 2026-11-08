@@ -854,7 +854,7 @@ namespace WizardsVRC.EditorTools
             box.size = new Vector3(width + 0.2f, back ? 1.0f : 0.5f, 0.66f);
             var enter = Child(go, "SitHere", new Vector3(0, seatH, 0.04f));
             var exit = Child(go, "StandHere", new Vector3(0, 0.05f, 0.8f));
-            var station = go.gameObject.AddComponent<VRCStation>();
+            var station = go.gameObject.AddComponent<VRC.SDK3.Components.VRCStation>();
             station.PlayerMobility = VRC.SDKBase.VRCStation.Mobility.Immobilize;
             station.seated = true;
             station.disableStationExit = false;
