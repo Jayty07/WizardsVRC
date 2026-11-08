@@ -11,10 +11,11 @@ namespace WizardsVRC.EditorTools
 {
     /// <summary>
     /// The round tavern (Tavern landmark): a cylindrical hall filling the circle inside its block, with a conical roof
-    /// open over the middle (the Starfall fountain stands there in the hub). Inside, a hang-out space: a curved bar with
-    /// stools, shelves, kegs and a bell that brings the mugs back, round tables with stools, a stage with curtains, lights
-    /// and a jukebox (video player heard only inside, WizardsVRCSceneBuilder.Jukebox.cs), a hearth with log seats, a mirror you switch on yourself, hanging lanterns. Every seat is a
-    /// VRCStation you can sit in; the mugs are pickups synced for everyone.
+    /// open over the middle (the Starfall fountain stands there in the hub, its crystal floating high under the opening).
+    /// Here: the walls, doors, floor, roof and rafters, and the curved bar on the east side with its stools, shelves, kegs
+    /// and the bell that brings the mugs back. Everything else inside (the gallery and its rooms, the theatre round the
+    /// crystal, the seven school nooks, the sunbeams) is TavernHall (WizardsVRCSceneBuilder.TavernHall.cs). Every seat is
+    /// a VRCStation you can sit in; the mugs are pickups synced for everyone.
     /// Angles below: 0 = east, 90 = north (doors at 90, 180 and 270; the bar faces them from the east).
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
@@ -121,12 +122,7 @@ namespace WizardsVRC.EditorTools
                 {
                     Block(t, "Wall", TPolar(c, R - 0.4f, a, TavernWallH / 2f), new Vector3(chord, TavernWallH, 0.8f), plaster, TFacing(a));
                     Block(t, "Plinth", TPolar(c, R + 0.1f, a, 0.4f), new Vector3(chord, 0.8f, 0.4f), stone, TFacing(a));
-                    // Windows all round, except behind the bar's shelves, the hearth and the mirror.
-                    if (i % 4 == 2 && AngleGap(a, 0f) > 40f && AngleGap(a, 225f) > 12f && AngleGap(a, 315f) > 12f)
-                    {
-                        Deco(t, PrimitiveType.Cube, "Window", TPolar(c, R + 0.03f, a, 5.4f), new Vector3(1.3f, 2.2f, 0.08f), window, TFacing(a), false);
-                        Deco(t, PrimitiveType.Cube, "Window", TPolar(c, R - 0.83f, a, 5.4f), new Vector3(1.3f, 2.2f, 0.08f), window, TFacing(a), false);
-                    }
+                    // (Windows: each school nook and each room upstairs puts in its own, TavernHall.)
                 }
                 Deco(t, PrimitiveType.Cube, "Cornice", TPolar(c, R - 0.2f, a, TavernWallH + 0.2f), new Vector3(chord + 0.1f, 0.45f, 1.6f), darkWood, TFacing(a), false);
                 if (i % 2 == 0)
@@ -173,7 +169,8 @@ namespace WizardsVRC.EditorTools
             for (int i = 0; i < 8; i++)
             {
                 float a = 45f * i + 22.5f;
-                Vector3 lo = TPolar(c, R - 0.8f, a, yr0 - 0.6f), hi = TPolar(c, r1 + 0.3f, a, yr1 - 0.6f);
+                // From over the rooms' ceilings (the gallery's rooms fill the ring under the roof's low edge) to the middle.
+                Vector3 lo = TPolar(c, RoomIn, a, TavernRoofY(R, RoomIn) - 0.3f), hi = TPolar(c, r1 + 0.3f, a, yr1 - 0.6f);
                 var rafter = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 rafter.name = "Rafter";
                 rafter.isStatic = true;
@@ -240,28 +237,21 @@ namespace WizardsVRC.EditorTools
             Block(t, "BarSignBoard", signBoard + TDir(0f) * 0.08f, new Vector3(5.2f, 1.1f, 0.12f), darkWood, TFacing(0f));
             LandmarkSign(t, signBoard, TDir(180f), name, new Color(1f, 0.85f, 0.45f));
 
-            // ---- round tables with stools and candles, two mugs on each: an inner ring round the fountain and two further
-            // out, clear of the door aisles, the bar stools, the hearth seats and the space in front of the mirror
-            var tableSpots = new[] { new Vector2(10.5f, 48f), new Vector2(10.5f, 132f), new Vector2(10.5f, 222f), new Vector2(10.5f, 312f),
-                                     new Vector2(15.8f, 58f), new Vector2(15.8f, 298f) };
-            foreach (var spot in tableSpots)
-            {
-                float a = spot.y;
-                Vector3 tp = TPolar(c, spot.x, a, 0f);
-                Shape(t, "TableTop", CylMesh(), tp + new Vector3(0, 1f, 0), new Vector3(1.8f, 0.05f, 1.8f), wood, true, Quaternion.identity);
-                Shape(t, "TableLeg", CylMesh(), tp + new Vector3(0, 0.5f, 0), new Vector3(0.25f, 0.5f, 0.25f), darkWood, true, Quaternion.identity);
-                Shape(t, "TableFoot", CylMesh(), tp + new Vector3(0, 0.04f, 0), new Vector3(0.9f, 0.04f, 0.9f), darkWood, false, Quaternion.identity);
-                Shape(t, "Candle", CylMesh(), tp + new Vector3(0, 1.17f, 0), new Vector3(0.1f, 0.12f, 0.1f), PMat("CandleWax", new Color(0.9f, 0.88f, 0.8f), 1f), false, Quaternion.identity);
-                Shape(t, "CandleFlame", BlobMesh(), tp + new Vector3(0, 1.35f, 0), new Vector3(0.08f, 0.14f, 0.08f), flame, false, Quaternion.identity);
-                for (int k = 0; k < 4; k++)
+            // ---- the hall (TavernHall): the gallery and its rooms, the theatre round the crystal, the seven school nooks,
+            // sunbeams. Quest objects and the like painted inside the tavern keep the theatre's seats off them.
+            var avoid = new List<Vector3>();
+            if (z != null && z.points != null)
+                foreach (var zp in z.points)
                 {
-                    float sa = a + 45f + 90f * k;
-                    Vector3 sp = tp + TDir(sa) * 1.35f;
-                    MakeSeat(t, "TableStool", sp, -TDir(sa), 0.62f, darkWood, gold, behaviours);
+                    if (zp == null || zp.Symbol == '\0') continue;
+                    foreach (var cell in g.Find(zp.Symbol))
+                    {
+                        Vector3 p = g.Local(cell);
+                        float dx = p.x - c.x, dz = p.z - c.z;
+                        if (dx * dx + dz * dz < R * R) avoid.Add(new Vector3(p.x, c.y, p.z));
+                    }
                 }
-                mugs.Add(MakeMug(t, tp + TDir(a + 45f) * 0.45f + new Vector3(0, 1.06f, 0), pewter, foam));
-                mugs.Add(MakeMug(t, tp + TDir(a + 225f) * 0.45f + new Vector3(0, 1.06f, 0), pewter, foam));
-            }
+            TavernHall(t, c, R, behaviours, mugs, avoid, stone, gold, wood, darkWood, planks, ceiling, beam, window, plaster, velvet, glow, flame, pewter, foam);
 
             // ---- the bell that brings every mug back
             var bellGo = Shape(t, "Bell", BlobMesh(), TPolar(c, barR - 0.1f, -31f, 1.42f), new Vector3(0.38f, 0.42f, 0.38f), gold, false, Quaternion.identity);
@@ -278,106 +268,6 @@ namespace WizardsVRC.EditorTools
             SetInteractText(reset, "Ring for fresh mugs");
             behaviours.Add(reset);
 
-            // ---- stage (north-west): raised planks, a step, curtains, coloured lights, instruments and the jukebox
-            var stage = new MeshBuilder();
-            SectorPrism(stage, c, 12.6f, R - 0.85f, 104f, 166f, 0f, 0.45f, 12);
-            SectorPrism(stage, c, 11.9f, 12.6f, 106f, 164f, 0f, 0.22f, 12);
-            TavernMesh(t, "Stage", stage, planks, true);
-            for (int k = 0; k < 7; k++)
-            {
-                float a = 108f + k * 8.5f;
-                Deco(t, PrimitiveType.Cube, "Curtain", TPolar(c, R - 1.0f, a, 3.4f), new Vector3(2.2f * R / 20f, 5.8f, 0.18f), velvet, TFacing(a) * Quaternion.Euler(0, (k % 2 == 0 ? 6f : -6f), 0), false);
-            }
-            // The finished front: nosing, fascia, footlights, proscenium pillars and valance, backdrop (Magic.cs).
-            TavernStageFinish(t, c, R, 104f, 166f, planks, darkWood, gold, velvet, stone);
-            Deco(t, PrimitiveType.Cube, "CurtainRod", TPolar(c, R - 1.05f, 135f, 6.4f), new Vector3(2f * (R - 1f) * Mathf.Sin(30f * Mathf.Deg2Rad), 0.12f, 0.12f), gold, TFacing(135f), false);
-            Shape(t, "Drum", CylMesh(), TPolar(c, 15.8f, 125f, 0.85f), new Vector3(0.9f, 0.4f, 0.9f), cloth, true, Quaternion.identity);
-            Shape(t, "DrumHead", CylMesh(), TPolar(c, 15.8f, 125f, 1.26f), new Vector3(0.92f, 0.02f, 0.92f), foam, false, Quaternion.identity);
-            Shape(t, "LuteBody", BlobMesh(), TPolar(c, 16.6f, 146f, 1.25f), new Vector3(0.6f, 0.75f, 0.25f), wood, false, TFacing(146f) * Quaternion.Euler(0, 0, 20f));
-            Block(t, "LuteNeck", TPolar(c, 16.6f, 146f, 1.95f), new Vector3(0.08f, 0.9f, 0.08f), darkWood, TFacing(146f) * Quaternion.Euler(0, 0, 20f));
-            var stageColours = new[] { new Color(1f, 0.35f, 0.75f), new Color(0.35f, 0.75f, 1f), new Color(1f, 0.8f, 0.35f) };
-            for (int k = 0; k < 3; k++)
-            {
-                float a = 115f + k * 20f;
-                PointLight(t, TPolar(c, 14.5f, a, 6f), stageColours[k], 12f, 1.6f);
-                Shape(t, "StageLamp", GemMesh(), TPolar(c, 14.5f, a, 6.3f), new Vector3(0.45f, 0.6f, 0.45f),
-                    PMat("StageLamp" + k, stageColours[k], 1f, stageColours[k] * 0.8f), false, Quaternion.identity);
-            }
-            // Music: the jukebox (a synced video player, heard only inside the tavern) with its screen over the
-            // curtains and its controls on a lectern at the stage's west end.
-            BuildJukebox(t, c, R, TavernWallH, TavernRoofRise, 135f, 168f, darkWood, darkWood, behaviours);
-
-            // ---- hearth (south-west): a big fireplace with a chimney through the roof, a rug and log seats round it
-            const float hearthA = 225f;
-            Vector3 hearthOut = TDir(hearthA), hearthSide = Vector3.Cross(Vector3.up, hearthOut);
-            Vector3 hb = TPolar(c, R - 1.6f, hearthA, 0f);
-            foreach (float s in new[] { -1f, 1f })
-                Block(t, "HearthPillar", hb + hearthSide * s * 1.75f + new Vector3(0, 1.8f, 0), new Vector3(0.9f, 3.6f, 1.6f), stone, TFacing(hearthA));
-            Block(t, "HearthLintel", hb + new Vector3(0, 3.2f, 0), new Vector3(4.4f, 0.8f, 1.6f), stone, TFacing(hearthA));
-            Block(t, "HearthBack", hb + hearthOut * 0.6f + new Vector3(0, 1.4f, 0), new Vector3(2.6f, 2.8f, 0.3f), PMat("Soot", new Color(0.12f, 0.1f, 0.1f), 1f), TFacing(hearthA));
-            Deco(t, PrimitiveType.Cube, "Mantel", hb - hearthOut * 0.15f + new Vector3(0, 3.75f, 0), new Vector3(5f, 0.3f, 1.9f), darkWood, TFacing(hearthA), false);
-            Block(t, "Chimney", TPolar(c, R - 1.4f, hearthA, (3.9f + yr1 - 2f) / 2f), new Vector3(2.2f, yr1 - 2f - 3.9f, 1.4f), stone, TFacing(hearthA));
-            // A stylised fire: layered flame tongues over coals and crossed logs, embers, a flickering light (Magic.cs).
-            PointLight(t, hb - hearthOut * 1.5f + new Vector3(0, 1.4f, 0), new Color(1f, 0.55f, 0.2f), 14f, 2f);
-            Light hearthLight = t.GetChild(t.childCount - 1).GetComponent<Light>();
-            hearthLight.gameObject.name = "HearthLight";
-            behaviours.Add(HearthFire(t, hb + new Vector3(0, TavernFloorY, 0), hearthSide, Quaternion.LookRotation(-hearthOut), hearthLight));
-            // Its top was level with the floor (they flickered through each other): it now sits clear on top of the boards.
-            Shape(t, "HearthRug", CylMesh(), TPolar(c, R - 5.2f, hearthA, TavernFloorY + 0.035f), new Vector3(5.5f, 0.02f, 5.5f), cloth, false, Quaternion.identity);
-            foreach (float a in new[] { 210f, 217.5f, 225f, 232.5f, 240f })
-            {
-                Vector3 sp = TPolar(c, R - 5.5f, a, 0f);
-                Vector3 toFire = hb - sp;
-                toFire.y = 0f;
-                MakeSeat(t, "LogSeat", sp, toFire.normalized, 0.5f, darkWood, gold, behaviours, true);
-            }
-
-            // ---- mirror (south-east), off until you switch it on (mirrors are heavy; each player chooses)
-            const float mirrorA = 315f;
-            Block(t, "MirrorFrame", TPolar(c, R - 0.86f, mirrorA, 2.45f), new Vector3(4.6f, 3.6f, 0.12f), gold, TFacing(mirrorA));
-            var mirror = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            mirror.name = "Mirror";
-            Object.DestroyImmediate(mirror.GetComponent<Collider>());
-            mirror.transform.SetParent(t, false);
-            mirror.transform.localPosition = TPolar(c, R - 0.94f, mirrorA, 2.45f);
-            mirror.transform.localRotation = TFacing(mirrorA);
-            mirror.transform.localScale = new Vector3(4.2f, 3.2f, 1f);
-            var mirrorShader = Shader.Find("FX/MirrorReflection");
-            if (mirrorShader != null)
-            {
-                var mirrorMat = AssetDatabase.LoadAssetAtPath<Material>(MaterialsDir + "/TavernMirror.mat");
-                if (mirrorMat == null)
-                {
-                    mirrorMat = new Material(mirrorShader);
-                    AssetDatabase.CreateAsset(mirrorMat, MaterialsDir + "/TavernMirror.mat");
-                }
-                mirror.GetComponent<Renderer>().sharedMaterial = mirrorMat;
-            }
-            else Debug.LogWarning("[WizardsVRC] Shader FX/MirrorReflection not found (VRChat SDK); the tavern mirror has no material.");
-            mirror.AddComponent<VRCMirrorReflection>();
-            mirror.SetActive(false);
-            var mirrorButton = Shape(t, "MirrorToggle", GemMesh(), TPolar(c, R - 1f, mirrorA - 8.5f, 1.5f), new Vector3(0.35f, 0.5f, 0.35f),
-                PMat("MirrorGem", new Color(0.6f, 0.9f, 1f), 1f, new Color(0.3f, 0.55f, 0.7f)), false, Quaternion.identity);
-            mirrorButton.isStatic = false;
-            mirrorButton.AddComponent<SphereCollider>().radius = 0.6f;
-            WorldText(t, "MirrorLabel", TPolar(c, R - 1.05f, mirrorA - 8.5f, 2.1f), Quaternion.LookRotation(TDir(mirrorA - 8.5f)), new Vector2(500, 100), 0.004f, "Mirror", 60)
-                .color = new Color(0.8f, 0.95f, 1f);
-            var mirrorToggle = UdonSharpUndo.AddComponent<LocalToggle>(mirrorButton);
-            mirrorToggle.targets = new[] { mirror };
-            SetInteractText(mirrorToggle, "Mirror on/off (just for you)");
-            behaviours.Add(mirrorToggle);
-
-            // ---- hanging lanterns on chains from the roof, and warm light
-            for (int k = 0; k < 12; k++)
-            {
-                float a = 15f + 30f * k;
-                const float lr = 11.5f;
-                float roofY = yr0 + (r0 - lr) / (r0 - r1) * TavernRoofRise - 0.35f;
-                Deco(t, PrimitiveType.Cube, "Chain", TPolar(c, lr, a, (7.8f + roofY) / 2f), new Vector3(0.06f, roofY - 7.8f, 0.06f), beam, Quaternion.identity, false);
-                Shape(t, "Lantern", GemMesh(), TPolar(c, lr, a, 7.3f), new Vector3(0.6f, 0.9f, 0.6f), glow, false, Quaternion.identity);
-                Deco(t, PrimitiveType.Cube, "LanternCap", TPolar(c, lr, a, 7.85f), new Vector3(0.5f, 0.12f, 0.5f), beam, Quaternion.identity, false);
-            }
-            for (int k = 0; k < 4; k++) PointLight(t, TPolar(c, 11f, 45f + 90f * k, 6.5f), new Color(1f, 0.82f, 0.6f), 18f, 1.3f);
         }
 
         /// <summary>A seat you can sit in: a stool (or a log), a VRCStation facing 'facing', and a Seat behaviour (click to sit).</summary>

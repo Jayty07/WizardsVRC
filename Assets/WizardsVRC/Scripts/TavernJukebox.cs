@@ -44,6 +44,15 @@ namespace WizardsVRC
         [Tooltip("Piano keys that bob while the music plays.")]
         public Transform[] pianoKeys;
         private Vector3[] _keyRest;
+        [Header("Rooms (optional)")]
+        [Tooltip("Only load the video while you're within this distance (m) of the centre (0 = always): the tavern's rooms each " +
+                 "have their own player, and VRChat only allows one video load every few seconds, so a room's video loads when " +
+                 "you come near and unloads when you leave.")]
+        public float loadRange;
+        [Tooltip("Quiet while you're inside any of these (the rooms upstairs, which play their own).")]
+        public TavernJukebox[] mutedInside;
+        private float _nextNear;
+        private bool _near = true;
         [Range(0f, 1f)] public float volume = 0.45f;
         public float fadeSeconds = 0.6f;
 
@@ -154,6 +163,39 @@ namespace WizardsVRC
             UpdateLabels();
         }
 
+        /// <summary>The Stop button (the rooms): nothing plays, for everyone in the room.</summary>
+        public void StopForEveryone()
+        {
+            TakeOwnership();
+            _url = VRCUrl.Empty;
+            _version++;
+            _paused = false;
+            RequestSerialization();
+            Load();
+            UpdateLabels();
+        }
+
+        /// <summary>True when a world position is inside where this jukebox is heard.</summary>
+        public bool Contains(Vector3 worldPos)
+        {
+            if (center == null) return false;
+            Vector3 p = worldPos - center.position;
+            if (boxHalf.x > 0f)
+            {
+                Vector3 lp = Quaternion.Inverse(center.rotation) * p;
+                return Mathf.Abs(lp.x) < boxHalf.x && Mathf.Abs(lp.z) < boxHalf.y && lp.y > -1.5f && lp.y < height;
+            }
+            return p.x * p.x + p.z * p.z < radius * radius && p.y > -1.5f && p.y < height;
+        }
+
+        private bool NearEnough()
+        {
+            if (loadRange <= 0f || center == null) return true;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me)) return false;
+            return Vector3.Distance(me.GetPosition(), center.position) < loadRange + (_near ? 2f : 0f);
+        }
+
         private void StartForEveryone(VRCUrl u)
         {
             TakeOwnership();
@@ -183,7 +225,14 @@ namespace WizardsVRC
 
         private void Load()
         {
-            if (player == null || _url == null || string.IsNullOrEmpty(_url.Get())) return;
+            if (player == null) return;
+            if (_url == null || string.IsNullOrEmpty(_url.Get()))
+            {
+                // Stopped (or nothing yet).
+                if (_version > 0) { player.Stop(); _ready = false; _loadedVersion = _version; SetStatus("Nothing playing"); }
+                return;
+            }
+            if (!NearEnough()) { _loadedVersion = -1; return; }   // a room you're not in: it loads when you come near
             _loadedVersion = _version;
             _ready = false;
             player.Stop();
@@ -260,6 +309,20 @@ namespace WizardsVRC
 
         private void Update()
         {
+            // A room's video loads as you come near and unloads when you've gone (loadRange).
+            if (loadRange > 0f && Time.time >= _nextNear)
+            {
+                _nextNear = Time.time + 0.5f;
+                bool near = NearEnough();
+                _near = near;
+                if (near && _version > 0 && _loadedVersion != _version) Load();
+                else if (!near && _loadedVersion >= 0 && player != null && _url != null && !string.IsNullOrEmpty(_url.Get()))
+                {
+                    player.Stop();
+                    _ready = false;
+                    _loadedVersion = -1;
+                }
+            }
             // Only heard inside the tavern: fade the speaker with where you stand.
             if (speaker != null)
             {
@@ -267,13 +330,11 @@ namespace WizardsVRC
                 VRCPlayerApi me = Networking.LocalPlayer;
                 if (Utilities.IsValid(me) && center != null)
                 {
-                    Vector3 p = me.GetPosition() - center.position;
-                    if (boxHalf.x > 0f)
-                    {
-                        Vector3 lp = Quaternion.Inverse(center.rotation) * p;
-                        inside = Mathf.Abs(lp.x) < boxHalf.x && Mathf.Abs(lp.z) < boxHalf.y && lp.y > -1.5f && lp.y < height;
-                    }
-                    else inside = p.x * p.x + p.z * p.z < radius * radius && p.y > -1.5f && p.y < height;
+                    Vector3 mine = me.GetPosition();
+                    inside = Contains(mine);
+                    if (inside && mutedInside != null)
+                        for (int i = 0; i < mutedInside.Length; i++)
+                            if (mutedInside[i] != null && mutedInside[i].Contains(mine)) { inside = false; break; }
                 }
                 float target = inside && !_muted ? volume : 0f;
                 float step = Time.deltaTime / Mathf.Max(0.05f, fadeSeconds);

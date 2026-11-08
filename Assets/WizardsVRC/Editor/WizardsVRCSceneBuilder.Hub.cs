@@ -305,7 +305,7 @@ namespace WizardsVRC.EditorTools
                         case LandmarkKind.SchoolHall: SchoolHall(root, g, z, l, hub, interior, gold, door); break;
                         case LandmarkKind.Keep: if (hub != null) Keep(root, g, l, hub, stone, roof, gold, banner, door, window); break;
                         case LandmarkKind.Library: Library(root, g, l, stone, roof, gold, door, window); break;
-                        case LandmarkKind.Fountain: HubFountain(root, g, l, stone, gold); break;
+                        case LandmarkKind.Fountain: HubFountain(root, g, l, stone, gold, FountainUnderTavern(g, z, l)); break;
                         case LandmarkKind.ShopStall:
                             var awnings = new[] { new Color(0.85f, 0.2f, 0.2f), new Color(0.2f, 0.4f, 0.85f), new Color(0.9f, 0.6f, 0.15f), new Color(0.2f, 0.65f, 0.3f), new Color(0.6f, 0.25f, 0.75f) };
                             foreach (var sc in cells)
@@ -773,7 +773,24 @@ namespace WizardsVRC.EditorTools
             LandmarkSign(root, face + front * 0.4f + new Vector3(0, 9.4f, 0), front, string.IsNullOrEmpty(l.label) ? "Library" : l.label, new Color(1f, 0.85f, 0.4f));
         }
 
-        private static void HubFountain(Transform root, ZoneGrid g, ZoneLandmark l, Material stone, Material gold)
+        /// <summary>The fountain stands in the middle of a tavern (the Crystal Tap is built round the Starfall Crystal).</summary>
+        private static bool FountainUnderTavern(ZoneGrid g, ZoneDefinition z, ZoneLandmark l)
+        {
+            if (z == null || z.landmarks == null) return false;
+            var fp = g.Footprint(l.Symbol);
+            var mid = new Vector2Int(fp.x + fp.width / 2, fp.y + fp.height / 2);
+            foreach (var t in z.landmarks)
+            {
+                if (t == null || t.kind != LandmarkKind.Tavern) continue;
+                var tf = g.Footprint(t.Symbol);
+                if (tf.width > 0 && tf.Contains(mid)) return true;
+            }
+            return false;
+        }
+
+        /// <param name="grand">Under the Crystal Tap's open roof: the crystal floats high over the theatre's screens, much
+        /// bigger, with two rings of shards, and a beam of light shoots from it up through the roof into the sky.</param>
+        private static void HubFountain(Transform root, ZoneGrid g, ZoneLandmark l, Material stone, Material gold, bool grand = false)
         {
             var fp = g.Footprint(l.Symbol);
             Vector3 c = RectCenter(g, fp);
@@ -798,22 +815,37 @@ namespace WizardsVRC.EditorTools
             Shape(root, "FountainWater", disc, c + new Vector3(0, 0.7f, 0), new Vector3(waterR * 2f, 1f, waterR * 2f), PsxWaterMat(), false, Quaternion.identity);
             Shape(root, "FountainPillar", CylMesh(), c + new Vector3(0, 1.3f * f, 0), new Vector3(1.4f * f, 1.3f * f, 1.4f * f), stone, true, Quaternion.identity);
             Shape(root, "FountainStar", GemMesh(), c + new Vector3(0, 2.8f * f, 0), new Vector3(3f, 0.5f, 3f) * f, gold, false, Quaternion.identity);
-            Shape(root, "StarfallCrystal", GemMesh(), c + new Vector3(0, 5f * f, 0), new Vector3(1.8f, 3.4f, 1.8f) * f,
+            float crystalY = grand ? 12.6f : 5f * f;
+            float cs = grand ? f * 1.45f : f;
+            Shape(root, "StarfallCrystal", GemMesh(), c + new Vector3(0, crystalY, 0), new Vector3(1.8f, 3.4f, 1.8f) * cs,
                 PMat("Crystal_Starfall", new Color(0.35f, 0.6f, 1f), 1f, new Color(0.25f, 0.45f, 0.9f)), false, Quaternion.Euler(0, 15, 0));
             // Shards circling the crystal (they and the crystal float: WizardsVRCSceneBuilder.Magic.cs).
-            CrystalHalo(root, c + new Vector3(0, 5f * f, 0), 2.2f * f, f, PMat("Crystal_9FD8FF", new Color(0.62f, 0.85f, 1f), 1f, new Color(0.62f, 0.85f, 1f) * 0.6f));
+            CrystalHalo(root, c + new Vector3(0, crystalY, 0), 2.2f * cs, cs, PMat("Crystal_9FD8FF", new Color(0.62f, 0.85f, 1f), 1f, new Color(0.62f, 0.85f, 1f) * 0.6f));
+            if (grand)
+            {
+                // A second, wider ring of violet shards, the beam up through the open roof into the sky (a bright core in
+                // a wide glow), and a softer glow down onto the fountain.
+                CrystalHalo(root, c + new Vector3(0, crystalY - 0.6f, 0), 3.6f * f, f * 0.8f, PMat("Crystal_C9A6FF", new Color(0.8f, 0.66f, 1f), 1f, new Color(0.6f, 0.45f, 1f) * 0.6f));
+                var beamGlow = ShaftMat("CrystalBeamGlow", new Color(0.45f, 0.7f, 1f, 0.45f));
+                var beamCore = ShaftMat("CrystalBeamCore", new Color(0.8f, 0.92f, 1f, 0.9f));
+                Vector3 top = c + new Vector3(0, crystalY + 1.7f * cs - 0.3f, 0);
+                LightShaft(root, "CrystalSkyBeam", top, top + Vector3.up * 420f, 3.2f, beamGlow);
+                LightShaft(root, "CrystalSkyBeamCore", top, top + Vector3.up * 320f, 1.0f, beamCore);
+                Vector3 bottom = c + new Vector3(0, crystalY - 1.7f * cs + 0.3f, 0);
+                LightShaft(root, "CrystalDownGlow", bottom, c + new Vector3(0, 3.2f, 0), 2.4f, beamGlow);
+            }
             for (int i = 0; i < 8; i++)
             {
                 float a = (i + 0.5f) / 8f * Mathf.PI * 2f;
                 Shape(root, "FountainJet", CylMesh(), c + new Vector3(Mathf.Cos(a) * rad * 0.5f, 1.45f, Mathf.Sin(a) * rad * 0.5f), new Vector3(0.22f, 0.75f, 0.22f), waterBright, false, Quaternion.identity);
             }
-            var light = Child(root, "CrystalLight", c + new Vector3(0, 5f * f, 0)).gameObject.AddComponent<Light>();
+            var light = Child(root, "CrystalLight", c + new Vector3(0, crystalY, 0)).gameObject.AddComponent<Light>();
             light.type = LightType.Point;
             light.renderMode = LightRenderMode.ForceVertex;
             light.color = new Color(0.5f, 0.7f, 1f);
-            light.range = rad * 3f;
-            light.intensity = 1.2f;
-            if (!string.IsNullOrEmpty(l.label))
+            light.range = grand ? 26f : rad * 3f;
+            light.intensity = grand ? 2f : 1.2f;
+            if (!string.IsNullOrEmpty(l.label) && !grand)
                 WorldText(root, "FountainSign", c + new Vector3(0, 10f * f, 0), Quaternion.identity, new Vector2(1200, 220), 0.006f, l.label, 70).color = new Color(0.7f, 0.85f, 1f);
         }
 
