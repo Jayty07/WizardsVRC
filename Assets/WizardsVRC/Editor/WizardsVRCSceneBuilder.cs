@@ -350,6 +350,8 @@ namespace WizardsVRC.EditorTools
                 if (f != null && f.FieldType == typeof(UiAudio)) f.SetValue(b, uiAudio);
             }
             ((CutscenePlayer)cutscenes[0]).uiAudio = uiAudio;
+            // Drawing a spell's rune to cast it, and every attack spell's choreography and cinematic (WizardsVRCSceneBuilder.SpellCast.cs).
+            BuildSpellCasting(encounters, (CutscenePlayer)cutscenes[0], book);
             Debug.Log("[WizardsVRC] Interface sounds on " + WireUiSounds(scene, uiAudio) + " buttons.");
             streets.Add(uiAudio);
 
@@ -485,7 +487,7 @@ namespace WizardsVRC.EditorTools
         private const bool SunShadows = false;
 
         /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
-        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery", "HudGrip" };
+        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery", "HudGrip", "CastPattern", "PatternWand", "SpellCinematic" };
 
         /// <summary>Creates the program assets that are missing (and marks the rest current). True if any was made.</summary>
         private static bool CreateMissingPrograms()
@@ -884,6 +886,9 @@ namespace WizardsVRC.EditorTools
             book.changeCharacterLabel = change.GetComponentInChildren<Text>();
             GameObject musicBtn = Button(right, "MusicVolume", new Vector2(0, -290), new Vector2(560, 85), "Music: Full", brown, target, nameof(InventoryBook.SettingCycleMusic));
             book.musicSettingLabel = musicBtn.GetComponentInChildren<Text>();
+            // VR: which hip the casting wand waits at when a spell's rune is drawn (CastPattern).
+            GameObject wandBtn = Button(right, "WandHand", new Vector2(0, -395), new Vector2(560, 85), "Wand hand: Right", brown, target, nameof(InventoryBook.SettingToggleWandHand));
+            book.wandSettingLabel = wandBtn.GetComponentInChildren<Text>();
             view.gameObject.SetActive(false);
         }
 
@@ -2063,7 +2068,7 @@ namespace WizardsVRC.EditorTools
             player.subtitleLabel = Label(root, "Subtitle", new Vector2(90, -270), new Vector2(1320, 130), "", 32, TextAnchor.UpperLeft);
             ApplyCombatFont(player.portraitInitial.transform);
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(player);
-            Button(root, "Next", new Vector2(-170, -475), new Vector2(280, 80), "Next (Space)", new Color(0.3f, 0.35f, 0.55f), target, "Next");
+            player.nextButton = Button(root, "Next", new Vector2(-170, -475), new Vector2(280, 80), "Next (Space)", new Color(0.3f, 0.35f, 0.55f), target, "Next");
             player.skipButton = Button(root, "Skip", new Vector2(170, -475), new Vector2(280, 80), "Skip", new Color(0.5f, 0.25f, 0.25f), target, "Skip");
             var voice = screenGo.AddComponent<AudioSource>();
             voice.playOnAwake = false;
@@ -2084,6 +2089,11 @@ namespace WizardsVRC.EditorTools
                 if (l >= 0) hidden |= 1 << l;
             }
             cam.cullingMask = ~hidden;
+            // A spell's film (SpellCinematic) shows the players, your own avatar too (its MirrorReflection copy, with a head).
+            int filmHidden = 1 << screenLayer;
+            int localLayer = LayerMask.NameToLayer("PlayerLocal");
+            if (localLayer >= 0) filmHidden |= 1 << localLayer;
+            player.filmCullingMask = ~filmHidden;
             screenGo.SetActive(false);
 
             // The opening for new characters (the awakening, the Headmaster's visions, the creator) is built in

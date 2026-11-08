@@ -55,6 +55,8 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/DeckPages.cs` | Book's Deck tab: flip through the deck items you own, edit and equip them (left), spellbook with Add/Remove (right) |
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
+| `Assets/WizardsVRC/Scripts/CastPattern.cs`, `PatternWand.cs` | Drawing a spell's rune before it's sent (spells under 100% accuracy): the board of points along the school's symbol, the hip wand in VR (a local pickup; `PatternWand` relays its grab and drop), numbered points on desktop, the quality that cuts the fizzle chance |
+| `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell's own choreography (delivery, impact, wind-up, film style, bolts) on one shared rig, a creature riding the path; a wizard's attack spell as a cinematic (iris fade, taken to the middle of the ring, first-person wind-up, filmed release and hit on the cutscene screen, back to the seat) |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
 | `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb that drifts round the area on a wandering loop (server-clock timed, so everyone sees it in the same place): walk into it to restore health / mana (local; respawns after 30 s) |
 | `Assets/WizardsVRC/Scripts/MusicDirector.cs` | Local background music: picks the combat, character creation or hub track from what you're doing and where you are, crossfades between them, and scales by the Music setting |
@@ -84,6 +86,8 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Shaders/PSXWater.shader`, `PSXWaterfall.shader` | Spyro-style PSX water (vertex waves with a brightness shimmer and optional whitecaps, two scrolling pixel ripple layers, sparkles, affine warp, 15-bit dithered colour) and waterfall (racing streaks, foamy lip and foot, sway). Materials `Materials/PSX_Water`, `PSX_SeaSwell` (the open sea), `PSX_WaterFoam`, `PSX_Waterfall` are made once and then yours to tune; put them on any subdivided plane / sheet |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Round.cs` | The round hub's curtain wall and towers, the **duelling circle** (PvP encounter + countdown zone) and the health / mana orbs |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Tavern.cs` | The round **Tavern** landmark (the hub's Crystal Tap): walls, doors, roof open over the Starfall Crystal, the curved bar with its stools, sit-able seats (`Seat`: VRCStation), synced mug pickups and the bell that resets them (`MugReset`) |
+| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.SpellStyles.cs` | Each attack spell's recipe (how it travels, how it lands, its wind-up, film style, bolt count, shape, handedness and arc), checked so no two travel and land alike |
+| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.SpellCast.cs` | Builds the rune board and casting wand, the choreography rig (rune, rings, column, bolts, beam, portals, bursts, spikes, stamp, light) re-coloured per school at runtime, and the fade sphere; ring art by `Tools/make_spell_ring.py`, sounds by `Tools/make_spell_cast_sounds.py` |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.TavernHall.cs` | The Crystal Tap's hall (after the Aureion Collegium concept): a **theatre** round the fountain (two rings of velvet seats facing a four-sided screen hung under the crystal, the tavern's `TavernJukebox`, controls on a lectern by the bar); **seven school nooks** under the gallery (Life's garden, Storm's arcane lounge, Ice's crystal study, Death's reliquary, Fire's hearth lounge, Myth's archive, Balance's concord with the mirror toggle `LocalToggle`); a **gallery** on columns with two stairs, a railing and school banners; **ten rooms** off it, each with a bed, a desk and chair, a window with sunlight streaming in and its **own screen and video player** (loads only while you're near, heard only in the room, Stop button); a ring chandelier, and **sunbeams** through the roof and windows (`Tools/make_light_shaft.py`) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Terrain.cs` | Zone ground from the map + **height map**, as merged per-chunk meshes: every cell a column to its height with stone walls down to lower neighbours, cobbles / lawns / pond beds, optional **rounded corners** (outer corners cut, inner corners filled, path-lawn corners curved), kerbs, copings, iron **railings** (drops, ponds, stair handrails, optional path edges), stairs with stringers, water, waterfalls |
 | `Assets/WizardsVRC/Shaders/PSXSkyline.shader` | Skybox: gradient sky plus a pixel-art skyline strip round the horizon (the other areas where they lie, far isles, sea, clouds), 15-bit dithered |
@@ -154,7 +158,7 @@ Saves happen on create, on select/swap (the previous character is saved first), 
 
 **B** (desktop), the hub button or the backpack pedestal opens it. Bookmarks: **Pack** (equipment and items),
 **Deck** (decks and spells, shown as the same spell cards as in battle), **Quests**, and **Settings** (HUD and quest-arrow toggles, Save Now, Return to Starfall
-Castle, and Change Character, which saves and takes you back to the select room). All of the book's text uses the pixel
+Castle, music volume, **Wand hand** (which hip the casting wand waits at in VR, remembered), and Change Character, which saves and takes you back to the select room). All of the book's text uses the pixel
 font, like the signs and the duel ring.
 
 On the **Quests** page, **Abandon** (click it twice to confirm) wipes an active quest's progress from your save, so it
@@ -308,11 +312,30 @@ or raises its arms as it casts, flinches when hit and falls when beaten, with a 
 biped, beast, spirit, plant, construct, machine and deep voices, pitched by size). The rigs, clips and controllers are
 generated into `Assets/WizardsVRC/Generated/Rigs` on every rebuild (one prefab per monster).
 
-**Spell animations** play after the wind-up (the glyph drawn in the air): creature spells summon their creature at the
-caster (a rig of the same kinds in the school's colours, bigger for more pips) which charges or flies at the target
-and strikes; other attacks fly as a bolt with a trail; area spells rain down or erupt as a pillar over the far side;
-heals bloom with petals and sparkles; shields, blades, traps and charms spiral up round the target. The effect lands
-on the strike. A prefab in `SpellAnimations/<id>.prefab` or `<Spell Name>.prefab` still replaces a spell's animation.
+**Spell animations** play after the wind-up (the glyph drawn in the air): heals bloom with petals and sparkles;
+shields, blades, traps and charms spiral up round the target. The effect lands on the strike. A prefab in
+`SpellAnimations/<id>.prefab` or `<Spell Name>.prefab` still replaces a spell's animation.
+
+**Every attack spell moves its own way** (`SpellCinematic`, recipes in `Editor/WizardsVRCSceneBuilder.SpellStyles.cs`,
+packed into `CardDatabase.cineStyles`). Each recipe picks:
+
+- how it **travels**: a lance, a corkscrew of 2-3 bolts, a fanned volley, a meteor that climbs out of sight and falls,
+  a rain out of a ring in the sky, a runner racing under the floor, a beam, orbs circling the caster before they fly
+  one by one, a jagged lightning path, a pair of portals (in at the hand, out high behind the target), a wave abreast,
+  or a boomerang round the flank;
+- how it **lands**: a burst, an implosion (energy drawn in, then out), a column of light, a cascade of rings, spikes
+  out of the ground, a climbing vortex, a nova, a shatter of falling shards, or the school's rune stamped down;
+- the **wind-up** flourish round the caster (energy streaming in, two rings turning on tilted axes, a fountain of embers,
+  a double spiral of sparks, or a column of light), the **film** style (standard, low, crane, following the bolt, or
+  from behind the target), and the bolts' **count, shape** (orb, shard, disc), **handedness** and **arc height**.
+
+No two attack spells share both a delivery and an impact: the build logs an error if two do, and an attack spell missing
+from the table gets the first free pair. A creature spell sends its creature along the path (it grows out of the
+caster's hand, flies or runs the route, strikes, is thrown back and breaks up); walkers and beasts keep to the ground on
+lances, zigzags, runners, waves, boomerangs and beams, and leap meteors or go through portals. Everything scales with the
+spell's pips: the rune on the floor, the bursts, the light, the rings, the shake. A monster casting an attack spell plays
+the same choreography from its seat. Each school's starting spell is now cast from the wand rather than summoned:
+**Ember Lance, Frost Shard, Spark Lash, Thorn Volley, Shade Siphon, Mirage Dart, Prism Ray** (same ids, so saved decks keep them).
 
 **Card art** is rendered from each spell's animation on every rebuild (the creature mid-attack, the bolt, the rain,
 the bloom) as a 64-pixel picture over the school's colour, into `Textures/CardArt`, and shows on the cards everywhere:
@@ -365,6 +388,27 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   timer, then points at each caster in turn (`Shaders/DuelClock.shader`, dial and hand by `Tools/make_duel_ring.py`).
 - **Picking a target:** with a spell picked, the seats it can go to glow on the floor (green for allies, red for
   enemies); click the combatant (or their button on the hand) to cast there.
+- **Drawing the rune (`CastPattern`):** a spell under 100% accuracy (with your bonuses and Focus) isn't sent the moment
+  you pick it. A board opens in front of you with glowing points along your school's symbol (the one you draw in the
+  air, without its seal ring), a faint copy of the symbol behind them, a timer and Cancel (the card goes back to your
+  hand). **VR:** a wand waits at your right hip (left with the book's **Wand hand** setting); take it and touch each
+  point with its tip in order, and the symbol lights up as you trace it. **Desktop:** click the numbered points in
+  order. Points: 2 + the spell's pips + one per 15% of accuracy under 100 (3 to 10); bigger spells also get smaller
+  targets in VR and less time per point on desktop. Touching the point after the one you're on (or clicking it) counts
+  the skipped one as missed and goes on. When it's done, the time is up or the round is about to start, the share of
+  points hit takes that share of `BattleManager.patternFizzleCut` (90%) off the spell's chance to fizzle: a perfect rune
+  on a 75% spell fizzles 2.5% of the time. Monsters never draw one. Sounds: `Audio/Cast/Pattern_*.wav`
+  (`Tools/make_spell_cast_sounds.py`).
+- **A wizard's attack spell is a cinematic** (`BattleManager.FLAG_CINE` on its first act, so every client times it the
+  same): your view irises shut in your school's colour (`Shaders/SpellFade.shader`), you vanish from your seat in a burst
+  and appear in the middle of the ring facing your target, and it opens again. You cast in first person: the symbol is
+  drawn in the air before you while your school's rune draws itself on the floor and the wind-up flourish plays. As the
+  spell is let go the cutscene screen (the one NPC cutscenes play on) cuts to film: a shot of you letting go (the film
+  camera sees your own avatar through its mirror copy), then the spell's flight, a close, shaken shot of the hit, and a
+  wide shot turning round the ring while it settles (longer for more pips; Skip closes the screen). Then the view shuts,
+  you're back in your seat, and it opens. Everyone else sees you go to the middle and cast from there. Timings:
+  `cineInSeconds`, `cineOutSeconds`, `cineAfterSeconds` + `cineAfterPerPip`; each delivery has its own strike and release
+  times (`CardDatabase.CineStrike / CineRelease`). Sounds: `Audio/Cast/Spell_*.wav`.
 - **A fizzle** plays the cast as normal for its first 2 seconds (`BattleManager.fizzleCutSeconds`), then the cast sound
   cuts off, the fizzle sound plays (`Audio/Cast/FX_Fizzle.wav`, `Tools/make_fizzle_sound.py`), and the symbol sputters,
   greys and sags away in a puff of smoke.

@@ -9,12 +9,12 @@ namespace WizardsVRC.EditorTools
     /// <summary>
     /// Spell animations and the card art drawn from them.
     ///
-    /// After a spell's wind-up (the glyph drawn in the air), its animation plays out in the ring (BattleClient): creature
-    /// spells (Ember Imp, Pyre Hawk, Frost Wyvern, Thunder Golem, Grove Stag, Bone Dragon, Stone Basilisk, Sand Djinn...)
-    /// summon their creature at the caster, a rig of the same kinds as the monsters (WizardsVRCSceneBuilder.Rigs.cs) in the
-    /// school's colours, sized by the spell's pips, which charges or flies at the target and strikes; bolts fly as a
-    /// school-shaped missile; area spells rain down or burst over the far side; heals bloom and sparkle up round the
-    /// target; shields, blades, traps and charms spiral up round it. Every animation lands its effect at its strike time.
+    /// After a spell's wind-up (the glyph drawn in the air), its animation plays out in the ring (BattleClient): heals bloom
+    /// and sparkle up round the target; shields, blades, traps and charms spiral up round it. Attack spells each play their
+    /// own choreography (SpellCinematic, WizardsVRCSceneBuilder.SpellStyles.cs); creature spells (Pyre Hawk, Frost
+    /// Wyvern, Grove Stag, Bone Dragon, Stone Basilisk, Sand Djinn...) send their creature along it, a rig of the same
+    /// kinds as the monsters (WizardsVRCSceneBuilder.Rigs.cs) in the school's colours, sized by the spell's pips. Each
+    /// school's starting spell is cast from the wand as a bolt, not a creature.
     ///
     /// Each card's art is a painted picture filling the card's window, its subject a render of that same animation at its
     /// most dramatic moment (the creature mid-cast, the bolt, the rain, the bloom) over a backdrop for the school, or the
@@ -61,6 +61,12 @@ namespace WizardsVRC.EditorTools
             if (!attack)
             {
                 L.mode = FxArea; L.area = "Spiral"; L.strike = 0.8f; L.seconds = 1.5f;
+                return L;
+            }
+            // The starting spells are cast from the wand (a bolt), not summoned.
+            if (school >= 0 && db.ids[i] < CardDatabase.FIRST_EXTRA_ID && (db.ids[i] - 100) % CardDatabase.TIERS == 0)
+            {
+                L.mode = FxBolt; L.strike = 1f; L.seconds = 1.7f;
                 return L;
             }
             var look = new RigLook { accent = Color.Lerp(col, Color.white, 0.4f), voice = "Spirit" };
@@ -156,6 +162,8 @@ namespace WizardsVRC.EditorTools
                 built++;
             }
             db.spellAnimations = anims;
+            // Every attack spell's own choreography (WizardsVRCSceneBuilder.SpellStyles.cs).
+            AssignSpellStyles(db);
             Debug.Log("[WizardsVRC] Spell animations: " + built + " spells, " + arts + " card arts rendered into " + CardArtDir + ".");
         }
 

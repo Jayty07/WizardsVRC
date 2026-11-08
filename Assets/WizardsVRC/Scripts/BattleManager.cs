@@ -64,6 +64,11 @@ namespace WizardsVRC
         public const int FLAG_STUNNED = 16;
         /// <summary>This hit's stun was stopped by the target's stun shield.</summary>
         public const int FLAG_STUNBLOCK = 32;
+        /// <summary>
+        /// On the first entry of a wizard's attack spell that went off: the cast plays as a cinematic (the caster is taken
+        /// to the middle of the ring, casts from there, the film camera shows it landing, they're returned to their seat).
+        /// </summary>
+        public const int FLAG_CINE = 64;
 
         public CardDatabase cardDatabase;
         public BattleClient client;
@@ -91,6 +96,21 @@ namespace WizardsVRC
         public float fizzleCutSeconds = 2.0f;
         [Tooltip("After a fizzle cuts off, this long before the next caster.")]
         public float fizzleAfterSeconds = 1.2f;
+
+        [Header("Spell cinematics (a wizard's attack spell: see FLAG_CINE and SpellCinematic)")]
+        [Tooltip("Fading to black, being taken to the middle of the ring and fading back in, before the wind-up.")]
+        public float cineInSeconds = 0.9f;
+        [Tooltip("Fading out, back to the seat and fading in again, after the spell has landed.")]
+        public float cineOutSeconds = 0.8f;
+        [Tooltip("How long the shots of the spell landing hold after its effect, plus this much more per pip.")]
+        public float cineAfterSeconds = 0.7f;
+        public float cineAfterPerPip = 0.2f;
+        [Tooltip("A monster's attack spell (no cinematic): how long it settles after its release, before the next caster.")]
+        public float plainAfterSeconds = 0.4f;
+
+        [Header("Cast patterns (CastPattern): a spell under 100% accuracy is cast by drawing its rune")]
+        [Tooltip("A perfect pattern takes this % off the spell's chance to fizzle (a part-done one takes its share of it).")]
+        [Range(0, 100)] public int patternFizzleCut = 90;
 
         [Header("Encounter")]
         [Tooltip("Monster ids (CardDatabase monster table) in this fight; roster[0] takes the boss seat.")]
@@ -230,6 +250,8 @@ namespace WizardsVRC
         private bool[] _joined = new bool[SLOTS];
         private int[] _pickCard = new int[SLOTS];
         private int[] _pickTarget = new int[SLOTS];
+        /// <summary>How well each wizard drew this round's cast pattern (0-100; 0 = none).</summary>
+        private int[] _pickQuality = new int[SLOTS];
         private int[] _targets = new int[SIDE];
         private int[] _usedSrc = new int[FX_MAX];
         private int _startWanderer = -1;
@@ -272,8 +294,35 @@ namespace WizardsVRC
             if (actKind[i] == KIND_FIZZLE && actCard[i] > 0) return FizzleCut(cardDatabase.GetSchool(actCard[i])) + fizzleAfterSeconds;
             if (!IsCastAct(i)) return actionSeconds;
             // A spell with an animation plays it out instead of the plain orb (CardDatabase.AnimSeconds).
-            float anim = cardDatabase.AnimSeconds(actCard[i]);
-            return CastSeconds(cardDatabase.GetSchool(actCard[i])) + (anim > 0f ? anim : impactSeconds);
+            int card = actCard[i];
+            float wind = CastSeconds(cardDatabase.GetSchool(card));
+            // An attack spell plays its own choreography (SpellCinematic): a wizard's as a cinematic, a monster's from its seat.
+            if (cardDatabase.CineStyle(card) != 0)
+            {
+                float release = cardDatabase.CineRelease(card);
+                if (IsCineAct(i)) return cineInSeconds + wind + release + CineAfter(card) + cineOutSeconds;
+                return wind + release + plainAfterSeconds;
+            }
+            float anim = cardDatabase.AnimSeconds(card);
+            return wind + (anim > 0f ? anim : impactSeconds);
+        }
+
+        /// <summary>A wizard's attack spell that plays as a cinematic (see FLAG_CINE).</summary>
+        public bool IsCineAct(int i) { return i >= 0 && i < actCount && (actFlags[i] & FLAG_CINE) != 0 && IsCastAct(i); }
+
+        /// <summary>How long the shots of a cinematic spell hold after it lands (longer for bigger spells).</summary>
+        public float CineAfter(int cardId) { return cineAfterSeconds + cineAfterPerPip * Mathf.Clamp(cardDatabase.GetPipCost(cardId), 0, 14); }
+
+        /// <summary>
+        /// Chance (0-100) a spell fizzles for this caster: the card's accuracy with their bonuses and Focus, and a cast
+        /// pattern 'quality' % complete takes that share of patternFizzleCut off it.
+        /// </summary>
+        public int FizzleChance(int s, int cardId, int quality)
+        {
+            int accuracy = cardDatabase.GetAccuracy(cardId) + (s >= 0 && s < SLOTS ? accPct[s] + focus[s] : 0);
+            int miss = Mathf.Clamp(100 - accuracy, 0, 100);
+            if (miss > 0 && quality > 0) miss = Mathf.RoundToInt(miss * (1f - patternFizzleCut * Mathf.Clamp(quality, 0, 100) / 10000f));
+            return miss;
         }
 
         /// <summary>How far into the wind-up a fizzle cuts off (never past the cast's own length).</summary>
@@ -565,11 +614,14 @@ namespace WizardsVRC
             _healReady[s] = 0;
         }
 
-        public void RequestPick(int cardId, int target)
+        public void RequestPick(int cardId, int target) { RequestPickCast(cardId, target, 0); }
+
+        /// <summary>A pick with how well its cast pattern was drawn (0-100; 0 = no pattern), which lowers its fizzle chance.</summary>
+        public void RequestPickCast(int cardId, int target, int quality)
         {
             VRCPlayerApi local = Networking.LocalPlayer;
             if (!Utilities.IsValid(local)) return;
-            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetPick), local.playerId, cardId, target);
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetPick), local.playerId, cardId, target, Mathf.Clamp(quality, 0, 100));
         }
 
         [NetworkCallable]
@@ -935,7 +987,7 @@ namespace WizardsVRC
         }
 
         [NetworkCallable]
-        public void NetPick(int playerId, int cardId, int target)
+        public void NetPick(int playerId, int cardId, int target, int quality)
         {
             if (!Networking.IsOwner(gameObject) || phase != PHASE_PLANNING) return;
             int s = FindWizardSlot(playerId);
@@ -943,6 +995,7 @@ namespace WizardsVRC
             if (cardId != 0 && cardId != PICK_POTION && (cardDatabase.IndexOf(cardId) < 0 || !CanAfford(s, cardId))) cardId = 0;
             _pickCard[s] = cardId;
             _pickTarget[s] = target;
+            _pickQuality[s] = Mathf.Clamp(quality, 0, 100);
             locked[s] = 1;
             Publish();
         }
@@ -1188,6 +1241,7 @@ namespace WizardsVRC
                 locked[s] = 0;
                 _pickCard[s] = 0;
                 _pickTarget[s] = -1;
+                _pickQuality[s] = 0;
                 if (!Alive(s)) continue;
                 // Minions act on their own and stunned wizards sit this round out.
                 if (IsSummon(s) || stunned[s] != 0) locked[s] = 1;
@@ -1494,6 +1548,15 @@ namespace WizardsVRC
 
         private void Cast(int s, int cardId, int target, int group)
         {
+            int first = actCount;
+            CastSpell(s, cardId, target, group);
+            // A wizard's attack spell that went off plays as a cinematic (every client times it from this flag).
+            if (actCount > first && IsCastAct(first) && IsPlayerSeat(s) && slotIds[s] > 0 && cardDatabase.CineStyle(cardId) != 0)
+                actFlags[first] |= FLAG_CINE;
+        }
+
+        private void CastSpell(int s, int cardId, int target, int group)
+        {
             if (cardId == PICK_POTION)
             {
                 // Drinking a potion uses the turn; target carries the heal amount (the client spent the potion).
@@ -1508,9 +1571,10 @@ namespace WizardsVRC
                 return;
             }
 
-            int accuracy = cardDatabase.GetAccuracy(cardId) + accPct[s] + focus[s];
+            // A drawn cast pattern takes its share off the chance to fizzle (CastPattern; monsters never draw one).
+            int miss = FizzleChance(s, cardId, _pickQuality[s]);
             focus[s] = 0;
-            if (Random.Range(0, 100) >= accuracy)
+            if (Random.Range(0, 100) < miss)
             {
                 // Wizard101: a fizzle keeps your pips (the card and its mana are spent).
                 AddAct(group, s, s, cardId, KIND_FIZZLE, 0);

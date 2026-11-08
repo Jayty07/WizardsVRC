@@ -271,10 +271,10 @@ def icon_from(icons, name, size):
 # Cards whose effect has an icon (shields, blades, traps) show it in the art window; other spells stay blank for now.
 ART = {"Tower Ward": "ShieldGeneral", "Rime Edge": "BladeIce"}
 
-SAMPLES = [("Ember Imp", "Fire", "1", "75%", "Deals 65-95 Fire damage"), ("Frost Mite", "Ice", "1", "80%", "Deals 50-80 Ice damage"),
-           ("Spark Sprite", "Storm", "1", "70%", "Deals 90-130 Storm damage"), ("Thornling", "Life", "1", "90%", "Deals 55-85 Life damage"),
-           ("Shade Wisp", "Death", "1", "85%", "Drains 55-85 health, heals you half"), ("Mire Imp", "Myth", "1", "80%", "Deals 70-100 Myth damage"),
-           ("Prism Spark", "Balance", "1", "85%", "Deals 65-95 Balance damage"), ("Tower Ward", "General", "0", "100%", "Shield: blocks 50% of the next spell"),
+SAMPLES = [("Ember Lance", "Fire", "1", "75%", "Deals 65-95 Fire damage"), ("Frost Shard", "Ice", "1", "80%", "Deals 50-80 Ice damage"),
+           ("Spark Lash", "Storm", "1", "70%", "Deals 90-130 Storm damage"), ("Thorn Volley", "Life", "1", "90%", "Deals 55-85 Life damage"),
+           ("Shade Siphon", "Death", "1", "85%", "Drains 55-85 health, heals you half"), ("Mirage Dart", "Myth", "1", "80%", "Deals 70-100 Myth damage"),
+           ("Prism Ray", "Balance", "1", "85%", "Deals 65-95 Balance damage"), ("Tower Ward", "General", "0", "100%", "Shield: blocks 50% of the next spell"),
            ("Rime Edge", "Ice", "0", "100%", "Blade: +35% to the next Ice spell")]
 
 

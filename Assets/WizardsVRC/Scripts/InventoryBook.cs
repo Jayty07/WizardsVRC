@@ -76,6 +76,9 @@ namespace WizardsVRC
         public Text guideSettingLabel;
         public Text warpSettingLabel;
         public Text musicSettingLabel;
+        [Tooltip("Which hip the casting wand waits at (CastPattern), right or left.")]
+        public Text wandSettingLabel;
+        public CastPattern castPattern;
         [Tooltip("Background music (the Music setting sets its volume).")]
         public MusicDirector music;
         public Text changeCharacterLabel;
@@ -320,10 +323,23 @@ namespace WizardsVRC
             return "Music: Off";
         }
 
+        // The casting wand's hip (VR): right unless the player switches it (remembered).
+        private const string WandKey = "wz_wand_left";
+
+        public void SettingToggleWandHand()
+        {
+            if (castPattern == null) return;
+            castPattern.leftHip = !castPattern.leftHip;
+            PlayerData.SetBool(WandKey, castPattern.leftHip);
+            RefreshSettings("");
+        }
+
         public override void OnPlayerRestored(VRCPlayerApi player)
         {
             if (!Utilities.IsValid(player) || !player.isLocal) return;
             bool on;
+            bool left;
+            if (castPattern != null && PlayerData.TryGetBool(player, WandKey, out left)) castPattern.leftHip = left;
             if (PlayerData.TryGetBool(player, WarpKey, out on)) _warpOn = on;
             ApplyWarp();
             int step;
@@ -374,6 +390,7 @@ namespace WizardsVRC
             if (guideSettingLabel != null) guideSettingLabel.text = "Quest arrow: " + (questGuide != null && questGuide.IsGuideEnabled() ? "On" : "Off");
             if (warpSettingLabel != null) warpSettingLabel.text = "PS1 wobble: " + (_warpOn ? "On" : "Off");
             if (musicSettingLabel != null) musicSettingLabel.text = MusicText();
+            if (wandSettingLabel != null) wandSettingLabel.text = "Wand hand: " + (castPattern != null && castPattern.leftHip ? "Left" : "Right");
             if (changeCharacterLabel != null) changeCharacterLabel.text = Time.time <= _confirmUntil ? "Press again to confirm" : "Change Character";
             if (settingsStatus != null) settingsStatus.text = status;
         }

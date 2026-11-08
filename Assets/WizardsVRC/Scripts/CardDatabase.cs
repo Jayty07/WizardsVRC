@@ -184,13 +184,13 @@ namespace WizardsVRC
         };
         [HideInInspector] public string[] names =
         {
-            "Ember Imp", "Smoldering Brand", "Ember Edge", "Cinder Snare", "Cinder Rain", "Ember Aegis", "Pyre Hawk", "Magma Hound", "Stoke the Embers", "Wildfire Oath", "Molten Behemoth", "Sunfire Wyrm",
-            "Frost Mite", "Rime Challenge", "Rime Edge", "Frost Snare", "Hoarfrost Gale", "Frostward", "Frost Wyvern", "Rime Sentinel", "Permafrost Bulwark", "Winter's Bastion", "Frozen Colossus", "Winter's Wrath",
-            "Spark Sprite", "Thunder Hare", "Static Charge", "Thunder Snare", "Thunderclap", "Storm Aegis", "Skyfall Serpent", "Thunder Golem", "Gale Mark", "Overcharge", "Skyfall Leviathan", "Maelstrom Eye",
-            "Thornling", "Verdant Bloom", "Thorn Edge", "Bramble Snare", "Rejuvenate", "Verdant Aegis", "Grove Stag", "Treant Warden", "Wellspring", "Bloom of Renewal", "Wildwood Stampede", "Verdant Titan",
-            "Shade Wisp", "Grave Ghast", "Grave Edge", "Hex Snare", "Soul Swarm", "Veil of Dread", "Night Leech", "Bone Thrall", "Dread Mark", "Dark Tithe", "Bone Dragon", "Requiem of Ash",
-            "Mire Imp", "Mirage Lancer", "Fable Edge", "Mirage Snare", "Clay Golemling", "Chimera's Roar", "Stone Basilisk", "Stone Colossus", "Sundering Gaze", "Riddle of Iron", "Fabled Hydra", "Titan of Legends",
-            "Prism Spark", "Sand Djinn", "Accord Edge", "Sand Snare", "Sandstorm", "Balance Aegis", "Sphinx of Scales", "Sand Golem", "Elemental Tri-Blade", "Spirit Tri-Blade", "Sandstorm Sphinx", "Grand Convergence",
+            "Ember Lance", "Smoldering Brand", "Ember Edge", "Cinder Snare", "Cinder Rain", "Ember Aegis", "Pyre Hawk", "Magma Hound", "Stoke the Embers", "Wildfire Oath", "Molten Behemoth", "Sunfire Wyrm",
+            "Frost Shard", "Rime Challenge", "Rime Edge", "Frost Snare", "Hoarfrost Gale", "Frostward", "Frost Wyvern", "Rime Sentinel", "Permafrost Bulwark", "Winter's Bastion", "Frozen Colossus", "Winter's Wrath",
+            "Spark Lash", "Thunder Hare", "Static Charge", "Thunder Snare", "Thunderclap", "Storm Aegis", "Skyfall Serpent", "Thunder Golem", "Gale Mark", "Overcharge", "Skyfall Leviathan", "Maelstrom Eye",
+            "Thorn Volley", "Verdant Bloom", "Thorn Edge", "Bramble Snare", "Rejuvenate", "Verdant Aegis", "Grove Stag", "Treant Warden", "Wellspring", "Bloom of Renewal", "Wildwood Stampede", "Verdant Titan",
+            "Shade Siphon", "Grave Ghast", "Grave Edge", "Hex Snare", "Soul Swarm", "Veil of Dread", "Night Leech", "Bone Thrall", "Dread Mark", "Dark Tithe", "Bone Dragon", "Requiem of Ash",
+            "Mirage Dart", "Mirage Lancer", "Fable Edge", "Mirage Snare", "Clay Golemling", "Chimera's Roar", "Stone Basilisk", "Stone Colossus", "Sundering Gaze", "Riddle of Iron", "Fabled Hydra", "Titan of Legends",
+            "Prism Ray", "Sand Djinn", "Accord Edge", "Sand Snare", "Sandstorm", "Balance Aegis", "Sphinx of Scales", "Sand Golem", "Elemental Tri-Blade", "Spirit Tri-Blade", "Sandstorm Sphinx", "Grand Convergence",
             "Tower Ward", "Mend", "Empower", "Steady Mind",
             "Elemental Tri-Shield", "Spirit Tri-Shield", "Elemental Tri-Trap", "Spirit Tri-Trap", "Wellspring Charm", "Second Wind",
         };
@@ -261,6 +261,29 @@ namespace WizardsVRC
         [HideInInspector] public int[] animKinds;
         [Tooltip("Each spell's card art (rendered from its animation by the builder).")]
         public Texture[] cardArt;
+        /// <summary>
+        /// Every attack spell's own choreography (SpellCinematic), packed: delivery (bits 0-3, CINE_*), impact (4-7,
+        /// IMPACT_*), wind-up (8-11, CHARGE_*), film camera (12-15, CAM_*), bolt count (16-19, 0 = the delivery's own),
+        /// bolt shape (20-21: orb, shard, disc), mirrored (22) and arc height (23-24). 0 = not an attack spell (it keeps its
+        /// plain animation). The scene builder fills it (WizardsVRCSceneBuilder.SpellStyles.cs) and makes sure no two
+        /// attack spells share a delivery and impact.
+        /// </summary>
+        [HideInInspector] public int[] cineStyles;
+
+        // How an attack spell travels from its caster to its target (a summoned creature rides the same path).
+        public const int CINE_LANCE = 1, CINE_HELIX = 2, CINE_VOLLEY = 3, CINE_METEOR = 4, CINE_RAIN = 5, CINE_GROUND = 6,
+                         CINE_BEAM = 7, CINE_ORBIT = 8, CINE_ZIGZAG = 9, CINE_PORTAL = 10, CINE_WAVE = 11, CINE_BOOMERANG = 12;
+        // How it lands.
+        public const int IMPACT_BURST = 0, IMPACT_IMPLODE = 1, IMPACT_PILLAR = 2, IMPACT_RINGS = 3, IMPACT_SPIKES = 4,
+                         IMPACT_VORTEX = 5, IMPACT_NOVA = 6, IMPACT_SHATTER = 7, IMPACT_SIGIL = 8;
+        // The flourish round the caster through the wind-up.
+        public const int CHARGE_STREAM = 0, CHARGE_GYRO = 1, CHARGE_FOUNTAIN = 2, CHARGE_SPIRAL = 3, CHARGE_COLUMN = 4;
+        // How the film shoots it (a wizard's cast).
+        public const int CAM_STANDARD = 0, CAM_LOW = 1, CAM_CRANE = 2, CAM_FOLLOW = 3, CAM_REVERSE = 4;
+
+        // Per delivery (index = CINE_*): seconds into the release when it hits, and how long the release lasts.
+        private float[] _cineStrikes = { 1.0f, 0.55f, 0.95f, 1.0f, 1.6f, 1.35f, 1.05f, 0.45f, 1.45f, 0.6f, 1.2f, 1.15f, 1.25f };
+        private float[] _cineReleases = { 1.4f, 1.0f, 1.35f, 1.4f, 2.0f, 1.9f, 1.45f, 1.5f, 1.8f, 1.0f, 1.6f, 1.55f, 1.65f };
 
         private Color _generalColor = new Color(0.6f, 0.6f, 0.65f);
 
@@ -303,6 +326,24 @@ namespace WizardsVRC
         public float AnimStrike(int cardId) { int i = IndexOf(cardId); return i < 0 || animStrikes == null || i >= animStrikes.Length ? 0f : animStrikes[i]; }
         /// <summary>Seconds the spell's animation takes after its wind-up (0 = it has none).</summary>
         public float AnimSeconds(int cardId) { int i = IndexOf(cardId); return AnimMode(cardId) == 0 || animSeconds == null || i >= animSeconds.Length ? 0f : animSeconds[i]; }
+
+        /// <summary>The attack spell's packed choreography (0 = none: not an attack spell). See <see cref="cineStyles"/>.</summary>
+        public int CineStyle(int cardId) { int i = IndexOf(cardId); return i < 0 || cineStyles == null || i >= cineStyles.Length ? 0 : cineStyles[i]; }
+        public int CineDelivery(int cardId) { return CineStyle(cardId) & 15; }
+
+        /// <summary>Seconds into an attack spell's release when it hits (the same on every client).</summary>
+        public float CineStrike(int cardId)
+        {
+            int d = CineDelivery(cardId);
+            return d >= 0 && d < _cineStrikes.Length ? _cineStrikes[d] : 1f;
+        }
+
+        /// <summary>How long an attack spell's release lasts, from leaving the caster to settling on the target.</summary>
+        public float CineRelease(int cardId)
+        {
+            int d = CineDelivery(cardId);
+            return d >= 0 && d < _cineReleases.Length ? _cineReleases[d] : 1.4f;
+        }
 
         public GameObject GetAnimation(int cardId)
         {

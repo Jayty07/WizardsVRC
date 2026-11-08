@@ -7,7 +7,7 @@ prefab use the default glowing orb. Keep each cinematic under ~1.5 seconds for n
 or raise actionSeconds in the scene builder.
 
 id   school    lv  spell
-100  Fire      1   Ember Imp
+100  Fire      1   Ember Lance
 101  Fire      5   Smoldering Brand
 102  Fire      10  Ember Edge
 103  Fire      12  Cinder Snare
@@ -19,7 +19,7 @@ id   school    lv  spell
 109  Fire      35  Wildfire Oath
 110  Fire      42  Molten Behemoth
 111  Fire      48  Sunfire Wyrm
-112  Ice       1   Frost Mite
+112  Ice       1   Frost Shard
 113  Ice       5   Rime Challenge
 114  Ice       10  Rime Edge
 115  Ice       12  Frost Snare
@@ -31,7 +31,7 @@ id   school    lv  spell
 121  Ice       35  Winter's Bastion
 122  Ice       42  Frozen Colossus
 123  Ice       48  Winter's Wrath
-124  Storm     1   Spark Sprite
+124  Storm     1   Spark Lash
 125  Storm     5   Thunder Hare
 126  Storm     10  Static Charge
 127  Storm     12  Thunder Snare
@@ -43,7 +43,7 @@ id   school    lv  spell
 133  Storm     35  Overcharge
 134  Storm     42  Skyfall Leviathan
 135  Storm     48  Maelstrom Eye
-136  Life      1   Thornling
+136  Life      1   Thorn Volley
 137  Life      5   Verdant Bloom
 138  Life      10  Thorn Edge
 139  Life      12  Bramble Snare
@@ -55,7 +55,7 @@ id   school    lv  spell
 145  Life      35  Bloom of Renewal
 146  Life      42  Wildwood Stampede
 147  Life      48  Verdant Titan
-148  Death     1   Shade Wisp
+148  Death     1   Shade Siphon
 149  Death     5   Grave Ghast
 150  Death     10  Grave Edge
 151  Death     12  Hex Snare
@@ -67,7 +67,7 @@ id   school    lv  spell
 157  Death     35  Dark Tithe
 158  Death     42  Bone Dragon
 159  Death     48  Requiem of Ash
-160  Myth      1   Mire Imp
+160  Myth      1   Mirage Dart
 161  Myth      5   Mirage Lancer
 162  Myth      10  Fable Edge
 163  Myth      12  Mirage Snare
@@ -79,7 +79,7 @@ id   school    lv  spell
 169  Myth      35  Riddle of Iron
 170  Myth      42  Fabled Hydra
 171  Myth      48  Titan of Legends
-172  Balance   1   Prism Spark
+172  Balance   1   Prism Ray
 173  Balance   5   Sand Djinn
 174  Balance   10  Accord Edge
 175  Balance   12  Sand Snare

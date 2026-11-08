@@ -421,6 +421,31 @@ namespace WizardsVRC
         private bool _fxAoe;
         private Vector3 _fxPad, _fxGoal;
         private const int RIG_BIPED = 0, RIG_BEAST = 1, RIG_FLYER = 2, RIG_PLANT = 3;
+        // A creature riding its spell's path (SpellCinematic moves it, not AnimateCreature).
+        private bool _fxDriven;
+
+        [Header("Casting: patterns and spell choreography (shared by every duel circle)")]
+        [Tooltip("Drawing a spell's rune before it's sent, for spells under 100% accuracy.")]
+        public CastPattern castPattern;
+        [Tooltip("Every attack spell's own choreography, and a wizard's attack spell as a cinematic.")]
+        public SpellCinematic spellCinematic;
+
+        // The spell waiting on its rune (CastPattern).
+        private bool _patterning;
+        private int _patCard;
+        private int _patTarget;
+        private string _patNote = "";
+
+        // This step is an attack spell played by SpellCinematic; a cinematic one is cast from the middle of the ring.
+        private bool _stepStyled;
+        private bool _stepCine;
+        private int _stepActor;
+        private int _stepTarget;
+        private int _stepSchool;
+        private bool _castAtOn;
+        private int _castAtSlot = -1;
+        private Vector3 _castAt;
+        private Vector3 _castAtFwd;
 
         private Color _cardDim = new Color(0.35f, 0.35f, 0.35f);
         private Color _faceOn = new Color(0.93f, 0.87f, 0.72f);
@@ -712,6 +737,7 @@ namespace WizardsVRC
         {
             if (manager == null) return;
             int phase = manager.phase;
+            if (_patterning && phase != BattleManager.PHASE_PLANNING) DropPattern();
             if (phase != BattleManager.PHASE_IDLE) PlaceRing();
             bool active = phase >= BattleManager.PHASE_JOINING;
             if (ring != null) ring.SetActive(active);
@@ -863,7 +889,7 @@ namespace WizardsVRC
         {
             if (handRoot == null) return;
             int ph = manager.phase;
-            bool show = _inBattle && _seated && !_leaving && (ph == BattleManager.PHASE_JOINING || ph == BattleManager.PHASE_PLANNING);
+            bool show = _inBattle && _seated && !_leaving && !_patterning && (ph == BattleManager.PHASE_JOINING || ph == BattleManager.PHASE_PLANNING);
             if (handRoot.activeSelf != show) { handRoot.SetActive(show); if (show) _hudSnap = true; }
         }
 
@@ -1142,6 +1168,8 @@ namespace WizardsVRC
         private void KeepNearSeat()
         {
             if (!_held || !_seated || _slot < 0 || seats == null || _slot >= seats.Length || seats[_slot] == null || _moveQueued) return;
+            // Away in the middle of the ring for your spell's cinematic.
+            if (spellCinematic != null && spellCinematic.HoldsPlayer()) return;
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
             Vector3 seat = seats[_slot].position;
@@ -1287,6 +1315,8 @@ namespace WizardsVRC
         {
             CloseFleeConfirm();
             if (!_inBattle) return;
+            DropPattern();
+            if (spellCinematic != null && spellCinematic.IsFor(this)) spellCinematic.Abort(false);
             if (!_vitalsDone && _slot >= 0 && playerState != null && playerState.HasCharacter())
             {
                 // Left some other way (fight reset, timeout): keep whatever health we had.
@@ -1500,7 +1530,7 @@ namespace WizardsVRC
 
         private bool CanAct()
         {
-            return _inBattle && !_submitted && manager.phase == BattleManager.PHASE_PLANNING && manager.Alive(_slot);
+            return _inBattle && !_submitted && !_patterning && manager.phase == BattleManager.PHASE_PLANNING && manager.Alive(_slot);
         }
 
         private void ClickCard(int i)
@@ -1561,13 +1591,71 @@ namespace WizardsVRC
 
         private void Submit(int card, int target, string note)
         {
-            manager.RequestPick(card, target);
+            // A spell that could fizzle is cast by drawing its rune first (CastPattern): the better it's drawn, the less
+            // likely it fizzles. It's sent once the pattern is done.
+            if (card > 0 && card != BattleManager.PICK_POTION && castPattern != null && _slot >= 0 && manager.FizzleChance(_slot, card, 0) > 0)
+            {
+                _patterning = true;
+                _patCard = card;
+                _patTarget = target;
+                _patNote = note;
+                _selHand = -1;
+                _discardMode = false;
+                if (uiAudio != null) uiAudio.PlaySpellSelect();
+                int accuracy = 100 - manager.FizzleChance(_slot, card, 0);
+                castPattern.Begin(this, cardDatabase.GetSchool(card), cardDatabase.GetPipCost(card), accuracy, manager.SecondsLeft() - 1.5f, cardDatabase.GetName(card));
+                _note = "Draw the rune to cast " + cardDatabase.GetName(card) + "...";
+                RefreshHand();
+                UpdateHandVisible();
+                return;
+            }
+            SendPick(card, target, note, 0);
             if (uiAudio != null && card > 0) uiAudio.PlaySpellSelect();
+        }
+
+        private void SendPick(int card, int target, string note, int quality)
+        {
+            manager.RequestPickCast(card, target, quality);
             _submitted = true;
             _selHand = -1;
             _discardMode = false;
             _note = note + " Waiting for the round...";
             RefreshHand();
+        }
+
+        /// <summary>CastPattern: the rune is drawn (or time ran out). The spell goes with how well it was drawn.</summary>
+        public void _PatternDone()
+        {
+            if (!_patterning) return;
+            _patterning = false;
+            int q = castPattern != null ? castPattern.Quality() : 0;
+            if (_inBattle && !_submitted && manager.phase == BattleManager.PHASE_PLANNING && manager.Alive(_slot))
+            {
+                int fizzle = manager.FizzleChance(_slot, _patCard, q);
+                SendPick(_patCard, _patTarget, _patNote + " Rune " + q.ToString() + "% drawn: " + fizzle.ToString() + "% chance to fizzle.", q);
+            }
+            else if (_inBattle && _handCount < _hand.Length) _hand[_handCount++] = _patCard;   // too late: the card stays yours
+            UpdateHandVisible();
+        }
+
+        /// <summary>CastPattern's Cancel button: the card goes back into the hand.</summary>
+        public void _PatternCancelled()
+        {
+            if (!_patterning) return;
+            _patterning = false;
+            if (_handCount < _hand.Length) _hand[_handCount++] = _patCard;
+            _note = "Pick a card, or Pass.";
+            RefreshHand();
+            UpdateHandVisible();
+        }
+
+        /// <summary>The round moved on (or the fight ended) while a rune was being drawn: it closes, nothing is sent, the card is kept.</summary>
+        private void DropPattern()
+        {
+            if (!_patterning) return;
+            _patterning = false;
+            if (castPattern != null) castPattern.Cancel();
+            if (_handCount < _hand.Length) _hand[_handCount++] = _patCard;
         }
 
         // ------------------------------------------------------------------ playback
@@ -1581,6 +1669,9 @@ namespace WizardsVRC
             }
 
             _stepStart = _playIndex;
+            _stepStyled = false;
+            _stepCine = false;
+            _castAtOn = false;
             int group = manager.actGroup[_playIndex];
             int actor = manager.actActor[_playIndex];
             _clockActor = actor;
@@ -1646,6 +1737,12 @@ namespace WizardsVRC
             // The spell's animation (if it has one) plays after the wind-up, in place of the plain orb (_LandStep).
             _stepAnim = cardDatabase.GetAnimation(card);
             _stepCard = card;
+            // An attack spell plays its own choreography (SpellCinematic); a wizard's as a cinematic.
+            if (cardDatabase.CineStyle(card) != 0 && spellCinematic != null && seats != null && actor >= 0 && actor < seats.Length)
+            {
+                PlayStyled(actor, target, card);
+                return;
+            }
             if (_stepAnim != null && cardDatabase.AnimMode(card) == 4)
             {
                 // A hand-made prefab: it plays from the caster as the spell lands.
@@ -1679,6 +1776,102 @@ namespace WizardsVRC
             else ApplyStep();
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.impactSeconds);
         }
+
+        /// <summary>
+        /// An attack spell's turn, played by SpellCinematic from its recipe (the same beats on every client): a wizard's is a
+        /// cinematic, cast from the middle of the ring (the caster is taken there and back by their own client), a
+        /// monster's is cast from its seat. BattleClient still draws the symbol and plays the cast sound through the
+        /// wind-up, lands the results at the strike and sends a summoned creature along the spell's path.
+        /// </summary>
+        private void PlayStyled(int actor, int target, int card)
+        {
+            int school = cardDatabase.GetSchool(card);
+            _stepStyled = true;
+            _stepCine = manager.IsCineAct(_stepStart) && arenaCenter != null;
+            _stepActor = actor;
+            _stepTarget = target;
+            _stepSchool = school;
+            Vector3 aim = StepAim(actor, target, card);
+            Vector3 from = seats[actor].position;
+            if (_stepCine)
+            {
+                from = new Vector3(arenaCenter.position.x, seats[actor].position.y, arenaCenter.position.z);
+                Vector3 f = aim - from;
+                f.y = 0f;
+                _castAt = from;
+                _castAtFwd = f.sqrMagnitude > 0.001f ? f.normalized : seats[actor].forward;
+                _castAtSlot = actor;
+                _castAtOn = true;
+            }
+            Vector3 fwd = aim - from;
+            VRCPlayerApi local = Networking.LocalPlayer;
+            bool me = _stepCine && Utilities.IsValid(local) && manager.slotIds[actor] == local.playerId;
+            float inSec = _stepCine ? manager.cineInSeconds : 0f;
+            float after = _stepCine ? manager.CineAfter(card) : manager.plainAfterSeconds;
+            float outSec = _stepCine ? manager.cineOutSeconds : 0f;
+            spellCinematic.Begin(this, me, _stepCine, seats[actor], from, fwd, aim, school, cardDatabase.CineStyle(card), cardDatabase.GetPipCost(card),
+                cardDatabase.IsAoe(card), SeatScale(actor), manager.SlotName(actor), cardDatabase.GetName(card),
+                inSec, manager.CastSeconds(school), cardDatabase.CineStrike(card), cardDatabase.CineRelease(card), after, outSec);
+            if (inSec > 0f) SendCustomEventDelayedSeconds(nameof(_StyledWindUp), inSec);
+            else _StyledWindUp();
+            SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.StepSeconds(_stepStart));
+        }
+
+        /// <summary>Where an attack spell lands: its target, or the middle of the side an area spell hits.</summary>
+        private Vector3 StepAim(int actor, int target, int card)
+        {
+            if (target < 0 || target >= seats.Length || target == actor)
+                return arenaCenter != null ? arenaCenter.position + seats[actor].forward * 3f : seats[actor].position + seats[actor].forward * 4f;
+            if (!cardDatabase.IsAoe(card) || target >= BattleManager.SLOTS) return seats[target].position;
+            int side = manager.SideOf(target) * BattleManager.SIDE;
+            Vector3 sum = Vector3.zero;
+            int n = 0;
+            for (int s = side; s < side + BattleManager.SIDE; s++)
+                if (manager.Occupied(s) && s < seats.Length) { sum += seats[s].position; n++; }
+            return n > 0 ? sum / n : seats[target].position;
+        }
+
+        public void _StyledWindUp()
+        {
+            if (!_playing || !_stepStyled || manager.phase != BattleManager.PHASE_PLAYBACK) return;
+            StartCast(_stepActor, _stepTarget, _stepSchool);
+            SendCustomEventDelayedSeconds(nameof(_StyledRelease), manager.CastSeconds(_stepSchool));
+        }
+
+        /// <summary>The wind-up's done: the symbol goes, the rig carries the spell (a creature rides its path) to the strike.</summary>
+        public void _StyledRelease()
+        {
+            if (!_playing || !_stepStyled || manager.phase != BattleManager.PHASE_PLAYBACK) return;
+            StartImpact();
+            _animImpact = true;   // no plain orb: the rig carries it
+            int mode = cardDatabase.AnimMode(_stepCard);
+            if (_stepAnim != null && (mode == 1 || mode == 4))
+            {
+                PlaySpellAnimation(_stepAnim, _castFrom, _castTo);
+                if (mode == 1)
+                {
+                    _fxDriven = true;
+                    _fxSeconds = cardDatabase.CineRelease(_stepCard) + 0.1f;
+                    if (_fxCircle != null) _fxCircle.gameObject.SetActive(false);
+                    if (_fxArea != null) _fxArea.gameObject.SetActive(false);
+                    spellCinematic.Carry(_fxSummon, _fxRigAnim, _fxKind == RIG_FLYER);
+                }
+            }
+            SendCustomEventDelayedSeconds(nameof(_StyledStrike), Mathf.Max(0.05f, cardDatabase.CineStrike(_stepCard)));
+        }
+
+        /// <summary>The attack spell hits: its shields / blades / traps move in, then the results land.</summary>
+        public void _StyledStrike()
+        {
+            if (!_stepStyled || manager.phase != BattleManager.PHASE_PLAYBACK) return;
+            if (StartFxUse()) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), fxUseSeconds * 0.5f);
+            else ApplyStep();
+        }
+
+        /// <summary>Where a caster casts from: their seat, or the middle of the ring during their cinematic.</summary>
+        private Vector3 CasterPos(int from) { return _castAtOn && from == _castAtSlot ? _castAt : seats[from].position; }
+
+        private Vector3 CasterFwd(int from) { return _castAtOn && from == _castAtSlot ? _castAtFwd : seats[from].forward; }
 
         /// <summary>The animated spell strikes: its effect bursts on the target and the step's results land.</summary>
         public void _AnimStrike()
@@ -1827,6 +2020,9 @@ namespace WizardsVRC
         private void FinishPlayback()
         {
             _playing = false;
+            _stepStyled = false;
+            _castAtOn = false;
+            if (spellCinematic != null && spellCinematic.IsFor(this)) spellCinematic.Abort(_inBattle);
             EndFxUse();
             for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
             SyncShownState();
@@ -1919,8 +2115,8 @@ namespace WizardsVRC
         {
             _HideSpellAnimation();
             if (seats == null || from < 0 || from >= seats.Length) return;
-            Vector3 pos = seats[from].position;
-            Vector3 aim = to >= 0 && to < seats.Length && to != from ? seats[to].position : (arenaCenter != null ? arenaCenter.position : pos + seats[from].forward);
+            Vector3 pos = CasterPos(from);
+            Vector3 aim = to >= 0 && to < seats.Length && to != from ? seats[to].position : (arenaCenter != null ? arenaCenter.position : pos + CasterFwd(from));
             Vector3 dir = aim - pos;
             dir.y = 0f;
             anim.transform.position = pos;
@@ -1984,7 +2180,7 @@ namespace WizardsVRC
         private void AnimateSpellFx()
         {
             float t = Time.time - _fxStart;
-            if (_fxMode == 1 && _fxSummon != null) AnimateCreature(t);
+            if (_fxMode == 1 && _fxSummon != null && !_fxDriven) AnimateCreature(t);
             if (_fxMode == 2 && _fxBolt != null && _fxBolt.gameObject.activeSelf) AnimateBolt(t);
             if (_fxCircle != null && _fxCircle.gameObject.activeSelf) AnimateSummonCircle(t);
             if (t > _fxSeconds + 0.2f) _HideSpellAnimation();
@@ -2161,6 +2357,7 @@ namespace WizardsVRC
             if (_fxCircle != null) _fxCircle.gameObject.SetActive(false);
             _spellAnim = null;
             _animImpact = false;
+            _fxDriven = false;
         }
 
         /// <summary>
@@ -2186,11 +2383,12 @@ namespace WizardsVRC
             _burstAt = -100f;
             int mi = fxMats == null || fxMats.Length == 0 ? -1 : (school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1);
             float scale = SeatScale(from);
-            _ringBase = seats[from].position + Vector3.up * 0.15f;
+            Vector3 at = CasterPos(from);
+            _ringBase = at + Vector3.up * 0.15f;
             // The symbol is drawn in the air in front of the caster (seats face the middle of the ring), at chest height.
-            _glyphBase = seats[from].position + seats[from].forward * (glyphForward * scale) + Vector3.up * (glyphHeight * scale);
+            _glyphBase = at + CasterFwd(from) * (glyphForward * scale) + Vector3.up * (glyphHeight * scale);
             _drawLen = Mathf.Min(glyphDrawSeconds, _castLen * 0.55f);
-            _orbFrom = seats[from].position + Vector3.up * (1.3f * scale);
+            _orbFrom = at + Vector3.up * (1.3f * scale);
             _orbTo = seats[to].position + Vector3.up * (1.1f * SeatScale(to));
             if (castRing != null)
             {
@@ -2252,7 +2450,7 @@ namespace WizardsVRC
             castAudio.Stop();
             AudioClip clip = school < 0 ? generalCastSound : castSounds != null && school < castSounds.Length ? castSounds[school] : null;
             if (clip == null) return;
-            castAudio.transform.position = seats[from].position + Vector3.up * 1.2f;
+            castAudio.transform.position = CasterPos(from) + Vector3.up * 1.2f;
             castAudio.clip = clip;
             castAudio.Play();
         }
@@ -2297,7 +2495,7 @@ namespace WizardsVRC
             ParticleSystem ps = castBursts[i];
             if (ps == null) return;
             float scale = SeatScale(_castFrom);
-            ps.transform.position = seats[_castFrom].position + Vector3.up * (1.2f * scale);
+            ps.transform.position = CasterPos(_castFrom) + Vector3.up * (1.2f * scale);
             ps.Play();
         }
 

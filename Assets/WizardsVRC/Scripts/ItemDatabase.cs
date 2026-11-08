@@ -567,12 +567,12 @@ namespace WizardsVRC
             return n;
         }
 
-        /// <summary>"Item spells: Ember Imp, Frost Mite..." for an item's details (empty when it gives none).</summary>
+        /// <summary>"Item spells: Ember Lance, Frost Shard..." for an item's details (empty when it gives none).</summary>
         public string ItemCardText(int itemId) { return ItemCardTextFor(itemId, -1); }
 
         /// <summary>
         /// The same, for a wizard of school 'wielderSchool' (-1 when unknown): a wand's basic attacks are named for the school
-        /// they'll be ("7 x Ember Imp"), or "your school's basic attack" when that depends on a wielder we don't know.
+        /// they'll be ("7 x Ember Lance"), or "your school's basic attack" when that depends on a wielder we don't know.
         /// </summary>
         public string ItemCardTextFor(int itemId, int wielderSchool)
         {
