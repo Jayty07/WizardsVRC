@@ -864,7 +864,97 @@ namespace WizardsVRC
             if (handRoot == null) return;
             int ph = manager.phase;
             bool show = _inBattle && _seated && !_leaving && (ph == BattleManager.PHASE_JOINING || ph == BattleManager.PHASE_PLANNING);
-            if (handRoot.activeSelf != show) handRoot.SetActive(show);
+            if (handRoot.activeSelf != show) { handRoot.SetActive(show); if (show) _hudSnap = true; }
+        }
+
+        // ------------------------------------------------------------------ the battle HUD in front of you, and its grip
+
+        [Header("Battle HUD placement")]
+        [Tooltip("The handle under the hand of cards (a VRC Pickup with HudGrip): grab it to move the hand anywhere; it stays " +
+                 "there, relative to you, for every fight after.")]
+        public Transform hudGrip;
+        public VRC_Pickup hudGripPickup;
+        [Tooltip("Where the hand floats relative to your head (x right, y up, z ahead) until you move it. VR: low, like a " +
+                 "lectern, so pointing across the ring passes over the cards.")]
+        public Vector3 hudOffsetVR = new Vector3(0f, -0.5f, 0.42f);
+        public Vector3 hudOffsetDesktop = new Vector3(0f, -0.2f, 0.75f);
+        [Tooltip("The hand only swings round to follow you once you turn this far away from it (degrees).")]
+        public float hudFollowAngle = 35f;
+
+        private bool _hudSnap;
+        private bool _gripHeld;
+        private float _hudYaw;
+
+        /// <summary>HudGrip: the handle was picked up. The hand of cards follows it until it's let go.</summary>
+        public void _GripStart() { _gripHeld = true; }
+
+        /// <summary>HudGrip: let go. Where the hand is now (relative to your head) is where it stays from now on.</summary>
+        public void _GripEnd()
+        {
+            _gripHeld = false;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (handRoot == null || playerState == null || !Utilities.IsValid(me)) return;
+            VRCPlayerApi.TrackingData head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
+            Quaternion yaw = Quaternion.Euler(0f, _hudYaw, 0f);
+            Vector3 local = Quaternion.Inverse(yaw) * (handRoot.transform.position - head.position);
+            local.z = Mathf.Max(0.25f, local.z);   // never behind or inside your head
+            playerState.battleHudOffset = local;
+            playerState.battleHudSet = true;
+        }
+
+        private Vector3 HudOffset(VRCPlayerApi me)
+        {
+            if (playerState != null && playerState.battleHudSet) return playerState.battleHudOffset;
+            return me.IsUserInVR() ? hudOffsetVR : hudOffsetDesktop;
+        }
+
+        /// <summary>
+        /// Every frame the hand is up: it floats in front of you (lazily turning to follow you), facing you, or follows the
+        /// grip while you hold it. The grip sits under its bottom edge.
+        /// </summary>
+        private void PlaceHud()
+        {
+            bool up = handRoot != null && handRoot.activeSelf;
+            if (hudGrip != null && hudGrip.gameObject.activeSelf != up)
+            {
+                if (!up && hudGripPickup != null && _gripHeld) hudGripPickup.Drop();
+                hudGrip.gameObject.SetActive(up);
+            }
+            if (!up) { _gripHeld = false; return; }
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me)) return;
+            VRCPlayerApi.TrackingData head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
+            Transform h = handRoot.transform;
+            RectTransform rt = handRoot.GetComponent<RectTransform>();
+            float halfH = rt != null ? rt.rect.height * 0.5f * h.lossyScale.y : 0.3f;
+
+            if (_gripHeld && hudGrip != null)
+            {
+                Vector3 look = hudGrip.position - head.position;
+                if (look.sqrMagnitude < 0.0001f) look = head.rotation * Vector3.forward;
+                Quaternion rot = Quaternion.LookRotation(look, Vector3.up);
+                h.SetPositionAndRotation(hudGrip.position + rot * Vector3.up * (halfH + 0.05f), rot);
+                return;
+            }
+
+            float headYaw = head.rotation.eulerAngles.y;
+            if (_hudSnap) { _hudYaw = headYaw; }
+            else
+            {
+                float off = Mathf.DeltaAngle(_hudYaw, headYaw);
+                if (Mathf.Abs(off) > hudFollowAngle) _hudYaw = Mathf.MoveTowardsAngle(_hudYaw, headYaw, (Mathf.Abs(off) - hudFollowAngle * 0.5f) * Time.deltaTime * 4f);
+            }
+            Vector3 want = head.position + Quaternion.Euler(0f, _hudYaw, 0f) * HudOffset(me);
+            Vector3 dir = want - head.position;
+            if (dir.sqrMagnitude < 0.0001f) dir = Vector3.forward;
+            Quaternion wantRot = Quaternion.LookRotation(dir, Vector3.up);
+            if (_hudSnap) { h.SetPositionAndRotation(want, wantRot); _hudSnap = false; }
+            else
+            {
+                float k = 1f - Mathf.Exp(-Time.deltaTime * 10f);
+                h.SetPositionAndRotation(Vector3.Lerp(h.position, want, k), Quaternion.Slerp(h.rotation, wantRot, k));
+            }
+            if (hudGrip != null && !_gripHeld) hudGrip.SetPositionAndRotation(h.position - h.rotation * Vector3.up * (halfH + 0.05f), h.rotation);
         }
 
         /// <summary>Moves the whole encounter (ring, seats, labels, hand) to the fight's ring spot.</summary>
@@ -1014,7 +1104,7 @@ namespace WizardsVRC
             _moveQueued = false;
             VRCPlayerApi local = Networking.LocalPlayer;
             if (!Utilities.IsValid(local)) return;
-            if (_moveHold < 0) local.Immobilize(false);
+            if (_moveHold < 0) { local.Immobilize(false); SetSeated(false); }
             if (_moveHas)
             {
                 if (culler != null) culler.Prepare(_movePos);
@@ -1022,16 +1112,53 @@ namespace WizardsVRC
                 // room was put off their seat, toward the middle of the ring).
                 local.TeleportTo(_movePos, _moveRot, VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, false);
             }
-            // Immobilize only after the teleport has taken effect.
+            // Held to the seat only after the teleport has taken effect.
             if (_moveHold > 0) SendCustomEventDelayedFrames(nameof(_ApplyHold), 2);
             _moveHas = false;
             if (_areaAsleep && !_inBattle) enabled = false;
         }
 
+        [Tooltip("A seated wizard can move about this far from their seat (m); a step further and they're eased back.")]
+        public float seatRoam = 0.9f;
+        private bool _held;
+
+        /// <summary>
+        /// In a seat you're no longer frozen: you can turn, lean and shuffle about slowly (PlayerState.seatedSpeed) within
+        /// seatRoam of the seat (KeepNearSeat), and no jumping.
+        /// </summary>
+        private void SetSeated(bool on)
+        {
+            _held = on;
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (playerState != null) { playerState.seated = on; playerState.ApplySpeed(); }
+            if (Utilities.IsValid(local)) local.SetJumpImpulse(0f);
+            if (!on && Utilities.IsValid(local))
+            {
+                // Jumping comes back unless the jump button is the book button (VR).
+                if (!local.IsUserInVR()) local.SetJumpImpulse(3f);
+            }
+        }
+
+        private void KeepNearSeat()
+        {
+            if (!_held || !_seated || _slot < 0 || seats == null || _slot >= seats.Length || seats[_slot] == null || _moveQueued) return;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me)) return;
+            Vector3 seat = seats[_slot].position;
+            Vector3 p = me.GetPosition();
+            Vector3 off = p - seat;
+            off.y = 0f;
+            float limit = seatRoam * SeatScale(_slot);
+            if (off.magnitude <= limit) return;
+            Vector3 back = seat + off.normalized * (limit * 0.9f);
+            back.y = p.y;
+            me.TeleportTo(back, me.GetRotation(), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, true);
+        }
+
         public void _ApplyHold()
         {
             VRCPlayerApi local = Networking.LocalPlayer;
-            if (Utilities.IsValid(local) && _inBattle && _seated && !_moveQueued) local.Immobilize(true);
+            if (Utilities.IsValid(local) && _inBattle && _seated && !_moveQueued) SetSeated(true);
         }
 
         private void TakeSeat()
@@ -1062,6 +1189,7 @@ namespace WizardsVRC
                     h.rotation = seat.rotation * Quaternion.Euler(25f, 0f, 0f);
                 }
                 handRoot.SetActive(true);
+                _hudSnap = true;   // PlaceHud puts it in front of you from the next frame
             }
 
             BuildPile(c);
@@ -2821,7 +2949,8 @@ namespace WizardsVRC
             AnimateDefeats();
             AnimatePops();
             AnimateFloaters();
-            if (_inBattle && manager != null) { UpdateHudHealth(); AnimateCards(); }
+            if (_inBattle && manager != null) { UpdateHudHealth(); AnimateCards(); KeepNearSeat(); }
+            if (handRoot != null && (handRoot.activeSelf || (hudGrip != null && hudGrip.gameObject.activeSelf))) PlaceHud();
             if (_inBattle && !_seated && manager != null && manager.phase == BattleManager.PHASE_ROAMING && arenaCenter != null && Time.time >= _nextEngage)
             {
                 VRCPlayerApi me = Networking.LocalPlayer;

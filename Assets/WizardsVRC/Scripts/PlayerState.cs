@@ -44,6 +44,13 @@ namespace WizardsVRC
         public float strafeSpeed = 2.4f;
         /// <summary>Extra speed from a potion or similar (1 = none). Set with SetSpeedMultiplier.</summary>
         [HideInInspector] public float speedMultiplier = 1f;
+        [Tooltip("In a duel seat you can still shuffle about a little (BattleClient keeps you near the seat): this slow.")]
+        public float seatedSpeed = 1f;
+        /// <summary>In a duel seat (BattleClient): slow, short steps instead of walking.</summary>
+        [HideInInspector] public bool seated;
+        /// <summary>Where the player last put the battle hand of cards, relative to their head (BattleClient's grip).</summary>
+        [HideInInspector] public Vector3 battleHudOffset;
+        [HideInInspector] public bool battleHudSet;
 
         public override void OnPlayerJoined(VRCPlayerApi player)
         {
@@ -55,6 +62,13 @@ namespace WizardsVRC
         {
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
+            if (seated)
+            {
+                me.SetWalkSpeed(seatedSpeed);
+                me.SetRunSpeed(seatedSpeed);
+                me.SetStrafeSpeed(seatedSpeed);
+                return;
+            }
             float m = Mathf.Max(0.1f, speedMultiplier);
             me.SetWalkSpeed(walkSpeed * m);
             me.SetRunSpeed(runSpeed * m);

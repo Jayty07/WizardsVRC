@@ -485,7 +485,7 @@ namespace WizardsVRC.EditorTools
         private const bool SunShadows = false;
 
         /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
-        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery" };
+        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery", "HudGrip" };
 
         /// <summary>Creates the program assets that are missing (and marks the rest current). True if any was made.</summary>
         private static bool CreateMissingPrograms()
@@ -1278,6 +1278,12 @@ namespace WizardsVRC.EditorTools
                 box.isTrigger = true;
                 box.center = new Vector3(0, 1.2f * sc, 0);
                 box.size = new Vector3(1.8f * sc, 2.6f * sc, 1.8f * sc);
+                // A second, wide and low one over the glowing ring on the floor: an ally's seat has a player standing in
+                // it, and a VR pointer aimed at them can stop on their avatar, but the ring round their feet is clear.
+                var floorBox = pick.AddComponent<BoxCollider>();
+                floorBox.isTrigger = true;
+                floorBox.center = new Vector3(0, 0.15f, 0);
+                floorBox.size = new Vector3(2.6f * sc, 0.3f, 2.6f * sc);
                 var relay = UdonSharpUndo.AddComponent<EventRelay>(pick);
                 relay.target = target;
                 relay.eventName = "Target" + s;
@@ -1790,6 +1796,41 @@ namespace WizardsVRC.EditorTools
             ApplyCombatFont(root);
         }
 
+        /// <summary>
+        /// The grip under the hand of cards: a little gold bar with glowing ends, a local pickup (no sync) that BattleClient
+        /// keeps under the hand's bottom edge; grab it to move the hand (HudGrip). Off until the hand shows.
+        /// </summary>
+        private static void BuildHudGrip(Transform arenaRoot, BattleClient client)
+        {
+            var go = new GameObject("HudGrip");
+            go.transform.SetParent(arenaRoot, false);
+            var gold = PMat("HudGripGold", new Color(1f, 0.82f, 0.36f), 1f, new Color(0.6f, 0.45f, 0.12f));
+            var glow = PMat("HudGripGlow", new Color(0.6f, 0.85f, 1f), 1f, new Color(0.45f, 0.7f, 1f));
+            var bar = Shape(go.transform, "Bar", CylMesh(), Vector3.zero, new Vector3(0.025f, 0.09f, 0.025f), gold, false, Quaternion.Euler(0, 0, 90f));
+            var endL = Shape(go.transform, "EndL", GemMesh(), new Vector3(-0.1f, 0, 0), new Vector3(0.035f, 0.035f, 0.035f), glow, false, Quaternion.identity);
+            var endR = Shape(go.transform, "EndR", GemMesh(), new Vector3(0.1f, 0, 0), new Vector3(0.035f, 0.035f, 0.035f), glow, false, Quaternion.identity);
+            bar.isStatic = endL.isStatic = endR.isStatic = false;
+            var col = go.AddComponent<BoxCollider>();
+            col.size = new Vector3(0.26f, 0.07f, 0.07f);
+            var rb = go.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            var pickup = go.AddComponent<VRCPickup>();
+            pickup.InteractionText = "Move the hand of cards";
+            pickup.UseText = "";
+            pickup.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.No;
+            pickup.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any;
+            pickup.allowManipulationWhenEquipped = true;
+            pickup.DisallowTheft = true;
+            pickup.proximity = 1.5f;
+            var grip = UdonSharpUndo.AddComponent<HudGrip>(go);
+            grip.client = client;
+            UdonSharpEditorUtility.CopyProxyToUdon(grip);
+            client.hudGrip = go.transform;
+            client.hudGripPickup = pickup;
+            go.SetActive(false);
+        }
+
         private static void BuildHandPanel(Transform arenaRoot, BattleClient client)
         {
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(client);
@@ -1798,6 +1839,7 @@ namespace WizardsVRC.EditorTools
             MakeWorldCanvas(canvasGo, new Vector2(1600, 960), new Vector3(0, 1.2f, -2.4f), 0.0006f);
             RectTransform root = (RectTransform)canvasGo.transform;
             client.handRoot = canvasGo;
+            BuildHudGrip(arenaRoot, client);
 
             Color gold = new Color(1f, 0.85f, 0.45f);
             // See-through backing so the duel stays visible behind the cards.

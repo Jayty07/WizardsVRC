@@ -398,6 +398,13 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Spell cards** use design 1 "Classic" (`Textures/Cards/CardFrame<School>.png`, made by `Tools/make_card_frames.py`):
   a vivid school-coloured frame, parchment face, name banner, pip gem, accuracy seal and the school badge. The art
   window shows the icon for shields, blades and traps; other spells keep a plain school glow until they have animations.
+- **Battle HUD placement:** the hand of cards floats in front of you (low like a lectern in VR, so pointing across the
+  ring passes over it) and swings round to follow you when you turn. Grab the gold grip under it (`HudGrip`, a local
+  pickup) to put it anywhere; it stays there, relative to you, for every fight after (`PlayerState.battleHudOffset`).
+- **In your seat** you're no longer frozen: you can turn and shuffle about slowly within `BattleClient.seatRoam` (0.9 m)
+  of the seat, and you're eased back if you go further. No jumping in a seat.
+- **Targets in VR:** each seat's click target also covers the glowing ring on the floor, so you can pick an ally (whose
+  avatar is standing in the seat) by pointing at the ring round their feet; the hand's target buttons work too.
 - **Battle hand:** seven cards fanned like Wizard101's; hovering a card makes it grow and rise, with its pip cost,
   school, accuracy and full effect. Pips show as dots (white, power, empty).
 - **Two clear sides:** wizards always sit on the south half (blue seat sockets), monsters on the north half (red), with
