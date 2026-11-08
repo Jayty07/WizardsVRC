@@ -528,6 +528,7 @@ namespace WizardsVRC
                 playerState.SetMana(0);
             }
             _vitalsDone = true;
+            _fledBattle = manager.battleId;   // walking into this circle again won't pull you back into it
             manager.RequestFlee();
             _LeaveBattle();
         }
@@ -884,6 +885,7 @@ namespace WizardsVRC
         // ------------------------------------------------------------------ battle enter / leave
 
         private float _nextDecline;
+        private int _fledBattle = -1;
 
         /// <summary>
         /// Listed in this fight while already seated in another (a tower floor's monster run into in the same moment as
@@ -937,7 +939,9 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ moving the local player
 
-        private Transform _moveTo;
+        private bool _moveHas;
+        private Vector3 _movePos;
+        private Quaternion _moveRot;
         private int _moveHold;
         private bool _moveQueued;
 
@@ -951,12 +955,58 @@ namespace WizardsVRC
         /// </summary>
         private void QueueMove(Transform target, int hold)
         {
-            _moveTo = target;
+            if (target != null) QueueMoveTo(target.position, target.rotation, hold);
+            else
+            {
+                _moveHas = false;
+                _moveHold = hold;
+                QueueApply();
+            }
+        }
+
+        /// <summary>QueueMove to a point rather than a marker.</summary>
+        private void QueueMoveTo(Vector3 pos, Quaternion rot, int hold)
+        {
+            _moveHas = true;
+            _movePos = pos;
+            _moveRot = rot;
             _moveHold = hold;
-            if (target != null && culler != null) culler.Prepare(target.position);
+            if (culler != null) culler.Prepare(pos);
+            QueueApply();
+        }
+
+        private void QueueApply()
+        {
             if (_moveQueued) return;
             _moveQueued = true;
             SendCustomEventDelayedFrames(nameof(_ApplyMove), 1);
+        }
+
+        /// <summary>
+        /// Where a wizard who fled (or whose fight ended without a win or a loss) goes when the ring has no return marker:
+        /// a few steps out of the circle behind their own seat, facing away from it, so they're out of the fight (and not
+        /// pulled straight back in by walking into the circle) but still right where they were.
+        /// </summary>
+        [Tooltip("Fleeing a ring with no return marker steps you out to this distance from its middle (m).")]
+        public float stepOutRadius = 11f;
+        // Everything solid except players, UI, triggers' own layers and walk-through decor.
+        private const int StepOutMask = ~((1 << 2) | (1 << 5) | (1 << 9) | (1 << 10) | (1 << 12) | (1 << 17) | (1 << 18));
+
+        private void StepOutOfRing(int slot)
+        {
+            if (arenaCenter == null || seats == null || slot < 0 || slot >= seats.Length || seats[slot] == null) return;
+            Vector3 c = arenaCenter.position;
+            Vector3 out_ = seats[slot].position - c;
+            out_.y = 0f;
+            if (out_.sqrMagnitude < 0.01f) out_ = -seats[slot].forward;
+            out_.Normalize();
+            // Out past the ring's edge, but never through a wall: stop short of anything solid on the way.
+            Vector3 from = seats[slot].position + Vector3.up;
+            float go = Mathf.Max(0f, stepOutRadius - Vector3.Distance(new Vector3(from.x, c.y, from.z), c));
+            RaycastHit hit;
+            if (Physics.Raycast(from, out_, out hit, go + 0.6f, StepOutMask, QueryTriggerInteraction.Ignore)) go = Mathf.Max(0f, hit.distance - 0.6f);
+            Vector3 pos = seats[slot].position + out_ * go;
+            QueueMoveTo(pos, Quaternion.LookRotation(out_, Vector3.up), -1);
         }
 
         public void _ApplyMove()
@@ -965,14 +1015,16 @@ namespace WizardsVRC
             VRCPlayerApi local = Networking.LocalPlayer;
             if (!Utilities.IsValid(local)) return;
             if (_moveHold < 0) local.Immobilize(false);
-            if (_moveTo != null)
+            if (_moveHas)
             {
-                if (culler != null) culler.Prepare(_moveTo.position);
-                local.TeleportTo(_moveTo.position, _moveTo.rotation);
+                if (culler != null) culler.Prepare(_movePos);
+                // The player themselves on the spot (not their playspace: a VR player standing off the middle of their
+                // room was put off their seat, toward the middle of the ring).
+                local.TeleportTo(_movePos, _moveRot, VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, false);
             }
             // Immobilize only after the teleport has taken effect.
             if (_moveHold > 0) SendCustomEventDelayedFrames(nameof(_ApplyHold), 2);
-            _moveTo = null;
+            _moveHas = false;
             if (_areaAsleep && !_inBattle) enabled = false;
         }
 
@@ -997,8 +1049,18 @@ namespace WizardsVRC
             if (handRoot != null)
             {
                 Transform h = handRoot.transform;
-                h.position = seat.position + seat.forward * 0.75f + Vector3.up * (eye * 0.78f);
-                h.rotation = seat.rotation * Quaternion.Euler(25f, 0f, 0f);
+                if (local.IsUserInVR())
+                {
+                    // VR: lower and laid back like a lectern at your waist, so pointing a controller at a monster or
+                    // an ally (their seat lights up and can be clicked) passes over the cards instead of into them.
+                    h.position = seat.position + seat.forward * 0.45f + Vector3.up * (eye * 0.45f);
+                    h.rotation = seat.rotation * Quaternion.Euler(60f, 0f, 0f);
+                }
+                else
+                {
+                    h.position = seat.position + seat.forward * 0.75f + Vector3.up * (eye * 0.78f);
+                    h.rotation = seat.rotation * Quaternion.Euler(25f, 0f, 0f);
+                }
                 handRoot.SetActive(true);
             }
 
@@ -1106,14 +1168,19 @@ namespace WizardsVRC
             _inBattle = false;
             _seated = false;
             _leaving = false;
+            int leftSlot = _slot;
             _slot = -1;
             _rejoinBlockUntil = Time.time + 5f;
             _nextEngage = Time.time + 5f;
             if (playerState != null) { playerState.inCombat = false; playerState.combatHealth = -1; }
             if (handRoot != null) handRoot.SetActive(false);
-            Transform back = _defeated && defeatReturn != null ? defeatReturn : _wonLast && !_defeated && victoryReturn != null ? victoryReturn : hubReturn;
+            bool won = _wonLast && !_defeated;
+            Transform back = _defeated && defeatReturn != null ? defeatReturn : won && victoryReturn != null ? victoryReturn : hubReturn;
             _wonLast = false;
-            QueueMove(back, -1);   // freed, then sent on (a frame later: this can run inside a network update)
+            // Freed, then sent on (a frame later: this can run inside a network update). Fled from a ring with nowhere
+            // set to go: a few steps out of the circle rather than standing in your old seat.
+            if (back == null && !_defeated && !won) StepOutOfRing(leftSlot);
+            else QueueMove(back, -1);
             if (playerState != null && playerState.HasCharacter()) playerState.SaveNow();
             // (If the ring's area is asleep, _ApplyMove switches this off once the move is done.)
         }
@@ -2770,7 +2837,7 @@ namespace WizardsVRC
             // Wandering-monster lane: like Wizard101, anyone who walks into the circle joins the fight if a seat is free,
             // during the join window or in any later round.
             if (manager != null && manager.wanderMode && manager.phase >= BattleManager.PHASE_JOINING && manager.phase <= BattleManager.PHASE_PLAYBACK &&
-                manager.HasFreeWizardSeat() && CanFight() && arenaCenter != null && Time.time >= _nextEngage)
+                manager.HasFreeWizardSeat() && CanFight() && arenaCenter != null && Time.time >= _nextEngage && manager.battleId != _fledBattle)
             {
                 VRCPlayerApi me = Networking.LocalPlayer;
                 Vector3 p = me.GetPosition() - arenaCenter.position;

@@ -235,6 +235,16 @@ namespace WizardsVRC.EditorTools
             AmbientBed(hubRoot, "Amb_Breeze");   // the castle grounds: breeze and birds (WizardsVRCSceneBuilder.Ambience.cs)
             var pedestal = BuildBackpackPedestal(hubRoot, hubPlan.pedestalPos, book);
             var queuePad = BuildQueuePad(hubRoot, hubPlan.padPos, battleClient);
+            {
+                // Fleeing the boss arena brings you back beside the teleporter you came in by (not the hub's arrival pad,
+                // where character select puts you), a few steps off it so you aren't queued again.
+                Vector3 toMiddle = -new Vector3(hubPlan.padPos.x, 0f, hubPlan.padPos.z);
+                if (toMiddle.sqrMagnitude < 0.01f) toMiddle = Vector3.back;
+                toMiddle.Normalize();
+                Transform arenaBack = Child(hubRoot, "ArenaFleeReturn", hubPlan.padPos + toMiddle * 3.5f + new Vector3(0, 0.05f, 0));
+                arenaBack.localRotation = Quaternion.LookRotation(toMiddle, Vector3.up);
+                battleClient.hubReturn = arenaBack;
+            }
             if (!HubTestProps)
             {
                 // The old testing fixtures in the castle (the notice board's Change Character / Backpack panel, the
