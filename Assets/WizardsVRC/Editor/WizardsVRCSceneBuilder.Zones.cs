@@ -53,10 +53,17 @@ namespace WizardsVRC.EditorTools
             public readonly List<string> musicTracks = new List<string>();
             public readonly List<bool> musicRestarts = new List<bool>();
             public readonly List<string> musicNames = new List<string>();
+            /// <summary>Places to discover (AreaDiscovery): every zone, boss tower and secret place, with its name.</summary>
+            public readonly List<Bounds> discoverBounds = new List<Bounds>();
+            public readonly List<string> discoverNames = new List<string>();
 
-            /// <summary>Plays the zone's music (or its world's) inside the box, if it has any; a tower box plays the tower track.</summary>
+            /// <summary>
+            /// Plays the zone's music (or its world's) inside the box, if it has any; a tower box plays the tower track.
+            /// Every box is also a place to discover, music or not.
+            /// </summary>
             public void MusicArea(ZoneDefinition z, Bounds b, string what, bool tower = false)
             {
+                if (!string.IsNullOrEmpty(what)) { discoverBounds.Add(b); discoverNames.Add(what); }
                 string track = ZoneMusicTrack(z, data, tower);
                 if (string.IsNullOrEmpty(track)) return;
                 bool towerTrack = tower && track != ZoneMusicTrack(z, data, false);

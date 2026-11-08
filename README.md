@@ -201,6 +201,11 @@ nothing is taken back.
   5. Rebuild, then test: the UdonProducts Manager can buy and expire products in ClientSim, and in Build & Test (or as
      the world's owner) your own listings cost nothing and local test purchases expire after 60 seconds.
   With no products set up, the shop simply runs on earned Starshards.
+- **Quest and exploring sounds** (`Tools/make_quest_sounds.py`, original synthesis): a soft ding as each objective
+  counts, a bright rising chime when a quest step is done and a short horn fanfare when the quest is complete
+  (`QuestManager.uiAudio`). Walking into a street, town, boss tower or secret place for the first time
+  (`AreaDiscovery`) plays a harp-like chime, shows "Discovered: (place)" and gives a little XP (20 + 10 per level);
+  each wizard's discoveries are saved (save format v12), so each place counts once.
 - **Notices:** the book's **Notices** tab (`NotificationCenter`) lists new loot and gear, professors' messages when a
   new spell unlocks at your level, newly available quests and tower clears, with an unread badge on the HUD and the
   tab and a one-line toast.

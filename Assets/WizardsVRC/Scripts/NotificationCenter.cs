@@ -58,6 +58,16 @@ namespace WizardsVRC
         private bool[] _questSeen;
         private bool _questsPrimed;
 
+        private bool _quiet;
+
+        /// <summary>The same as Post, without the pop-up sound (the caller plays its own, e.g. a discovery chime).</summary>
+        public void PostQuiet(int kind, string title, string body, int itemId)
+        {
+            _quiet = true;
+            Post(kind, title, body, itemId);
+            _quiet = false;
+        }
+
         /// <summary>Adds a notice (newest first; the oldest drops off past MAX).</summary>
         public void Post(int kind, string title, string body, int itemId)
         {
@@ -72,7 +82,7 @@ namespace WizardsVRC
             _bodies[0] = body;
             if (_count < MAX) _count++;
             _unread = Mathf.Min(MAX, _unread + 1);
-            if (uiAudio != null) uiAudio.PlayPopup();
+            if (uiAudio != null && !_quiet) uiAudio.PlayPopup();
             if (toast != null)
             {
                 if (toastText != null) toastText.text = Glyph(kind) + " " + title + (body.Length > 0 && body.Length < 48 ? ": " + body : "");

@@ -342,6 +342,8 @@ namespace WizardsVRC.EditorTools
             foreach (var orb in hubPlan.orbBehaviours) orb.uiAudio = uiAudio;
             foreach (var orb in wb.orbs) orb.uiAudio = uiAudio;
             book.uiAudio = uiAudio;
+            questManager.uiAudio = uiAudio;
+            BuildDiscovery(systems.transform, playerState, uiAudio, BookNotices, wb);
             foreach (var b in ExtraBehaviours)
             {
                 var f = b.GetType().GetField("uiAudio");
@@ -483,7 +485,7 @@ namespace WizardsVRC.EditorTools
         private const bool SunShadows = false;
 
         /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
-        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig" };
+        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery" };
 
         /// <summary>Creates the program assets that are missing (and marks the rest current). True if any was made.</summary>
         private static bool CreateMissingPrograms()

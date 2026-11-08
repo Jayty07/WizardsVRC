@@ -35,12 +35,13 @@ namespace WizardsVRC
 ///   are u16 (NO_TRACKED_QUEST = 65535). Older saves load as before.
 /// v9: signature / aura colours. v10: starshards, titles, auras, skins, records, elixirs.
 /// v11 appends: rewardLevel u8, BOUNTY_SLOTS * (bountyId u8, progress u8), bountiesDone u16, depotBits u16, highNoonWins u16.
+/// v12 appends: discoveredA u32, discoveredB u32 (places found, AreaDiscovery).
     /// Typical saves are 1-2 KB raw; the worst case (every quest slot used) is about 2.6 KB raw (budget: 4 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 11;
+        public const int FORMAT_VERSION = 12;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -163,6 +164,8 @@ namespace WizardsVRC
         [Tooltip("Bit n = railroad depot n reached (you can ride to it from any other depot).")]
         public int depotBits;
         public int highNoonWins;
+        /// <summary>Places discovered (AreaDiscovery): bits 0-30 of A are places 0-30, of B places 31-61.</summary>
+        public int discoveredA, discoveredB;
 
         [HideInInspector] public string lastError = "";
 
@@ -222,7 +225,7 @@ namespace WizardsVRC
         {
             starshards = 0; titleBits = 0; equippedTitle = 0; auraBits = 0; equippedAura = 0; skinBits = 0; equippedSkin = 0;
             battlesWon = 0; monstersDefeated = 0; bossesDefeated = 0; towersCleared = 0; spellNoticeLevel = 1;
-            rewardLevel = 1; bountiesDone = 0; depotBits = 0; highNoonWins = 0;
+            rewardLevel = 1; bountiesDone = 0; depotBits = 0; highNoonWins = 0; discoveredA = 0; discoveredB = 0;
             if (bountyIds == null || bountyIds.Length != BOUNTY_SLOTS) bountyIds = new int[BOUNTY_SLOTS];
             if (bountyProgress == null || bountyProgress.Length != BOUNTY_SLOTS) bountyProgress = new int[BOUNTY_SLOTS];
             for (int i = 0; i < BOUNTY_SLOTS; i++) { bountyIds[i] = 0; bountyProgress[i] = 0; }
@@ -231,6 +234,16 @@ namespace WizardsVRC
         }
 
         public bool HasBit(int bits, int n) { return n >= 0 && n < 31 && (bits & (1 << n)) != 0; }
+
+        /// <summary>Place n (0-61) has been discovered.</summary>
+        public bool IsDiscovered(int n) { return n < 31 ? HasBit(discoveredA, n) : HasBit(discoveredB, n - 31); }
+
+        public void SetDiscovered(int n)
+        {
+            if (n < 0 || n > 61) return;
+            if (n < 31) discoveredA |= 1 << n;
+            else discoveredB |= 1 << (n - 31);
+        }
 
         public int GetStarterHealth(School s)
         {
@@ -277,7 +290,7 @@ namespace WizardsVRC
             auraBits = other.auraBits; equippedAura = other.equippedAura; skinBits = other.skinBits; equippedSkin = other.equippedSkin;
             battlesWon = other.battlesWon; monstersDefeated = other.monstersDefeated; bossesDefeated = other.bossesDefeated;
             towersCleared = other.towersCleared; spellNoticeLevel = other.spellNoticeLevel;
-            rewardLevel = other.rewardLevel; bountiesDone = other.bountiesDone; depotBits = other.depotBits; highNoonWins = other.highNoonWins;
+            rewardLevel = other.rewardLevel; bountiesDone = other.bountiesDone; depotBits = other.depotBits; highNoonWins = other.highNoonWins; discoveredA = other.discoveredA; discoveredB = other.discoveredB;
             if (bountyIds == null || bountyIds.Length != BOUNTY_SLOTS) bountyIds = new int[BOUNTY_SLOTS];
             if (bountyProgress == null || bountyProgress.Length != BOUNTY_SLOTS) bountyProgress = new int[BOUNTY_SLOTS];
             for (int i = 0; i < BOUNTY_SLOTS; i++)
@@ -658,6 +671,9 @@ namespace WizardsVRC
             WriteU16(Mathf.Clamp(bountiesDone, 0, 65535));
             WriteU16(depotBits & 0xFFFF);
             WriteU16(Mathf.Clamp(highNoonWins, 0, 65535));
+            // v12: places discovered
+            WriteU32(discoveredA & 0x7FFFFFFF);
+            WriteU32(discoveredB & 0x7FFFFFFF);
 
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
@@ -876,6 +892,12 @@ namespace WizardsVRC
                 highNoonWins = ReadU16();
             }
             else rewardLevel = level;   // older saves: the levels they already have don't pay out again
+            if (version >= 12)
+            {
+                if (!Need(8)) return false;
+                discoveredA = ReadU32() & 0x7FFFFFFF;
+                discoveredB = ReadU32() & 0x7FFFFFFF;
+            }
             MigrateDecks(version);
             return true;
         }

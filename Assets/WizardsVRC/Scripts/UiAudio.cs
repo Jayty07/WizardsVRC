@@ -35,6 +35,15 @@ namespace WizardsVRC
         public AudioClip nameSpin;
         public AudioClip popup;
         public AudioClip heal;
+        [Header("Quests and exploring")]
+        [Tooltip("One of a quest step's objectives counted (a monster, an object, a place).")]
+        public AudioClip questProgress;
+        [Tooltip("A quest step finished: on to the next.")]
+        public AudioClip questObjective;
+        [Tooltip("A quest finished.")]
+        public AudioClip questComplete;
+        [Tooltip("A new place discovered (AreaDiscovery).")]
+        public AudioClip discovery;
 
         private float _lastHover;
 
@@ -65,6 +74,10 @@ namespace WizardsVRC
         public void PlayCardClick() { Play(cardClick); }
         public void PlaySpellSelect() { Play(spellSelect); }
         public void PlayNameSpin() { Play(nameSpin); }
+        public void PlayQuestProgress() { Play(questProgress); }
+        public void PlayQuestObjective() { Play(questObjective); }
+        public void PlayQuestComplete() { Play(questComplete); }
+        public void PlayDiscovery() { Play(discovery); }
         public void PlayPopup() { Play(popup); }
         public void PlayHeal() { Play(heal); }
     }

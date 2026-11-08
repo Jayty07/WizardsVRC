@@ -44,6 +44,8 @@ namespace WizardsVRC
         public PlayerHUD hud;
         public CardDatabase cardDatabase;
         public NewSpellPopup popup;
+        [Tooltip("Plays a chime as objectives count, a brighter one as a step finishes, and a fanfare when a quest is done.")]
+        public UiAudio uiAudio;
 
         [Header("Cutscenes")]
         /// <summary>Indexed by <see cref="School"/>.</summary>
@@ -509,12 +511,17 @@ namespace WizardsVRC
                 playerState.MarkDirty();
                 playerState.SaveNow();
                 if (hud != null) hud.Refresh();
+                if (uiAudio != null) uiAudio.PlayQuestProgress();
                 return;
             }
             c.questCounters[q] = 0;
             int stage = GetStage(q) + 1;
             if (stage > questStepCounts[q]) Complete(q, stage);
-            else SetStage(q, stage);
+            else
+            {
+                SetStage(q, stage);
+                if (uiAudio != null) uiAudio.PlayQuestObjective();
+            }
         }
 
         private void Complete(int q, int stage)
@@ -528,6 +535,7 @@ namespace WizardsVRC
             c.AddXp(questXp[q]);
             SetStage(q, stage);
             CheckAutoStarts();
+            if (uiAudio != null) uiAudio.PlayQuestComplete();
             if (learned && popup != null) popup.Show(spell);
         }
 

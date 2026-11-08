@@ -484,6 +484,11 @@ namespace WizardsVRC.EditorTools
             ui.nameSpin = UiClip("ui_charactername_spin");
             ui.popup = UiClip("ui_chatbubble_popup");
             ui.heal = UiClip("ui_health_powerup_01");
+            // Tools/make_quest_sounds.py
+            ui.questProgress = UiClip("QuestProgress");
+            ui.questObjective = UiClip("QuestObjective");
+            ui.questComplete = UiClip("QuestComplete");
+            ui.discovery = UiClip("Discovery");
             return ui;
         }
 

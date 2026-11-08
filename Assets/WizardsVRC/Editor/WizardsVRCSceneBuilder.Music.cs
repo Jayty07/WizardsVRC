@@ -13,6 +13,32 @@ namespace WizardsVRC.EditorTools
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
+        /// <summary>
+        /// Exploring (AreaDiscovery): every zone, boss tower and secret place, in world-data order, so a place keeps its
+        /// bit in the save from build to build as long as places are only added at the end. At most 62.
+        /// </summary>
+        private static AreaDiscovery BuildDiscovery(Transform systems, PlayerState playerState, UiAudio uiAudio, NotificationCenter notices, WorldBuild wb)
+        {
+            var d = UdonSharpUndo.AddComponent<AreaDiscovery>(Child(systems, "AreaDiscovery", Vector3.zero).gameObject);
+            d.playerState = playerState;
+            d.uiAudio = uiAudio;
+            d.notifications = notices;
+            int n = wb != null ? Mathf.Min(62, wb.discoverBounds.Count) : 0;
+            if (wb != null && wb.discoverBounds.Count > 62)
+                Debug.LogWarning("[WizardsVRC] Discovery: " + wb.discoverBounds.Count + " places, only the first 62 can be discovered.");
+            d.placeNames = new string[n];
+            d.boundsMin = new Vector3[n];
+            d.boundsMax = new Vector3[n];
+            for (int i = 0; i < n; i++)
+            {
+                d.placeNames[i] = wb.discoverNames[i];
+                d.boundsMin[i] = wb.discoverBounds[i].min;
+                d.boundsMax[i] = wb.discoverBounds[i].max;
+            }
+            ExtraBehaviours.Add(d);
+            return d;
+        }
+
         private const string MusicDir = "Assets/WizardsVRC/Audio/Music";
         // Same order as MusicDirector.HUB, COMBAT, CREATION. Volumes even out the recordings (the combat track is ~4 dB quieter).
         private static readonly string[] MusicTracks = { "Music_Hub_Temp", "Music_Combat_World1", "Music_CharacterCreation" };
