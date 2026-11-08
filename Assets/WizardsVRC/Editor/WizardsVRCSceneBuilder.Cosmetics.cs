@@ -33,7 +33,7 @@ namespace WizardsVRC.EditorTools
         /// <summary>Clears what the last build left in the statics above (called at the start of every build).</summary>
         private static void ResetExtras()
         {
-            BookTabBadge = null; BookWardrobe = null; BookShop = null; BookNotices = null;
+            BookTabBadge = null; BookWardrobe = null; BookShop = null; BookNotices = null; BookMap = null;
             GoldShopPanel = null; TooltipRoot = null;
             ExtraBehaviours.Clear();
             ShopCounters.Clear();

@@ -27,6 +27,7 @@ namespace WizardsVRC
         public const int VIEW_NOTICES = 5;
         public const int VIEW_WARDROBE = 6;
         public const int VIEW_SHOP = 7;
+        public const int VIEW_MAP = 8;
         public const int FIRST_EXTRA_VIEW = 4;
 
         [Header("Systems")]
@@ -197,6 +198,7 @@ namespace WizardsVRC
         public void ShowNotices() { ShowExtra(VIEW_NOTICES); }
         public void ShowWardrobe() { ShowExtra(VIEW_WARDROBE); }
         public void ShowShop() { ShowExtra(VIEW_SHOP); }
+        public void ShowMap() { ShowExtra(VIEW_MAP); }
 
         private void ShowExtra(int view)
         {

@@ -274,6 +274,8 @@ namespace WizardsVRC.EditorTools
             questPages.questManager = questManager;
             var wb = new WorldBuild { data = worldData, cutsceneParent = Child(systems.transform, "ZoneCutscenes", Vector3.zero) };
             BuildZones(systems.transform, hubRoot, questManager, cardDb, itemDb, playerState, encounters, wb, hubPlan);
+            // The book's world and zone maps, drawn from the zones just built (WizardsVRCSceneBuilder.Maps.cs).
+            BuildMaps(BookMap, wb, hubPlan);
             ApplyQuestlines(questManager, wb, itemDb);
             var streets = wb.behaviours;
             streets.AddRange(BuildPortalRoom(interior, questManager, playerState));
@@ -487,7 +489,7 @@ namespace WizardsVRC.EditorTools
         private const bool SunShadows = false;
 
         /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
-        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery", "HudGrip", "CastPattern", "PatternWand", "SpellCinematic" };
+        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery", "HudGrip", "CastPattern", "PatternWand", "SpellCinematic", "MapPages" };
 
         /// <summary>Creates the program assets that are missing (and marks the rest current). True if any was made.</summary>
         private static bool CreateMissingPrograms()
@@ -712,11 +714,11 @@ namespace WizardsVRC.EditorTools
             BuildSettingsPages(root, book);
             Panel(root, "Spine", Vector2.zero, new Vector2(30, 1060), new Color(0.22f, 0.12f, 0.06f));
 
-            // Bookmark tabs down the right edge: Pack, Deck, Quests, Stats, Notices, Wardrobe, Shop, Settings.
-            float TabY(int i) => 437f - i * 125f;
+            // Bookmark tabs down the right edge: Pack, Deck, Quests, Map, Stats, Notices, Wardrobe, Shop, Settings.
+            float TabY(int i) => 450f - i * 112.5f;
             GameObject Tab(int i, string name, string text, int size, string ev, UdonBehaviour to)
             {
-                GameObject b = Button(root, name, new Vector2(935, TabY(i)), new Vector2(80, 115), text, new Color(0.45f, 0.3f, 0.18f), to, ev);
+                GameObject b = Button(root, name, new Vector2(935, TabY(i)), new Vector2(80, 104), text, new Color(0.45f, 0.3f, 0.18f), to, ev);
                 b.GetComponentInChildren<Text>().fontSize = size;
                 return b;
             }
@@ -724,20 +726,25 @@ namespace WizardsVRC.EditorTools
             book.deckTabImage = Tab(1, "DeckTab", "Deck", 22, "ShowDeck", target).GetComponent<Image>();
             book.questTabImage = Tab(2, "QuestTab", "Quests", 18, "ShowQuests", target).GetComponent<Image>();
             var extraTabs = new List<Image>();
-            extraTabs.Add(Tab(3, "StatsTab", "Stats", 20, nameof(InventoryBook.ShowStats), target).GetComponent<Image>());
-            GameObject noticeTab = Tab(4, "NoticesTab", "No-\ntices", 18, nameof(InventoryBook.ShowNotices), target);
+            // The Map (WizardsVRCSceneBuilder.MapBook.cs) is the fifth extra view, its tab under Quests.
+            Image mapTab = Tab(3, "MapTab", "Map", 22, nameof(InventoryBook.ShowMap), target).GetComponent<Image>();
+            extraTabs.Add(Tab(4, "StatsTab", "Stats", 20, nameof(InventoryBook.ShowStats), target).GetComponent<Image>());
+            GameObject noticeTab = Tab(5, "NoticesTab", "No-\ntices", 18, nameof(InventoryBook.ShowNotices), target);
             extraTabs.Add(noticeTab.GetComponent<Image>());
-            extraTabs.Add(Tab(5, "WardrobeTab", "Ward-\nrobe", 18, nameof(InventoryBook.ShowWardrobe), target).GetComponent<Image>());
+            extraTabs.Add(Tab(6, "WardrobeTab", "Ward-\nrobe", 18, nameof(InventoryBook.ShowWardrobe), target).GetComponent<Image>());
             // The Starshard Shop: a glowing Starshard set in its tab (WizardsVRCSceneBuilder.Shop.cs).
-            GameObject shopTab = Tab(6, "ShopTab", "", 20, nameof(InventoryBook.ShowShop), target);
+            GameObject shopTab = Tab(7, "ShopTab", "", 20, nameof(InventoryBook.ShowShop), target);
             ShopTabGem(shopTab.transform);
             extraTabs.Add(shopTab.GetComponent<Image>());
+            extraTabs.Add(mapTab);
             book.extraTabImages = extraTabs.ToArray();
-            book.settingsTabImage = Tab(7, "SettingsTab", "Set-\ntings", 18, nameof(InventoryBook.ShowSettings), target).GetComponent<Image>();
+            book.settingsTabImage = Tab(8, "SettingsTab", "Set-\ntings", 18, nameof(InventoryBook.ShowSettings), target).GetComponent<Image>();
             BookTabBadge = noticeTab.transform;
-            book.extraViews = new[] { BuildStatsPages(root, book), BuildNoticesPages(root, book), BuildWardrobePages(root, book), BuildShopPages(root, book) };
-            book.extraPages = new UdonSharpBehaviour[] { null, null, BookWardrobe, BookShop };
+            book.extraViews = new[] { BuildStatsPages(root, book), BuildNoticesPages(root, book), BuildWardrobePages(root, book), BuildShopPages(root, book), BuildMapPages(root, book) };
+            book.extraPages = new UdonSharpBehaviour[] { null, null, BookWardrobe, BookShop, BookMap };
             canvasGo.transform.Find("Spine")?.SetAsLastSibling();
+            // The map spreads over both pages (and the spine).
+            canvasGo.transform.Find("MapView")?.SetAsLastSibling();
             // The shop window covers the whole book, tabs and spine too.
             canvasGo.transform.Find("ShopView")?.SetAsLastSibling();
 

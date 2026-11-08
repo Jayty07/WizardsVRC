@@ -52,6 +52,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/ItemDatabase.cs`, `Tools/make_items.py` | World 1's 74 items (gear for every slot and school, potions, decks), generated from one level budget per stat; quest rewards and boss drops are unique. See *Items (World 1)* in [WORLD_BUILDING.md](WORLD_BUILDING.md) |
 | `Assets/WizardsVRC/Scripts/InventoryBook.cs` | Backpack book: live avatar portrait (MirrorReflection-layer camera → RenderTexture), equipment slots + stats (left page), tabbed paged item grid + Equip/Unequip (right page) |
 | `Assets/WizardsVRC/Scripts/CardDatabase.cs` | Spell cards, level/school learning rules, deck limits. Card faces show short Wizard101-style text with icons (`GetCardText`: numbers with school, damage, shield, blade, trap, heal, stun, over-time, accuracy, minion and break icons); the details box keeps the full sentence (`GetEffectText`) |
+| `Assets/WizardsVRC/Scripts/MapPages.cs` | Book's **Map** tab: a storybook map of every zone and every world (drawn at build time by `Editor/WizardsVRCSceneBuilder.Maps.cs`); opens on the zone you're in with a red marker where you stand, turned to your heading; parchment tags name the exits and landmarks (an exit's tag opens that zone's map); **World Map** shows the world's zones as floating islands (click one to open it), **Next World** steps through the worlds, **Where am I?** comes back |
 | `Assets/WizardsVRC/Scripts/DeckPages.cs` | Book's Deck tab, laid out like a spell deck screen: the "Spell Deck" plaque with a round icon per school (All, the seven schools, General) to filter by; the deck shown (flip through and equip the decks you own) with every card as its own square (click to take one out) and, under it, a row of the item spells your gear adds in battle; six big cards of the spells you know on the right (click to add a copy), each with how many the deck holds, page arrows down the sides; pointing at any card shows its details |
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
@@ -154,10 +155,34 @@ backup and rewrites `char_N` from it. PlayerData has no delete API, so Delete wr
 Saves happen on create, on select/swap (the previous character is saved first), on "Change Character", and every
 120 s (`PlayerState.autosaveInterval`).
 
+## Maps
+
+The book's **Map** bookmark has a map of every zone and every world, drawn on every build from the zones' own text maps
+(`Editor/WizardsVRCSceneBuilder.Maps.cs`, `MapCompose.cs`, `MapCanvas.cs`; saved to `Textures/Maps/Generated`, which git
+ignores), so they always match the world data. The look is a hand-made storybook map:
+
+- **Zone maps:** the zone as a little isometric model on old parchment (`Textures/Maps/MapParchment.png`) with a soft
+  shadow and an ink outline: lawns and roads in the zone's colours (brightened), houses with hip roofs and lit windows,
+  low walls and hedges, round trees (cacti in Dustwind), water with waterfalls pouring off the edge, terraces with earthy
+  sides and the island's soil underneath. Landmarks get their own buildings: school halls roofed in their school's
+  colour, the Headmaster's Tower and other towers, the library, shops, saloons, the round tavern with its cone roof, the
+  fountain and its crystal, duelling circles; a castle hub's walls are grey stone. Every NPC has a badge (a gold ring round
+  their robe colour, with their hat). Yellow arrows run from parchment tags to the way home, the gates to other zones and
+  the main landmarks; the tags are buttons in the book, and an exit's ("Kiln Street >") opens that zone's map. Marker
+  doodles that suit the zone fill the margins: little wizards, ghosts, rats, bats, a troll, a plant monster, a crab, a
+  fire imp, an owl, a skeleton, a cactus, a tumbleweed, a lantern ghost, music notes, question marks.
+- **World maps:** one per world, on a starry sky (`MapSky1.png`, `MapSky2.png`): the hub (or the world's town) in the
+  middle and each of the world's zones as its own floating island with jagged rock underneath, placed the way its
+  tunnel leads, joined by dotted golden paths, with a tag per island (zone name and level range) that opens its map.
+- **You are here:** a red marker on your zone's map where you stand, turned to your heading (it follows you while the
+  map is open), and on your island on the world map.
+- The art (parchment, skies, the wooden frame, tags, title scroll, marker and doodles) is all original, made by
+  `python3 Tools/make_map_art.py Assets/WizardsVRC/Textures/Maps`.
+
 ## The book
 
 **B** (desktop), the hub button or the backpack pedestal opens it. Bookmarks: **Pack** (equipment and items),
-**Deck** (decks and spells, shown as the same spell cards as in battle), **Quests**, and **Settings** (HUD and quest-arrow toggles, **VR HUD** (in view or over your left hand), Save Now, Return to Starfall
+**Deck** (decks and spells, shown as the same spell cards as in battle), **Quests**, **Map** (see *Maps* below), and **Settings** (HUD and quest-arrow toggles, **VR HUD** (in view or over your left hand), Save Now, Return to Starfall
 Castle, music volume, **Wand hand** (which hip the casting wand waits at in VR, remembered), and Change Character, which saves and takes you back to the select room). All of the book's text uses the pixel
 font, like the signs and the duel ring. The book opens 1.2x bigger in VR (`InventoryBook.vrScale`; 1.08x on a screen,
 `desktopScale`), and the pop-up details grow with it.

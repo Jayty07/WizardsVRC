@@ -33,3 +33,7 @@ crashlytics-buildid.txt
 # Python bytecode caches from running the Tools scripts
 __pycache__/
 *.pyc
+
+# The book's maps, drawn from the world data on every build (WizardsVRCSceneBuilder.Maps.cs)
+/Assets/WizardsVRC/Textures/Maps/Generated/
+/Assets/WizardsVRC/Textures/Maps/Generated.meta
