@@ -294,6 +294,29 @@ namespace WizardsVRC
         public GameObject handRoot;
         [Tooltip("Confirmation box shown over the hand when Flee is pressed (Flee / Stay).")]
         public GameObject fleeConfirmRoot;
+        [Header("Choosing a potion")]
+        [Tooltip("The Potion button's menu: one button per kind of potion you carry (its name, how many, what it restores); " +
+                 "pick one to drink it as this round's action.")]
+        public GameObject potionMenuRoot;
+        public GameObject[] potionChoiceButtons;
+        public Text[] potionChoiceLabels;
+        public Text potionMenuNote;
+        public const int POTION_CHOICES = 6;
+        private int[] _potionChoices = new int[POTION_CHOICES];
+        private int[] _potionCounts = new int[POTION_CHOICES];
+        private int _potionChoiceCount;
+        [Header("Waiting for the others")]
+        [Tooltip("Over the cards once your spell is chosen while other wizards are still choosing: your spell, who you're " +
+                 "waiting on, the time left, and Back (take your spell back and choose again). The action tray stays usable.")]
+        public GameObject waitRoot;
+        public Text waitLabel;
+        public GameObject waitBackButton;
+        private bool _pickSent;          // a spell (or pass, or potion) went to the ring this round
+        private int _sentCard;           // what: a card, 0 for a pass, PICK_POTION
+        private int _sentTarget = -1;
+        private int _unpickCard;         // a card taken back (Back) that the round might have started with anyway
+        private int _unpickRound = -1;
+        private float _nextWaitText;
         public Text fleeConfirmLabel;
         [Tooltip("Card frames (coloured by school); the card buttons themselves.")]
         public Image[] cardImages;
@@ -567,10 +590,98 @@ namespace WizardsVRC
             _LeaveBattle();
         }
 
-        /// <summary>Drink a potion as this round's action: a health potion if you're hurt, otherwise a mana potion.</summary>
+        /// <summary>
+        /// The Potion button: a menu of the potions you carry, one button per kind (name, how many, what it restores); pick
+        /// one to drink it as this round's action. Without the menu (older scenes), the best one for you is drunk.
+        /// </summary>
         public void Potion()
         {
             if (!CanAct() || playerState == null || !playerState.HasCharacter()) return;
+            if (potionMenuRoot == null) { DrinkBestPotion(); return; }
+            BuildPotionChoices(playerState.current);
+            if (_potionChoiceCount == 0)
+            {
+                _note = "You have no potions.";
+                RefreshHand();
+                return;
+            }
+            for (int i = 0; i < POTION_CHOICES; i++)
+            {
+                bool on = i < _potionChoiceCount;
+                GameObject b = potionChoiceButtons != null && i < potionChoiceButtons.Length ? potionChoiceButtons[i] : null;
+                if (b != null && b.activeSelf != on) b.SetActive(on);
+                if (!on || potionChoiceLabels == null || i >= potionChoiceLabels.Length || potionChoiceLabels[i] == null) continue;
+                int id = _potionChoices[i];
+                int heal = itemDatabase.GetPotionHealth(id);
+                int mana = itemDatabase.GetPotionMana(id);
+                string what = heal > 0 && mana > 0 ? "+" + heal.ToString() + " health, +" + mana.ToString() + " mana"
+                    : heal > 0 ? "+" + heal.ToString() + " health" : "+" + mana.ToString() + " mana";
+                potionChoiceLabels[i].text = itemDatabase.GetName(id) + "  x" + _potionCounts[i].ToString() + "\n<size=22>" + what + "</size>";
+            }
+            if (potionMenuNote != null)
+                potionMenuNote.text = "Health " + manager.hp[_slot].ToString() + " / " + manager.maxHp[_slot].ToString() +
+                    (Pvp() ? "" : "     Mana " + playerState.GetMana().ToString() + " / " + playerState.MaxMana().ToString());
+            if (uiAudio != null) uiAudio.PlayPopup();
+            potionMenuRoot.SetActive(true);
+        }
+
+        public void PotionChoice0() { ChoosePotion(0); }
+        public void PotionChoice1() { ChoosePotion(1); }
+        public void PotionChoice2() { ChoosePotion(2); }
+        public void PotionChoice3() { ChoosePotion(3); }
+        public void PotionChoice4() { ChoosePotion(4); }
+        public void PotionChoice5() { ChoosePotion(5); }
+
+        public void ClosePotionMenu()
+        {
+            if (potionMenuRoot != null && potionMenuRoot.activeSelf) potionMenuRoot.SetActive(false);
+        }
+
+        /// <summary>Each kind of potion in your pack (stacks added up), in pack order, up to POTION_CHOICES.</summary>
+        private void BuildPotionChoices(CharacterData c)
+        {
+            _potionChoiceCount = 0;
+            if (itemDatabase == null) return;
+            int used = c.UsedInventorySlots();
+            for (int i = 0; i < used; i++)
+            {
+                int id = c.inventoryItemIds[i];
+                if (id == 0 || c.inventoryCounts[i] == 0 || !itemDatabase.IsPotion(id)) continue;
+                if (itemDatabase.GetPotionHealth(id) <= 0 && itemDatabase.GetPotionMana(id) <= 0) continue;
+                int at = -1;
+                for (int k = 0; k < _potionChoiceCount; k++) if (_potionChoices[k] == id) at = k;
+                if (at >= 0) { _potionCounts[at] += c.inventoryCounts[i]; continue; }
+                if (_potionChoiceCount >= POTION_CHOICES) continue;
+                _potionChoices[_potionChoiceCount] = id;
+                _potionCounts[_potionChoiceCount] = c.inventoryCounts[i];
+                _potionChoiceCount++;
+            }
+        }
+
+        /// <summary>A potion picked from the menu: drunk as this round's action (unless it couldn't do anything).</summary>
+        private void ChoosePotion(int i)
+        {
+            if (!CanAct() || playerState == null || !playerState.HasCharacter() || i >= _potionChoiceCount) { ClosePotionMenu(); return; }
+            CharacterData c = playerState.current;
+            int id = _potionChoices[i];
+            int heal = itemDatabase.GetPotionHealth(id);
+            int mana = itemDatabase.GetPotionMana(id);
+            bool hurt = manager.hp[_slot] < manager.maxHp[_slot];
+            bool drained = !Pvp() && playerState.GetMana() < playerState.MaxMana();
+            if ((heal <= 0 || !hurt) && (mana <= 0 || !drained))
+            {
+                if (potionMenuNote != null) potionMenuNote.text = heal > 0 && mana <= 0 ? "You're already at full health." : mana > 0 && heal <= 0 ? "Your mana is already full." : "You're already at full health and mana.";
+                return;
+            }
+            int inv = c.FindItem(id);
+            if (inv < 0) { ClosePotionMenu(); return; }
+            ClosePotionMenu();
+            DrinkPotionAt(c, inv);
+        }
+
+        /// <summary>No menu: a health potion if you're hurt, otherwise a mana potion.</summary>
+        private void DrinkBestPotion()
+        {
             CharacterData c = playerState.current;
             bool hurt = manager.hp[_slot] < manager.maxHp[_slot];
             bool drained = playerState.GetMana() < playerState.MaxMana();
@@ -582,6 +693,12 @@ namespace WizardsVRC
                 RefreshHand();
                 return;
             }
+            DrinkPotionAt(c, inv);
+        }
+
+        /// <summary>Drinks the potion in pack slot 'inv' as this round's action: mana now, health when the round plays out.</summary>
+        private void DrinkPotionAt(CharacterData c, int inv)
+        {
             int itemId = c.inventoryItemIds[inv];
             int heal = itemDatabase.GetPotionHealth(itemId);
             int mana = itemDatabase.GetPotionMana(itemId);
@@ -795,6 +912,10 @@ namespace WizardsVRC
                 {
                     DrawToFull();
                     _submitted = false;
+                    _pickSent = false;
+                    _sentCard = 0;
+                    _sentTarget = -1;
+                    _unpickCard = 0;
                     _selHand = -1;
                     _discardMode = false;
                     _note = "Pick a card, or Pass.";
@@ -814,7 +935,7 @@ namespace WizardsVRC
 
             if (phase == BattleManager.PHASE_PLAYBACK && _phaseSeen != BattleManager.PHASE_PLAYBACK)
             {
-                if (_inBattle) { SpendCastMana(); ReturnFizzledCards(); }
+                if (_inBattle) { ReconcileUnpick(); SpendCastMana(); ReturnFizzledCards(); }
                 _playIndex = 0;
                 if (!_playing)
                 {
@@ -1626,10 +1747,102 @@ namespace WizardsVRC
         {
             manager.RequestPickCast(card, target, quality);
             _submitted = true;
+            _pickSent = true;
+            _sentCard = card;
+            _sentTarget = target;
+            _nextWaitText = 0f;
             _selHand = -1;
             _discardMode = false;
             _note = note + " Waiting for the round...";
             RefreshHand();
+        }
+
+        /// <summary>
+        /// The waiting box's Back: your spell is taken back from the ring (BattleManager.NetUnpick), the card returns to your
+        /// hand and you choose again. Not for a potion (already drunk), and only while the round hasn't started.
+        /// </summary>
+        public void BackToSpells()
+        {
+            if (!_inBattle || _leaving || !_pickSent || _slot < 0 || manager.phase != BattleManager.PHASE_PLANNING || !manager.Alive(_slot)) return;
+            if (_sentCard == BattleManager.PICK_POTION) return;
+            manager.RequestUnpick();
+            if (_sentCard > 0 && _handCount < _hand.Length) _hand[_handCount++] = _sentCard;
+            _unpickCard = _sentCard;
+            _unpickRound = manager.round;
+            _pickSent = false;
+            _sentCard = 0;
+            _sentTarget = -1;
+            _submitted = false;
+            _selHand = -1;
+            _discardMode = false;
+            _note = "Pick a card, or Pass.";
+            if (uiAudio != null) uiAudio.PlayCancel();
+            RefreshHand();
+            UpdateWaitPanel();
+        }
+
+        /// <summary>Other living wizards (either side in a duel) who haven't chosen yet this round.</summary>
+        private int OthersChoosing()
+        {
+            int n = 0;
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+                if (s != _slot && manager.IsPlayerSeat(s) && !manager.IsSummon(s) && manager.Alive(s) && manager.locked[s] == 0) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// The waiting box: up while your spell is chosen and someone else is still choosing (not when you're alone: the
+        /// round starts at once). Its words refresh a few times a second.
+        /// </summary>
+        private void UpdateWaitPanel()
+        {
+            if (waitRoot == null) return;
+            bool planning = manager.phase == BattleManager.PHASE_PLANNING;
+            // The ring heard Back (you're unlocked): the card taken back is surely yours again.
+            if (planning && _unpickCard != 0 && _slot >= 0 && !_pickSent && manager.locked[_slot] == 0) _unpickCard = 0;
+            bool show = _inBattle && _seated && !_leaving && !_patterning && _submitted && planning && _slot >= 0 && OthersChoosing() > 0;
+            if (waitRoot.activeSelf != show) { waitRoot.SetActive(show); _nextWaitText = 0f; }
+            if (!show || Time.time < _nextWaitText) return;
+            _nextWaitText = Time.time + 0.25f;
+            string who = "";
+            for (int s = 0; s < BattleManager.SLOTS; s++)
+                if (s != _slot && manager.IsPlayerSeat(s) && !manager.IsSummon(s) && manager.Alive(s) && manager.locked[s] == 0)
+                    who += (who.Length > 0 ? ", " : "") + manager.SlotName(s);
+            string mine;
+            if (!_pickSent) mine = manager.stunned[_slot] != 0 ? "You're stunned this round." : "Your turn is set.";
+            else if (_sentCard == 0) mine = "You pass this round.";
+            else if (_sentCard == BattleManager.PICK_POTION) mine = "You're drinking a potion this round.";
+            else mine = "Your spell: " + cardDatabase.GetName(_sentCard) + (_sentTarget >= 0 && _sentTarget < BattleManager.SLOTS ? " on " + manager.SlotName(_sentTarget) : "");
+            if (waitLabel != null) waitLabel.text = mine + "\nStill choosing: " + who + "\nThe round starts in " + manager.SecondsLeft().ToString() + "s";
+            bool back = _pickSent && _sentCard != BattleManager.PICK_POTION && manager.Alive(_slot);
+            if (waitBackButton != null && waitBackButton.activeSelf != back) waitBackButton.SetActive(back);
+        }
+
+        /// <summary>
+        /// The round started just as Back was pressed (before the ring heard it): if the spell taken back was cast after all,
+        /// it leaves the hand again, and a spell chosen after it (which the ring never took) comes back.
+        /// </summary>
+        private void ReconcileUnpick()
+        {
+            int old = _unpickCard;
+            _unpickCard = 0;
+            if (old <= 0 || _unpickRound != manager.round || _slot < 0 || _sentCard == old) return;
+            bool castOld = false;
+            bool castNew = false;
+            for (int i = 0; i < manager.actCount; i++)
+            {
+                if (i > 0 && manager.actGroup[i] == manager.actGroup[i - 1]) continue;
+                if (manager.actActor[i] != _slot) continue;
+                int k = manager.actKind[i];
+                if (k == BattleManager.KIND_PASS || k == BattleManager.KIND_DOT || k == BattleManager.KIND_STUNNED || k == BattleManager.KIND_POTION) continue;
+                if (manager.actCard[i] == old) castOld = true;
+                if (_sentCard > 0 && manager.actCard[i] == _sentCard) castNew = true;
+            }
+            if (!castOld) return;
+            for (int h = 0; h < _handCount; h++)
+                if (_hand[h] == old) { RemoveFromHand(h); break; }
+            if (_sentCard > 0 && !castNew && _handCount < _hand.Length) _hand[_handCount++] = _sentCard;
+            _note = "Too late to take it back: " + cardDatabase.GetName(old) + " was cast.";
         }
 
         /// <summary>CastPattern: the rune is drawn (or time ran out). The spell goes with how well it was drawn.</summary>
@@ -3207,7 +3420,8 @@ namespace WizardsVRC
             AnimateDefeats();
             AnimatePops();
             AnimateFloaters();
-            if (_inBattle && manager != null) { UpdateHudHealth(); AnimateCards(); KeepNearSeat(); }
+            if (_inBattle && manager != null) { UpdateHudHealth(); AnimateCards(); KeepNearSeat(); UpdateWaitPanel(); }
+            if (potionMenuRoot != null && potionMenuRoot.activeSelf && (!_inBattle || manager == null || !CanAct())) potionMenuRoot.SetActive(false);
             if (handRoot != null && (handRoot.activeSelf || (hudGrip != null && hudGrip.gameObject.activeSelf))) PlaceHud();
             if (_inBattle && !_seated && manager != null && manager.phase == BattleManager.PHASE_ROAMING && arenaCenter != null && Time.time >= _nextEngage)
             {

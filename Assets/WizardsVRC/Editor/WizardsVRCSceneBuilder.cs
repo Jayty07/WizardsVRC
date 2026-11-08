@@ -2062,6 +2062,47 @@ namespace WizardsVRC.EditorTools
             client.potionLabel = potion.GetComponentInChildren<Text>();
             Button(root, "Flee", new Vector2(480, -415), new Vector2(280, 64), "< Flee", new Color(0.35f, 0.3f, 0.3f), target, "Flee");
 
+            // ---- waiting for the others: once your spell is chosen and someone else is still choosing, a dimmer over the cards
+            // (blocking them; the action tray below stays usable, so you can still flee) with your spell, who you're waiting
+            // on, the time left, and Back, which takes your spell back so you can choose again (BattleClient.UpdateWaitPanel).
+            RectTransform wait = Panel(root, "WaitingPanel", new Vector2(0, 62), new Vector2(1600, 836), new Color(0f, 0f, 0.02f, 0.62f));
+            wait.GetComponent<Image>().raycastTarget = true;
+            Panel(wait, "Border", new Vector2(0, 0), new Vector2(1052, 412), new Color(0.78f, 0.6f, 0.28f, 1f));
+            Panel(wait, "Box", new Vector2(0, 0), new Vector2(1040, 400), new Color(0.1f, 0.08f, 0.16f, 0.98f));
+            Text waitTitle = Label(wait, "Title", new Vector2(0, 128), new Vector2(980, 64), "Waiting for others to select their spells", 38, TextAnchor.MiddleCenter);
+            waitTitle.color = gold;
+            waitTitle.resizeTextForBestFit = true;
+            waitTitle.resizeTextMinSize = 24;
+            waitTitle.resizeTextMaxSize = 38;
+            waitTitle.verticalOverflow = VerticalWrapMode.Truncate;
+            client.waitLabel = Label(wait, "Body", new Vector2(0, 10), new Vector2(960, 160), "", 28, TextAnchor.MiddleCenter);
+            client.waitBackButton = Button(wait, "WaitBack", new Vector2(0, -132), new Vector2(380, 78), "< Back to my spells", new Color(0.24f, 0.36f, 0.56f), target, nameof(BattleClient.BackToSpells));
+            wait.gameObject.SetActive(false);
+            client.waitRoot = wait.gameObject;
+
+            // ---- the Potion button's menu: a dimmer over the hand and a box with one button per kind of potion you carry
+            // (name, how many, what it restores), your health and mana, and Cancel (BattleClient.Potion / ChoosePotion).
+            RectTransform potions = Panel(root, "PotionMenu", Vector2.zero, new Vector2(1600, 960), new Color(0f, 0f, 0.02f, 0.6f));
+            potions.GetComponent<Image>().raycastTarget = true;
+            Panel(potions, "Border", new Vector2(0, 0), new Vector2(672, 712), new Color(0.78f, 0.6f, 0.28f, 1f));
+            Panel(potions, "Box", new Vector2(0, 0), new Vector2(660, 700), new Color(0.1f, 0.08f, 0.16f, 0.98f));
+            Label(potions, "Title", new Vector2(0, 300), new Vector2(620, 60), "\uE014 Choose a potion", 40, TextAnchor.MiddleCenter).color = gold;
+            client.potionMenuNote = Label(potions, "Note", new Vector2(0, 250), new Vector2(620, 40), "", 24, TextAnchor.MiddleCenter);
+            client.potionChoiceButtons = new GameObject[BattleClient.POTION_CHOICES];
+            client.potionChoiceLabels = new Text[BattleClient.POTION_CHOICES];
+            for (int k = 0; k < BattleClient.POTION_CHOICES; k++)
+            {
+                GameObject b = Button(potions, "PotionChoice" + k, new Vector2(0, 180 - k * 78), new Vector2(580, 70), "", new Color(0.5f, 0.2f, 0.3f), target, "PotionChoice" + k);
+                Text t = b.GetComponentInChildren<Text>();
+                t.fontSize = 26;
+                t.lineSpacing = 0.85f;
+                client.potionChoiceButtons[k] = b;
+                client.potionChoiceLabels[k] = t;
+            }
+            Button(potions, "PotionCancel", new Vector2(0, -298), new Vector2(300, 66), "Cancel", new Color(0.35f, 0.3f, 0.3f), target, nameof(BattleClient.ClosePotionMenu));
+            potions.gameObject.SetActive(false);
+            client.potionMenuRoot = potions.gameObject;
+
             // ---- flee confirmation: a dimmer over the whole hand (blocks clicks on the cards) and a box with Flee / Stay
             RectTransform confirm = Panel(root, "FleeConfirm", Vector2.zero, new Vector2(1600, 960), new Color(0f, 0f, 0.02f, 0.6f));
             confirm.GetComponent<Image>().raycastTarget = true;

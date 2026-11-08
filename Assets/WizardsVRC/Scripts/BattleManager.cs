@@ -633,6 +633,14 @@ namespace WizardsVRC
             SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetPick), local.playerId, cardId, target, Mathf.Clamp(quality, 0, 100));
         }
 
+        /// <summary>Take back this wizard's spell for the round (the waiting box's Back): they choose again.</summary>
+        public void RequestUnpick()
+        {
+            VRCPlayerApi local = Networking.LocalPlayer;
+            if (!Utilities.IsValid(local)) return;
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetUnpick), local.playerId);
+        }
+
         [NetworkCallable]
         public void NetQueueEnter(int playerId)
         {
@@ -1006,6 +1014,23 @@ namespace WizardsVRC
             _pickTarget[s] = target;
             _pickQuality[s] = Mathf.Clamp(quality, 0, 100);
             locked[s] = 1;
+            Publish();
+        }
+
+        /// <summary>
+        /// A wizard took their spell back before the round started: unlocked, nothing picked, so they can choose again
+        /// (too late once the round has started; a potion already drunk can't be taken back; a stunned wizard has nothing to take back).
+        /// </summary>
+        [NetworkCallable]
+        public void NetUnpick(int playerId)
+        {
+            if (!Networking.IsOwner(gameObject) || phase != PHASE_PLANNING) return;
+            int s = FindWizardSlot(playerId);
+            if (!Alive(s) || locked[s] == 0 || stunned[s] != 0 || _pickCard[s] == PICK_POTION) return;
+            _pickCard[s] = 0;
+            _pickTarget[s] = -1;
+            _pickQuality[s] = 0;
+            locked[s] = 0;
             Publish();
         }
 

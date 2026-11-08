@@ -432,10 +432,17 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Health and mana persist** between fights, and the HUD shows your live health during a fight. The school health
   trait (`PlayerState.schoolHealthPct`, e.g. Ice +25%, Storm -15%) is part of your max health everywhere. They regenerate slowly while you're out of combat
   (`PlayerState.healthRegenPct` / `manaRegenPct`), refill on level-up, and potions restore them: drink from the
-  backpack (Drink button) or press **Potion** in battle, which uses your turn.
+  backpack (Drink button) or press **Potion** in battle, which uses your turn: it opens a menu of the potions you carry
+  (each kind with how many you have and what it restores, your health and mana at the top); pick one to drink it, or
+  Cancel. A potion that couldn't do anything (full health for a health potion) isn't drunk.
 - **Defeat:** a wizard reduced to 0 health is sent home at once with `BattleClient.defeatHealthPct` (25%) health,
   and their seat frees up. The fight goes on for the rest of the party.
 - **Flee** (planning only): leave the duel immediately; you keep your health but your mana drops to 0.
+- **Waiting for the others:** once your spell is chosen while another wizard is still choosing, a box covers your cards:
+  your spell and its target, who you're waiting on and the time left. **Back to my spells** takes your spell back
+  (`BattleManager.NetUnpick`), returns the card to your hand and lets you choose again (not for a potion, which is
+  already drunk). The action tray stays usable, so you can still flee. If the round starts just as you press Back, the
+  spell is cast and leaves your hand again. Fighting alone you never see it: the round starts at once.
 - **Joining a duel in progress:** in the wandering-monster lanes, walk into the circle while a seat is free and you
   join; you act from the next round.
 - **Item cards:** gear can carry spells (`ItemDatabase.itemCardItems` / `itemCardIds`). While it's equipped they join
