@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using VRC.SDK3.Persistence;
 using VRC.SDKBase;
+using VRC.Udon.Common;
 
 namespace WizardsVRC
 {
@@ -36,6 +37,8 @@ namespace WizardsVRC
         [Tooltip("In VR the book opens at most this far away (m), within easy reach of a controller.")]
         public float vrDistance = 0.6f;
         public KeyCode toggleKey = KeyCode.B;
+        [Tooltip("In VR (no keyboard) the jump button opens and closes the book, and doesn't jump.")]
+        public bool vrJumpOpensBook = true;
 
         [Header("Bookmark tabs")]
         public GameObject backpackView;
@@ -132,9 +135,21 @@ namespace WizardsVRC
             SetPortraitActive(false);
         }
 
+        private bool _jumpChecked;
+
         private void Update()
         {
             if (Input.GetKeyDown(toggleKey)) ToggleBook();
+            if (!_jumpChecked)
+            {
+                // In VR the jump button is the book button, so it stops jumping.
+                VRCPlayerApi me = Networking.LocalPlayer;
+                if (Utilities.IsValid(me))
+                {
+                    _jumpChecked = true;
+                    if (vrJumpOpensBook && me.IsUserInVR()) me.SetJumpImpulse(0f);
+                }
+            }
             if (_open && (playerState == null || !playerState.HasCharacter())) CloseBook();
             if (_open && _view == VIEW_PACK) UpdatePortraitCamera();
         }
@@ -414,6 +429,15 @@ namespace WizardsVRC
         }
 
         // ------------------------------------------------------------------ open / close
+
+        /// <summary>VR: the jump button opens and closes the book (desktop keeps B, and jumps as usual).</summary>
+        public override void InputJump(bool value, UdonInputEventArgs args)
+        {
+            if (!value || !vrJumpOpensBook) return;
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (!Utilities.IsValid(me) || !me.IsUserInVR()) return;
+            ToggleBook();
+        }
 
         public void ToggleBook()
         {

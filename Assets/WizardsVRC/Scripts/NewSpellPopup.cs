@@ -35,7 +35,7 @@ namespace WizardsVRC
         {
             if (popupRoot == null || cardDatabase == null) return;
             cardDatabase.FillCard(cardId, cardFrame, cardName, cardPips, cardArt, cardAccuracy, cardEffect, cardSchool, false);
-            congratsLabel.text = "Congratulations!\nYou learned " + cardDatabase.GetName(cardId) + "!\nAdd it to a deck from the Deck tab of your book (B).";
+            congratsLabel.text = "Congratulations!\nYou learned " + cardDatabase.GetName(cardId) + "!\nAdd it to a deck from the Deck tab of your book (B, or jump in VR).";
 
             VRCPlayerApi local = Networking.LocalPlayer;
             if (Utilities.IsValid(local))
