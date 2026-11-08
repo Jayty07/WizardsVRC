@@ -29,3 +29,7 @@ crashlytics-buildid.txt
 /Assets/SerializedUdonPrograms/
 /Assets/SerializedUdonPrograms.meta
 /Assets/UdonSharp/
+
+# Python bytecode caches from running the Tools scripts
+__pycache__/
+*.pyc
