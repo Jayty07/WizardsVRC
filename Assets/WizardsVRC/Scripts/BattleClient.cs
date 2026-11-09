@@ -4065,7 +4065,7 @@ namespace WizardsVRC
             if (e == CardDatabase.EFFECT_DOT) return "Burning!";
             if (e == CardDatabase.EFFECT_DISPEL) return "Dispelled!";
             if (e == CardDatabase.EFFECT_HACK) return "Hacked! +" + v.ToString();
-            if (e == CardDatabase.EFFECT_FIELD) return "Grid +" + v.ToString() + "%";
+            if (e == CardDatabase.EFFECT_FIELD) return cardDatabase.FieldWord(card) + " +" + v.ToString() + "%";
             if (e == CardDatabase.EFFECT_TAUNT) return "Taunt!";
             if (e == CardDatabase.EFFECT_FOCUS) return "Focus +" + v.ToString() + "%";
             if (e == CardDatabase.EFFECT_MULTIWARD) return Mathf.Clamp(cardDatabase.GetAux(card), 1, 3).ToString() + " Shields " + v.ToString() + "%";

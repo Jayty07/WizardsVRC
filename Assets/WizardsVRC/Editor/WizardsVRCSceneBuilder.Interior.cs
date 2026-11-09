@@ -422,6 +422,9 @@ namespace WizardsVRC.EditorTools
 
         // ------------------------------------------------------------ quests
 
+        /// <summary>Each professor's camera shots (by School), so the school quests' dialogue is filmed in their hall too.</summary>
+        private static readonly Transform[][] ProfessorShots = new Transform[7][];
+
         /// <summary>Quest manager, NPC talk relays, doors and the quest cutscenes (filmed in the real rooms).</summary>
         private static List<UdonSharpBehaviour> BuildQuests(Transform systems, Interior info, CutscenePlayer player, PlayerState playerState,
             PlayerHUD hud, Transform hubRoot, SpellTrainer trainer, InteractionMenu menu, Transform arenaPad, HubLayout hub)
@@ -487,6 +490,7 @@ namespace WizardsVRC.EditorTools
                     Shot(room, "ShotMedium", new Vector3(1.4f, 2.1f, back - 4.6f), face),
                     Shot(room, "ShotClose", new Vector3(0, 2.05f, back - 3.4f), face),
                 };
+                ProfessorShots[s] = shots;
                 var cs = MakeCutscene(sets, "Professor" + SchoolLabels[s], ProfessorNames[s], ProfessorLines(s), "prof_" + SchoolLabels[s].ToLowerInvariant(), shots);
                 cs.onFinished = qm;
                 cs.onFinishedEvent = nameof(QuestManager.OnProfessorFinished);

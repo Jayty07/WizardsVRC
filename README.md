@@ -564,11 +564,44 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   - School quests: 308 **Scout Drone** (L7, 2: 220-health drone), 309 **Neon Grid** (L12, 1: the bubble), 310 **Sentry
     Turret** (L18, 3: 380 health), 311 **Assault Mech** (L28, 4: 650 health), 312 **Zero-Day Exploit** (L38, 3: 120-170
     to all enemies, steals all their blades and shields), 313 **Orbital Strike** (L48, 7: 5 x 110-150 on every enemy).
-- **Spell design:** each school has a 12-spell tree on the Wizard101 milestones (L1 low-pip attack, L5 secondary
-  attack/utility, L10 blade, L12 trap, L16 low-rank AoE or early minion, L22 shield/dispel, L26 mid attack, L28 minion,
-  L33 buff utility / high-impact trap, L35 quest spell, L42 big hit, L48 7-pip AoE) and plays to its role: Storm glass
-  cannon, Fire DoT + detonate, Ice tank, Life healer, Death drain, Myth minions + counter-play (shatter, dispel, stun,
-  pierce), Balance universal support. See the remarks on `CardDatabase`.
+- **Spell design:** every school (Fire, Ice, Storm, Life, Death, Myth, Balance, and the hidden Tech School) has 14 spells
+  on the same level format, and plays to its role: Storm glass cannon, Fire DoT + detonate, Ice tank, Life healer, Death
+  drain, Myth minions + counter-play (shatter, dispel, stun, pierce), Balance universal support. See the remarks on
+  `CardDatabase`.
+  - **Professor training** (no quest: visit your professor once you reach the level; free for your own school, a training
+    point for another): L1 starter, L5 minor attack or utility, L10 shield, L16 3-pip attack, L22 mid-tier attack or
+    manipulation, L26 blade, L33 advanced single-target attack, L42 big hit or unique utility. Each needs the professor
+    spell before it. Your professor writes to you (Notices) when one unlocks.
+  - **School quests** (your professor sends you to prove yourself; the professor's spell list never shows them): L7 trap,
+    L12 school bubble, L18 low-rank minion, L28 mid-tier minion, L38 the trial spell (the built-in Trial of the School,
+    quest 1, now at level 38), L48 the signature 7-pip spell.
+  - By school (professor L1 / 5 / 10 / 16 / 22 / 26 / 33 / 42; quests L7 / 12 / 18 / 28 / 38 / 48):
+    - Fire: Ember Lance, Smoldering Brand, Ember Aegis, Cinder Rain, Pyre Hawk, Ember Edge, Molten Behemoth, Stoke the
+      Embers; Cinder Snare, **Kindled Sky**, **Cinder Whelp**, Magma Hound, Wildfire Oath, Sunfire Wyrm.
+    - Ice: Frost Shard, Rime Challenge, Frostward, Hoarfrost Gale, Frost Wyvern, Rime Edge, Frozen Colossus, Permafrost
+      Bulwark; Frost Snare, **Glacial Hush**, **Rime Pup**, Rime Sentinel, Winter's Bastion, Winter's Wrath.
+    - Storm: Spark Lash, Thunder Hare, Storm Aegis, Thunderclap, Skyfall Serpent, Static Charge, Skyfall Leviathan, Gale
+      Mark; Thunder Snare, **Thunderhead**, **Spark Sprite**, Thunder Golem, Overcharge, Maelstrom Eye.
+    - Life: Thorn Volley, Verdant Bloom, Verdant Aegis, Rejuvenate, Grove Stag, Thorn Edge, Wildwood Stampede,
+      Wellspring; Bramble Snare, **Verdant Canopy**, **Sproutling**, Treant Warden, Bloom of Renewal, Verdant Titan.
+    - Death: Shade Siphon, Grave Ghast, Veil of Dread, Soul Swarm, Night Leech, Grave Edge, Bone Dragon, Dread Mark; Hex
+      Snare, **Gloaming**, **Bone Scuttler**, Bone Thrall, Dark Tithe, Requiem of Ash.
+    - Myth: Mirage Dart, Mirage Lancer, **Fable Aegis**, Chimera's Roar, Stone Basilisk, Fable Edge, Fabled Hydra,
+      Sundering Gaze; Mirage Snare, **Twice-Told Tale**, Clay Golemling, Stone Colossus, Riddle of Iron, Titan of Legends.
+    - Balance: Prism Ray, Sand Djinn, Balance Aegis, Sandstorm, Sphinx of Scales, Accord Edge, Sandstorm Sphinx,
+      Elemental Tri-Blade; Sand Snare, **Equinox**, **Dune Scarab**, Sand Golem, Spirit Tri-Blade, Grand Convergence. Balance's
+      Tri-Shields and Tri-Traps stay professor extras at their old levels.
+  - New (bold above), ids 210-223: each school's **bubble** (`EFFECT_FIELD`, 1 pip: +25% to every spell of that school,
+    anyone's, damage and heals, for 4 rounds; one bubble or grid at a time), the low-rank minions (3 pips) and Myth's
+    shield. Spell ids never changed, so saves keep every spell they've learned; only levels, prerequisites and how each
+    spell is earned moved. Dustwind's school side quests still teach each school's L42 spell early.
+- **School quests** (world data v27, the **School Quests** questline, save ids 90-124: school s, slot k at 90 + s * 5 + k):
+  five per school, offered by the professor in the school hall to their own wizards from the slot's level once the street
+  is open (its prerequisite is the street's gate quest). The professor speaks the offer and hand-in lines in their hall
+  (`QuestManager.TalkProfessor` plays a quest's dialogue before their usual lines). Each sends you to fight and gather in
+  one street, then back for the spell: L7 Tidewatch Docks, L12 the Hollow Keep, L18 the Iron Line Railyard, L28
+  Lonesome Bend, L48 Lonesome Bend's fortress after Dustwind's finale. The L28 and L48 quests use the toughest street so
+  far; point them at later worlds' streets as those are built (the questline is editable like any other).
 - **Shields, blades and traps** circle each combatant as small 3D models in their school's colour (shields at the chest
   facing out, swords twirling over the head, spiked traps turning at the feet). When one is used it springs into action
   first (a sword lunges at the target, a shield swings in front of its owner facing the attacker, a trap leaps up and

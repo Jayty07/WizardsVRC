@@ -6,9 +6,10 @@ using VRC.SDKBase;
 namespace WizardsVRC
 {
     /// <summary>
-    /// A professor's spell list: shows the school's spells and lets the local player learn them.
-    /// Own-school spells are free; other schools cost 1 training point. The level requirement and the previous spell in
-    /// the tree (CardDatabase.prereqs) always apply; the quest-tier spell is only earned from the school's trial quest.
+    /// A professor's spell list: shows the school's professor spells (L1, 5, 10, 16, 22, 26, 33, 42 and any extras) and lets
+    /// the local player learn them. Own-school spells are free; other schools cost 1 training point. The level requirement
+    /// and the previous professor spell (CardDatabase.prereqs) always apply. Quest spells (the L7, 12, 18, 28, 38 and 48
+    /// school-quest rewards) aren't listed at all.
     /// One shared panel, placed in front of the player when opened.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -99,7 +100,8 @@ namespace WizardsVRC
             for (int i = 0; i < n && _count < ROWS; i++)
             {
                 int id = cardDatabase.IdAt(i);
-                if (cardDatabase.GetSchool(id) == school) _ids[_count++] = id;
+                // Quest spells aren't listed: they're earned from the professor's school quests, never taught here.
+                if (cardDatabase.GetSchool(id) == school && !cardDatabase.IsQuestSpell(id)) _ids[_count++] = id;
             }
 
             VRCPlayerApi local = Networking.LocalPlayer;
@@ -149,7 +151,7 @@ namespace WizardsVRC
             int id = _selected;
             if (c.HasLearned(id)) { SetStatus("You already know that spell."); return; }
             if (cardDatabase.IsTrialSpell(id)) { SetStatus("This spell is earned from the " + NameAt(schoolNames, _school) + " trial quest, not taught here."); return; }
-            if (cardDatabase.IsQuestSpell(id)) { SetStatus("This spell is earned from a " + NameAt(schoolNames, _school) + " side quest, not taught here."); return; }
+            if (cardDatabase.IsQuestSpell(id)) { SetStatus("This spell is earned from a " + NameAt(schoolNames, _school) + " school quest, not taught here."); return; }
             if (!cardDatabase.SchoolAllows(c, id)) { SetStatus("Only " + NameAt(schoolNames, _school) + " wizards can learn that spell."); return; }
             if (c.level < cardDatabase.GetLevelReq(id)) { SetStatus("You must be level " + cardDatabase.GetLevelReq(id).ToString() + " to learn that."); return; }
             int pre = cardDatabase.PrereqFor(c, id);
@@ -215,7 +217,7 @@ namespace WizardsVRC
             if (c.HasLearned(id)) return "Learned";
             int req = cardDatabase.GetLevelReq(id);
             if (cardDatabase.IsTrialSpell(id)) return "Lv " + req.ToString() + " - Trial quest reward";
-            if (cardDatabase.IsQuestSpell(id)) return "Lv " + req.ToString() + " - Side quest reward";
+            if (cardDatabase.IsQuestSpell(id)) return "Lv " + req.ToString() + " - School quest reward";
             if (!cardDatabase.SchoolAllows(c, id)) return NameAt(schoolNames, _school) + " wizards only";
             if (c.level < req) return "Requires level " + req.ToString();
             int pre = cardDatabase.PrereqFor(c, id);

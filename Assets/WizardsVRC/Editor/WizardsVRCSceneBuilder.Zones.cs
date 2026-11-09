@@ -1214,6 +1214,13 @@ namespace WizardsVRC.EditorTools
         /// </summary>
         private static void ApplyQuestlines(QuestManager qm, WorldBuild wb, ItemDatabase itemDb)
         {
+            // The professors (NPC keys "Fire" ... "Balance") speak the school quests' lines in their own halls.
+            for (int ps = 0; ps < WorldValidator.SchoolKeys.Length && ps < ProfessorShots.Length; ps++)
+            {
+                string key = WorldValidator.SchoolKeys[ps];
+                if (ProfessorShots[ps] != null && !wb.npcShots.ContainsKey(key)) wb.npcShots[key] = ProfessorShots[ps];
+                if (!wb.npcNames.ContainsKey(key)) wb.npcNames[key] = ProfessorNames[ps];
+            }
             var quests = new List<QuestEntry>();
             var seen = new HashSet<int>();
             foreach (var ql in wb.data.questlines)
@@ -1240,7 +1247,8 @@ namespace WizardsVRC.EditorTools
                 qm.questDescriptions[id] = q.description;
                 string reward = q.xp + " XP, " + q.gold + " gold";
                 if (q.rewardItem > 0 && itemDb != null) reward += ", " + itemDb.GetName(q.rewardItem);
-                if (q.rewardSpell != 0) reward += ", a new spell";
+                if (q.rewardSpell > 0 && qm.cardDatabase != null && qm.cardDatabase.IndexOf(q.rewardSpell) >= 0) reward += ", the spell " + qm.cardDatabase.GetName(q.rewardSpell);
+                else if (q.rewardSpell != 0) reward += ", a new spell";
                 qm.questRewards[id] = reward;
                 qm.questXp[id] = q.xp;
                 qm.questGold[id] = q.gold;

@@ -229,7 +229,7 @@ namespace WizardsVRC
         [UdonSynced] public int[] dotTurns = new int[SLOTS];
         /// <summary>1 = loses its next cast.</summary>
         [UdonSynced] public int[] stunned = new int[SLOTS];
-        /// <summary>The duel's grid bubble (EFFECT_FIELD, e.g. Tech's Neon Grid): its school, +damage % and rounds left (0 = none).</summary>
+        /// <summary>The duel's school bubble or grid (EFFECT_FIELD: each school's L12 bubble, Tech's Neon Grid): its school, +damage/heal % and rounds left (0 = none).</summary>
         [UdonSynced] public int bubbleSchool = -1;
         [UdonSynced] public int bubblePct;
         [UdonSynced] public int bubbleRounds;
@@ -1504,7 +1504,7 @@ namespace WizardsVRC
             pierce = Mathf.Clamp(pierce + piercePct[s], 0, 100);
             int amount = power * (100 + dmgPct[s]) / 100;
             amount = amount * bladeMul / 100;
-            // The grid bubble boosts every spell of its school, whoever casts it.
+            // The school bubble (or grid) boosts every spell of its school, whoever casts it.
             if (bubbleRounds > 0 && spellSchool >= 0 && spellSchool == bubbleSchool) amount = amount * (100 + bubblePct) / 100;
             amount = amount * UseFx(traps, FX_TRAP, t, spellSchool, true) / 100;
             int shieldMul = UseFx(shields, FX_SHIELD, t, spellSchool, false);
@@ -1683,7 +1683,7 @@ namespace WizardsVRC
             int auxVal = cardDatabase.GetAux(cardId);
             if (effect == CardDatabase.EFFECT_FIELD)
             {
-                // One grid at a time: a new one replaces the last.
+                // One bubble or grid at a time: a new one replaces the last.
                 bubbleSchool = cardDatabase.GetSchool(cardId);
                 bubblePct = power;
                 bubbleRounds = Mathf.Max(1, auxVal) + 1;   // +1: this round's tick has passed; it lasts aux full rounds
@@ -1835,6 +1835,8 @@ namespace WizardsVRC
                     // Heals can critical too (never blocked).
                     _nextFlags = 0;
                     int amount = power * healMul / 100;
+                    // A school bubble boosts that school's heals too (Life's Verdant Canopy).
+                    if (bubbleRounds > 0 && bubbleSchool >= 0 && cardDatabase.GetSchool(cardId) == bubbleSchool) amount = amount * (100 + bubblePct) / 100;
                     if (critPct[s] > 0 && Random.Range(0, 100) < critPct[s]) { amount = amount * critMultiplier / 100; _nextFlags = FLAG_CRIT; }
                     int heal = Mathf.Min(amount, maxHp[t] - hp[t]);
                     hp[t] += heal;

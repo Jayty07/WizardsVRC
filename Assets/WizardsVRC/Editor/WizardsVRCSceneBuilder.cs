@@ -249,7 +249,7 @@ namespace WizardsVRC.EditorTools
             {
                 // The old testing fixtures in the castle (the notice board's Change Character / Backpack panel, the
                 // Backpack pedestal and the boss arena teleporter pad) stay out of sight: the book (B) does both jobs, and
-                // the arena is only for the school trial, at level 35. Their parts are kept, switched off, so nothing that
+                // the arena is only for the school trial, at level 38. Their parts are kept, switched off, so nothing that
                 // refers to them breaks.
                 hubCanvas.gameObject.SetActive(false);
                 foreach (string n in new[] { "BackpackPedestal", "BackpackBook", "BackpackLabel", "ArenaTeleporterPad", "ArenaQueueTrigger", "ArenaPadLabel" })

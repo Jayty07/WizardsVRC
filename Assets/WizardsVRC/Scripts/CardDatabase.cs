@@ -5,8 +5,9 @@ using UnityEngine.UI;
 namespace WizardsVRC
 {
     /// <summary>
-    /// Static spell card definitions (original placeholder spells). Each school has a 12-spell tree, tier k having
-    /// id 100 + school * 12 + k; each tier needs the one before it (<see cref="prereqs"/>). General cards are 200+.
+    /// Static spell card definitions (original placeholder spells). Each school has 14 spells: the 12-spell tree (tier k has
+    /// id 100 + school * 12 + k) and two newer ones (ids 210-223). Professor spells each need the professor spell before them
+    /// (<see cref="prereqs"/>); school-quest spells have none. General cards are 200-204.
     /// <see cref="aux"/> is effect-specific: pierce % for damage and stuns, heal % for drain, burn total for DoT, rounds for taunt,
     /// minion action power, and 1 = "any school" for shields/blades/traps. Damage spells hit for a random amount from
     /// <see cref="powers"/> (min) to <see cref="powerMax"/> (max); powerMax 0 = a fixed value.
@@ -15,10 +16,11 @@ namespace WizardsVRC
     /// School roles: Storm = glass cannon (highest damage, low accuracy/health); Fire = damage over time + detonate;
     /// Ice = tank (any-school shields, taunts, high health/resist, low damage); Life = healer (single/group heals, best
     /// accuracy); Death = drain/self-sustain; Myth = minions + tactical counter-play (shatter, dispel, stuns, pierce);
-    /// Balance = support (universal blades/traps, tri-blades). Tier milestones: L1 low-pip attack, L5 secondary
-    /// attack/utility, L10 blade, L12 trap, L16 low-rank AoE or early minion, then Dustwind's (World 2, Lv 13-25): L18 mid
-    /// attack, L20 shield/dispel, L22 minion, L25 big single-target hit; later: L33 buff utility / high-impact trap (taught
-    /// early by Dustwind's school side quests), L35 quest spell, L48 7-pip AoE.
+    /// Balance = support (universal blades/traps, tri-blades). Every school's levels follow one format. Taught by the
+    /// professor once you reach the level: L1 starter, L5 minor attack or utility, L10 shield, L16 3-pip attack, L22 mid-tier
+    /// attack or manipulation, L26 blade, L33 advanced single-target attack, L42 big hit or unique utility. Earned from the
+    /// professor's school quests: L7 trap, L12 school bubble (+25%), L18 low-rank minion, L28 mid-tier minion, L38 the trial
+    /// spell, L48 the signature 7-pip spell. (Dustwind's school side quests still teach each L42 spell early.)
     /// </remarks>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CardDatabase : UdonSharpBehaviour
@@ -104,7 +106,15 @@ namespace WizardsVRC
         public const int DECK_MAX = 20;
         public const int MAX_COPIES = 4;
 
-        // One row per school (tiers 0-11, id 100 + school * 12 + tier), then the general spells. Generated table.
+        // One row per school (tiers 0-11, id 100 + school * 12 + tier), then the general spells, the extras, the Tech School
+        // and each school's two newer spells (ids 210-223). Every school follows the same 14-spell format:
+        //   Professor (taught free once you reach the level): L1 starter, L5 minor attack or utility, L10 shield,
+        //     L16 3-pip attack, L22 mid-tier attack or manipulation, L26 blade, L33 advanced attack, L42 big hit or utility.
+        //   School quests (your professor sends you to prove yourself): L7 trap, L12 school bubble, L18 low-rank minion,
+        //     L28 mid-tier minion, L38 the trial spell (tier 9), L48 the signature 7-pip spell.
+        // Tiers by level: 0 L1, 1 L5, 5 L10, 4 L16, 6 L22, 2 L26, 10 L33, 8 L42 (professor); 3 L7, 7 L28, 9 L38, 11 L48
+        // (quest), and ids 210 + school * 2 (L12 bubble) and 211 + school * 2 (L18 minion; Myth's is Clay Golemling, tier 4,
+        // and 221 is Myth's L10 shield). Ids never change: they're in every save.
         [HideInInspector] public int[] ids =
         {
             100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
@@ -117,6 +127,7 @@ namespace WizardsVRC
             200, 201, 202, 203,
             184, 185, 186, 187, 188, 204,
             300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313,
+            210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223,
         };
         [HideInInspector] public int[] schools =
         {
@@ -130,19 +141,21 @@ namespace WizardsVRC
             -1, -1, -1, -1,
             6, 6, 6, 6, 3, -1,
             8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+            0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6,
         };
         [HideInInspector] public int[] levelReqs =
         {
-            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
-            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
-            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
-            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
-            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
-            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
-            1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
+            1, 5, 26, 7, 16, 10, 22, 28, 42, 38, 33, 48,
+            1, 5, 26, 7, 16, 10, 22, 28, 42, 38, 33, 48,
+            1, 5, 26, 7, 16, 10, 22, 28, 42, 38, 33, 48,
+            1, 5, 26, 7, 16, 10, 22, 28, 42, 38, 33, 48,
+            1, 5, 26, 7, 16, 10, 22, 28, 42, 38, 33, 48,
+            1, 5, 26, 7, 18, 16, 22, 28, 42, 38, 33, 48,
+            1, 5, 26, 7, 16, 10, 22, 28, 42, 38, 33, 48,
             1, 2, 3, 4,
             24, 30, 18, 20, 6, 5,
             1, 5, 10, 16, 22, 26, 33, 42, 7, 12, 18, 28, 38, 48,
+            12, 18, 12, 18, 12, 18, 12, 18, 12, 18, 12, 10, 12, 18,
         };
         [HideInInspector] public int[] pipCosts =
         {
@@ -156,6 +169,7 @@ namespace WizardsVRC
             0, 1, 0, 0,
             1, 1, 1, 1, 0, 2,
             1, 2, 0, 0, 2, 0, 4, 5, 2, 1, 3, 4, 3, 7,
+            1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 0, 1, 3,
         };
         [HideInInspector] public int[] accuracies =
         {
@@ -169,6 +183,7 @@ namespace WizardsVRC
             100, 100, 100, 100,
             100, 100, 100, 100, 100, 100,
             85, 85, 100, 100, 85, 100, 85, 85, 100, 100, 100, 100, 85, 85,
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
         };
         [HideInInspector] public int[] powers =
         {
@@ -182,6 +197,7 @@ namespace WizardsVRC
             50, 100, 15, 15,
             50, 50, 25, 25, 35, 420,
             22, 80, 45, 35, 60, 40, 360, 70, 220, 25, 380, 650, 120, 110,
+            25, 260, 25, 420, 25, 200, 25, 330, 25, 300, 25, 80, 25, 320,
         };
         [HideInInspector] public int[] effects =
         {
@@ -195,6 +211,7 @@ namespace WizardsVRC
             2, 1, 3, 5,
             15, 15, 16, 16, 20, 21,
             EFFECT_BARRAGE, EFFECT_STUN, EFFECT_WARD, EFFECT_TRAP, EFFECT_HACK, EFFECT_EMPOWER, EFFECT_DAMAGE, EFFECT_BARRAGE, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_MINION, EFFECT_HACK, EFFECT_BARRAGE,
+            EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_WARD, EFFECT_FIELD, EFFECT_MINION,
         };
         [HideInInspector] public int[] aoe =
         {
@@ -208,6 +225,7 @@ namespace WizardsVRC
             0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         };
         [HideInInspector] public string[] names =
         {
@@ -221,19 +239,21 @@ namespace WizardsVRC
             "Tower Ward", "Mend", "Empower", "Steady Mind",
             "Elemental Tri-Shield", "Spirit Tri-Shield", "Elemental Tri-Trap", "Spirit Tri-Trap", "Wellspring Charm", "Second Wind",
             "Sidearm Burst", "Taser Dart", "Kevlar Plating", "Proximity Mine", "Firewall Breach", "Overclock", "Railgun", "Gatling Storm", "Scout Drone", "Neon Grid", "Sentry Turret", "Assault Mech", "Zero-Day Exploit", "Orbital Strike",
+            "Kindled Sky", "Cinder Whelp", "Glacial Hush", "Rime Pup", "Thunderhead", "Spark Sprite", "Verdant Canopy", "Sproutling", "Gloaming", "Bone Scuttler", "Twice-Told Tale", "Fable Aegis", "Equinox", "Dune Scarab",
         };
         [HideInInspector] public int[] prereqs =
         {
-            0, 100, 101, 102, 103, 104, 105, 106, 107, 108, 108, 110,
-            0, 112, 113, 114, 115, 116, 117, 118, 119, 120, 120, 122,
-            0, 124, 125, 126, 127, 128, 129, 130, 131, 132, 132, 134,
-            0, 136, 137, 138, 139, 140, 141, 142, 143, 144, 144, 146,
-            0, 148, 149, 150, 151, 152, 153, 154, 155, 156, 156, 158,
-            0, 160, 161, 162, 163, 164, 165, 166, 167, 168, 168, 170,
-            0, 172, 173, 174, 175, 176, 177, 178, 179, 180, 180, 182,
+            0, 100, 106, 0, 105, 101, 104, 0, 110, 0, 102, 0,
+            0, 112, 118, 0, 117, 113, 116, 0, 122, 0, 114, 0,
+            0, 124, 130, 0, 129, 125, 128, 0, 134, 0, 126, 0,
+            0, 136, 142, 0, 141, 137, 140, 0, 146, 0, 138, 0,
+            0, 148, 154, 0, 153, 149, 152, 0, 158, 0, 150, 0,
+            0, 160, 166, 0, 0, 221, 165, 0, 170, 0, 162, 0,
+            0, 172, 178, 0, 177, 173, 176, 0, 182, 0, 174, 0,
             0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
             0, 300, 301, 302, 303, 304, 305, 306, 300, 308, 309, 310, 311, 312,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 161, 0, 0,
         };
         [HideInInspector] public int[] aux =
         {
@@ -247,6 +267,7 @@ namespace WizardsVRC
             0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
             3, 0, 1, 0, 1, 0, 30, 8, 60, 4, 90, 140, 1, 5,
+            4, 100, 4, 55, 4, 125, 4, 75, 4, 80, 4, 0, 4, 75,
         };
         [HideInInspector] public int[] powerMax =
         {
@@ -260,6 +281,7 @@ namespace WizardsVRC
             0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
             34, 120, 0, 0, 90, 0, 520, 95, 0, 0, 0, 0, 170, 150,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         };
 
         // Tri-blades, tri-shields and tri-traps: Elemental = Fire, Ice, Storm; Spirit = Life, Death, Myth.
@@ -267,10 +289,25 @@ namespace WizardsVRC
         [HideInInspector] public int[] triBladeFirstSchools = { 0, 3, 0, 3, 0, 3 };
         /// <summary>School spells outside the 12-tier trees (ids 184+): not taught in order, no prerequisites.</summary>
         public const int FIRST_EXTRA_ID = 184;
-        /// <summary>Spells only ever earned from a quest (besides each school's trial spell): Life's Wellspring Charm.</summary>
-        // Wellspring Charm, then the Tech School's quest spells (Scout Drone, Neon Grid, Sentry Turret, Assault Mech,
-        // Zero-Day Exploit, Orbital Strike): for when Tech is taught, later in the game.
-        [HideInInspector] public int[] questOnlyIds = { 188, 308, 309, 310, 311, 312, 313 };
+        /// <summary>
+        /// Spells only ever earned from a quest (besides each school's trial spell, tier 9): each school's L7 trap, L12
+        /// bubble, L18 minion, L28 minion and L48 signature spell (its professor's school quests), Life's Wellspring Charm,
+        /// then the Tech School's quest spells (for when Tech is taught, later in the game). Professors never list them.
+        /// </summary>
+        [HideInInspector] public int[] questOnlyIds =
+        {
+            103, 210, 211, 107, 111,
+            115, 212, 213, 119, 123,
+            127, 214, 215, 131, 135,
+            139, 216, 217, 143, 147,
+            151, 218, 219, 155, 159,
+            163, 220, 164, 167, 171,
+            175, 222, 223, 179, 183,
+            188,
+            308, 309, 310, 311, 312, 313,
+        };
+        /// <summary>Per card (by index): 1 = quest-only, built from questOnlyIds and the trial tier on first use.</summary>
+        private int[] _questFlags;
 
         // Index 7 is the healing-charm code (no school); 8 is Tech.
         [HideInInspector] public string[] schoolNames = { "Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance", "General", "Tech" };
@@ -422,13 +459,22 @@ namespace WizardsVRC
         public int BasicSpell(int school) { return 100 + school * TIERS; }
         public int TierOf(int cardId) { return GetSchool(cardId) == GENERAL || cardId >= FIRST_EXTRA_ID ? -1 : (cardId - 100) % TIERS; }
 
-        /// <summary>Learned from a quest rather than a professor: each school's trial spell, and a few side-quest spells.</summary>
+        /// <summary>Learned from a quest rather than a professor: each school's six school-quest spells (the trial's among them), and a few side-quest spells.</summary>
         public bool IsQuestSpell(int cardId)
         {
-            if (GetSchool(cardId) == GENERAL) return false;
-            if (TierOf(cardId) == QUEST_TIER) return true;
-            for (int i = 0; i < questOnlyIds.Length; i++) if (questOnlyIds[i] == cardId) return true;
-            return false;
+            int i = IndexOf(cardId);
+            if (i < 0) return false;
+            if (_questFlags == null || _questFlags.Length != ids.Length)
+            {
+                _questFlags = new int[ids.Length];
+                for (int k = 0; k < ids.Length; k++)
+                {
+                    if (schools[k] == GENERAL) continue;
+                    if (TierOf(ids[k]) == QUEST_TIER) { _questFlags[k] = 1; continue; }
+                    for (int q = 0; q < questOnlyIds.Length; q++) if (questOnlyIds[q] == ids[k]) { _questFlags[k] = 1; break; }
+                }
+            }
+            return _questFlags[i] != 0;
         }
 
         /// <summary>The trial spell (tier 9) rather than a side-quest one.</summary>
@@ -462,6 +508,9 @@ namespace WizardsVRC
             while (pre > 0 && !SchoolAllows(c, pre) && guard++ < TIERS) pre = GetPrereq(pre);
             return pre;
         }
+
+        /// <summary>What a school's duel-wide boost (EFFECT_FIELD) is called: Tech's is a grid, the magic schools' a bubble.</summary>
+        public string FieldWord(int cardId) { return GetSchool(cardId) == TECH ? "Grid" : "Bubble"; }
 
         /// <summary>Heals that target the caster only (no picking).</summary>
         public bool SelfOnly(int cardId) { int e = GetEffect(cardId); return e == EFFECT_SELFHEAL || e == EFFECT_FIELD; }
@@ -717,7 +766,7 @@ namespace WizardsVRC
                 case EFFECT_BARRAGE: return Num(x.ToString()) + " x " + hit;
                 case EFFECT_HACK:
                     return (p > 0 ? hit + "\n" : "") + "Steal " + Icon(ICON_BLADE) + (x == 1 ? Icon(ICON_SHIELD) : "") + (aoe[i] != 0 ? " from all" : "");
-                case EFFECT_FIELD: return "Grid: " + Num("+" + p.ToString() + "%") + " " + CardSchoolIcon(sc) + Icon(ICON_DAMAGE) + "\nall, " + Num(x.ToString()) + " rounds";
+                case EFFECT_FIELD: return FieldWord(cardId) + ": " + Num("+" + p.ToString() + "%") + " " + CardSchoolIcon(sc) + Icon(ICON_DAMAGE) + "\nall, " + Num(x.ToString()) + " rounds";
                 default: return "";
             }
         }
@@ -755,8 +804,8 @@ namespace WizardsVRC
                     return (p > 0 ? "Deals " + range + dmg + ", then steals " : "Steals ") + "every blade" + (x == 1 ? " and shield" : "") +
                            (aoe[i] != 0 ? " from all enemies" : " from the target") + " for yourself.";
                 case EFFECT_FIELD:
-                    return "A grid over the whole duel: every " + SchoolName(schools[i]) + " spell (anyone's) deals " + p.ToString() + "% more for " + x.ToString() +
-                           " rounds. A new grid replaces it.";
+                    return "A " + (schools[i] == TECH ? "grid" : "bubble") + " over the whole duel: every " + SchoolName(schools[i]) + " spell (anyone's) deals and heals " + p.ToString() +
+                           "% more for " + x.ToString() + " rounds. A new grid or bubble replaces it.";
                 case EFFECT_WARD:
                     return "Shield: blocks " + p.ToString() + "% of the next " + SchoolPhrase(ShieldSchool(cardId), "spell from any school") +
                            (ShieldSchool(cardId) == ANY_SCHOOL ? "" : " spell") + " that hits. " + StackNote;
@@ -824,9 +873,9 @@ namespace WizardsVRC
             return GetEffectText(cardId) + "\n" +
                    "Cost: " + pipCosts[i].ToString() + " pips    Accuracy: " + accuracies[i].ToString() + "%\n" +
                    SchoolName(schools[i]) + " spell, level " + levelReqs[i].ToString() +
-                   (pre > 0 ? "\nRequires: " + GetName(pre) : "") +
+                   (pre > 0 && !IsQuestSpell(cardId) ? "\nRequires: " + GetName(pre) : "") +
                    (IsTrialSpell(cardId) ? "\nLearned from the " + SchoolName(schools[i]) + " trial quest" :
-                    IsQuestSpell(cardId) ? "\nLearned from a " + SchoolName(schools[i]) + " side quest" : "") +
+                    IsQuestSpell(cardId) ? "\nLearned from a " + SchoolName(schools[i]) + " school quest" : "") +
                    (SchoolOnly(cardId) ? "\nOnly " + SchoolName(schools[i]) + " wizards can learn it" : "");
         }
 

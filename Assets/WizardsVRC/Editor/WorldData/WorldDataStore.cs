@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 26;
+        public const int CurrentVersion = 27;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -114,6 +114,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 foreach (var nq in World1Questlines) CreateQuestline(nq.file, nq.fill);
                 foreach (var nq in World2Questlines) CreateQuestline(nq.file, nq.fill);
                 CreateQuestline("Questline_World2Finale", WorldDefaults.FillWorld2Finale);
+                CreateQuestline("Questline_SchoolQuests", WorldDefaults.FillSchoolQuests);
                 created = true;
             }
             if (FindAll<WorldArc>().Count == 0 && !hadData)
@@ -193,6 +194,32 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 24) UpgradeTo24();
             if (from < 25) UpgradeTo25();
             if (from < 26) UpgradeTo26();
+            if (from < 27) UpgradeTo27();
+        }
+
+        /// <summary>
+        /// v27: the school quests (save ids 90-124). Every school's spells follow one format, and the professors now send their
+        /// own wizards on five school quests for the L7, 12, 18, 28 and 48 quest spells (the trial, L38, is built in). Added as
+        /// the School Quests questline unless one of those save ids is already in use.
+        /// </summary>
+        private static void UpgradeTo27()
+        {
+            var used = new HashSet<int>();
+            foreach (var ql in FindAll<Questline>()) foreach (var q in ql.quests) if (q != null) used.Add(q.saveId);
+            var probe = ScriptableObject.CreateInstance<Questline>();
+            WorldDefaults.FillSchoolQuests(probe);
+            var clash = new List<int>();
+            foreach (var q in probe.quests) if (used.Contains(q.saveId)) clash.Add(q.saveId);
+            if (clash.Count > 0)
+            {
+                Object.DestroyImmediate(probe);
+                Debug.LogWarning("[WizardsVRC] Save ids " + string.Join(", ", clash) + " are already used, so the School Quests questline wasn't added. " +
+                                 "Free save ids " + WorldDefaults.SchoolQuestFirstId + "-" + (WorldDefaults.SchoolQuestFirstId + 34) + ", then set " + VersionPath + " to 26 to try again.");
+                return;
+            }
+            AssetDatabase.CreateAsset(probe, AssetDatabase.GenerateUniqueAssetPath(Folder + "/Questline_SchoolQuests.asset"));
+            Debug.Log("[WizardsVRC] Upgraded world data (v27): the School Quests questline (" + probe.quests.Count + " quests, save ids " +
+                      WorldDefaults.SchoolQuestFirstId + "-" + (WorldDefaults.SchoolQuestFirstId + probe.quests.Count - 1) + ").");
         }
 
         /// <summary>

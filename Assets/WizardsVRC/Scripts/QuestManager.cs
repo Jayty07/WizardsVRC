@@ -37,7 +37,8 @@ namespace WizardsVRC
 
         public const int QUEST_PROPHECY = 0;
         public const int QUEST_TRIAL = 1;
-        public const int TRIAL_LEVEL = 35;
+        /// <summary>The trial (the L38 school quest; its spell is tier 9). The other school quests (L7, 12, 18, 28, 48) are world data.</summary>
+        public const int TRIAL_LEVEL = 38;
 
         public PlayerState playerState;
         public CutscenePlayer cutscenePlayer;
@@ -564,9 +565,20 @@ namespace WizardsVRC
             return text;
         }
 
+        /// <summary>
+        /// Talking to a professor: the dialogue of a school quest's step that needs them or of a school quest they're offering
+        /// (it ends in OnStreetNpcFinished), else their usual lines (OnProfessorFinished). Either way OnTalk follows.
+        /// </summary>
         private void TalkProfessor(int school)
         {
             if (Busy() || professorCutscenes == null || school < 0 || school >= professorCutscenes.Length) return;
+            Cutscene cs = HasCharacter() ? DialogueFor(school) : null;
+            if (cs != null)
+            {
+                _talkingNpc = school;
+                cutscenePlayer.Play(cs);
+                return;
+            }
             _talkingTo = school;
             cutscenePlayer.Play(professorCutscenes[school]);
         }

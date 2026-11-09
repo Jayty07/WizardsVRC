@@ -469,15 +469,16 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// Saves before v4 used the old spell ids: grant the own-school tree up to the character's level (not the quest
-        /// spell), refund every training point and rebuild Deck 1 from the basic spell.
+        /// Saves before v4 used the old spell ids: grant the own-school professor spells up to the character's level (not the
+        /// school-quest spells), refund every training point and rebuild Deck 1 from the basic spell.
         /// </summary>
         private void MigrateSpellTree()
         {
             for (int i = 0; i < LEARNED_BYTES; i++) learnedSpells[i] = 0;
-            int[] tierLevels = new int[] { 1, 5, 10, 12, 16, 22, 26, 28, 33, 35, 42, 48 };
+            // The professor tiers' levels (CardDatabase.levelReqs); tiers 3, 7, 9 and 11 are school-quest spells, not granted.
+            int[] tierLevels = new int[] { 1, 5, 26, 0, 16, 10, 22, 0, 42, 0, 33, 0 };
             for (int k = 0; k < SPELL_TIERS; k++)
-                if (k != SPELL_QUEST_TIER && level >= tierLevels[k]) Learn(LEARNED_BASE_ID + (int)school * SPELL_TIERS + k);
+                if (k != SPELL_QUEST_TIER && tierLevels[k] > 0 && level >= tierLevels[k]) Learn(LEARNED_BASE_ID + (int)school * SPELL_TIERS + k);
             trainingPoints = TrainingPointsAtLevel(level);
             for (int i = 0; i < deckCards.Length; i++) deckCards[i] = 0;
             for (int d = 0; d < DECK_COUNT; d++) deckLengths[d] = 0;
