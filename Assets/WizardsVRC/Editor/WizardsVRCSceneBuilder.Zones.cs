@@ -286,7 +286,7 @@ namespace WizardsVRC.EditorTools
             string homeName = homeTown != null ? homeTown.displayName : "Starfall Castle";
             // A town: its Street Gates become tunnels out to its streets (built like the castle's), and duelling circles work.
             HubLayout town = z.isTown ? new HubLayout { zone = z, grid = g, root = root } : null;
-            _shopBand = z.world <= 1 ? new Vector2Int(1, 12) : new Vector2Int(13, 40);
+            _shopBand = z.world <= 1 ? new Vector2Int(1, 12) : z.world == 2 ? new Vector2Int(13, 24) : new Vector2Int(25, 50);
             Vector3 mouth = g.Local(start) - openDir * (cs * 0.5f);
             // Past the map's edge: the street's island, the sea and its neighbourhood (WizardsVRCSceneBuilder.Backdrop.cs).
             BuildStreetBackdrop(root, g, z, W, H, baseY, mouth, bld, roof, leaves, trunk, glow);
@@ -365,7 +365,7 @@ namespace WizardsVRC.EditorTools
             // ---- entrance: spawn, the tunnel home (or, without a castle gate, a door), and the way in from the castle
             Transform spawn = Child(root, "Spawn", g.Local(start) + new Vector3(0, 0.05f, 0));
             spawn.localRotation = Quaternion.LookRotation(openDir);
-            if (z.world >= 2 && !z.isTown)
+            if (z.world == 2 && !z.isTown)
             {
                 // Dustwind: a whistle stop by the way in, and dust storms (not down the mine) (WizardsVRCSceneBuilder.Railroad.cs).
                 WhistleStop(root, g, z, start, openDir, spawn, wb.data);
@@ -404,7 +404,7 @@ namespace WizardsVRC.EditorTools
                 int before = encounters.Count;
                 BuildDuelCircles(town, systems, cardDb, itemDb, playerState, qm, encounters, wb);
                 // Archrock's circle runs High Noon (WizardsVRCSceneBuilder.Railroad.cs).
-                HighNoonCircles(root, g, z, encounters, before);
+                if (z.world == 2) HighNoonCircles(root, g, z, encounters, before);
             }
             else
             {
@@ -495,6 +495,8 @@ namespace WizardsVRC.EditorTools
                     var lanes = BuildZoneEncounter(root, g, z, e, spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb,
                         inDungeon ? dungeonSpots : outsideSpots, ringByCell);
                     (inDungeon ? dungeonGroups : outsideGroups).AddRange(lanes);
+                    // A boss who speaks as you walk up (Intro Lines; WizardsVRCSceneBuilder.Intros.cs).
+                    if (home.Count > 0) BuildEncounterIntro(root, g, e, home[0], lanes.Count > 0 ? lanes[0] : null, qm, spawn, wb);
                 }
             foreach (var groups in new[] { outsideGroups, dungeonGroups })
             {
@@ -1418,6 +1420,8 @@ namespace WizardsVRC.EditorTools
             if (shots == null) Debug.LogWarning("[WizardsVRC World] Dialogue '" + name + "' is for '" + npcKey + "', which isn't a zone NPC; it only plays for zone NPCs.");
             var cs = MakeCutscene(wb.cutsceneParent, name, speaker, clean.ToArray(), voicePrefix ?? "", shots ?? new Transform[0]);
             cs.cutsceneId = name;
+            // "Name|words" lines: another character speaking in the scene (WizardsVRCSceneBuilder.Intros.cs).
+            SpeakerLines(cs, speaker, shots, wb);
             cs.onFinished = qm;
             cs.onFinishedEvent = nameof(QuestManager.OnStreetNpcFinished);
             wb.behaviours.Add(cs);

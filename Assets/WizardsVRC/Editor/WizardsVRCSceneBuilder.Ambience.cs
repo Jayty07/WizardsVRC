@@ -88,6 +88,7 @@ namespace WizardsVRC.EditorTools
             switch (z.textureStyle)
             {
                 case ZoneTextureStyle.Mine: return "Amb_Mine";
+                case ZoneTextureStyle.Undercity: return "Amb_Forge";
                 case ZoneTextureStyle.Boomtown: return "Amb_Boomtown";
                 case ZoneTextureStyle.Desert: return "Amb_DesertWind";
                 case ZoneTextureStyle.Docks: return "Amb_Sea";

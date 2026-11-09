@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 27;
+        public const int CurrentVersion = 28;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -103,6 +103,7 @@ namespace WizardsVRC.EditorTools.WorldData
                 CreateZone("Zone_LanternRow", WorldDefaults.FillLanternRow);
                 foreach (var nz in World1Zones) CreateZone(nz.file, nz.fill);
                 foreach (var nz in World2Zones) CreateZone(nz.file, nz.fill);
+                foreach (var nz in World3Zones) CreateZone(nz.file, nz.fill);
                 created = true;
             }
             if (FindAll<Questline>().Count == 0)
@@ -115,12 +116,15 @@ namespace WizardsVRC.EditorTools.WorldData
                 foreach (var nq in World2Questlines) CreateQuestline(nq.file, nq.fill);
                 CreateQuestline("Questline_World2Finale", WorldDefaults.FillWorld2Finale);
                 CreateQuestline("Questline_SchoolQuests", WorldDefaults.FillSchoolQuests);
+                foreach (var nq in World3Questlines) CreateQuestline(nq.file, nq.fill);
+                CreateQuestline("Questline_World3Finale", WorldDefaults.FillWorld3Finale);
                 created = true;
             }
             if (FindAll<WorldArc>().Count == 0 && !hadData)
             {
                 CreateWorld1();
                 CreateWorld2();
+                CreateWorld3();
                 created = true;
             }
             int version = ReadVersion();
@@ -195,6 +199,104 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 25) UpgradeTo25();
             if (from < 26) UpgradeTo26();
             if (from < 27) UpgradeTo27();
+            if (from < 28) UpgradeTo28();
+        }
+
+        /// <summary>World 3's town and boroughs (world data v28).</summary>
+        private static readonly ZoneDefault[] World3Zones =
+        {
+            new ZoneDefault { file = "Zone_Bigdig", key = "Bigdig", fill = WorldDefaults.FillBigdig },
+            new ZoneDefault { file = "Zone_SprocketRow", key = "SprocketRow", fill = WorldDefaults.FillSprocketRow },
+            new ZoneDefault { file = "Zone_Rustworks", key = "Rustworks", fill = WorldDefaults.FillRustworks },
+            new ZoneDefault { file = "Zone_FusewickCanals", key = "FusewickCanals", fill = WorldDefaults.FillFusewickCanals },
+            new ZoneDefault { file = "Zone_GlimmerMile", key = "GlimmerMile", fill = WorldDefaults.FillGlimmerMile },
+            new ZoneDefault { file = "Zone_DeepSeams", key = "DeepSeams", fill = WorldDefaults.FillDeepSeams },
+            new ZoneDefault { file = "Zone_HighrollerHeights", key = "HighrollerHeights", fill = WorldDefaults.FillHighrollerHeights },
+        };
+
+        /// <summary>World 3's storylines (world data v28), in story order.</summary>
+        private static readonly QuestlineDefault[] World3Questlines =
+        {
+            new QuestlineDefault { file = "Questline_UnderEverything", firstId = 130, fill = WorldDefaults.FillUnderEverything },
+            new QuestlineDefault { file = "Questline_CompanyBusiness", firstId = 133, fill = WorldDefaults.FillCompanyBusiness },
+            new QuestlineDefault { file = "Questline_UnionStrong", firstId = 137, fill = WorldDefaults.FillUnionStrong },
+            new QuestlineDefault { file = "Questline_SmugglersRun", firstId = 141, fill = WorldDefaults.FillSmugglersRun },
+            new QuestlineDefault { file = "Questline_NeonNights", firstId = 145, fill = WorldDefaults.FillNeonNights },
+            new QuestlineDefault { file = "Questline_DeepSeams", firstId = 149, fill = WorldDefaults.FillDeepSeamsLine },
+            new QuestlineDefault { file = "Questline_TheParley", firstId = 153, fill = WorldDefaults.FillParley },
+            new QuestlineDefault { file = "Questline_HighrollerHeights", firstId = 157, fill = WorldDefaults.FillAllIn },
+            new QuestlineDefault { file = "Questline_OddJobs", firstId = 162, fill = WorldDefaults.FillOddJobs },
+            new QuestlineDefault { file = "Questline_LuckyStreak", firstId = 165, fill = WorldDefaults.FillLuckyStreak },
+        };
+
+        /// <summary>World 3 (Bigdig) with its goal, storylines and finale.</summary>
+        private static void CreateWorld3()
+        {
+            var storylines = new List<Questline>();
+            foreach (var nq in World3Questlines)
+            {
+                var ql = AssetDatabase.LoadAssetAtPath<Questline>(Folder + "/" + nq.file + ".asset");
+                if (ql != null) storylines.Add(ql);
+            }
+            var w = ScriptableObject.CreateInstance<WorldArc>();
+            WorldDefaults.FillWorld3(w, storylines);
+            AssetDatabase.CreateAsset(w, AssetDatabase.GenerateUniqueAssetPath(Folder + "/World_Bigdig.asset"));
+        }
+
+        /// <summary>
+        /// v28: World 3, Bigdig. Adds monsters 60-88, the town of Bigdig and its six boroughs, the ten storylines and the
+        /// finale (save ids 130-166, where free) and the Bigdig world arc. Its arch in the portal room opens with Dustwind's
+        /// finale (quest 77).
+        /// </summary>
+        private static void UpgradeTo28()
+        {
+            var report = new List<string>();
+            var cat = AssetDatabase.LoadAssetAtPath<MonsterCatalog>(MonstersPath) ?? FindFirst<MonsterCatalog>();
+            if (cat != null)
+            {
+                int added = 0;
+                foreach (var m in WorldDefaults.World3Monsters())
+                    if (cat.Find(m.id) == null) { cat.monsters.Add(m); added++; }
+                if (added > 0) { EditorUtility.SetDirty(cat); report.Add(added + " monsters"); }
+            }
+            var zones = FindAll<ZoneDefinition>();
+            foreach (var nz in World3Zones)
+            {
+                bool have = false;
+                foreach (var z in zones) have |= z != null && z.zoneKey == nz.key;
+                if (have) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                nz.fill(fresh);
+                fresh.height = Mathf.Max(fresh.height, NextFreeHeight());
+                AssetDatabase.CreateAsset(fresh, AssetDatabase.GenerateUniqueAssetPath(Folder + "/" + nz.file + ".asset"));
+                report.Add(fresh.displayName);
+            }
+            var used = new HashSet<int>();
+            foreach (var ql in FindAll<Questline>()) foreach (var q in ql.quests) if (q != null) used.Add(q.saveId);
+            var newLines = new List<Questline>();
+            var all = new List<QuestlineDefault>(World3Questlines);
+            all.Add(new QuestlineDefault { file = "Questline_World3Finale", firstId = 160, fill = WorldDefaults.FillWorld3Finale });
+            foreach (var nq in all)
+            {
+                var probe = ScriptableObject.CreateInstance<Questline>();
+                nq.fill(probe);
+                bool free = true;
+                foreach (var q in probe.quests) free &= !used.Contains(q.saveId);
+                if (!free) { Debug.Log("[WizardsVRC] Save ids " + nq.firstId + "+ are already used, so the " + probe.storylineName + " storyline wasn't added."); continue; }
+                AssetDatabase.CreateAsset(probe, AssetDatabase.GenerateUniqueAssetPath(Folder + "/" + nq.file + ".asset"));
+                if (nq.firstId != 160) newLines.Add(probe);
+                report.Add(probe.storylineName);
+            }
+            bool haveWorld3 = false;
+            foreach (var w in FindAll<WorldArc>()) haveWorld3 |= w != null && w.order == 3;
+            if (!haveWorld3)
+            {
+                var w = ScriptableObject.CreateInstance<WorldArc>();
+                WorldDefaults.FillWorld3(w, newLines);
+                AssetDatabase.CreateAsset(w, AssetDatabase.GenerateUniqueAssetPath(Folder + "/World_Bigdig.asset"));
+                report.Add("the Bigdig world");
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (v28): " + string.Join(", ", report) + ".");
         }
 
         /// <summary>

@@ -126,7 +126,37 @@ namespace WizardsVRC.EditorTools
             if (L == null) L = InferredLook(npc);
             if (npc.displayName != null && npc.displayName.ToLowerInvariant().Contains("ghost")) L.ghost = true;
             if (zone != null && zone.world == 2) WorldTwoReptile(L, npc.key);
+            if (zone != null && zone.world == 3) WorldThreeKobold(L, npc.key);
             return L;
+        }
+
+        /// <summary>
+        /// Bigdig's people: nearly everyone is a kobold (keeping their clothes, hats and tools), in rust, brass, slate and
+        /// moss scales with bright frills; the odd visitor is a lizardfolk trader or a human.
+        /// </summary>
+        private static void WorldThreeKobold(NpcLook L, string key)
+        {
+            if (L.species != NpcSpecies.Human || L.ghost || L.outfit == NpcOutfit.Bark) return;
+            int h = StableSeed("kobold_" + (key ?? ""));
+            if (h % 11 == 0) return;   // a human trader or two
+            if (h % 11 == 1) { WorldTwoReptile(L, key); return; }   // a visitor from Dustwind
+            Color[] scales =
+            {
+                new Color(0.62f, 0.38f, 0.22f), new Color(0.4f, 0.5f, 0.32f), new Color(0.36f, 0.44f, 0.66f), new Color(0.7f, 0.5f, 0.3f),
+                new Color(0.5f, 0.3f, 0.36f), new Color(0.3f, 0.36f, 0.3f), new Color(0.72f, 0.62f, 0.4f), new Color(0.45f, 0.42f, 0.5f),
+            };
+            Color[] frills = { new Color(1f, 0.75f, 0.25f), new Color(0.95f, 0.4f, 0.2f), new Color(0.35f, 0.75f, 0.7f), new Color(0.75f, 0.5f, 0.95f), new Color(1f, 0.35f, 0.75f) };
+            Color skin = scales[(h / 11) % scales.Length];
+            L.species = NpcSpecies.Kobold;
+            L.skin = skin;
+            L.extra = frills[(h / 88) % frills.Length];
+            L.hair = Color.Lerp(skin, Color.black, 0.3f);
+            L.hairStyle = NpcHair.Bald;
+            L.beard = NpcBeard.None;
+            L.belly = Color.Lerp(skin, new Color(0.95f, 0.9f, 0.78f), 0.55f);
+            L.eyes = (h / 440) % 2 == 0 ? new Color(1f, 0.8f, 0.25f) : new Color(0.5f, 0.95f, 0.6f);
+            if (L.build == NpcBuild.Tall || L.build == NpcBuild.Slim) L.build = NpcBuild.Average;
+            if (L.build != NpcBuild.Hulking && L.build != NpcBuild.Stout) L.height = Mathf.Min(L.height, 0.88f);
         }
 
         /// <summary>
@@ -240,6 +270,31 @@ namespace WizardsVRC.EditorTools
                     L = Look(NpcBuild.Small, false, SkinTan, HairBrown, NpcHair.Wild, NpcBeard.None, NpcOutfit.Tunic,
                         new Color(0.3f, 0.45f, 0.65f), new Color(0.8f, 0.75f, 0.6f), new Color(0.6f, 0.38f, 0.9f), NpcHat.Pointed, new Color(0.22f, 0.32f, 0.5f), NpcItem.Wand);
                     L.hatScale = 1.25f; L.scarf = true; L.extra = new Color(0.55f, 0.3f, 0.85f); L.brows = -4f; L.gem = new Color(0.8f, 0.6f, 1f); L.idle = 1; return L;
+                // ---------------- Bigdig (World 3): kobolds all (WorldThreeKobold makes them so)
+                case "Bruma":   // Deepwarden Bruma Stonehum: an old kobold matriarch in deep violet robes and a gold circlet, a lamp-staff
+                    L = Look(NpcBuild.Elder, true, SkinFair, HairWhite, NpcHair.Bald, NpcBeard.None, NpcOutfit.Robe,
+                        new Color(0.34f, 0.26f, 0.5f), new Color(0.85f, 0.72f, 0.35f), new Color(0.95f, 0.8f, 0.35f), NpcHat.Circlet, new Color(0.95f, 0.8f, 0.35f), NpcItem.Lantern);
+                    L.cape = true; L.extra = new Color(0.22f, 0.16f, 0.34f); L.gem = new Color(1f, 0.85f, 0.4f); L.brows = -4f; L.idle = 2; return L;
+                case "Ozza":   // Madame Ozza Goldtongue: the Company's boss in a gold frock coat and a red top hat, a ledger
+                    L = Look(NpcBuild.Average, true, SkinFair, HairRed, NpcHair.Bald, NpcBeard.None, NpcOutfit.Coat,
+                        new Color(0.85f, 0.65f, 0.15f), new Color(0.55f, 0.12f, 0.12f), new Color(0.95f, 0.85f, 0.4f), NpcHat.TopHat, new Color(0.55f, 0.1f, 0.1f), NpcItem.None, NpcItem.Ledger);
+                    L.coatLength = 1.3f; L.spectacles = true; L.brows = 4f; L.idle = 1; return L;
+                case "Hesk":   // Grandmaw Hesk Rustclaw: the Union's old boss in rust-red overalls and a lamp helmet, a pick on her shoulder
+                    L = Look(NpcBuild.Elder, true, SkinFair, HairGrey, NpcHair.Bald, NpcBeard.None, NpcOutfit.Overalls,
+                        new Color(0.62f, 0.3f, 0.15f), new Color(0.8f, 0.72f, 0.6f), new Color(0.6f, 0.45f, 0.3f), NpcHat.MinerLamp, new Color(0.45f, 0.25f, 0.12f), NpcItem.Pickaxe);
+                    L.gloves = true; L.brows = 8f; L.idle = 2; return L;
+                case "Pinch":   // "Big Pinch" Brassknuckle: a huge kobold in a brass-buttoned vest and a captain's cap, an explosive temper
+                    L = Look(NpcBuild.Hulking, false, SkinFair, HairBlack, NpcHair.Bald, NpcBeard.None, NpcOutfit.Vest,
+                        new Color(0.5f, 0.55f, 0.28f), new Color(0.85f, 0.8f, 0.6f), new Color(0.85f, 0.7f, 0.3f), NpcHat.Captain, new Color(0.25f, 0.28f, 0.14f), NpcItem.None);
+                    L.gloves = true; L.brows = 12f; L.idle = 1; return L;
+                case "Tixi":   // Tixi Glimmerfang: a young neon-violet kobold in a loud jacket and goggles, a wand of light
+                    L = Look(NpcBuild.Slim, true, SkinFair, HairBlonde, NpcHair.Bald, NpcBeard.None, NpcOutfit.Tunic,
+                        new Color(0.6f, 0.2f, 0.8f), new Color(0.2f, 0.9f, 0.85f), new Color(1f, 0.35f, 0.85f), NpcHat.None, Color.black, NpcItem.Wand);
+                    L.goggles = true; L.highCollar = true; L.brows = 6f; L.idle = 1; return L;
+                case "Quibb":   // Assayer Quibb Silvernose: a dapper silver-grey kobold in a pale suit, spectacles and a top hat, his scales
+                    L = Look(NpcBuild.Slim, false, SkinFair, HairGrey, NpcHair.Bald, NpcBeard.None, NpcOutfit.Coat,
+                        new Color(0.78f, 0.74f, 0.62f), new Color(0.3f, 0.26f, 0.24f), new Color(0.85f, 0.8f, 0.7f), NpcHat.TopHat, new Color(0.22f, 0.2f, 0.2f), NpcItem.BalanceStaff);
+                    L.spectacles = true; L.gloves = true; L.brows = 2f; L.idle = 2; return L;
                 // ---------------- Tidewatch Docks
                 case "Quill":   // Harbormaster Odalys Quill: navy coat with gold buttons and epaulettes, captain's cap, spyglass
                     L = Look(NpcBuild.Average, true, SkinBrown, HairBlack, NpcHair.Ponytail, NpcBeard.None, NpcOutfit.Coat,

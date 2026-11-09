@@ -22,6 +22,8 @@ namespace WizardsVRC.EditorTools.WorldData
     {
         StreetLamp, GlowingItem, Crate, Signpost, None,
         Barrel, Wagon, Stagecoach, OreCart, WaterTower, Windmill, Rails, Gravestone, StandingStone, DrillRig, Locomotive, WaterPump,
+        // Bigdig (World 3): a neon sign on a post, a striped blasting barrel, a heap of gold, and the casino's slot machine, card table and roulette wheel.
+        NeonSign, BlastBarrel, GoldPile, SlotMachine, CardTable, Roulette,
     }
 
     /// <summary>Buildings and fixtures a map can place (mostly for the hub). The first group are solid buildings.</summary>
@@ -123,6 +125,7 @@ namespace WizardsVRC.EditorTools.WorldData
         Desert,  // packed sand, red rock walls, adobe houses, cactus instead of trees (Dustwind's trails)
         Boomtown,// dirt streets with boardwalks, weathered board buildings, shingle roofs (Dustwind's towns)
         Mine,    // rough rock floors, timber-propped rock walls, ore veins
+        Undercity, // Bigdig: soot-dark flagstones and iron grating, riveted brick and brass buildings hung with neon, under a cavern roof
     }
 
     /// <summary>
@@ -401,6 +404,9 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("How many duels this group can have going at once (each is its own ring). Wizards who run into one of its " +
                  "monsters join a fight of the group's nearby with a free seat, or start another at the nearest free ring.")]
         [Range(1, 4)] public int maxFights = 2;
+        [Tooltip("Optional: a cutscene that plays when you walk up to this fight's ring (bosses). One line each; \"Name|words\" is spoken " +
+                 "by Name, \"!Name|words\" by an enemy (red); a line without a name is the first monster's.")]
+        [TextArea(1, 3)] public string[] introLines;
 
         public char Symbol { get { return string.IsNullOrEmpty(ringSymbol) ? '\0' : ringSymbol[0]; } }
         public char PatrolSymbol { get { char d = Symbol; return d >= '1' && d <= '9' ? (char)('a' + (d - '1')) : '\0'; } }

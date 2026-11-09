@@ -85,10 +85,10 @@ namespace WizardsVRC.EditorTools
             L.kind = RigKind.Biped;
             L.heavy = t == "construct" || Has(n, "golem", "warden", "dummy");
             L.voice = L.heavy ? "Construct" : "Biped";
-            L.small = Has(n, "imp", "goblin", "snatcher", "tommyknocker", "sprite");
+            L.small = t == "kobold" || Has(n, "imp", "goblin", "snatcher", "tommyknocker", "sprite");
             L.horns = Has(n, "imp", "snuffer", "gloomfang");
-            L.ears = Has(n, "snatcher", "goblin", "tommyknocker");
-            L.hat = t == "outlaw" || t == "rogue" || Has(n, "rustler", "prospector", "bandit", "penny", "smuggler", "grell", "foreman");
+            L.ears = t == "kobold" || Has(n, "snatcher", "goblin", "tommyknocker");
+            L.hat = t == "outlaw" || t == "rogue" || (t == "kobold" && !Has(n, "assayer")) || Has(n, "rustler", "prospector", "bandit", "penny", "smuggler", "grell", "foreman");
             L.helmet = t == "dominion" && !Has(n, "vesper", "calloway", "selwyn", "merchant");
             L.crown = t == "undead king" || Has(n, "king", "railmaster");
             L.bones = t == "undead" || Has(n, "thrall", "bone");

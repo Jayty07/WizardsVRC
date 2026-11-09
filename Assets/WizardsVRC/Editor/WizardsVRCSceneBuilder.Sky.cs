@@ -504,7 +504,7 @@ namespace WizardsVRC.EditorTools
         /// <summary>Dustwind's look: desert floor instead of sea, mesas instead of islands (World 2 on, or a desert style).</summary>
         private static bool IsDesert(ZoneDefinition z)
         {
-            return z != null && (z.world >= 2 || z.textureStyle == ZoneTextureStyle.Desert || z.textureStyle == ZoneTextureStyle.Boomtown);
+            return z != null && z.textureStyle != ZoneTextureStyle.Undercity && (z.world == 2 || z.textureStyle == ZoneTextureStyle.Desert || z.textureStyle == ZoneTextureStyle.Boomtown);
         }
 
         /// <summary>Sand flats below the horizon, hazier toward it, with scattered scrub and the odd dark rock.</summary>

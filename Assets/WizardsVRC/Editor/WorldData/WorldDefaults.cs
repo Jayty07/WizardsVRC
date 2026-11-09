@@ -54,6 +54,7 @@ namespace WizardsVRC.EditorTools.WorldData
             cat.monsters.AddRange(World1Monsters());
             cat.monsters.AddRange(KrakenMonsters());
             cat.monsters.AddRange(World2Monsters());
+            cat.monsters.AddRange(World3Monsters());
         }
 
         /// <summary>

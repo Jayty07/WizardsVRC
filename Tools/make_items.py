@@ -1,4 +1,4 @@
-"""World 1's and Dustwind's (World 2) items: writes the item tables in Assets/WizardsVRC/Scripts/ItemDatabase.cs.
+"""World 1's, Dustwind's (World 2) and Bigdig's (World 3) items: writes the item tables in Assets/WizardsVRC/Scripts/ItemDatabase.cs.
 
 Every gear stat comes from one budget: what a full set (hat, robe, boots, wand, athame, amulet, ring) adds at a given
 level (ANCH, interpolated between the anchor levels). Each slot takes its share of each stat (SHARE: robes carry
@@ -13,7 +13,8 @@ HAT, ROBE, BOOTS, WAND, ATHAME, AMULET, RING, DECK, POTION = range(9)
 STATS = ['H','M','D','R','A','C','B','P','PP']
 # Full-set totals (all seven gear slots) at anchor levels.
 ANCH = {1:(60,7,3,3,2,2,2,2,0), 4:(110,10,6,4,4,3,2,1,4), 8:(200,16,11,7,6,5,4,2,9), 12:(320,24,17,10,8,8,6,3,15), 13:(350,26,18,11,9,9,7,3,16),
-        18:(500,34,24,14,11,11,9,4,22), 22:(640,42,29,17,13,13,11,5,27), 25:(760,48,33,19,15,15,12,6,31)}
+        18:(500,34,24,14,11,11,9,4,22), 22:(640,42,29,17,13,13,11,5,27), 25:(760,48,33,19,15,15,12,6,31),
+        28:(860,53,37,21,17,17,13,7,35), 32:(990,60,42,24,19,19,15,8,40), 35:(1090,66,46,26,21,21,17,9,44)}
 def budget(L):
     ks=sorted(ANCH)
     if L<=ks[0]: return ANCH[ks[0]]
@@ -191,6 +192,66 @@ add(164,"Saddlebag Deck",DECK,16,'quest',desc="Room for more spells than you'll 
 add(191,"Wrangler's Deck",DECK,20,desc="Stitched with rawhide; it holds a herd of spells.",color=(0.45,0.3,0.2),deck=(48,6))
 add(169,"Lawbringer's Deck",DECK,24,'quest',desc="Bound in a marshal's tooled leather, with a tin star on the cover.",color=(0.4,0.35,0.3),deck=(52,7))
 
+# ---- Bigdig (World 3, Lv 25-35): the boroughs' shops, school gear, storyline rewards and boss drops (ids 200-263)
+add(200,"Tunneler's Cap",HAT,26,desc="A padded leather cap with a lamp clip. Mind your head down there.",color=(0.45,0.35,0.25))
+add(201,"Coalcloth Robe",ROBE,26,desc="Woven from fireproof coalcloth; soot slides right off.",color=(0.3,0.28,0.3))
+add(202,"Hobnail Boots",BOOTS,26,desc="Iron-studded soles that grip wet stone and spark on cobbles.",color=(0.35,0.28,0.22))
+add(203,"Sparkplug Wand",WAND,26,desc="A brass wand with a crackling gap at its tip.",color=(0.8,0.65,0.3))
+add(204,"Rivet Athame",ATHAME,26,desc="Hammered from a single giant rivet. Surprisingly sharp.",color=(0.6,0.55,0.5))
+add(205,"Gear Pendant",AMULET,26,desc="A little cog that turns all by itself.",color=(0.8,0.7,0.4))
+add(206,"Nut-and-Bolt Ring",RING,26,desc="A nut, a bolt, and a kobold's idea of romance.",color=(0.65,0.62,0.6))
+wands3=[(207,"Furnace Wand","Hot enough to light a forge, if you hold it the wrong way round."),(208,"Coolant Wand","Frost beads on it in the hottest smelter."),
+        (209,"Arc-Coil Wand","A copper coil that hums with stored lightning."),(210,"Mossbulb Wand","Glowing cave-moss grows along its grip."),
+        (211,"Gravedigger Wand","Carved from a deep-seam pit prop. It still smells of the dark."),(212,"Tall-Fuse Wand","Its fuse burns forever and never reaches the end."),
+        (213,"Gyroscope Wand","Three brass rings spin round its tip, always level.")]
+for s_,(i,n,d) in enumerate(wands3): add(i,n,WAND,27,school=s_,desc=d,color=SCOL[s_])
+add(214,"Neon Brim Hat",HAT,30,desc="Its band glows pink in the dark, so your friends can find you on the Glimmer Mile.",color=(0.9,0.3,0.75))
+add(215,"Velvet Gambler's Robe",ROBE,30,desc="Deep pockets. Very deep. Some say bottomless.",color=(0.45,0.15,0.3))
+add(216,"Brass-Toe Boots",BOOTS,30,desc="Brass toecaps, for kicking doors and the odd dice.",color=(0.7,0.55,0.3))
+add(217,"Lucky-Strike Wand",WAND,30,desc="Strikes like a match against any surface. Usually lights.",color=(0.85,0.3,0.2))
+add(218,"Card-Edge Athame",ATHAME,30,desc="A blade as thin as a playing card, and just as tricky.",color=(0.85,0.85,0.9))
+add(219,"Glowbulb Amulet",AMULET,30,desc="A little bulb of captured neon on a chain.",color=(0.4,0.95,0.85))
+add(220,"Loaded Die Ring",RING,30,desc="A tiny die set in brass. It always lands on six. Always.",color=(0.95,0.95,0.9))
+robes3=[(221,"Smelter's Robe","A heavy leather robe scorched black at the hem."),(222,"Coldforge Robe","Rime creeps along its seams even beside a furnace."),
+        (223,"Dynamo Robe","Copper threads hum faintly when you move."),(224,"Mosslined Robe","Lined with soft glowing moss from the deep seams."),
+        (225,"Undertunnel Robe","The colour of tunnels where no lamp has ever been."),(226,"Showman's Robe","Spangled, sequinned and impossible to ignore."),
+        (227,"Assayer's Robe","A neat grey robe with a set of tiny scales embroidered on the breast.")]
+for s_,(i,n,d) in enumerate(robes3): add(i,n,ROBE,31,school=s_,desc=d,color=SCOL[s_])
+add(228,"Highroller Top Hat",HAT,33,desc="A tall black top hat with a gold band. Doors open for it.",color=(0.15,0.12,0.12))
+add(229,"Gilded Waistcoat Robe",ROBE,33,desc="Gold thread, velvet lapels, and a pocket watch that's never wrong.",color=(0.75,0.6,0.2))
+add(230,"Velvet Boots",BOOTS,33,desc="Soft as a whisper on a casino carpet.",color=(0.4,0.12,0.2))
+add(231,"Golden Seam Wand",WAND,33,desc="Cut from a seam of singing gold. It hums when you cast.",color=(0.95,0.8,0.3))
+add(232,"Vault Key Athame",ATHAME,33,desc="A key so big it doubles as a blade. It opens most things.",color=(0.8,0.7,0.45))
+add(233,"Jackpot Locket",AMULET,33,desc="Open it and three cherries line up inside.",color=(0.9,0.2,0.25))
+add(234,"Mother Lode Ring",RING,33,desc="A ring of raw gold that sings, very faintly, at night.",color=(1.0,0.85,0.35))
+hats3=[(235,"Furnace Goggles Hat","Smoked-glass goggles on a heat-proof cap."),(236,"Frostlamp Hat","A miner's lamp that burns cold blue."),
+       (237,"Tesla Crown","Little lightning arcs between its copper points."),(238,"Lantern-Moss Hat","Glowing moss grows thick along the brim."),
+       (239,"Pit Boss Hat","Black felt, low brim, seen in the deepest seams."),(240,"Ringmaster's Hat","A tall striped hat for a spectacular entrance."),
+       (241,"Scales Hat","A neat hat with a tiny balance on its crown, always level.")]
+for s_,(i,n,d) in enumerate(hats3): add(i,n,HAT,34,school=s_,desc=d,color=SCOL[s_])
+add(242,"Deepwarden's Lamp",AMULET,25,'quest',desc="Lit from the Mother Lode the year Bruma Stonehum became Deepwarden.",color=(1.0,0.82,0.4))
+add(243,"Company Signet",RING,27,'quest',desc="The Bigdig Prospecting Company's seal: a nugget in a grinning mouth. A small share, Madame Ozza insists.",color=(0.9,0.7,0.2))
+add(244,"Rustclaw Pick Athame",ATHAME,28,'quest',desc="Grandmaw Hesk's old pick, sharpened into a blade.",color=(0.65,0.35,0.2))
+add(245,"Smuggler's Boots",BOOTS,30,'quest',desc="Big Pinch's own. They never leave a footprint.",color=(0.35,0.4,0.25))
+add(246,"Glimmerfang Jacket",ROBE,31,'quest',desc="Neon-lined, loud, and impossible to lose in the dark. Tixi's own.",color=(0.6,0.25,0.8))
+add(247,"Ward-Rune Pendant",AMULET,33,'quest',desc="Cut from one of Bigdig's old ward runes. It remembers the light.",color=(0.6,0.85,1.0))
+add(248,"Handshake Ring",RING,33,'quest',desc="Every gang boss in Bigdig spat on it. Binding till the gold stops singing.",color=(0.85,0.75,0.5))
+add(249,"Lucky Lou's Dice Ring",RING,32,'quest',desc="Lou's spare dice, set in brass. Roll them when you need a little luck.",color=(0.95,0.95,0.92))
+add(250,"Runner's Boots",BOOTS,29,'quest',desc="Runner Pip's old boots, retired now that Pip has a cart.",color=(0.7,0.4,0.15))
+add(251,"High Roller's Hat",HAT,34,'quest',desc="Lulu's gift. Wear it when you walk into the vault.",color=(0.2,0.15,0.15))
+add(252,"All In Wand",WAND,35,'quest',desc="A wand of singing gold from the Mother Lode itself. Bigdig thanks you.",color=(1.0,0.85,0.3))
+add(253,"Copperjaw's Knuckles",ATHAME,27,'boss',desc="Copperjaw Grubb's brass knuckles, filed into a blade.",color=(0.8,0.5,0.25))
+add(254,"Vane's Drill-Bit Wand",WAND,28,'boss',desc="The tip of the Siphon Drill, still spinning slowly.",color=(0.5,0.5,0.55))
+add(255,"Sorrel's Marine Coat",ROBE,30,'boss',desc="A Threadfleet officer's coat, blue and grey, salt-stained.",color=(0.25,0.3,0.45))
+add(256,"Nightglass Monocle",HAT,31,'boss',desc="Agent Nightglass's monocle on a dark hood. It sees in the dark.",color=(0.15,0.15,0.22))
+add(257,"Strake's Siphon Core",AMULET,33,'boss',desc="The humming heart of the siphon works, turned to better use.",color=(0.55,0.2,0.15))
+add(258,"The Assayer's Scales",RING,34,'boss',desc="Quibb Silvernose's tiny scales. They weigh true now.",color=(0.85,0.8,0.65))
+add(259,"Iron Wall Greaves",BOOTS,35,'boss',desc="Marshal Brannoch's greaves. They have never taken a step back.",color=(0.35,0.33,0.38))
+add(260,"Superior Healing Potion",POTION,25,desc="A fizzing red bottle from Fuse & Fizz. Tastes like cinnamon and sparks.",color=(0.95,0.15,0.2),potion=(900,0))
+add(261,"Fizzing Mana Bomb",POTION,25,desc="A blue sphere with a fuse. Drink it before it goes off.",color=(0.15,0.35,0.95),potion=(0,60))
+add(262,"Tinker's Deck",DECK,27,desc="A deck in a riveted brass case. It clicks shut very satisfyingly.",color=(0.7,0.55,0.3),deck=(55,7))
+add(263,"Highroller's Deck",DECK,33,'quest',desc="Gilt-edged cards in a velvet box. The house's own.",color=(0.6,0.15,0.2),deck=(60,7))
+
 def stats(it):
     if it['cat'] in (DECK,POTION): return [0]*9
     b=budget(it['lv']); sh=SHARE[it['cat']]; q=QUAL[it['qual']]
@@ -212,7 +273,7 @@ print(len(rows),'items; ids unique:',len({r['id'] for r in rows})==len(rows))
 
 def arr(name, vals, typ='int'):
     return "        [HideInInspector] public %s[] %s = { %s };\n" % (typ, name, ', '.join(str(v) for v in vals))
-out = "        // World 1's and Dustwind's items: every stat comes from a level budget for a full set, split by slot (Tools/make_items.py).\n"
+out = "        // World 1's, Dustwind's and Bigdig's items: every stat comes from a level budget for a full set, split by slot (Tools/make_items.py).\n"
 out += "        // Sorted by level, so the shops list them in order. Quest rewards and boss drops are unique (never sold).\n"
 out += arr('ids', [r['id'] for r in rows]) + arr('categories', [r['cat'] for r in rows])
 out += arr('levelReqs', [r['lv'] for r in rows]) + arr('schoolReqs', [r['school'] for r in rows])
@@ -230,7 +291,7 @@ out += "        [HideInInspector] public Color[] iconColors =\n        {\n" + ''
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 path = os.path.join(root, 'Assets', 'WizardsVRC', 'Scripts', 'ItemDatabase.cs')
 src = open(path, encoding='utf-8').read()
-a = src.index("        // World 1's items")
+a = src.index("        // World 1's")
 b = src.index("        public int IndexOf(int itemId)")
 open(path, 'w', encoding='utf-8').write(src[:a] + out + "\n" + src[b:])
 print('wrote', path)
