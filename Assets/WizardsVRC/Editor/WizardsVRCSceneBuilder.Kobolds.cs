@@ -203,7 +203,6 @@ namespace WizardsVRC.EditorTools
                 BuildNpc(root, g, z, digger, qm, wb, at + facing * local, front);
             }
         }
-        }
 
         /// <summary>
         /// A spot for a claim: on an open, plain street cell beside a wall (or anything you can't walk into), at least a
