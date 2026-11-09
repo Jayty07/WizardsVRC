@@ -707,8 +707,14 @@ namespace WizardsVRC.EditorTools
             Shape(room, "CeilingLamp", GemMesh(), new Vector3(0f, RoomH - 0.45f, 0f), new Vector3(0.45f, 0.6f, 0.45f), glow, false, Quaternion.identity);
 
             // ---- the screen on the gallery wall, facing the bed, and its own player
-            float sx0 = bx, sz0 = RoomWallZ(RoomIn + 0.15f, rc, sx0) + 0.04f;
+            // The gallery wall curves round the hall, so off the room's middle it isn't square to the room: the screen is
+            // turned to lie flat against the wall where it hangs (square to the hall's centre) and stood just off its face
+            // (the wall's flat panels stand a little proud of the circle at their ends).
+            float wallR = RoomIn + 0.15f + 0.09f;
+            float phi = Mathf.Asin(Mathf.Clamp(bx / wallR, -1f, 1f));
+            float sx0 = wallR * Mathf.Sin(phi), sz0 = wallR * Mathf.Cos(phi) - rc;
             var frame = Child(room, "RoomScreen", new Vector3(sx0, 1.95f, sz0));
+            frame.localRotation = Quaternion.Euler(0f, phi * Mathf.Rad2Deg, 0f);
             Block(frame, "ScreenFrame", new Vector3(0f, 0f, -0.02f), new Vector3(2.56f, 1.5f, 0.05f), darkWood);
             foreach (float yy in new[] { -0.76f, 0.76f }) Deco(frame, PrimitiveType.Cube, "ScreenTrim", new Vector3(0f, yy, 0.01f), new Vector3(2.62f, 0.05f, 0.04f), gold, Quaternion.identity, false);
             var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
