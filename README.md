@@ -595,6 +595,27 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
     anyone's, damage and heals, for 4 rounds; one bubble or grid at a time), the low-rank minions (3 pips) and Myth's
     shield. Spell ids never changed, so saves keep every spell they've learned; only levels, prerequisites and how each
     spell is earned moved. Dustwind's school side quests still teach each school's L42 spell early.
+- **Treasure cards** (Wizard101's): single-use copies of spells. Anyone can cast one, whatever their school or level,
+  without knowing the spell. Each deck item has a **sideboard** (about a third of its size, 6-18 cards,
+  `ItemDatabase.GetDeckTreasureCapacity`); on the book's Deck page the Treasure icon (the last one in the header) lists the
+  treasure cards you own, click one to move it into the shown deck's sideboard, and the row under the deck switches
+  (Item Spells / Treasure Cards tabs) to the sideboard, where clicking a card takes it back out. In a duel the action
+  tray's **Treasure** button draws one card from the equipped deck's sideboard into your hand (once a round, it doesn't
+  use your turn); it wears a gold TREASURE ribbon. A treasure card is used up when it's cast, fizzles or is discarded;
+  ones drawn but not cast stay in the sideboard. Saved in save format v13 (`CharacterData.treasureCounts`, `sideCards`).
+  - **The Library sells them:** Librarian Wren's counter in the castle grounds (`GoldShop.OpenTreasure`) has a treasure
+    card of every school spell up to level 33, by school (school buttons jump to each), priced by pip cost:
+    25 + 15 x pips + 15 x pips² gold (25 for 0 pips up to 475 for 5).
+- **Starshard card packs** (the Starshard Shop's **Card Packs** category, `CardPacks`): buy one and it opens on the spot,
+  its cards lying face down and turning over one by one, each glowing its rarity (Common, Uncommon, Rare, Ultra-Rare;
+  treasure-card rarity comes from pip cost). Packs: Spellbinder's (12 shards, five treasure cards), Wanderer's (20: three
+  treasure cards, gear and a wand for your level), Lorekeeper's (28: four treasure cards, one 3+ pips, and gear), Arcane
+  Hoard (45: six cards, a 5+ pip treasure card, a wand and gear at or above your level, gold) and a 15-shard pack per
+  school (five of its treasure cards, one 4+ pips). Gear and wands are for your school or any school and go to your
+  backpack (a full backpack pays their worth in gold). **Ludicrously rarely** (3 in 10,000 per card, 12 on a pack's best
+  card) a card is instead a **Starshard spell** you learn for good, one per school: Phoenix Ascendant, Aurora Glacier,
+  Skybreaker Roc, Celestial Bloom, Eclipse Wraith, Starforged Golem and Astral Scales (ids 230-236; never taught or sold,
+  usable by any wizard who finds one). Pack art: `Tools/make_pack_art.py`.
 - **School quests** (world data v27, the **School Quests** questline, save ids 90-124: school s, slot k at 90 + s * 5 + k):
   five per school, offered by the professor in the school hall to their own wizards from the slot's level once the street
   is open (its prerequisite is the street's gate quest). The professor speaks the offer and hand-in lines in their hall

@@ -135,17 +135,19 @@ namespace WizardsVRC.EditorTools
 
             // ---- categories
             ShopImage(view, "Sidebar", new Vector2(-765, -62), new Vector2(390, 930), "GlassPanel", 3f, Color.white);
-            string[] cats = { "Featured", "Surge Auras", "Auras", "Titles", "Spell Skins", "Elixirs" };
-            string[] catIcons = { "IconFeatured", "IconAura", "IconAura", "IconTitle", "IconSkin", "IconElixir" };
+            string[] cats = { "Featured", "Surge Auras", "Auras", "Titles", "Spell Skins", "Elixirs", "Card Packs" };
+            string[] catIcons = { "IconFeatured", "IconAura", "IconAura", "IconTitle", "IconSkin", "IconElixir", "PackBody" };
             pages.catNames = cats;
             pages.catImages = new Image[cats.Length];
             for (int k = 0; k < cats.Length; k++)
             {
-                GameObject b = ShopButton(view, "Cat" + k, new Vector2(-765, 330 - k * 112), new Vector2(345, 98), cats[k], "CatButton", target, "Cat" + k, 28);
+                GameObject b = ShopButton(view, "Cat" + k, new Vector2(-765, 336 - k * 104), new Vector2(345, 92), cats[k], "CatButton", target, "Cat" + k, 28);
                 Text t = b.GetComponentInChildren<Text>();
                 t.alignment = TextAnchor.MiddleLeft;
                 ((RectTransform)t.transform).offsetMin = new Vector2(96, 0);
-                ShopImage(b.transform, "Icon", new Vector2(-122, 0), new Vector2(64, 64), catIcons[k], 2f, k == 1 ? new Color(1f, 0.7f, 0.4f) : Color.white);
+                Image ci = ShopImage(b.transform, "Icon", new Vector2(-122, 0), new Vector2(64, 64), catIcons[k], 2f,
+                                     k == 1 ? new Color(1f, 0.7f, 0.4f) : k == 6 ? new Color(0.55f, 0.45f, 0.95f) : Color.white);
+                if (k == 6) ShopImage(ci.transform, "Trim", Vector2.zero, new Vector2(64, 64), "PackTrim", 2f, Color.white);
                 pages.catImages[k] = b.GetComponent<Image>();
             }
             ShopLabel(view, "Earn", new Vector2(-765, -440), new Vector2(350, 140),
@@ -223,7 +225,10 @@ namespace WizardsVRC.EditorTools
             pages.skinSprite = ShopSprite("SkinGlyph");
             pages.elixirLiquidSprite = ShopSprite("ElixirLiquid");
             pages.elixirGlassSprite = ShopSprite("ElixirGlass");
+            pages.packSprite = ShopSprite("PackBody");
+            pages.packTrimSprite = ShopSprite("PackTrim");
             foreach (var img in pv.GetComponentsInChildren<Image>(true)) if (img.GetComponent<Button>() == null) img.raycastTarget = false;
+            BuildPackReveal(view, pages, target);
 
             ShopMagic(view, sheen.rectTransform, sparkles, (RectTransform)pages.previewGlow.transform);
             FillShopEntries(pages);
@@ -397,6 +402,14 @@ namespace WizardsVRC.EditorTools
                 cats[4].Add(add(2, i, "Your casting glyph and spell flashes take on this colour."));
             for (int i = 0; i < ElixirNames.Length; i++)
                 cats[5].Add(add(3, i, ElixirBlurbs[i] + "\nCounts down only while you play; never works in duels against other wizards."));
+            // Card packs (CardPacks; their blurbs come from the pack): the bigger two are featured too.
+            var packDefs = PackCatalogue();
+            for (int i = 0; i < packDefs.Count; i++)
+            {
+                int e = add(ShopPages.KIND_PACK, i, packDefs[i].blurb);
+                cats[6].Add(e);
+                if (packDefs[i].name == "Arcane Hoard Pack" || packDefs[i].name == "Wanderer's Pack") cats[0].Insert(0, e);
+            }
 
             pages.entryKinds = kinds.ToArray();
             pages.entryIndexes = idx.ToArray();

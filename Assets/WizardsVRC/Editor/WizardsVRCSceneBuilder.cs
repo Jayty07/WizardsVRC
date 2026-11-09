@@ -489,7 +489,7 @@ namespace WizardsVRC.EditorTools
         private const bool SunShadows = false;
 
         /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
-        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery", "HudGrip", "CastPattern", "PatternWand", "SpellCinematic", "MapPages" };
+        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery", "HudGrip", "CastPattern", "PatternWand", "SpellCinematic", "MapPages", "CardPacks" };
 
         /// <summary>Creates the program assets that are missing (and marks the rest current). True if any was made.</summary>
         private static bool CreateMissingPrograms()
@@ -957,7 +957,17 @@ namespace WizardsVRC.EditorTools
 
             // Under it, the item spells your gear adds in battle (DeckPages fills them; pointing at or clicking one shows its details).
             GoldRule(left, "ItemRule", new Vector2(0, -152), 740f);
-            deck.itemLabel = InkLabel(left, "ItemLabel", new Vector2(0, -176), new Vector2(780, 32), "", 22, TextAnchor.MiddleCenter);
+            // Two tabs switch the row between the item spells and the deck's treasure-card sideboard.
+            GameObject itemTab = Button(left, "ItemTab", new Vector2(-300, -176), new Vector2(170, 34), "Item Spells", new Color(0.42f, 0.32f, 0.26f), target, nameof(DeckPages.ShowItemRow));
+            itemTab.GetComponentInChildren<Text>().fontSize = 18;
+            deck.itemTabImage = itemTab.GetComponent<Image>();
+            GameObject tcTab = Button(left, "TreasureTab", new Vector2(300, -176), new Vector2(170, 34), "Treasure Cards", new Color(0.42f, 0.32f, 0.26f), target, nameof(DeckPages.ShowTreasureRow));
+            tcTab.GetComponentInChildren<Text>().fontSize = 18;
+            deck.treasureTabImage = tcTab.GetComponent<Image>();
+            deck.itemLabel = InkLabel(left, "ItemLabel", new Vector2(0, -176), new Vector2(420, 32), "", 20, TextAnchor.MiddleCenter);
+            deck.itemLabel.resizeTextForBestFit = true;
+            deck.itemLabel.resizeTextMinSize = 13;
+            deck.itemLabel.resizeTextMaxSize = 20;
             int items = DeckPages.ITEM_SLOTS;
             deck.itemSlotRoots = new GameObject[items];
             deck.itemSlotFrames = new Image[items];
@@ -968,7 +978,7 @@ namespace WizardsVRC.EditorTools
             {
                 int col = i % DeckPages.ITEM_ROW, row = i / DeckPages.ITEM_ROW;
                 var pos = new Vector2(-pitch * (DeckPages.ITEM_ROW - 1) / 2f + col * pitch, -228f - row * pitch);
-                DeckSquare(left, "ItemSlot" + i, pos, square, target, "HoverItem" + i, out deck.itemSlotRoots[i], out deck.itemSlotFrames[i],
+                DeckSquare(left, "ItemSlot" + i, pos, square, target, "ItemSlot" + i, out deck.itemSlotRoots[i], out deck.itemSlotFrames[i],
                     out deck.itemSlotArts[i], out deck.itemSlotPips[i], out deck.itemSlotNames[i]);
             }
             deck.statusLabel = InkLabel(left, "Status", new Vector2(0, -392), new Vector2(810, 40), "", 23, TextAnchor.MiddleCenter);
@@ -981,13 +991,14 @@ namespace WizardsVRC.EditorTools
 
             // ---- across the top: the "Spell Deck" plaque and a round icon per school (All, Fire, Ice, Storm, Myth | Life, Death, Balance, General)
             const float headerY = 505f;
-            Panel(view, "DeckHeaderBar", new Vector2(0, headerY), new Vector2(1240, 90), new Color(0.28f, 0.17f, 0.1f, 0.97f));
-            GoldRule(view, "DeckHeaderRuleTop", new Vector2(0, headerY + 44f), 1240f);
-            GoldRule(view, "DeckHeaderRuleBottom", new Vector2(0, headerY - 44f), 1240f);
+            Panel(view, "DeckHeaderBar", new Vector2(0, headerY), new Vector2(1420, 90), new Color(0.28f, 0.17f, 0.1f, 0.97f));
+            GoldRule(view, "DeckHeaderRuleTop", new Vector2(0, headerY + 44f), 1420f);
+            GoldRule(view, "DeckHeaderRuleBottom", new Vector2(0, headerY - 44f), 1420f);
             TitlePlate(view, "DeckHeaderTitle", new Vector2(0, headerY), new Vector2(340, 78), "Spell Deck", new Color(0.62f, 0.42f, 0.78f), 38);
             // The tenth, Tech (The Dominion's school), takes the gem's place on the right once you know a Tech spell (DeckPages).
-            string[] icons = { "", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General", "Tech" };
-            float[] iconX = { -567f, -479f, -391f, -303f, -215f, 215f, 303f, 391f, 479f, 567f };
+            // The eleventh, past them on the right: your treasure cards (a little gold-edged card).
+            string[] icons = { "", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General", "Tech", "Treasure" };
+            float[] iconX = { -567f, -479f, -391f, -303f, -215f, 215f, 303f, 391f, 479f, 567f, 660f };
             deck.filterImages = new Image[DeckPages.FILTERS];
             for (int f = 0; f < DeckPages.FILTERS; f++)
             {
@@ -1000,7 +1011,19 @@ namespace WizardsVRC.EditorTools
                 Image disc = UiImage(b.transform, "Disc", Vector2.zero, new Vector2(62, 62), "PortraitBack", Color.white, 1.3f);
                 disc.raycastTarget = false;
                 disc.preserveAspect = true;
-                if (icons[f] == "")
+                if (icons[f] == "Treasure")
+                {
+                    Object.DestroyImmediate(t.gameObject);
+                    RectTransform edge = Panel(b.transform, "CardEdge", new Vector2(0, 0), new Vector2(34, 46), new Color(0.95f, 0.75f, 0.3f));
+                    edge.localRotation = Quaternion.Euler(0, 0, -10f);
+                    edge.GetComponent<Image>().raycastTarget = false;
+                    RectTransform face = Panel(edge, "Face", Vector2.zero, new Vector2(26, 38), new Color(0.97f, 0.9f, 0.72f));
+                    face.GetComponent<Image>().raycastTarget = false;
+                    RectTransform gem = Panel(face, "Gem", Vector2.zero, new Vector2(12, 12), new Color(0.75f, 0.3f, 0.2f));
+                    gem.localRotation = Quaternion.Euler(0, 0, 45f);
+                    gem.GetComponent<Image>().raycastTarget = false;
+                }
+                else if (icons[f] == "")
                 {
                     t.text = "All";
                     t.fontSize = 24;
@@ -2010,6 +2033,7 @@ namespace WizardsVRC.EditorTools
             client.cardAccuracies = new Text[hand];
             client.cardSchools = new Text[hand];
             client.cardArts = new RawImage[hand];
+            client.cardTreasureTags = new GameObject[hand];
             // Design 1 "Classic" frames per school (Textures/Cards/CardFrame<School>.png, made by Tools/make_card_frames.py):
             // the frame, parchment, name banner, art window, pip gem and accuracy seal; the text goes on top.
             client.cardFrames = new Sprite[8];
@@ -2060,20 +2084,33 @@ namespace WizardsVRC.EditorTools
                 info.lineSpacing = 0.9f;
                 client.cardInfos[i] = info;
                 client.cardSchools[i] = CardText(brt, "School", new Vector2(0, -106), new Vector2(150, 22), 15, TextAnchor.MiddleCenter, new Color(0.62f, 0.52f, 0.36f));
+                // Treasure cards (single use, from the deck's sideboard) wear a gold ribbon over the top of the card.
+                RectTransform tag = Panel(brt, "TreasureTag", new Vector2(0, 146), new Vector2(150, 30), new Color(0.78f, 0.58f, 0.16f));
+                tag.GetComponent<Image>().raycastTarget = false;
+                Text tagText = CardText(tag, "Text", Vector2.zero, new Vector2(146, 28), 17, TextAnchor.MiddleCenter, new Color(1f, 0.96f, 0.8f));
+                tagText.fontStyle = FontStyle.Bold;
+                tagText.text = "TREASURE";
+                tagText.gameObject.AddComponent<Outline>().effectColor = new Color(0.3f, 0.18f, 0.04f);
+                tag.gameObject.SetActive(false);
+                client.cardTreasureTags[i] = tag.gameObject;
                 AddHoverEvents(b, target, "HoverCard" + i, "UnhoverCard" + i);
                 client.cardImages[i] = b.GetComponent<Image>();
                 b.SetActive(false);
             }
 
             // ---- actions, on an ornate tray with a gold rule over it; each button has its icon (pixel font glyphs)
-            BackPanel(root, "ActionTray", new Vector2(0, -415), new Vector2(1340, 104), "PanelOrnate", new Color(1f, 1f, 1f, 0.92f), 2f, 1);
-            GoldRule(root, "ActionRule", new Vector2(0, -355), 1200f);
-            Button(root, "Pass", new Vector2(-480, -415), new Vector2(280, 64), "\uE016 Pass", new Color(0.3f, 0.35f, 0.5f), target, "Pass");
-            GameObject discard = Button(root, "Discard", new Vector2(-160, -415), new Vector2(280, 64), "\uE019 Discard", new Color(0.4f, 0.3f, 0.25f), target, "ToggleDiscard");
+            BackPanel(root, "ActionTray", new Vector2(0, -415), new Vector2(1440, 104), "PanelOrnate", new Color(1f, 1f, 1f, 0.92f), 2f, 1);
+            GoldRule(root, "ActionRule", new Vector2(0, -355), 1300f);
+            Button(root, "Pass", new Vector2(-544, -415), new Vector2(252, 64), "\uE016 Pass", new Color(0.3f, 0.35f, 0.5f), target, "Pass");
+            GameObject discard = Button(root, "Discard", new Vector2(-272, -415), new Vector2(252, 64), "\uE019 Discard", new Color(0.4f, 0.3f, 0.25f), target, "ToggleDiscard");
             client.discardImage = discard.GetComponent<Image>();
-            GameObject potion = Button(root, "Potion", new Vector2(160, -415), new Vector2(280, 64), "Potion", new Color(0.55f, 0.2f, 0.3f), target, "Potion");
+            // Treasure (Wizard101's Draw): one treasure card from the equipped deck's sideboard into the hand, once a round.
+            GameObject treasure = Button(root, "Treasure", new Vector2(0, -415), new Vector2(252, 64), "Treasure", new Color(0.62f, 0.45f, 0.12f), target, nameof(BattleClient.DrawTreasure));
+            client.treasureButton = treasure;
+            client.treasureLabel = treasure.GetComponentInChildren<Text>();
+            GameObject potion = Button(root, "Potion", new Vector2(272, -415), new Vector2(252, 64), "Potion", new Color(0.55f, 0.2f, 0.3f), target, "Potion");
             client.potionLabel = potion.GetComponentInChildren<Text>();
-            Button(root, "Flee", new Vector2(480, -415), new Vector2(280, 64), "< Flee", new Color(0.35f, 0.3f, 0.3f), target, "Flee");
+            Button(root, "Flee", new Vector2(544, -415), new Vector2(252, 64), "< Flee", new Color(0.35f, 0.3f, 0.3f), target, "Flee");
 
             // ---- waiting for the others: once your spell is chosen and someone else is still choosing, a dimmer over the cards
             // (blocking them; the action tray below stays usable, so you can still flee) with your spell, who you're waiting

@@ -26,6 +26,12 @@ namespace WizardsVRC.EditorTools
         private static readonly List<string> ShopCounterNames = new List<string>();
         /// <summary>Per counter: its kind (ShopNames index) and the item levels it stocks (each world's shops sell that world's gear).</summary>
         private static readonly List<Vector3Int> ShopCounterStock = new List<Vector3Int>();
+        /// <summary>Librarian Wren's treasure-card counters (EventRelays to GoldShop.OpenTreasure).</summary>
+        private static readonly List<EventRelay> TreasureCounters = new List<EventRelay>();
+        /// <summary>The zone NPC who sells treasure cards at a counter beside them (the World 1 librarian).</summary>
+        private const string TreasureCardNpc = "Wren";
+        /// <summary>The Library sells treasure cards of every school's spells up to this level.</summary>
+        private const int TreasureShopMaxLevel = 33;
         /// <summary>Item levels the shops being built now stock (set per zone: Starfall Isle 1-12, Dustwind 13-40).</summary>
         private static Vector2Int _shopBand = new Vector2Int(1, 12);
         private static GameObject GoldShopPanel, TooltipRoot;
@@ -39,6 +45,7 @@ namespace WizardsVRC.EditorTools
             ShopCounters.Clear();
             ShopCounterNames.Clear();
             ShopCounterStock.Clear();
+            TreasureCounters.Clear();
             _shopBand = new Vector2Int(1, 12);
             ResetTowers();
             ResetRigs();
@@ -375,7 +382,7 @@ namespace WizardsVRC.EditorTools
             new[] { 0, 1, 2 }, new[] { 3, 4 }, new[] { 5, 6 }, new[] { 8, 7 },
         };
 
-        private static GoldShop BuildGoldShop(Transform systems, ItemDatabase itemDb)
+        private static GoldShop BuildGoldShop(Transform systems, ItemDatabase itemDb, CardDatabase cardDb)
         {
             var shop = UdonSharpUndo.AddComponent<GoldShop>(Child(systems, "GoldShop", Vector3.zero).gameObject);
             UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(shop);
@@ -417,6 +424,16 @@ namespace WizardsVRC.EditorTools
             shop.pageLabel = InkLabel(rt, "Page", new Vector2(-150, -440), new Vector2(160, 50), "", 26, TextAnchor.MiddleCenter);
             Button(rt, "NextPage", new Vector2(0, -440), new Vector2(140, 60), ">", new Color(0.45f, 0.3f, 0.18f), target, nameof(GoldShop.NextPage));
             shop.statusLabel = InkLabel(rt, "Status", new Vector2(0, -375), new Vector2(1000, 50), "", 26, TextAnchor.MiddleCenter);
+            // The treasure-card shop's school buttons, where the greeting goes (shown only there).
+            var bar = Rect(rt, "SchoolBar", new Vector2(0, 380), new Vector2(1100, 50));
+            for (int k = 0; k < 7; k++)
+            {
+                GameObject sb = Button(bar, "School" + k, new Vector2((k - 3) * 152, 0), new Vector2(144, 46), SchoolLabels[k], SchoolColors[k] * 0.75f, target, "JumpSchool" + k);
+                Text st = sb.GetComponentInChildren<Text>();
+                st.fontSize = 22;
+            }
+            bar.gameObject.SetActive(false);
+            shop.schoolBar = bar.gameObject;
             Button(rt, "Close", new Vector2(400, -440), new Vector2(220, 64), "Close", new Color(0.45f, 0.25f, 0.15f), target, nameof(GoldShop.Close));
             foreach (Transform row in rt) if (row.name.StartsWith("Row")) ApplyCombatFont(row.Find("Coin"));
             go.SetActive(false);
@@ -447,6 +464,30 @@ namespace WizardsVRC.EditorTools
                     }
                 counts.Add(items.Count - start[s]);
             }
+            // The Library's treasure cards (Librarian Wren): every school's spells up to level 33, by school, then level and
+            // pips. Not the hidden Tech School.
+            var nameList = new List<string>(names);
+            var greetList = new List<string>(greet);
+            shop.treasureShop = nameList.Count;
+            nameList.Add("The Library - Treasure Cards");
+            greetList.Add("");
+            start.Add(items.Count);
+            if (cardDb != null)
+                for (int school = 0; school < 7; school++)
+                {
+                    var spells = new List<int>();
+                    for (int i = 0; i < cardDb.ids.Length; i++)
+                        if (cardDb.schools[i] == school && cardDb.levelReqs[i] <= TreasureShopMaxLevel && !cardDb.IsStarshardSpell(cardDb.ids[i])) spells.Add(cardDb.ids[i]);
+                    spells.Sort((a, b) =>
+                    {
+                        int la = cardDb.GetLevelReq(a), lb = cardDb.GetLevelReq(b);
+                        return la != lb ? la.CompareTo(lb) : cardDb.GetPipCost(a) != cardDb.GetPipCost(b) ? cardDb.GetPipCost(a).CompareTo(cardDb.GetPipCost(b)) : a.CompareTo(b);
+                    });
+                    foreach (int id in spells) items.Add(GoldShop.TREASURE_BASE + id);
+                }
+            counts.Add(items.Count - start[start.Count - 1]);
+            names = nameList.ToArray();
+            greet = greetList.ToArray();
             shop.shopNames = names;
             shop.shopGreetings = greet;
             shop.shopStart = start.ToArray();
@@ -460,6 +501,13 @@ namespace WizardsVRC.EditorTools
                 ShopCounters[k].eventName = "OpenShop" + Mathf.Min(k, GoldShop.MAX_SHOPS - 1);
                 ExtraBehaviours.Add(ShopCounters[k]);
             }
+            foreach (var tc in TreasureCounters)
+            {
+                tc.target = shop;
+                tc.eventName = nameof(GoldShop.OpenTreasure);
+                ExtraBehaviours.Add(tc);
+            }
+            shop.cardDatabase = cardDb;
             ExtraBehaviours.Add(shop);
             return shop;
         }
@@ -485,6 +533,38 @@ namespace WizardsVRC.EditorTools
             ShopCounterNames.Add(label);
             ShopCounterStock.Add(new Vector3Int(kind, _shopBand.x, _shopBand.y));
             WorldText(root, "ShopCounterSign", at + new Vector3(0, 2.1f, 0), rot * Quaternion.Euler(0, 180f, 0), new Vector2(600, 120), 0.004f, "Shop ●", 64).color = new Color(1f, 0.85f, 0.35f);
+        }
+
+        /// <summary>
+        /// The Library's treasure-card counter beside its librarian: a lectern with stacks of gold-edged cards and an open
+        /// spellbook; click it to buy treasure cards (GoldShop.OpenTreasure).
+        /// </summary>
+        private static void TreasureCounter(Transform root, Vector3 npcPos, Vector3 front)
+        {
+            Vector3 side = Vector3.Cross(Vector3.up, front);
+            Quaternion rot = Quaternion.LookRotation(front);
+            Vector3 at = npcPos + front * 1.9f - side * 2.1f;
+            Material wood = PMat("TreasureCounterWood", new Color(0.42f, 0.27f, 0.16f), 1f);
+            Material gold = PMat("TreasureCounterGold", new Color(0.95f, 0.75f, 0.3f), 1f, new Color(0.25f, 0.18f, 0.04f));
+            Material card = PMat("TreasureCounterCard", new Color(0.95f, 0.88f, 0.7f), 1f);
+            Material cover = PMat("TreasureCounterBook", new Color(0.35f, 0.2f, 0.5f), 1f);
+            Block(root, "TreasureCounter", at + new Vector3(0, 0.55f, 0), new Vector3(2f, 1.1f, 0.8f), wood, rot);
+            Block(root, "TreasureCounterTop", at + new Vector3(0, 1.14f, 0), new Vector3(2.2f, 0.08f, 1f), gold, rot);
+            for (int k = 0; k < 3; k++)
+            {
+                Vector3 p = at + side * (-0.6f + k * 0.35f) + new Vector3(0, 1.2f + k * 0.02f, 0);
+                Block(root, "CardStack" + k, p, new Vector3(0.22f, 0.06f + k * 0.04f, 0.32f), card, rot * Quaternion.Euler(0, k * 12f - 10f, 0));
+                Block(root, "CardStackEdge" + k, p + new Vector3(0, 0.035f + k * 0.02f, 0), new Vector3(0.23f, 0.012f, 0.33f), gold, rot * Quaternion.Euler(0, k * 12f - 10f, 0));
+            }
+            Block(root, "Spellbook", at + side * 0.5f + new Vector3(0, 1.22f, 0), new Vector3(0.7f, 0.08f, 0.5f), cover, rot * Quaternion.Euler(-12f, 0, 0));
+            var click = Child(root, "TreasureClick", at + new Vector3(0, 1f, 0));
+            click.localRotation = rot;
+            var box = click.gameObject.AddComponent<BoxCollider>();
+            box.size = new Vector3(2.2f, 2f, 1.4f);
+            var relay = UdonSharpUndo.AddComponent<EventRelay>(click.gameObject);
+            SetInteractText(relay, "Shop: Treasure Cards");
+            TreasureCounters.Add(relay);
+            WorldText(root, "TreasureCounterSign", at + new Vector3(0, 2.1f, 0), rot * Quaternion.Euler(0, 180f, 0), new Vector2(700, 120), 0.004f, "Treasure Cards", 60).color = new Color(1f, 0.85f, 0.35f);
         }
 
         // ================================================================== cosmetics, player objects, wiring
@@ -678,6 +758,9 @@ namespace WizardsVRC.EditorTools
             BookShop.cosmetics = db;
             BookShop.store = store;
             BookShop.uiAudio = uiAudio;
+            BookShop.cardDatabase = cardDb;
+            BookShop.itemDatabase = itemDb;
+            BookShop.packs = BuildCardPacks(systems, playerState, cardDb, itemDb);
 
             var tip = BuildTooltip(systems);
             tip.playerState = playerState;
@@ -687,7 +770,7 @@ namespace WizardsVRC.EditorTools
             book.tooltip = tip;
             deck.tooltip = tip;
 
-            var shop = BuildGoldShop(systems, itemDb);
+            var shop = BuildGoldShop(systems, itemDb, cardDb);
             shop.playerState = playerState;
             shop.itemDatabase = itemDb;
             shop.uiAudio = uiAudio;

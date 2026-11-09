@@ -863,6 +863,9 @@ namespace WizardsVRC.EditorTools
             cs.onFinished = qm;
             cs.onFinishedEvent = nameof(QuestManager.OnStreetNpcFinished);
 
+            // The librarian keeps a treasure-card counter beside her (GoldShop.OpenTreasure).
+            if (npc.key == TreasureCardNpc) TreasureCounter(root, pos, front);
+
             wb.npcIds[npc.key] = id;
             wb.npcTargets[npc.key] = t;
             wb.npcShots[npc.key] = shots;

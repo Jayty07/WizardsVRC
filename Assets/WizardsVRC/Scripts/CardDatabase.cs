@@ -128,6 +128,7 @@ namespace WizardsVRC
             184, 185, 186, 187, 188, 204,
             300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313,
             210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223,
+            230, 231, 232, 233, 234, 235, 236,
         };
         [HideInInspector] public int[] schools =
         {
@@ -142,6 +143,7 @@ namespace WizardsVRC
             6, 6, 6, 6, 3, -1,
             8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
             0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6,
+            0, 1, 2, 3, 4, 5, 6,
         };
         [HideInInspector] public int[] levelReqs =
         {
@@ -156,6 +158,7 @@ namespace WizardsVRC
             24, 30, 18, 20, 6, 5,
             1, 5, 10, 16, 22, 26, 33, 42, 7, 12, 18, 28, 38, 48,
             12, 18, 12, 18, 12, 18, 12, 18, 12, 18, 12, 10, 12, 18,
+            1, 1, 1, 1, 1, 1, 1,
         };
         [HideInInspector] public int[] pipCosts =
         {
@@ -170,6 +173,7 @@ namespace WizardsVRC
             1, 1, 1, 1, 0, 2,
             1, 2, 0, 0, 2, 0, 4, 5, 2, 1, 3, 4, 3, 7,
             1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 0, 1, 3,
+            6, 6, 6, 5, 6, 5, 6,
         };
         [HideInInspector] public int[] accuracies =
         {
@@ -184,6 +188,7 @@ namespace WizardsVRC
             100, 100, 100, 100, 100, 100,
             85, 85, 100, 100, 85, 100, 85, 85, 100, 100, 100, 100, 85, 85,
             100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+            75, 80, 70, 90, 85, 100, 85,
         };
         [HideInInspector] public int[] powers =
         {
@@ -198,6 +203,7 @@ namespace WizardsVRC
             50, 50, 25, 25, 35, 420,
             22, 80, 45, 35, 60, 40, 360, 70, 220, 25, 380, 650, 120, 110,
             25, 260, 25, 420, 25, 200, 25, 330, 25, 300, 25, 80, 25, 320,
+            260, 400, 720, 700, 560, 1100, 430,
         };
         [HideInInspector] public int[] effects =
         {
@@ -212,6 +218,7 @@ namespace WizardsVRC
             15, 15, 16, 16, 20, 21,
             EFFECT_BARRAGE, EFFECT_STUN, EFFECT_WARD, EFFECT_TRAP, EFFECT_HACK, EFFECT_EMPOWER, EFFECT_DAMAGE, EFFECT_BARRAGE, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_MINION, EFFECT_HACK, EFFECT_BARRAGE,
             EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_FIELD, EFFECT_WARD, EFFECT_FIELD, EFFECT_MINION,
+            EFFECT_DOT, EFFECT_DAMAGE, EFFECT_DAMAGE, EFFECT_HEAL, EFFECT_DRAIN, EFFECT_MINION, EFFECT_DAMAGE,
         };
         [HideInInspector] public int[] aoe =
         {
@@ -226,6 +233,7 @@ namespace WizardsVRC
             0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1, 1, 0, 1, 0, 0, 1,
         };
         [HideInInspector] public string[] names =
         {
@@ -240,6 +248,7 @@ namespace WizardsVRC
             "Elemental Tri-Shield", "Spirit Tri-Shield", "Elemental Tri-Trap", "Spirit Tri-Trap", "Wellspring Charm", "Second Wind",
             "Sidearm Burst", "Taser Dart", "Kevlar Plating", "Proximity Mine", "Firewall Breach", "Overclock", "Railgun", "Gatling Storm", "Scout Drone", "Neon Grid", "Sentry Turret", "Assault Mech", "Zero-Day Exploit", "Orbital Strike",
             "Kindled Sky", "Cinder Whelp", "Glacial Hush", "Rime Pup", "Thunderhead", "Spark Sprite", "Verdant Canopy", "Sproutling", "Gloaming", "Bone Scuttler", "Twice-Told Tale", "Fable Aegis", "Equinox", "Dune Scarab",
+            "Phoenix Ascendant", "Aurora Glacier", "Skybreaker Roc", "Celestial Bloom", "Eclipse Wraith", "Starforged Golem", "Astral Scales",
         };
         [HideInInspector] public int[] prereqs =
         {
@@ -254,6 +263,7 @@ namespace WizardsVRC
             0, 0, 0, 0, 0, 0,
             0, 300, 301, 302, 303, 304, 305, 306, 300, 308, 309, 310, 311, 312,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 161, 0, 0,
+            0, 0, 0, 0, 0, 0, 0,
         };
         [HideInInspector] public int[] aux =
         {
@@ -268,6 +278,7 @@ namespace WizardsVRC
             0, 0, 0, 0, 0, 0,
             3, 0, 1, 0, 1, 0, 30, 8, 60, 4, 90, 140, 1, 5,
             4, 100, 4, 55, 4, 125, 4, 75, 4, 80, 4, 0, 4, 75,
+            600, 0, 0, 0, 60, 200, 0,
         };
         [HideInInspector] public int[] powerMax =
         {
@@ -282,6 +293,7 @@ namespace WizardsVRC
             0, 0, 0, 0, 0, 0,
             34, 120, 0, 0, 90, 0, 520, 95, 0, 0, 0, 0, 170, 150,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            360, 560, 980, 0, 760, 0, 610,
         };
 
         // Tri-blades, tri-shields and tri-traps: Elemental = Fire, Ice, Storm; Spirit = Life, Death, Myth.
@@ -305,7 +317,19 @@ namespace WizardsVRC
             175, 222, 223, 179, 183,
             188,
             308, 309, 310, 311, 312, 313,
+            230, 231, 232, 233, 234, 235, 236,
         };
+        /// <summary>
+        /// The Starshard spells (ids 230-236, one per school): never taught, never sold as treasure cards; a Starshard card
+        /// pack teaches one, ludicrously rarely (CardPacks.slotSpecial). Once learned they're yours to put in any deck.
+        /// </summary>
+        [HideInInspector] public int[] starshardSpellIds = { 230, 231, 232, 233, 234, 235, 236 };
+
+        public bool IsStarshardSpell(int cardId)
+        {
+            for (int i = 0; i < starshardSpellIds.Length; i++) if (starshardSpellIds[i] == cardId) return true;
+            return false;
+        }
         /// <summary>Per card (by index): 1 = quest-only, built from questOnlyIds and the trial tier on first use.</summary>
         private int[] _questFlags;
 
@@ -508,6 +532,39 @@ namespace WizardsVRC
             while (pre > 0 && !SchoolAllows(c, pre) && guard++ < TIERS) pre = GetPrereq(pre);
             return pre;
         }
+
+        // ------------------------------------------------------------------ treasure cards
+
+        /// <summary>Rarity names for treasure cards and pack pulls (by RarityOf), and their colours.</summary>
+        [HideInInspector] public string[] rarityNames = { "Common", "Uncommon", "Rare", "Ultra-Rare", "Starshard" };
+        [HideInInspector] public Color[] rarityColors =
+        {
+            new Color(0.82f, 0.82f, 0.82f), new Color(0.45f, 0.9f, 0.45f), new Color(0.4f, 0.65f, 1f), new Color(1f, 0.6f, 0.2f), new Color(1f, 0.45f, 1f),
+        };
+        public const int RARITY_STARSHARD = 4;
+
+        /// <summary>A treasure card's rarity, from its pip cost: 0-1 Common, 2-3 Uncommon, 4-5 Rare, 6+ Ultra-Rare.</summary>
+        public int RarityOf(int cardId)
+        {
+            int p = GetPipCost(cardId);
+            return p >= 6 ? 3 : p >= 4 ? 2 : p >= 2 ? 1 : 0;
+        }
+
+        public string RarityName(int rarity) { return rarityNames != null && rarity >= 0 && rarity < rarityNames.Length ? rarityNames[rarity] : ""; }
+        public Color RarityColor(int rarity) { return rarityColors != null && rarity >= 0 && rarity < rarityColors.Length ? rarityColors[rarity] : Color.white; }
+
+        /// <summary>A treasure card's price in gold at the Library: the more pips it costs, the more it costs (25 + 15 per pip + 15 per pip squared).</summary>
+        public int TreasurePrice(int cardId)
+        {
+            int p = GetPipCost(cardId);
+            return 25 + 15 * p + 15 * p * p;
+        }
+
+        /// <summary>
+        /// What a treasure card is: a single-use copy of the spell. Anyone can cast it (any school, any level, without
+        /// knowing the spell); it lives in a deck's sideboard and is used up when cast, fizzled or discarded.
+        /// </summary>
+        public string TreasureNote() { return "Treasure card: cast it once, whatever your school or level. Goes in a deck's sideboard; used up when cast, fizzled or discarded."; }
 
         /// <summary>What a school's duel-wide boost (EFFECT_FIELD) is called: Tech's is a grid, the magic schools' a bubble.</summary>
         public string FieldWord(int cardId) { return GetSchool(cardId) == TECH ? "Grid" : "Bubble"; }
@@ -875,6 +932,7 @@ namespace WizardsVRC
                    SchoolName(schools[i]) + " spell, level " + levelReqs[i].ToString() +
                    (pre > 0 && !IsQuestSpell(cardId) ? "\nRequires: " + GetName(pre) : "") +
                    (IsTrialSpell(cardId) ? "\nLearned from the " + SchoolName(schools[i]) + " trial quest" :
+                    IsStarshardSpell(cardId) ? "\nA Starshard spell: found, ludicrously rarely, in Starshard card packs" :
                     IsQuestSpell(cardId) ? "\nLearned from a " + SchoolName(schools[i]) + " school quest" : "") +
                    (SchoolOnly(cardId) ? "\nOnly " + SchoolName(schools[i]) + " wizards can learn it" : "");
         }

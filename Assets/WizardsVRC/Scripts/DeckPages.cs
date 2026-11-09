@@ -17,6 +17,10 @@ namespace WizardsVRC
     ///     deck holds. Click a card to put a copy in; hover for its details. Page arrows down the sides.
     /// Each deck item keeps its own cards; battles use the equipped one. Capacity and copies per spell come from the deck
     /// item (ItemDatabase.deckCapacity / deckMaxCopies).
+    ///   - Treasure cards (Wizard101): the Treasure icon at the end of the header lists the treasure cards you own (from the
+    ///     Library or Starshard packs); click one to move it into the shown deck's sideboard. The row under the deck switches
+    ///     (Item Spells / Treasure Cards tabs) to the sideboard, each card its own square; click one to take it back out.
+    ///     In battle the Treasure button draws from the equipped deck's sideboard.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class DeckPages : UdonSharpBehaviour
@@ -28,9 +32,11 @@ namespace WizardsVRC
         public const int ITEM_ROW = 9;
         public const int BOOK_CELLS = 6;
         /// <summary>Filters, in the order of the icons across the top: All, then the schools, then General, then Tech (hidden).</summary>
-        public const int FILTERS = 10;
+        public const int FILTERS = 11;
         /// <summary>The Tech School's filter: its icon only shows once you know a Tech spell.</summary>
         public const int FILTER_TECH = 9;
+        /// <summary>The treasure cards you own (the last icon): click one to put it in the deck's sideboard.</summary>
+        public const int FILTER_TREASURE = 10;
         public const int FILTER_ALL = 0;
 
         public PlayerState playerState;
@@ -56,6 +62,9 @@ namespace WizardsVRC
         public Text[] itemSlotPips;
         public Text[] itemSlotNames;
         public Text statusLabel;
+        [Tooltip("The two tabs over the row under the deck: Item Spells / Treasure Cards (their images light up).")]
+        public Image itemTabImage;
+        public Image treasureTabImage;
 
         [Header("Top: school filters")]
         [Tooltip("The round school icons across the top (FILTERS of them): their backing discs light up for the chosen one.")]
@@ -87,8 +96,12 @@ namespace WizardsVRC
         private Color _badgeNone = new Color(0.45f, 0.36f, 0.28f);
 
         // School shown by each filter icon (-2 = all, -1 = General): All, Fire, Ice, Storm, Myth, Life, Death, Balance, General.
-        private int[] _filterSchool = { -2, 0, 1, 2, 5, 3, 4, 6, -1, CardDatabase.TECH };
-        private string[] _filterNames = { "All", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General", "Tech" };
+        private int[] _filterSchool = { -2, 0, 1, 2, 5, 3, 4, 6, -1, CardDatabase.TECH, -3 };
+        private string[] _filterNames = { "All", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General", "Tech", "Treasure" };
+        /// <summary>The row under the deck shows the sideboard (treasure cards) instead of the item spells.</summary>
+        private bool _lowerTreasure;
+        private int[] _side = new int[ITEM_SLOTS];
+        private int _sideCount;
 
         private int _deckItem;
         private int[] _owned = new int[CharacterData.INVENTORY_SLOTS + 1];
@@ -120,6 +133,29 @@ namespace WizardsVRC
         public void Filter7() { SetFilter(7); }
         public void Filter8() { SetFilter(8); }
         public void Filter9() { SetFilter(9); }
+        public void Filter10() { SetFilter(10); }
+
+        public void ShowItemRow() { _lowerTreasure = false; if (tooltip != null) tooltip.Hide(); Refresh(); }
+        public void ShowTreasureRow() { _lowerTreasure = true; if (tooltip != null) tooltip.Hide(); Refresh(); }
+
+        public void ItemSlot0() { ClickLower(0); }
+        public void ItemSlot1() { ClickLower(1); }
+        public void ItemSlot2() { ClickLower(2); }
+        public void ItemSlot3() { ClickLower(3); }
+        public void ItemSlot4() { ClickLower(4); }
+        public void ItemSlot5() { ClickLower(5); }
+        public void ItemSlot6() { ClickLower(6); }
+        public void ItemSlot7() { ClickLower(7); }
+        public void ItemSlot8() { ClickLower(8); }
+        public void ItemSlot9() { ClickLower(9); }
+        public void ItemSlot10() { ClickLower(10); }
+        public void ItemSlot11() { ClickLower(11); }
+        public void ItemSlot12() { ClickLower(12); }
+        public void ItemSlot13() { ClickLower(13); }
+        public void ItemSlot14() { ClickLower(14); }
+        public void ItemSlot15() { ClickLower(15); }
+        public void ItemSlot16() { ClickLower(16); }
+        public void ItemSlot17() { ClickLower(17); }
 
         public void DeckSlot0() { RemoveSlot(0); }
         public void DeckSlot1() { RemoveSlot(1); }
@@ -316,6 +352,7 @@ namespace WizardsVRC
             if (!HasCharacter() || i >= _knownCount) return;
             int card = _known[i];
             CharacterData c = playerState.current;
+            if (_filter == FILTER_TREASURE) { AddTreasure(c, card); return; }
             if (!cardDatabase.Knows(c, card)) { SetStatus("You haven't learned that spell yet."); return; }
             if (_deckItem <= 0) { SetStatus("You don't own a deck. Find one, then equip it."); return; }
             if (playerState.inCombat) { SetStatus("You can't change decks in the middle of a duel."); return; }
@@ -346,6 +383,40 @@ namespace WizardsVRC
             Refresh();
         }
 
+        /// <summary>A treasure card on the right page clicked: one copy moves from your collection into the deck's sideboard.</summary>
+        private void AddTreasure(CharacterData c, int card)
+        {
+            if (_deckItem <= 0) { SetStatus("You don't own a deck. Find one, then equip it."); return; }
+            if (playerState.inCombat) { SetStatus("You can't change decks in the middle of a duel."); return; }
+            if (c.TreasureCount(card) <= 0) { SetStatus("All your " + cardDatabase.GetName(card) + " treasure cards are already in sideboards."); return; }
+            int list = c.DeckListFor(_deckItem, true);
+            if (list < 0) { SetStatus("Your spellbook can only keep " + CharacterData.DECK_COUNT.ToString() + " decks."); return; }
+            int cap = itemDatabase.GetDeckTreasureCapacity(_deckItem);
+            if (c.SideCount(list) >= cap) { SetStatus("This deck's sideboard is full (" + cap.ToString() + " treasure cards)."); return; }
+            if (!c.MoveToSide(list, card)) return;
+            _lowerTreasure = true;
+            playerState.MarkDirty();
+            SetStatus("Put a " + cardDatabase.GetName(card) + " treasure card in the sideboard (" + c.SideCount(list).ToString() + " / " + cap.ToString() + ").");
+            Refresh();
+        }
+
+        /// <summary>A square in the row under the deck clicked: a sideboard card goes back to your collection; an item spell shows its details.</summary>
+        private void ClickLower(int slot)
+        {
+            if (!HasCharacter()) return;
+            if (!_lowerTreasure) { HoverItem(slot); return; }
+            if (slot >= _sideCount) return;
+            if (playerState.inCombat) { SetStatus("You can't change decks in the middle of a duel."); return; }
+            CharacterData c = playerState.current;
+            int list = c.DeckListFor(_deckItem, false);
+            int card = _side[slot];
+            if (list < 0 || !c.TakeFromSide(list, card, true)) return;
+            playerState.MarkDirty();
+            if (tooltip != null) tooltip.Hide();
+            SetStatus("Took the " + cardDatabase.GetName(card) + " treasure card out of the sideboard.");
+            Refresh();
+        }
+
         private void HoverSlot(int slot)
         {
             if (tooltip == null || slot >= _slotCount || deckSlotRoots == null || slot >= deckSlotRoots.Length) return;
@@ -354,7 +425,9 @@ namespace WizardsVRC
 
         private void HoverItem(int slot)
         {
-            if (tooltip == null || slot >= _itemCount || itemSlotRoots == null || slot >= itemSlotRoots.Length) return;
+            if (tooltip == null || itemSlotRoots == null || slot >= itemSlotRoots.Length) return;
+            if (_lowerTreasure) { if (slot < _sideCount) tooltip.ShowSpell(_side[slot], itemSlotRoots[slot].transform); return; }
+            if (slot >= _itemCount) return;
             tooltip.ShowSpell(_items[slot], itemSlotRoots[slot].transform);
         }
 
@@ -401,6 +474,7 @@ namespace WizardsVRC
         {
             _filter = Mathf.Clamp(filter, 0, FILTERS - 1);
             _page = 0;
+            if (_filter == FILTER_TREASURE) _lowerTreasure = true;
             if (tooltip != null) tooltip.Hide();
             Refresh();
         }
@@ -443,11 +517,25 @@ namespace WizardsVRC
 
             // The item spells your gear adds in battle.
             _itemCount = itemDatabase != null ? itemDatabase.EquippedItemCards(c, _items) : 0;
+            // The shown deck's sideboard (treasure cards).
+            _sideCount = 0;
+            int side = list >= 0 ? c.SideCount(list) : 0;
+            for (int k = 0; k < side && _sideCount < _side.Length; k++) _side[_sideCount++] = c.SideCard(list, k);
 
             // The spells you know in the chosen school (school spells first when showing all, cheapest first as listed).
             _knownCount = 0;
             int want = _filterSchool[_filter];
             int total = cardDatabase.Count();
+            if (want == -3)
+            {
+                // Treasure cards: the ones in your collection, and any in this deck's sideboard.
+                for (int i = 0; i < total && _knownCount < _known.Length; i++)
+                {
+                    int id = cardDatabase.IdAt(i);
+                    if (c.TreasureCount(id) > 0 || (list >= 0 && c.CountInSide(list, id) > 0)) _known[_knownCount++] = id;
+                }
+                return;
+            }
             for (int i = 0; i < total && _knownCount < _known.Length; i++)
             {
                 int id = cardDatabase.IdAt(i);
@@ -491,16 +579,31 @@ namespace WizardsVRC
 
             // ---- the item spells from your gear: a row of nine squares (two when there are more)
             int itemTotal = itemDatabase != null ? itemDatabase.EquippedItemCardCount(c) : 0;
+            int sideCap = _deckItem > 0 ? itemDatabase.GetDeckTreasureCapacity(_deckItem) : 0;
             if (itemLabel != null)
-                itemLabel.text = itemTotal > 0 ? "Item spells from your gear: " + itemTotal.ToString() + "  (added in battle)" : "Item spells from your gear: none";
-            int itemShown = _itemCount > ITEM_ROW ? ITEM_SLOTS : ITEM_ROW;
+            {
+                if (_lowerTreasure)
+                    itemLabel.text = _deckItem > 0 ? "Sideboard: " + _sideCount.ToString() + " / " + sideCap.ToString() + " treasure cards  (click one to take it out)" : "Sideboard: no deck";
+                else
+                    itemLabel.text = itemTotal > 0 ? "Item spells from your gear: " + itemTotal.ToString() + "  (added in battle)" : "Item spells from your gear: none";
+            }
+            if (itemTabImage != null) itemTabImage.color = _lowerTreasure ? _tabOff : _tabOn;
+            if (treasureTabImage != null) treasureTabImage.color = _lowerTreasure ? _tabOn : _tabOff;
+            int lowerCount = _lowerTreasure ? _sideCount : _itemCount;
+            int itemShown = _lowerTreasure ? Mathf.Max(sideCap, _sideCount) : (_itemCount > ITEM_ROW ? ITEM_SLOTS : ITEM_ROW);
+            itemShown = Mathf.Clamp(itemShown, ITEM_ROW, ITEM_SLOTS);
+            if (_lowerTreasure && itemShown > ITEM_ROW) itemShown = ITEM_SLOTS;
             for (int slot = 0; slot < ITEM_SLOTS; slot++)
             {
                 GameObject root = itemSlotRoots != null && slot < itemSlotRoots.Length ? itemSlotRoots[slot] : null;
                 if (root == null) continue;
                 bool on = slot < itemShown;
                 if (root.activeSelf != on) root.SetActive(on);
-                if (on) DrawSquare(ImageAt(itemSlotFrames, slot), ArtAt(itemSlotArts, slot), TextAt(itemSlotPips, slot), TextAt(itemSlotNames, slot), slot < _itemCount ? _items[slot] : 0);
+                int id = slot < lowerCount ? (_lowerTreasure ? _side[slot] : _items[slot]) : 0;
+                // Squares past the sideboard's size are dimmed further (no room there).
+                if (on) DrawSquare(ImageAt(itemSlotFrames, slot), ArtAt(itemSlotArts, slot), TextAt(itemSlotPips, slot), TextAt(itemSlotNames, slot), id);
+                if (on && _lowerTreasure && id == 0 && slot >= sideCap && itemSlotFrames != null && slot < itemSlotFrames.Length && itemSlotFrames[slot] != null)
+                    itemSlotFrames[slot].color = new Color(0.4f, 0.34f, 0.28f, 0.25f);
             }
 
             // ---- the school icons across the top
@@ -508,7 +611,8 @@ namespace WizardsVRC
                 for (int f = 0; f < filterImages.Length; f++)
                     if (filterImages[f] != null) filterImages[f].color = f == _filter ? _tabOn : _tabOff;
             if (filterTitle != null)
-                filterTitle.text = (_filter == FILTER_ALL ? "All your spells" : _filterNames[_filter] + " spells") + "   (" + _knownCount.ToString() + ")";
+                filterTitle.text = (_filter == FILTER_ALL ? "All your spells" : _filter == FILTER_TREASURE ? "Your treasure cards" : _filterNames[_filter] + " spells") +
+                                   "   (" + _knownCount.ToString() + ")";
 
             // ---- the spells you know, six to a page
             _page = Mathf.Clamp(_page, 0, PageCount() - 1);
@@ -525,6 +629,14 @@ namespace WizardsVRC
                 int id = _known[i];
                 cardDatabase.FillCard(id, ImageAt(bookCellIcons, cell), TextAt(bookCellNames, cell), TextAt(bookCellPips, cell), ArtAt(bookCellArts, cell),
                     TextAt(bookCellAccuracies, cell), TextAt(bookCellInfos, cell), TextAt(bookCellSchools, cell), false);
+                if (_filter == FILTER_TREASURE)
+                {
+                    int have = c.TreasureCount(id);
+                    int inSide = list >= 0 ? c.CountInSide(list, id) : 0;
+                    if (count != null) count.text = "Have " + have.ToString() + "   Sideboard " + inSide.ToString();
+                    if (badge != null) badge.color = have > 0 && _deckItem > 0 && _sideCount < sideCap ? _badgeRoom : inSide > 0 ? _badgeFull : _badgeNone;
+                    continue;
+                }
                 int inDeck = list >= 0 ? c.CountInDeck(list, id) : 0;
                 if (count != null) count.text = _deckItem > 0 ? "In deck: " + inDeck.ToString() + " / " + copies.ToString() : "No deck";
                 if (badge != null)

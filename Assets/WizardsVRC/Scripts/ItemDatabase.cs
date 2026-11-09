@@ -700,6 +700,8 @@ namespace WizardsVRC
         /// <summary>Spells the deck holds (falls back to CardDatabase.DECK_MAX).</summary>
         public int GetDeckCapacity(int itemId) { int v = SafeGet(deckCapacity, IndexOf(itemId)); return v > 0 ? v : CardDatabase.DECK_MAX; }
         public int GetDeckMaxCopies(int itemId) { int v = SafeGet(deckMaxCopies, IndexOf(itemId)); return v > 0 ? v : CardDatabase.MAX_COPIES; }
+        /// <summary>Treasure cards the deck's sideboard holds (Wizard101): about a third of its spells, 6 to CharacterData.SIDE_SIZE.</summary>
+        public int GetDeckTreasureCapacity(int itemId) { return Mathf.Clamp(GetDeckCapacity(itemId) * 3 / 10, 6, CharacterData.SIDE_SIZE); }
         public int GetPotionHealth(int itemId) { return SafeGet(potionHealth, IndexOf(itemId)); }
         public int GetPotionMana(int itemId) { return SafeGet(potionMana, IndexOf(itemId)); }
 
@@ -734,7 +736,8 @@ namespace WizardsVRC
                 bool percent = stat >= STAT_DAMAGE;
                 s += "+" + v.ToString() + (percent ? "% " : " ") + StatName(stat) + "\n";
             }
-            if (IsDeck(itemId)) s += "Holds " + GetDeckCapacity(itemId).ToString() + " spells, up to " + GetDeckMaxCopies(itemId).ToString() + " copies of each\n";
+            if (IsDeck(itemId)) s += "Holds " + GetDeckCapacity(itemId).ToString() + " spells, up to " + GetDeckMaxCopies(itemId).ToString() + " copies of each\n" +
+                                     "Sideboard: " + GetDeckTreasureCapacity(itemId).ToString() + " treasure cards\n";
             if (GetPotionHealth(itemId) > 0) s += "Restores " + GetPotionHealth(itemId).ToString() + " Health\n";
             if (GetPotionMana(itemId) > 0) s += "Restores " + GetPotionMana(itemId).ToString() + " Mana\n";
             int lvl = GetLevelReq(itemId);

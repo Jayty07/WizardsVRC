@@ -489,7 +489,8 @@ namespace WizardsVRC.EditorTools.WorldData
                 {
                     symbol = "J", key = "Wren", displayName = "Librarian Wren", robeColor = new Color(0.35f, 0.25f, 0.5f), hatColor = new Color(0.22f, 0.15f, 0.32f),
                     facing = -1f,
-                    defaultDialogue = new[] { "Every spell ever cast is written down somewhere in this library. Most of them twice." },
+                    defaultDialogue = new[] { "Every spell ever cast is written down somewhere in this library. Most of them twice.",
+                        "And some we copy onto treasure cards: cast one once, whatever your school. My counter's right beside me." },
                 },
                 new ZoneNpc
                 {

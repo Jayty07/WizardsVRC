@@ -36,12 +36,14 @@ namespace WizardsVRC
 /// v9: signature / aura colours. v10: starshards, titles, auras, skins, records, elixirs.
 /// v11 appends: rewardLevel u8, BOUNTY_SLOTS * (bountyId u8, progress u8), bountiesDone u16, depotBits u16, highNoonWins u16.
 /// v12 appends: discoveredA u32, discoveredB u32 (places found, AreaDiscovery).
-    /// Typical saves are 1-2 KB raw; the worst case (every quest slot used) is about 2.6 KB raw (budget: 4 KB).
+/// v13 appends treasure cards: tcUsed u16, then tcUsed * (spellId u16, count u8) (the ones in your collection), then per
+///   deck list: sideCount u8, then sideCount * spellId u16 (its treasure-card sideboard).
+    /// Typical saves are 1-2 KB raw; the worst case (every quest slot used, every kind of treasure card) is about 3.4 KB raw (budget: 4 KB).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterData : UdonSharpBehaviour
     {
-        public const int FORMAT_VERSION = 12;
+        public const int FORMAT_VERSION = 13;
         public const int HEADER_SIZE = 5;
         public const int CHECKSUM_SIZE = 4;
 
@@ -61,6 +63,11 @@ namespace WizardsVRC
         public const int MAX_LEVEL = 50;
         public const int LEARNED_BYTES = 32;
         public const int LEARNED_BASE_ID = 100;
+        /// <summary>Treasure cards (single-use spell cards) you can hold: one count per spell id 100-355, up to 99 each.</summary>
+        public const int TREASURE_KINDS = LEARNED_BYTES * 8;
+        public const int TREASURE_MAX = 99;
+        /// <summary>Most treasure cards a deck's sideboard can hold (each deck item has its own size, ItemDatabase.GetDeckTreasureCapacity).</summary>
+        public const int SIDE_SIZE = 18;
         public const int HEALTH_PER_LEVEL = 15;
         public const int MANA_PER_LEVEL = 2;
         public const int STARTER_MANA = 20;
@@ -116,6 +123,11 @@ namespace WizardsVRC
         public byte[] deckLengths = new byte[DECK_COUNT];
         [Tooltip("Deck item id that owns each card list (0 = free).")]
         public ushort[] deckOwners = new ushort[DECK_COUNT];
+
+        [Header("Treasure cards (v13): the collection by spell id - 100, and each deck list's sideboard")]
+        public byte[] treasureCounts = new byte[TREASURE_KINDS];
+        public ushort[] sideCards = new ushort[DECK_COUNT * SIDE_SIZE];
+        public byte[] sideLengths = new byte[DECK_COUNT];
 
         [Header("Quests (progress/stage per quest id)")]
         public byte[] questProgress = new byte[QUEST_SLOTS];
@@ -199,6 +211,7 @@ namespace WizardsVRC
             trainingPoints = 0;
             trackedQuest = 0;
             ClearExtras();
+            ClearTreasure();
 
             // Starter kit (see ItemDatabase): staff + robe equipped; potions, hat and boots in the backpack.
             equipped[EQUIP_WEAPON] = 1;
@@ -284,6 +297,10 @@ namespace WizardsVRC
             System.Array.Copy(other.questProgress, questProgress, QUEST_SLOTS);
             System.Array.Copy(other.questCounters, questCounters, QUEST_SLOTS);
             System.Array.Copy(other.learnedSpells, learnedSpells, LEARNED_BYTES);
+            other.EnsureArrays();
+            System.Array.Copy(other.treasureCounts, treasureCounts, TREASURE_KINDS);
+            System.Array.Copy(other.sideCards, sideCards, DECK_COUNT * SIDE_SIZE);
+            System.Array.Copy(other.sideLengths, sideLengths, DECK_COUNT);
             trainingPoints = other.trainingPoints;
             trackedQuest = other.trackedQuest;
             starshards = other.starshards; titleBits = other.titleBits; equippedTitle = other.equippedTitle;
@@ -314,6 +331,9 @@ namespace WizardsVRC
             if (questProgress == null || questProgress.Length != QUEST_SLOTS) questProgress = new byte[QUEST_SLOTS];
             if (questCounters == null || questCounters.Length != QUEST_SLOTS) questCounters = new byte[QUEST_SLOTS];
             if (learnedSpells == null || learnedSpells.Length != LEARNED_BYTES) learnedSpells = new byte[LEARNED_BYTES];
+            if (treasureCounts == null || treasureCounts.Length != TREASURE_KINDS) treasureCounts = new byte[TREASURE_KINDS];
+            if (sideCards == null || sideCards.Length != DECK_COUNT * SIDE_SIZE) sideCards = new ushort[DECK_COUNT * SIDE_SIZE];
+            if (sideLengths == null || sideLengths.Length != DECK_COUNT) sideLengths = new byte[DECK_COUNT];
         }
 
         public string SanitizeName(string raw)
@@ -524,6 +544,8 @@ namespace WizardsVRC
             deckOwners[free] = (ushort)deckItemId;
             deckLengths[free] = 0;
             for (int c = 0; c < DECK_SIZE; c++) deckCards[free * DECK_SIZE + c] = 0;
+            // A list taken over from a deck you no longer own: its treasure cards go back to your collection.
+            ClearSideboard(free);
             return free;
         }
 
@@ -540,6 +562,110 @@ namespace WizardsVRC
         {
             EnsureArrays();
             return DeckListFor(equipped[EQUIP_DECK], true);
+        }
+
+        // ------------------------------------------------------------------ treasure cards
+
+        private void ClearTreasure()
+        {
+            EnsureArrays();
+            for (int i = 0; i < TREASURE_KINDS; i++) treasureCounts[i] = 0;
+            for (int i = 0; i < sideCards.Length; i++) sideCards[i] = 0;
+            for (int d = 0; d < DECK_COUNT; d++) sideLengths[d] = 0;
+        }
+
+        /// <summary>Treasure cards of this spell in your collection (not counting any in a sideboard).</summary>
+        public int TreasureCount(int cardId)
+        {
+            EnsureArrays();
+            int k = cardId - LEARNED_BASE_ID;
+            return k >= 0 && k < TREASURE_KINDS ? treasureCounts[k] : 0;
+        }
+
+        /// <summary>Adds treasure cards to your collection (up to TREASURE_MAX of each). Returns how many fit.</summary>
+        public int AddTreasure(int cardId, int count)
+        {
+            EnsureArrays();
+            int k = cardId - LEARNED_BASE_ID;
+            if (k < 0 || k >= TREASURE_KINDS || count <= 0) return 0;
+            int fit = Mathf.Min(count, TREASURE_MAX - treasureCounts[k]);
+            if (fit <= 0) return 0;
+            treasureCounts[k] = (byte)(treasureCounts[k] + fit);
+            return fit;
+        }
+
+        public bool RemoveTreasure(int cardId)
+        {
+            int k = cardId - LEARNED_BASE_ID;
+            if (TreasureCount(cardId) <= 0) return false;
+            treasureCounts[k] = (byte)(treasureCounts[k] - 1);
+            return true;
+        }
+
+        /// <summary>Every treasure card you own: the collection plus every sideboard.</summary>
+        public int TreasureTotal()
+        {
+            EnsureArrays();
+            int n = 0;
+            for (int i = 0; i < TREASURE_KINDS; i++) n += treasureCounts[i];
+            for (int d = 0; d < DECK_COUNT; d++) n += SideCount(d);
+            return n;
+        }
+
+        public int SideCount(int deck)
+        {
+            EnsureArrays();
+            if (deck < 0 || deck >= DECK_COUNT) return 0;
+            return Mathf.Min(sideLengths[deck], SIDE_SIZE);
+        }
+
+        public int SideCard(int deck, int i)
+        {
+            return i >= 0 && i < SideCount(deck) ? sideCards[deck * SIDE_SIZE + i] : 0;
+        }
+
+        public int CountInSide(int deck, int cardId)
+        {
+            int n = 0;
+            int len = SideCount(deck);
+            for (int i = 0; i < len; i++) if (sideCards[deck * SIDE_SIZE + i] == cardId) n++;
+            return n;
+        }
+
+        /// <summary>Moves one treasure card of this spell from your collection into the deck's sideboard (capacity is checked by the caller).</summary>
+        public bool MoveToSide(int deck, int cardId)
+        {
+            int len = SideCount(deck);
+            if (deck < 0 || deck >= DECK_COUNT || len >= SIDE_SIZE || !RemoveTreasure(cardId)) return false;
+            sideCards[deck * SIDE_SIZE + len] = (ushort)cardId;
+            sideLengths[deck] = (byte)(len + 1);
+            return true;
+        }
+
+        /// <summary>Takes one copy out of the sideboard (keeping it packed); with keep, it goes back to your collection, otherwise it's used up.</summary>
+        public bool TakeFromSide(int deck, int cardId, bool keep)
+        {
+            int len = SideCount(deck);
+            int at = deck * SIDE_SIZE;
+            for (int i = len - 1; i >= 0; i--)
+            {
+                if (sideCards[at + i] != cardId) continue;
+                for (int j = i; j < len - 1; j++) sideCards[at + j] = sideCards[at + j + 1];
+                sideCards[at + len - 1] = 0;
+                sideLengths[deck] = (byte)(len - 1);
+                if (keep) AddTreasure(cardId, 1);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Empties a sideboard back into your collection.</summary>
+        public void ClearSideboard(int deck)
+        {
+            int len = SideCount(deck);
+            for (int i = 0; i < len; i++) AddTreasure(sideCards[deck * SIDE_SIZE + i], 1);
+            for (int i = 0; i < SIDE_SIZE; i++) sideCards[deck * SIDE_SIZE + i] = 0;
+            if (deck >= 0 && deck < DECK_COUNT) sideLengths[deck] = 0;
         }
 
         // ------------------------------------------------------------------ deck helpers
@@ -675,6 +801,22 @@ namespace WizardsVRC
             // v12: places discovered
             WriteU32(discoveredA & 0x7FFFFFFF);
             WriteU32(discoveredB & 0x7FFFFFFF);
+            // v13: treasure cards (collection, then each deck list's sideboard)
+            int tcUsed = 0;
+            for (int i = 0; i < TREASURE_KINDS; i++) if (treasureCounts[i] != 0) tcUsed++;
+            WriteU16(tcUsed);
+            for (int i = 0; i < TREASURE_KINDS; i++)
+            {
+                if (treasureCounts[i] == 0) continue;
+                WriteU16(LEARNED_BASE_ID + i);
+                WriteU8(treasureCounts[i]);
+            }
+            for (int d = 0; d < DECK_COUNT; d++)
+            {
+                int sc = SideCount(d);
+                WriteU8(sc);
+                for (int i = 0; i < sc; i++) WriteU16(sideCards[d * SIDE_SIZE + i]);
+            }
 
             int payloadLength = _pos - HEADER_SIZE;
             _buf[0] = (byte)'W';
@@ -740,6 +882,7 @@ namespace WizardsVRC
             signatureColor = 0;
             auraColor = 0;
             ClearExtras();
+            ClearTreasure();
 
             if (!Need(1)) return false;
             int nameLen = ReadU8();
@@ -898,6 +1041,27 @@ namespace WizardsVRC
                 if (!Need(8)) return false;
                 discoveredA = ReadU32() & 0x7FFFFFFF;
                 discoveredB = ReadU32() & 0x7FFFFFFF;
+            }
+            if (version >= 13)
+            {
+                if (!Need(2)) return false;
+                int tcUsed = ReadU16();
+                if (tcUsed > TREASURE_KINDS || !Need(tcUsed * 3)) { lastError = "bad treasure cards"; return false; }
+                for (int i = 0; i < tcUsed; i++)
+                {
+                    int id = ReadU16();
+                    int n = ReadU8();
+                    int k = id - LEARNED_BASE_ID;
+                    if (k >= 0 && k < TREASURE_KINDS) treasureCounts[k] = (byte)Mathf.Min(n, TREASURE_MAX);
+                }
+                for (int d = 0; d < DECK_COUNT; d++)
+                {
+                    if (!Need(1)) return false;
+                    int sc = ReadU8();
+                    if (sc > SIDE_SIZE || !Need(sc * 2)) { lastError = "bad sideboard"; return false; }
+                    sideLengths[d] = (byte)sc;
+                    for (int i = 0; i < sc; i++) sideCards[d * SIDE_SIZE + i] = (ushort)ReadU16();
+                }
             }
             MigrateDecks(version);
             return true;

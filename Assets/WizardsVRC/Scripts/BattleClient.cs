@@ -316,6 +316,25 @@ namespace WizardsVRC
         private int _sentTarget = -1;
         private int _unpickCard;         // a card taken back (Back) that the round might have started with anyway
         private int _unpickRound = -1;
+        // Treasure cards (Wizard101): single-use cards from the equipped deck's sideboard. In the hand a treasure card is
+        // its spell id + TC_FLAG, so it keeps its gold ribbon and is used up (taken out of the sideboard for good) when cast,
+        // fizzled or discarded. Treasure cards drawn but never cast stay in the sideboard.
+        public const int TC_FLAG = 100000;
+        [Header("Treasure cards")]
+        [Tooltip("The action tray's Treasure button: draws one treasure card from your deck's sideboard (once a round).")]
+        public GameObject treasureButton;
+        public Text treasureLabel;
+        [Tooltip("Per hand card: the gold TREASURE ribbon shown on treasure cards.")]
+        public GameObject[] cardTreasureTags;
+        private int[] _tcPool = new int[CharacterData.SIDE_SIZE];
+        private int _tcPoolCount;
+        private int _tcDrawRound = -1;
+        private int _sentRaw;            // the sent card as it was in the hand (a treasure card keeps its flag)
+        private int _unpickRaw;
+        private int _castRaw;            // the hand card being cast right now
+        private int _patRaw;
+        private int _tcSent;             // spell id of a treasure card sent this round (used up once it plays)
+        private int _tcFizzle;           // a treasure card that fizzled this round: used up, not shuffled back
         private float _nextWaitText;
         public Text fleeConfirmLabel;
         [Tooltip("Card frames (coloured by school); the card buttons themselves.")]
@@ -915,8 +934,11 @@ namespace WizardsVRC
                     _submitted = false;
                     _pickSent = false;
                     _sentCard = 0;
+                    _sentRaw = 0;
                     _sentTarget = -1;
                     _unpickCard = 0;
+                    _unpickRaw = 0;
+                    _tcSent = 0;
                     _selHand = -1;
                     _discardMode = false;
                     _note = "Pick a card, or Pass.";
@@ -936,7 +958,7 @@ namespace WizardsVRC
 
             if (phase == BattleManager.PHASE_PLAYBACK && _phaseSeen != BattleManager.PHASE_PLAYBACK)
             {
-                if (_inBattle) { ReconcileUnpick(); SpendCastMana(); ReturnFizzledCards(); }
+                if (_inBattle) { ReconcileUnpick(); SpendCastMana(); UseTreasureCard(); ReturnFizzledCards(); }
                 _playIndex = 0;
                 if (!_playing)
                 {
@@ -1409,6 +1431,8 @@ namespace WizardsVRC
                 if (manager.actActor[i] != _slot || manager.actKind[i] != BattleManager.KIND_FIZZLE) continue;
                 int card = manager.actCard[i];
                 if (card <= 0) continue;
+                // A treasure card that fizzles is gone, like any treasure card that's cast.
+                if (_tcFizzle > 0 && card == _tcFizzle) { _tcFizzle = 0; continue; }
                 if (fizzleReturnsToHand && _handCount < HAND_SIZE) _hand[_handCount++] = card;
                 else if (_pileCount < _pile.Length)
                 {
@@ -1645,7 +1669,86 @@ namespace WizardsVRC
                 int j = Random.Range(0, i + 1);
                 int t = _pile[i]; _pile[i] = _pile[j]; _pile[j] = t;
             }
+            BuildTreasurePool(c);
         }
+
+        // ------------------------------------------------------------------ treasure cards
+
+        /// <summary>The equipped deck's sideboard, shuffled: what the Treasure button draws from this fight.</summary>
+        private void BuildTreasurePool(CharacterData c)
+        {
+            _tcPoolCount = 0;
+            _tcDrawRound = -1;
+            _tcSent = 0;
+            _tcFizzle = 0;
+            int list = c.ActiveDeckList();
+            int n = list >= 0 ? c.SideCount(list) : 0;
+            for (int i = 0; i < n && _tcPoolCount < _tcPool.Length; i++)
+            {
+                int id = c.SideCard(list, i);
+                if (cardDatabase.IndexOf(id) >= 0) _tcPool[_tcPoolCount++] = id;
+            }
+            for (int i = _tcPoolCount - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                int t = _tcPool[i]; _tcPool[i] = _tcPool[j]; _tcPool[j] = t;
+            }
+        }
+
+        private bool CanDrawTreasure()
+        {
+            return CanAct() && !_discardMode && _tcPoolCount > 0 && _handCount < HAND_SIZE && _tcDrawRound != manager.round;
+        }
+
+        /// <summary>The Treasure button (Wizard101's Draw): one treasure card from your sideboard into your hand, once a round. It doesn't use your turn.</summary>
+        public void DrawTreasure()
+        {
+            if (!CanAct()) return;
+            if (_tcPoolCount <= 0) { _note = "No treasure cards left in your deck's sideboard."; RefreshHand(); return; }
+            if (_handCount >= HAND_SIZE) { _note = "Your hand is full. Discard a card to draw a treasure card."; RefreshHand(); return; }
+            if (_tcDrawRound == manager.round) { _note = "You can draw one treasure card a round."; RefreshHand(); return; }
+            if (_discardMode) _discardMode = false;
+            int id = _tcPool[--_tcPoolCount];
+            _hand[_handCount++] = id + TC_FLAG;
+            _tcDrawRound = manager.round;
+            _note = "Drew a treasure card: " + cardDatabase.GetName(id) + ".";
+            if (uiAudio != null) uiAudio.PlayCardClick();
+            RefreshHand();
+        }
+
+        /// <summary>A treasure card leaves the sideboard for good (cast, fizzled or discarded).</summary>
+        private void SpendTreasure(int id)
+        {
+            if (playerState == null || !playerState.HasCharacter() || id <= 0) return;
+            CharacterData c = playerState.current;
+            int list = c.ActiveDeckList();
+            if (list >= 0 && c.TakeFromSide(list, id, false))
+            {
+                playerState.MarkDirty();
+                playerState.SaveNow();
+            }
+        }
+
+        /// <summary>The round is playing: a treasure card we cast this round is used up (and doesn't go back if it fizzled).</summary>
+        private void UseTreasureCard()
+        {
+            int id = _tcSent;
+            _tcSent = 0;
+            _tcFizzle = 0;
+            if (id <= 0 || _slot < 0) return;
+            for (int i = 0; i < manager.actCount; i++)
+            {
+                if (manager.actActor[i] != _slot || manager.actCard[i] != id) continue;
+                int k = manager.actKind[i];
+                if (k == BattleManager.KIND_PASS || k == BattleManager.KIND_DOT || k == BattleManager.KIND_STUNNED || k == BattleManager.KIND_POTION) continue;
+                SpendTreasure(id);
+                if (k == BattleManager.KIND_FIZZLE) _tcFizzle = id;
+                return;
+            }
+        }
+
+        /// <summary>A hand entry's spell id (a treasure card carries TC_FLAG).</summary>
+        private int HandCard(int raw) { return raw >= TC_FLAG ? raw - TC_FLAG : raw; }
 
         private void DrawToFull()
         {
@@ -1668,11 +1771,14 @@ namespace WizardsVRC
         {
             if (!CanAct() || i >= _handCount) return;
             if (uiAudio != null) uiAudio.PlayCardClick();
-            int card = _hand[i];
+            int raw = _hand[i];
+            int card = HandCard(raw);
             if (_discardMode)
             {
                 RemoveFromHand(i);
-                _note = "Discarded " + cardDatabase.GetName(card) + ".";
+                // Wizard101: a discarded treasure card is gone for good.
+                if (raw >= TC_FLAG) SpendTreasure(card);
+                _note = "Discarded " + cardDatabase.GetName(card) + (raw >= TC_FLAG ? " (the treasure card is used up)." : ".");
                 RefreshHand();
                 return;
             }
@@ -1691,12 +1797,14 @@ namespace WizardsVRC
             if (cardDatabase.IsAoe(card))
             {
                 RemoveFromHand(i);
+                _castRaw = raw;
                 Submit(card, -1, "Casting " + cardDatabase.GetName(card) + ".");
                 return;
             }
             if (cardDatabase.SelfOnly(card))
             {
                 RemoveFromHand(i);
+                _castRaw = raw;
                 Submit(card, _slot, "Casting " + cardDatabase.GetName(card) + " on yourself.");
                 return;
             }
@@ -1715,8 +1823,10 @@ namespace WizardsVRC
         private void ClickTarget(int target)
         {
             if (!CanAct() || _selHand < 0 || _selHand >= _handCount) return;
-            int card = _hand[_selHand];
+            int raw = _hand[_selHand];
+            int card = HandCard(raw);
             RemoveFromHand(_selHand);
+            _castRaw = raw;
             Submit(card, target, "Casting " + cardDatabase.GetName(card) + " on " + manager.SlotName(target) + ".");
         }
 
@@ -1728,6 +1838,7 @@ namespace WizardsVRC
             {
                 _patterning = true;
                 _patCard = card;
+                _patRaw = HandCard(_castRaw) == card ? _castRaw : card;
                 _patTarget = target;
                 _patNote = note;
                 _selHand = -1;
@@ -1750,6 +1861,9 @@ namespace WizardsVRC
             _submitted = true;
             _pickSent = true;
             _sentCard = card;
+            _sentRaw = card > 0 && card != BattleManager.PICK_POTION && HandCard(_castRaw) == card ? _castRaw : card;
+            _castRaw = 0;
+            _tcSent = _sentRaw >= TC_FLAG ? card : 0;
             _sentTarget = target;
             _nextWaitText = 0f;
             _selHand = -1;
@@ -1767,11 +1881,14 @@ namespace WizardsVRC
             if (!_inBattle || _leaving || !_pickSent || _slot < 0 || manager.phase != BattleManager.PHASE_PLANNING || !manager.Alive(_slot)) return;
             if (_sentCard == BattleManager.PICK_POTION) return;
             manager.RequestUnpick();
-            if (_sentCard > 0 && _handCount < _hand.Length) _hand[_handCount++] = _sentCard;
+            if (_sentCard > 0 && _handCount < _hand.Length) _hand[_handCount++] = _sentRaw > 0 ? _sentRaw : _sentCard;
             _unpickCard = _sentCard;
+            _unpickRaw = _sentRaw > 0 ? _sentRaw : _sentCard;
             _unpickRound = manager.round;
             _pickSent = false;
             _sentCard = 0;
+            _sentRaw = 0;
+            _tcSent = 0;
             _sentTarget = -1;
             _submitted = false;
             _selHand = -1;
@@ -1840,9 +1957,12 @@ namespace WizardsVRC
                 if (_sentCard > 0 && manager.actCard[i] == _sentCard) castNew = true;
             }
             if (!castOld) return;
+            int oldRaw = _unpickRaw > 0 ? _unpickRaw : old;
             for (int h = 0; h < _handCount; h++)
-                if (_hand[h] == old) { RemoveFromHand(h); break; }
-            if (_sentCard > 0 && !castNew && _handCount < _hand.Length) _hand[_handCount++] = _sentCard;
+                if (_hand[h] == oldRaw) { RemoveFromHand(h); break; }
+            if (_sentCard > 0 && !castNew && _handCount < _hand.Length) _hand[_handCount++] = _sentRaw > 0 ? _sentRaw : _sentCard;
+            // The card that really played is the one used up if it was a treasure card.
+            _tcSent = oldRaw >= TC_FLAG ? old : 0;
             _note = "Too late to take it back: " + cardDatabase.GetName(old) + " was cast.";
         }
 
@@ -1855,9 +1975,10 @@ namespace WizardsVRC
             if (_inBattle && !_submitted && manager.phase == BattleManager.PHASE_PLANNING && manager.Alive(_slot))
             {
                 int fizzle = manager.FizzleChance(_slot, _patCard, q);
+                _castRaw = _patRaw;
                 SendPick(_patCard, _patTarget, _patNote + " Rune " + q.ToString() + "% drawn: " + fizzle.ToString() + "% chance to fizzle.", q);
             }
-            else if (_inBattle && _handCount < _hand.Length) _hand[_handCount++] = _patCard;   // too late: the card stays yours
+            else if (_inBattle && _handCount < _hand.Length) _hand[_handCount++] = PatRaw();   // too late: the card stays yours
             UpdateHandVisible();
         }
 
@@ -1866,7 +1987,7 @@ namespace WizardsVRC
         {
             if (!_patterning) return;
             _patterning = false;
-            if (_handCount < _hand.Length) _hand[_handCount++] = _patCard;
+            if (_handCount < _hand.Length) _hand[_handCount++] = PatRaw();
             _note = "Pick a card, or Pass.";
             RefreshHand();
             UpdateHandVisible();
@@ -1878,8 +1999,11 @@ namespace WizardsVRC
             if (!_patterning) return;
             _patterning = false;
             if (castPattern != null) castPattern.Cancel();
-            if (_handCount < _hand.Length) _hand[_handCount++] = _patCard;
+            if (_handCount < _hand.Length) _hand[_handCount++] = PatRaw();
         }
+
+        /// <summary>The card a rune was being drawn for, as it was in the hand.</summary>
+        private int PatRaw() { return HandCard(_patRaw) == _patCard ? _patRaw : _patCard; }
 
         // ------------------------------------------------------------------ playback
 
@@ -3586,8 +3710,11 @@ namespace WizardsVRC
             {
                 bool has = i < _handCount;
                 if (cardImages[i] != null) cardImages[i].gameObject.SetActive(has);
+                bool tc = has && _hand[i] >= TC_FLAG;
+                if (cardTreasureTags != null && i < cardTreasureTags.Length && cardTreasureTags[i] != null && cardTreasureTags[i].activeSelf != tc)
+                    cardTreasureTags[i].SetActive(tc);
                 if (!has) continue;
-                int card = _hand[i];
+                int card = HandCard(_hand[i]);
                 bool usable = manager.CanAfford(_slot, card) && HasManaFor(card);
                 int sc = cardDatabase.GetSchool(card);
                 Sprite frame = cardFrames != null && cardFrames.Length > 0 ? cardFrames[sc >= 0 && sc < 7 && sc < cardFrames.Length ? sc : cardFrames.Length - 1] : null;
@@ -3626,7 +3753,7 @@ namespace WizardsVRC
             }
 
             bool picking = CanAct() && _selHand >= 0 && _selHand < _handCount;
-            bool allies = picking && cardDatabase.TargetsAllies(_hand[_selHand]);
+            bool allies = picking && cardDatabase.TargetsAllies(HandCard(_hand[_selHand]));
             _glowsOn = false;
             for (int t = 0; t < BattleManager.SLOTS; t++)
             {
@@ -3644,6 +3771,12 @@ namespace WizardsVRC
                 if (show) targetLabels[t].text = manager.SlotName(t) + "\n" + _shownHp[t].ToString() + " / " + manager.maxHp[t].ToString();
             }
             if (potionLabel != null) potionLabel.text = "\uE014 Potion (" + CountPotions().ToString() + ")";
+            if (treasureLabel != null) treasureLabel.text = "Treasure (" + _tcPoolCount.ToString() + ")";
+            if (treasureButton != null)
+            {
+                Image tb = treasureButton.GetComponent<Image>();
+                if (tb != null) tb.color = CanDrawTreasure() ? new Color(0.62f, 0.45f, 0.12f) : new Color(0.32f, 0.28f, 0.22f);
+            }
             if (discardImage != null) discardImage.color = _discardMode ? new Color(0.8f, 0.55f, 0.2f) : new Color(0.4f, 0.3f, 0.25f);
             if (statusLabel != null) statusLabel.text = StatusText();
         }
