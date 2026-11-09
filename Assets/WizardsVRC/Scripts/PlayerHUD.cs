@@ -83,6 +83,10 @@ namespace WizardsVRC
         private int _knownSlot = -1;
         private float _bannerUntil;
         private float _hpShown = -1f, _hpTrail = -1f, _mpShown = -1f;
+        // VR, in a duel: the HUD is set down in the air where it was and stays put (it doesn't follow your head).
+        private bool _pinned;
+        private Vector3 _pinPos, _pinFeet;
+        private Quaternion _pinRot;
 
         public void ToggleHud()
         {
@@ -104,6 +108,7 @@ namespace WizardsVRC
             // your head is eased a little, for comfort.
             Transform tr = hudRoot.transform;
             if (_baseScale == Vector3.zero) _baseScale = tr.localScale;
+            if (!playerState.inCombat) _pinned = false;
             float t = Mathf.Clamp01(Time.deltaTime * followSpeed);
             Quaternion rot = _hasRot ? Quaternion.Slerp(_rot, head.rotation, t) : head.rotation;
             _rot = rot;
@@ -122,6 +127,26 @@ namespace WizardsVRC
                 look.y = look.y * 0.5f;
                 tr.SetPositionAndRotation(pos, look.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(look, Vector3.up) : rot);
                 tr.localScale = _baseScale * wristScale;
+            }
+            else if (playerState.inCombat)
+            {
+                // In a duel it's set down once, low and a little left of where you face (upright, facing you), and
+                // stays there while you look round the ring; it's set down again only if you're moved (to your seat).
+                Vector3 feet = local.GetPosition();
+                if (!_pinned || (feet - _pinFeet).sqrMagnitude > 1f)
+                {
+                    Vector3 fwd = head.rotation * Vector3.forward;
+                    fwd.y = 0f;
+                    if (fwd.sqrMagnitude < 0.0001f) fwd = Vector3.forward;
+                    Quaternion flat = Quaternion.LookRotation(fwd.normalized, Vector3.up);
+                    _pinPos = head.position + flat * headOffsetVR;
+                    Vector3 look = _pinPos - head.position;
+                    _pinRot = look.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(look, Vector3.up) : flat;
+                    _pinFeet = feet;
+                    _pinned = true;
+                }
+                tr.SetPositionAndRotation(_pinPos, _pinRot);
+                tr.localScale = _baseScale * vrScale;
             }
             else
             {

@@ -1060,7 +1060,7 @@ namespace WizardsVRC
                  "lectern, so pointing across the ring passes over the cards.")]
         public Vector3 hudOffsetVR = new Vector3(0f, -0.5f, 0.42f);
         public Vector3 hudOffsetDesktop = new Vector3(0f, -0.2f, 0.75f);
-        [Tooltip("The hand only swings round to follow you once you turn this far away from it (degrees).")]
+        [Tooltip("Unused: the hand no longer follows your head (it stays in front of your seat).")]
         public float hudFollowAngle = 35f;
 
         private bool _hudSnap;
@@ -1070,15 +1070,14 @@ namespace WizardsVRC
         /// <summary>HudGrip: the handle was picked up. The hand of cards follows it until it's let go.</summary>
         public void _GripStart() { _gripHeld = true; }
 
-        /// <summary>HudGrip: let go. Where the hand is now (relative to your head) is where it stays from now on.</summary>
+        /// <summary>HudGrip: let go. Where the hand is now (relative to your seat at eye height) is where it stays from now on.</summary>
         public void _GripEnd()
         {
             _gripHeld = false;
             VRCPlayerApi me = Networking.LocalPlayer;
             if (handRoot == null || playerState == null || !Utilities.IsValid(me)) return;
-            VRCPlayerApi.TrackingData head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
             Quaternion yaw = Quaternion.Euler(0f, _hudYaw, 0f);
-            Vector3 local = Quaternion.Inverse(yaw) * (handRoot.transform.position - head.position);
+            Vector3 local = Quaternion.Inverse(yaw) * (handRoot.transform.position - HudAnchor(me));
             local.z = Mathf.Max(0.25f, local.z);   // never behind or inside your head
             playerState.battleHudOffset = local;
             playerState.battleHudSet = true;
@@ -1091,8 +1090,30 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// Every frame the hand is up: it floats in front of you (lazily turning to follow you), facing you, or follows the
-        /// grip while you hold it. The grip sits under its bottom edge.
+        /// Where the hand is measured from: your seat at your avatar's eye height (not your head, so leaning or looking
+        /// around never moves it). Off your seat (just joined, being moved), where you stand.
+        /// </summary>
+        private Vector3 HudAnchor(VRCPlayerApi me)
+        {
+            float eye = me.GetAvatarEyeHeightAsMeters();
+            if (eye < 0.2f) eye = 1.6f;
+            Transform seat = seats != null && _slot >= 0 && _slot < seats.Length ? seats[_slot] : null;
+            Vector3 foot = seat != null && _seated ? seat.position : me.GetPosition();
+            return foot + Vector3.up * eye;
+        }
+
+        /// <summary>The way the hand faces you from: your seat's facing (towards the ring), else the way you're looking.</summary>
+        private float HudYaw(VRCPlayerApi me)
+        {
+            Transform seat = seats != null && _slot >= 0 && _slot < seats.Length ? seats[_slot] : null;
+            if (seat != null && _seated) return seat.rotation.eulerAngles.y;
+            return me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation.eulerAngles.y;
+        }
+
+        /// <summary>
+        /// The hand of cards stays put in the world, in front of your seat facing the ring (it doesn't follow your head),
+        /// or follows the grip while you hold it. Each time it comes up it's set down in the same place again. The grip
+        /// sits under its bottom edge.
         /// </summary>
         private void PlaceHud()
         {
@@ -1105,38 +1126,29 @@ namespace WizardsVRC
             if (!up) { _gripHeld = false; return; }
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me)) return;
-            VRCPlayerApi.TrackingData head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
             Transform h = handRoot.transform;
             RectTransform rt = handRoot.GetComponent<RectTransform>();
             float halfH = rt != null ? rt.rect.height * 0.5f * h.lossyScale.y : 0.3f;
 
             if (_gripHeld && hudGrip != null)
             {
-                Vector3 look = hudGrip.position - head.position;
-                if (look.sqrMagnitude < 0.0001f) look = head.rotation * Vector3.forward;
+                Vector3 head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
+                Vector3 look = hudGrip.position - head;
+                if (look.sqrMagnitude < 0.0001f) look = Quaternion.Euler(0f, _hudYaw, 0f) * Vector3.forward;
                 Quaternion rot = Quaternion.LookRotation(look, Vector3.up);
                 h.SetPositionAndRotation(hudGrip.position + rot * Vector3.up * (halfH + 0.05f), rot);
                 return;
             }
-
-            float headYaw = head.rotation.eulerAngles.y;
-            if (_hudSnap) { _hudYaw = headYaw; }
-            else
-            {
-                float off = Mathf.DeltaAngle(_hudYaw, headYaw);
-                if (Mathf.Abs(off) > hudFollowAngle) _hudYaw = Mathf.MoveTowardsAngle(_hudYaw, headYaw, (Mathf.Abs(off) - hudFollowAngle * 0.5f) * Time.deltaTime * 4f);
-            }
-            Vector3 want = head.position + Quaternion.Euler(0f, _hudYaw, 0f) * HudOffset(me);
-            Vector3 dir = want - head.position;
+            if (!_hudSnap) return;   // set down already: it stays where it is
+            _hudYaw = HudYaw(me);
+            Vector3 anchor = HudAnchor(me);
+            Vector3 want = anchor + Quaternion.Euler(0f, _hudYaw, 0f) * HudOffset(me);
+            Vector3 dir = want - anchor;
             if (dir.sqrMagnitude < 0.0001f) dir = Vector3.forward;
-            Quaternion wantRot = Quaternion.LookRotation(dir, Vector3.up);
-            if (_hudSnap) { h.SetPositionAndRotation(want, wantRot); _hudSnap = false; }
-            else
-            {
-                float k = 1f - Mathf.Exp(-Time.deltaTime * 10f);
-                h.SetPositionAndRotation(Vector3.Lerp(h.position, want, k), Quaternion.Slerp(h.rotation, wantRot, k));
-            }
-            if (hudGrip != null && !_gripHeld) hudGrip.SetPositionAndRotation(h.position - h.rotation * Vector3.up * (halfH + 0.05f), h.rotation);
+            h.SetPositionAndRotation(want, Quaternion.LookRotation(dir, Vector3.up));
+            if (hudGrip != null) hudGrip.SetPositionAndRotation(h.position - h.rotation * Vector3.up * (halfH + 0.05f), h.rotation);
+            // Keep setting it down until you're on your seat (the move there lands a frame or two after the hand opens).
+            if (!_seated || seats == null || _slot < 0 || _slot >= seats.Length || (me.GetPosition() - seats[_slot].position).sqrMagnitude < 1f) _hudSnap = false;
         }
 
         /// <summary>Moves the whole encounter (ring, seats, labels, hand) to the fight's ring spot.</summary>
