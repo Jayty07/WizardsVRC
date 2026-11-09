@@ -111,11 +111,13 @@ namespace WizardsVRC.EditorTools
             {
                 var strip = PaintSkyline(a, skyAreas);
                 string texPath = SkyTexDir + "/Skyline_" + a.key + ".png";
-                File.WriteAllBytes(texPath, strip.EncodeToPNG());
+                WritePngIfChanged(texPath, strip.EncodeToPNG());
                 Object.DestroyImmediate(strip);
-                AssetDatabase.ImportAsset(texPath);
                 var importer = AssetImporter.GetAtPath(texPath) as TextureImporter;
-                if (importer != null)
+                if (importer != null && (importer.filterMode != FilterMode.Point || importer.mipmapEnabled || importer.wrapModeU != TextureWrapMode.Repeat ||
+                                         importer.wrapModeV != TextureWrapMode.Clamp || !importer.alphaIsTransparency ||
+                                         importer.textureCompression != TextureImporterCompression.Uncompressed ||
+                                         importer.npotScale != TextureImporterNPOTScale.None || importer.maxTextureSize != 4096))
                 {
                     importer.filterMode = FilterMode.Point;
                     importer.mipmapEnabled = false;

@@ -17,8 +17,7 @@ namespace WizardsVRC.EditorTools
     public static partial class WizardsVRCSceneBuilder
     {
         private const string FloatAnimDir = "Assets/WizardsVRC/Animations/Float";
-        /// <summary>Bake occlusion culling at the end of every rebuild (adds a little time; off = bake from the menu).</summary>
-        private const bool BakeOcclusionOnRebuild = true;
+        // Whether the occlusion bake runs on every rebuild is an editor option now (WizardsVRCSceneBuilder.Timing.cs).
 
         /// <summary>How each kind of piece floats: bob height (m), loop length (s), bobs per loop, turns per loop.</summary>
         private struct FloatKind
@@ -535,6 +534,11 @@ namespace WizardsVRC.EditorTools
         }
 
         [MenuItem("WizardsVRC/Bake Hub Occlusion")]
-        private static void BakeHubOcclusionMenu() { BakeHubOcclusion(); }
+        private static void BakeHubOcclusionMenu()
+        {
+            // Bakes the open scene and saves it (the bake data belongs to the saved scene).
+            BakeHubOcclusion();
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        }
     }
 }

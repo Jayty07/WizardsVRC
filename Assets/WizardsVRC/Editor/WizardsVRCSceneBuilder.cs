@@ -105,6 +105,7 @@ namespace WizardsVRC.EditorTools
                     + "\n\nBuild anyway? Broken parts are skipped.", "Build anyway", "Cancel"))
                 return;
 
+            StartBuildTimer();
             ConfigureProject();
             if (!EnsureProgramAssets()) return;
             ResetExtras();
@@ -129,6 +130,7 @@ namespace WizardsVRC.EditorTools
             // Opening/creating a scene unloads assets nothing in it uses, which includes the world data loaded above
             // (Unity then reports those objects as null). Load it again now that the new scene exists.
             worldData = WorldDataStore.Load();
+            Lap("setup");
 
             // ---------------- lighting
             var sun = new GameObject("Directional Light");
@@ -159,12 +161,14 @@ namespace WizardsVRC.EditorTools
             // The hub zone (if the world data has one) decides whether the schools are indoors or out in the castle grounds.
             HubLayout hubPlan = PlanHub(worldData);
             Interior interior = BuildInterior(hubPlan.outdoorSchools);
+            Lap("castle interior");
             _interiorRoot = interior.root;
             _archFronts.Clear();
             Transform selectSpawn = interior.officeSpawn;
             Canvas selectCanvas = interior.selectCanvas;
             Transform hubSpawn = BuildHub(out Canvas hubCanvas, hubPlan, interior, worldData);
             AddFloaters(interior.root);   // the office's desk orb and the hall star hover too
+            Lap("castle grounds (hub)");
 
             var descriptor = world.AddComponent<VRCSceneDescriptor>();
             descriptor.spawns = new[] { selectSpawn };
@@ -199,6 +203,7 @@ namespace WizardsVRC.EditorTools
             var laneA = MakeEncounter(systems.transform, "LaneRats", cardDb, itemDb, playerState, hubSpawn, new[] { 4, 4 }, true, encounters);
             var laneB = MakeEncounter(systems.transform, "LaneSprites", cardDb, itemDb, playerState, hubSpawn, new[] { 3, 3, 3 }, true, encounters);
             var battle = battleClient.manager;
+            Lap("encounters");
 
             teleporter.defaultTarget = hubSpawn;
             saveManager.scratch = scratchData;
@@ -228,7 +233,9 @@ namespace WizardsVRC.EditorTools
 
             BuildSelectCanvasContents(selectCanvas, selectUI);
             BuildHubCanvasContents(hubCanvas, selectUI, book);
+            Lap("select screen");
             AssignCardArt(cardDb);
+            Lap("card art");
             BuildInventoryBook(book, hud, deckPages, questPages);
             BuildHud(hud);
             Transform hubRoot = hubSpawn.parent;
@@ -260,7 +267,9 @@ namespace WizardsVRC.EditorTools
             }
             battleClient.queueRequiredQuest = hubPlan.padRequiredQuest;
             if (!string.IsNullOrEmpty(hubPlan.padLockedHint)) battleClient.queueLockedText = "Boss Arena Teleporter\n(locked: " + hubPlan.padLockedHint + ")";
+            Lap("book and HUD");
             BuildArena(battleClient, new[] { laneA, laneB });
+            Lap("boss arena");
             var cutscenes = BuildCutscenes(systems.transform, selectUI, interior);
             var opening = BuildAwakening(systems.transform, interior, selectUI, teleporter, (IntroFlow)cutscenes[1], saveManager, hud, selectCanvas);
             var learning = BuildSpellLearning(systems.transform, playerState, cardDb, hud, out SpellTrainer trainer, out InteractionMenu interactionMenu);
@@ -272,10 +281,13 @@ namespace WizardsVRC.EditorTools
             selectUI.questManager = questManager;
             hud.questManager = questManager;
             questPages.questManager = questManager;
+            Lap("cutscenes, spell training, quests");
             var wb = new WorldBuild { data = worldData, cutsceneParent = Child(systems.transform, "ZoneCutscenes", Vector3.zero) };
             BuildZones(systems.transform, hubRoot, questManager, cardDb, itemDb, playerState, encounters, wb, hubPlan);
+            Lap("zones (streets)");
             // The book's world and zone maps, drawn from the zones just built (WizardsVRCSceneBuilder.Maps.cs).
             BuildMaps(BookMap, wb, hubPlan);
+            Lap("book maps");
             ApplyQuestlines(questManager, wb, itemDb);
             var streets = wb.behaviours;
             streets.AddRange(BuildPortalRoom(interior, questManager, playerState));
@@ -290,6 +302,7 @@ namespace WizardsVRC.EditorTools
             streets.Add(homeTeleport);
             // Notices, tooltips, titles and auras, elixirs, the Starshard Shop and the gold shops (WizardsVRCSceneBuilder.Cosmetics.cs).
             WireExtras(systems.transform, playerState, itemDb, cardDb, book, hud, deckPages, questManager, null, encounters);
+            Lap("quest wiring, shops and extras");
             // Every word in the book (every tab, the cards, the wardrobe and shop pages) in the pixel font, like the signs.
             if (book.bookRoot != null) ApplyCombatFont(book.bookRoot.transform);
             // Pop-up panels stay clickable when they open inside an NPC's or door's click box.
@@ -330,7 +343,9 @@ namespace WizardsVRC.EditorTools
             foreach (var go in scene.GetRootGameObjects()) allTargets.AddRange(go.GetComponentsInChildren<QuestTarget>(true));
             questManager.questTargets = allTargets.ToArray();
             streets.Add(areaCuller);
+            Lap("overlays and area culling");
             BuildSkies(LayOutWorld(hubPlan, hubRoot, wb), areaCuller, RenderSettings.skybox);
+            Lap("skies");
 
             // Interface sounds: every button gets a click / hover sound; cards, the book and cutscenes call it directly.
             var uiAudio = BuildUiAudio(systems.transform);
@@ -353,13 +368,16 @@ namespace WizardsVRC.EditorTools
             }
             ((CutscenePlayer)cutscenes[0]).uiAudio = uiAudio;
             // Drawing a spell's rune to cast it, and every attack spell's choreography and cinematic (WizardsVRCSceneBuilder.SpellCast.cs).
+            Lap("interface sounds and discovery");
             BuildSpellCasting(encounters, (CutscenePlayer)cutscenes[0], book);
+            Lap("spell casting and cinematics");
             Debug.Log("[WizardsVRC] Interface sounds on " + WireUiSounds(scene, uiAudio) + " buttons.");
             streets.Add(uiAudio);
 
             // Background music: hub, combat and character creation themes, plus each zone's own track (local to each player).
             streets.Add(BuildMusic(systems.transform, playerState, hubPlan.cullBounds, interior.root, book, wb, (CutscenePlayer)cutscenes[0]));
 
+            Lap("music");
             var toSync = new System.Collections.Generic.List<UdonSharpBehaviour>(cutscenes);
             toSync.AddRange(opening);
             toSync.AddRange(quests);
@@ -378,27 +396,34 @@ namespace WizardsVRC.EditorTools
                 EditorUtility.SetDirty(b);
             }
 
+            Lap("Udon behaviours (copy to Udon)");
             // Every plain menu panel and button in the PS1 look (WizardsVRCSceneBuilder.UiStyle.cs).
             Debug.Log("[WizardsVRC] Styled " + StyleWorldUi(scene.GetRootGameObjects()) + " menu panels and buttons.");
+            Lap("interface styling");
             // Static scenery sharing a material, combined per 32 m chunk (WizardsVRCSceneBuilder.Merge.cs).
             MergeStaticScenery(scene);
+            Lap("merging static scenery");
             RestoreMyChanges(scene);
             // 2D sounds get the (disabled) VRC Spatial Audio Source the SDK asks for (WizardsVRCSceneBuilder.Audio.cs).
             Debug.Log("[WizardsVRC] Spatial audio: set up " + FixFlatAudio(scene) + " audio sources.");
 
             Directory.CreateDirectory("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
+            Lap("saving the scene");
             // Occlusion culling for the hub (its Occlusion Area is set up in BuildHubZone). Baked after the save so it's
             // baked for the saved scene; WizardsVRC > Bake Hub Occlusion re-bakes it on its own.
             if (BakeOcclusionOnRebuild && hubPlan.zone != null)
             {
                 BakeHubOcclusion();
                 EditorSceneManager.SaveScene(scene, ScenePath);
+                Lap("occlusion bake");
             }
             AddSceneToBuildSettings();
             AssetDatabase.SaveAssets();
+            Lap("saving assets");
             Debug.Log("[WizardsVRC] Generated " + ScenePath);
             ReportWorld(worldData, wb, hubPlan);
+            ReportBuildTimer();
             if (sdkPanel != null) EditorApplication.delayCall += () => EditorWindow.GetWindow(sdkPanel);
         }
 

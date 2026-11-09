@@ -22,6 +22,12 @@ All art is generic placeholder geometry.
    - generates `Assets/Scenes/MainWorld.unity` and adds it to Build Settings.
 
    If you ever need to regenerate it: menu **WizardsVRC > Rebuild MainWorld Scene**.
+
+   **Faster rebuilds:** the hub's occlusion bake (several minutes on its own) no longer runs on every rebuild. Run
+   **WizardsVRC > Bake Hub Occlusion** once before you upload (it bakes and saves the open scene), or tick
+   **WizardsVRC > Options > Bake Occlusion On Rebuild** to bake every time. Generated pictures (card art, the book's maps,
+   the skylines) are only written and re-imported when they changed, so a rebuild with no art changes skips that work.
+   Each rebuild logs how long it took and each stage's time, slowest first (`[WizardsVRC] Rebuild took ...`).
 6. Commit the generated files (scene, materials, program assets) so they are in the repo too.
 
 ## Build & Test (local only)

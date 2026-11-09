@@ -285,11 +285,13 @@ namespace WizardsVRC.EditorTools
                 System.Array.Copy(c.px, y * c.w, flipped, (c.h - 1 - y) * c.w, c.w);
             tex.SetPixels32(flipped);
             tex.Apply();
-            File.WriteAllBytes(assetPath, tex.EncodeToPNG());
+            // Only written and re-imported when the map changed (compressing a big map is slow).
+            WritePngIfChanged(assetPath, tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
-            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
             var imp = AssetImporter.GetAtPath(assetPath) as TextureImporter;
-            if (imp != null)
+            if (imp != null && (imp.textureType != TextureImporterType.Default || !imp.alphaIsTransparency || imp.wrapMode != TextureWrapMode.Clamp ||
+                                imp.filterMode != FilterMode.Trilinear || !imp.mipmapEnabled || imp.maxTextureSize != 2048 ||
+                                imp.textureCompression != TextureImporterCompression.CompressedHQ))
             {
                 imp.textureType = TextureImporterType.Default;
                 imp.alphaIsTransparency = true;

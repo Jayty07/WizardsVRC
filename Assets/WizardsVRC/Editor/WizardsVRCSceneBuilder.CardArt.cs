@@ -629,9 +629,9 @@ namespace WizardsVRC.EditorTools
             tex.Apply();
             Directory.CreateDirectory(CardArtDir);
             string path = CardArtDir + "/" + id + ".png";
-            File.WriteAllBytes(path, tex.EncodeToPNG());
+            // Only written (and re-imported) when the picture changed.
+            WritePngIfChanged(path, tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
-            AssetDatabase.ImportAsset(path);
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
             if (importer != null && (importer.filterMode != FilterMode.Point || importer.mipmapEnabled || importer.textureCompression != TextureImporterCompression.Uncompressed ||
                                      importer.npotScale != TextureImporterNPOTScale.None))
