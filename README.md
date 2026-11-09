@@ -257,6 +257,18 @@ nothing is taken back.
 
 ## The start of the game
 
+**The title screen** (`TitleScreen`, `WizardsVRCSceneBuilder.Title.cs`): every player arrives on a dais of starlit stone
+floating over a sea of moonlit clouds under the aurora. Ahead hangs the WIZARDS VRC wordmark (gold pixel letters with a
+violet extrude, a wizard's hat tipped on the I, VRC on a ribbon), bobbing gently in a breathing violet glow with sparkles
+winking round it, over the line "Seven schools. One spellbook. Your story." The seven schools' symbols float in an arc
+around it and draw themselves stroke by stroke, each in its own style, flare, hold and fade before drawing again. Beyond,
+Starfall Isle's castle rides its floating island with the crystal turning on top, between two smaller isles; a rune
+circle turns under your feet, shooting stars streak across the sky and golden motes drift past. The menu below reads
+"Opening your spellbook..." until your saves have loaded, then **Begin** lights up: your eyes close, you're taken to the
+Headmaster's study and the game carries on as before (the opening for a new player, the character select for a returning
+one). The title stage then switches itself off. It all animates itself (Animators, the GlyphDraw shader, particles). Art:
+`Tools/make_title_art.py` (Textures/Title: the wordmark and the sky panorama); music: the character creation theme.
+
 Like Wizard101, new wizards don't meet a real monster until they know the basics. After choosing a school in the
 Headmaster's office you find your professor at their school hall, report back, then take the castle tour: Gatekeeper
 Bramwell (exploring the grounds), Quartermaster Pell (backpack, gear, potions), Librarian Wren (cards, pips, accuracy,

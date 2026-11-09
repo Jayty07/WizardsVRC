@@ -143,6 +143,7 @@ namespace WizardsVRC
         {
             if (_running) return;
             _blackout = false;
+            _closing = false;
             _slot = slot;
             _running = true;
             _waitingCreator = false;
@@ -330,11 +331,36 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ every frame
 
+        private bool _closing;
+        private float _closeSpeed = 1f;
+
+        /// <summary>
+        /// The title screen's Begin: your eyes close over 'seconds' and stay shut (until EndBlackout or Begin), so the move
+        /// to the study happens in the dark.
+        /// </summary>
+        public void StartBlackout(float seconds)
+        {
+            if (_running) return;
+            if (lidRenderer != null && _lidMat == null) _lidMat = lidRenderer.material;
+            _blackout = true;
+            _blackoutUntil = Time.time + 25f;
+            _closing = true;
+            _closeSpeed = 1f / Mathf.Max(0.05f, seconds);
+            if (lids == null || !lids.gameObject.activeSelf) _open = 1f;   // eyes were open: close from wide open
+            _flash = 0.25f;
+            _tint = 0f;
+            _vignette = 0.6f;
+            ApplyLids();
+            SetActive(lids, true);
+            FollowHead(0f);
+        }
+
         /// <summary>IntroFlow: a returning player (no opening to play): open your eyes on the study.</summary>
         public void EndBlackout()
         {
             if (!_blackout) return;
             _blackout = false;
+            _closing = false;
             if (!_running) SetActive(lids, false);
         }
 
@@ -344,6 +370,13 @@ namespace WizardsVRC
             {
                 if (!_blackout) return;
                 if (Time.time > _blackoutUntil) { EndBlackout(); return; }
+                if (_closing)
+                {
+                    _open = Mathf.MoveTowards(_open, 0f, _closeSpeed * Time.deltaTime);
+                    _flash = Mathf.MoveTowards(_flash, 0f, Time.deltaTime);
+                    ApplyLids();
+                    if (_open <= 0f) _closing = false;
+                }
                 FollowHead(Time.deltaTime);
                 return;
             }
