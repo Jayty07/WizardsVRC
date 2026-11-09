@@ -318,9 +318,10 @@ where it meets the horizon. Material: `Materials/StarfallWard.mat` (builder: `Wi
 reached them since; the Headmaster tells you so on waking, and that the ward drinks from the crystal ("if one fails, so
 will the other"). The arc it carries:
 - **World 1**: there, taken for granted by everyone, overhead wherever you go.
-- **World 3**: the heart of the story. The fading crystal starves the ward: it flickers, cracks spread across it, and the
-  hunt is on for a way to mend it (or to learn who is breaking it).
-- **World 4**: it fails, and the hub is invaded.
+- **World 3**: Bigdig, the kobolds' homeland, where the Dominion is quietly draining the Mother Lode while the kobold
+  gangs feud. Bigdig's own ward died the same way; Starfall's cracks as World 3's storylines finish.
+- **World 3's finale**: the siege of Starfall. The Threadfleet anchors over the isle, the ward falls and the Grand
+  General fights for the portal room. (The full plan is in the doc *The Everweave: Main Story Plan*.)
 The shader's **Crack** (`_Crack`, 0 whole to 1 failing) is there for those chapters: cells break along their edges, red
 fractures spread, the light gutters and turns red. Set it on the material (or from a script for a story beat).
 

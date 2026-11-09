@@ -11,10 +11,10 @@ namespace WizardsVRC.EditorTools
     /// hexagons across the whole sky, shimmering, with pulses rolling down from its crown and a ring of runes turning where
     /// it meets the horizon (WizardsVRC/WardDome shader, animated on the GPU: no scripts).
     ///
-    /// Story (see README, "The Starfall Ward"): World 1 introduces it as something everyone takes for granted. As the
-    /// crystal fades it becomes the heart of World 3's story (the ward weakening, cracks appearing, the hunt for a way to
-    /// mend it), and its failure opens World 4 with the invasion of the hub. The shader's _Crack (0 whole .. 1 failing)
-    /// is there for those chapters: fractures spread, the light gutters and turns red.
+    /// Story (see README, "The Starfall Ward", and the doc "The Everweave: Main Story Plan"): World 1 introduces it as
+    /// something everyone takes for granted. In World 3 the Dominion drains Bigdig's Mother Lode and the ward cracks as
+    /// its storylines finish; it falls in World 3's finale, the siege of Starfall. The shader's _Crack (0 whole ..
+    /// 1 failing) is there for those chapters: fractures spread, the light gutters and turns red.
     ///
     /// Each World 1 place gets its own copy of the dome (they're far apart and each is drawn on its own), a hemisphere
     /// just inside the draw distance centred on the place, so the ward always fills the sky overhead and comes down out
