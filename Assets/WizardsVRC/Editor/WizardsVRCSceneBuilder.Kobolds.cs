@@ -10,7 +10,8 @@ namespace WizardsVRC.EditorTools
     /// cart with gold glinting in it, a gold pan on a crate, a lantern on a post and their company's sign; a foreman you
     /// can talk to and a couple of diggers at work.
     ///
-    /// What they say are hints for World 3: the old gold of Bigdig "sings" and has gone quiet; the elders say it and the
+    /// They talk like fast-talking, money-mad hustlers (every visitor's a customer, everything costs extra, blasting
+    /// rates on request), and what they say carries hints for World 3: the old gold of Bigdig "sings" and has gone quiet; the elders say it and the
     /// Starfall Crystal were struck from the same star; someone is buying up every scrap of it; a kobold-made door below
     /// Copperbottom Mine is locked from the other side; and somebody tall, with spells, will have to go down and see.
     ///
@@ -35,9 +36,10 @@ namespace WizardsVRC.EditorTools
                 diggers = new[] { "Digger Snib", "Digger Pell" },
                 lines = new[]
                 {
-                    "Don't mind us, wizard. Bigdig Prospecting Company, all papers in order. Mostly.",
-                    "Gold. The old kind, that hums when you hold it to your ear. Back home in Bigdig the seams have gone quiet.",
-                    "The elders say the singing gold and your castle's crystal were struck from the same star. Funny thing to dig for under a lamp post, eh?",
+                    "Customer! No, wait, wizard. Same thing, if you've got coin! Grizzik Tallowlamp, Bigdig Prospecting, at your service, for a reasonable fee.",
+                    "Gold, pal! The old stuff, hums when you hold it to your ear. Back home the seams have gone dead quiet, and quiet gold don't pay.",
+                    "Elders say the singing gold and your fancy crystal came off the same star. Me? I say a crystal that size could fund a whole new tunnel. Just saying!",
+                    "Now beat it, I'm on the clock! Every second you stand there is a nugget I ain't digging!",
                 },
             },
             new KoboldCrewInfo
@@ -46,9 +48,10 @@ namespace WizardsVRC.EditorTools
                 diggers = new[] { "Digger Murk" },
                 lines = new[]
                 {
-                    "We follow the hum. Today the hum says: under the fish market. Don't ask.",
-                    "Every kobold in Bigdig knows the old story. When the deep gold goes silent, something is drinking the light from the top down.",
-                    "Shipped six crates home this month. Six! And the Deepwarden writes back that it still isn't enough.",
+                    "Watch the hole, sweetie! Fall in, you're paying for the rope. Rope's extra.",
+                    "We follow the hum, and today the hum says: under the fish market. Smells awful. Smells like profit!",
+                    "Old kobold saying: when the deep gold goes silent, something's drinking the light from the top down. Bad for business. Very bad for business.",
+                    "Shipped six crates home this month! Six! And the Deepwarden writes back 'not enough'. Not enough! I oughta charge him postage.",
                 },
             },
             new KoboldCrewInfo
@@ -57,9 +60,10 @@ namespace WizardsVRC.EditorTools
                 diggers = new[] { "Digger Tamm", "Digger Ozzle" },
                 lines = new[]
                 {
-                    "Kilns run hot, ground runs hotter. Good sign for gold. Bad sign for my tail.",
-                    "That dome of light over your isles? Lovely bit of work. My gran said Bigdig had one too, once. Underground, mind. Then it went out.",
-                    "If you ever find gold that glows in the dark, wizard, don't spend it. Bring it to a kobold. Please.",
+                    "Heh heh! Stand back, I'm about to try something with a very short fuse. Kidding! Mostly. Pib Cindertooth, overseer, demolitions, and fine accounting.",
+                    "Kilns run hot, ground runs hotter, and hot ground means gold. Also means my tail's smoking. Small price!",
+                    "That glowing dome over your isles? Lovely work. Gran says Bigdig had one too, underground. Then it went out. Nobody got a refund.",
+                    "Find gold that glows in the dark, you bring it straight to a kobold, got it? Don't spend it. I'll give you a great price. Terrific price!",
                 },
             },
             new KoboldCrewInfo
@@ -68,9 +72,10 @@ namespace WizardsVRC.EditorTools
                 diggers = new[] { "Digger Fenna" },
                 lines = new[]
                 {
-                    "Roots everywhere! Gold hides under roots, everyone knows that. Roots know where the good stuff is.",
-                    "Bigdig's a long way down. Past the bottom of the bottom. You'll see it one day, I reckon. Bring a lamp.",
-                    "Somebody's been buying up every scrap of singing gold in the worlds. Not us. We'd know. We're us.",
+                    "Ooh, a big one with a wand! You buying, selling, or just blocking my light? Blocking costs extra.",
+                    "Roots everywhere! Gold hides under roots, everybody knows that. Roots got good taste.",
+                    "Bigdig's way down, friend. Past the bottom of the bottom. You'll get there one day. Bring a lamp. I rent lamps!",
+                    "Somebody's buying up every scrap of singing gold in the worlds, and it ain't us. Undercutting us! Can you believe the nerve?",
                 },
             },
             // ---------------- World 2 (Dustwind)
@@ -80,9 +85,10 @@ namespace WizardsVRC.EditorTools
                 diggers = new[] { "Digger Rasp", "Digger Ninn" },
                 lines = new[]
                 {
-                    "Dustwind gold's got grit in it. Grit, and a bit of starlight if you're lucky.",
-                    "Folks here keep their gold in banks. Kobolds keep ours in pockets. Faster.",
-                    "Word from Bigdig: the Deep Seam went dark three more tunnels this week. Nobody down there is saying why.",
+                    "Hey hey, big spender! Krel Dustgrin, boss of this here claim. Want a share? Shares are cheap today. Today only!",
+                    "Dustwind gold's got grit in it. Grit, and a pinch of starlight if you're lucky. Grit I can sell. Starlight I can sell for more.",
+                    "Lizard folk keep their gold in banks. Kobolds keep ours in pockets. Faster withdrawals, no fees!",
+                    "Word from Bigdig: the Deep Seam went dark three more tunnels this week. Nobody's saying why. Somebody's gonna pay for this, and it ain't gonna be me!",
                 },
             },
             new KoboldCrewInfo
@@ -91,9 +97,10 @@ namespace WizardsVRC.EditorTools
                 diggers = new[] { "Digger Bix" },
                 lines = new[]
                 {
-                    "The gulch sang to me last night. Gold sings, if you're a kobold. Mostly it sings 'dig here'.",
-                    "Tell the lizardfolk we're not stealing anything. We're borrowing. From the ground.",
-                    "The elders sent us every which way: up to the castle isles, out to the desert. Looking for gold that still sings.",
+                    "Easy, easy, don't touch the cart! That's company gold. Touching's a silver piece. Looking's free. For now.",
+                    "Gulch sang to me last night. Gold sings, if you're a kobold. Mostly it sings 'dig here, Ratchet, you genius'.",
+                    "Tell the lizard folk we ain't stealing. We're borrowing! From the ground! Long-term loan, very generous terms.",
+                    "Elders sent us every which way, isles to desert, hunting gold that still sings. Find some, you know where I am. Same hole. Bigger, by Tuesday.",
                 },
             },
             new KoboldCrewInfo
@@ -102,9 +109,10 @@ namespace WizardsVRC.EditorTools
                 diggers = new[] { "Digger Gub", "Digger Tilly" },
                 lines = new[]
                 {
-                    "Copper, copper, copper. Copper's for pots. We want the gold behind the copper.",
-                    "Down past the bottom shaft there's a door that isn't on any map. Kobold-made, old as old. Locked from the other side.",
-                    "When the mine goes quiet you can hear it: tapping, deep down. Not us. We stopped tapping an hour ago.",
+                    "Ha! A wizard! Bet you've got pockets. Everybody's got pockets. Mog Brasswhisker, chief digger, ask me about our blasting rates!",
+                    "Copper, copper, copper. Copper's for pots. We want the gold behind the copper, and the gold behind that!",
+                    "Down past the bottom shaft there's a door that ain't on any map. Kobold-made, old as dirt. Locked from the other side. Who locks a door from the other side? Bad for business, that's who.",
+                    "When the mine goes quiet you can hear it: tapping, deep down. Not us. We stopped tapping an hour ago. I'm not paid enough to be scared. Pay me more and I'll be terrified!",
                 },
             },
             new KoboldCrewInfo
@@ -113,9 +121,10 @@ namespace WizardsVRC.EditorTools
                 diggers = new[] { "Digger Wort" },
                 lines = new[]
                 {
-                    "Lightning finds gold, you know. Strikes where the ground's full of it. So we stand here and wait. Bravely.",
-                    "The storms out here hum the same note as the gold back home. Same note as your crystal, too. Funny, that.",
-                    "If the deep gold ever stops humming altogether, wizard... well. Let's just keep digging.",
+                    "Whoa, stand clear! Lightning's due any minute and I've got money riding on where it lands. Zizi Sparkfang, surveyor, bookie, genius.",
+                    "Lightning finds gold, see? Strikes where the ground's full of it. So we stand here and wait. Bravely! Profitably!",
+                    "Storms out here hum the same note as the gold back home. Same note as your crystal, too. That's either a coincidence or an investment opportunity.",
+                    "If the deep gold ever stops humming altogether... well. Then I'd sell my shares. Quick. Hey, you wanna buy some shares?",
                 },
             },
             new KoboldCrewInfo
@@ -124,11 +133,29 @@ namespace WizardsVRC.EditorTools
                 diggers = new[] { "Digger Quill", "Digger Sprat" },
                 lines = new[]
                 {
-                    "Forty years I've dug, wizard. Forty years, and the gold's never been this quiet.",
-                    "Bigdig's under everything. Every world's got a cellar, and every cellar's got a door down to us, if you dig deep enough.",
-                    "Somebody's going to have to go down there and find out what's gone wrong. Somebody tall. With spells.",
+                    "Heh. Another tall one. Fennick Rustclaw. Forty years digging, and I still charge by the hour, so talk fast.",
+                    "Forty years, and the gold's never been this quiet. Quiet gold's cheap gold, and cheap gold's no gold at all.",
+                    "Bigdig's under everything, kid. Every world's got a cellar, every cellar's got a door down to us, if you dig deep enough and don't mind the paperwork.",
+                    "Somebody's gonna have to go down there and see what's gone wrong. Somebody tall. With spells. I'd go myself, but who'd mind the gold?",
                 },
             },
+        };
+
+        /// <summary>What a digger says between swings (two of these each).</summary>
+        private static readonly string[] DiggerBarks =
+        {
+            "Yeah, yeah, what? I'm digging here! Digging's money!",
+            "You want a hole? I can dig you a hole. Ten silver. Fifteen if you want it deep.",
+            "Don't tell the boss I stopped. Every second's a nugget!",
+            "Stand back, big feet! You're on company dirt.",
+            "Gold! Gold! ...No, rock. Rock again. Rock's not paying!",
+            "Got a light? Not for a pipe. For a fuse. Never mind!",
+            "We're not lost, we're prospecting. Totally different. One pays.",
+            "Hey, you look rich. You rich? Wanna invest in a hole?",
+            "Boss says if I find singing gold I get a bonus. Boss says that a lot.",
+            "Shh! Hear that hum? ...Nope, that was my stomach. Lunch costs extra.",
+            "Bigdig's a long way down, pal. Long way. Charge by the foot.",
+            "Ow, my tail! Who left a pick there? Oh. Me. Billing myself.",
         };
 
         /// <summary>The kobold crew for this street, if it has one: the claim, the foreman (talkable) and the diggers.</summary>
@@ -159,14 +186,23 @@ namespace WizardsVRC.EditorTools
             _npcLookOverrides[crew.foremanKey] = KoboldLook(seed, true);
             BuildNpc(root, g, z, npc, qm, wb, at + facing * new Vector3(-1.6f, 0f, 1.9f), street);
 
-            // The diggers, at work round the hole and the cart (not talkative: busy).
+            // The diggers, at work round the hole and the cart: talk to one and you get a word or two between swings.
             for (int k = 0; k < crew.diggers.Length; k++)
             {
                 Vector3 local = k == 0 ? new Vector3(0.35f, 0f, -0.1f) : new Vector3(1.55f, 0f, 1.05f);
-                float yaw = k == 0 ? 150f : -60f;
-                float top, face;
-                NpcModel(site, "KoboldDigger" + k, local, yaw, KoboldLook(seed + 7 * (k + 1), false, k), crew.diggers[k], "(busy digging)", out top, out face);
+                Vector3 front = facing * (k == 0 ? new Vector3(-0.5f, 0f, -0.86f) : new Vector3(0.87f, 0f, 0.5f));
+                string key = crew.foremanKey + "Digger" + k;
+                int bark = StableSeed(key);
+                var digger = new ZoneNpc
+                {
+                    symbol = "\u0001", key = key, displayName = crew.diggers[k], facing = 0f,
+                    robeColor = new Color(0.4f, 0.32f, 0.2f), hatColor = new Color(0.3f, 0.24f, 0.16f),
+                    defaultDialogue = new[] { DiggerBarks[bark % DiggerBarks.Length], DiggerBarks[(bark / 13 + 5) % DiggerBarks.Length] },
+                };
+                _npcLookOverrides[key] = KoboldLook(seed + 7 * (k + 1), false, k);
+                BuildNpc(root, g, z, digger, qm, wb, at + facing * local, front);
             }
+        }
         }
 
         /// <summary>
