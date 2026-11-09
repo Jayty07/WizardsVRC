@@ -434,6 +434,7 @@ namespace WizardsVRC
         private string _stepHeader = "";
         private int _castFrom;
         private int _castTo;
+        private Vector3[] _aoeTargets = new Vector3[BattleManager.SIDE];
         private Vector3 _ringBase;
         private Vector3 _glyphBase;
         private GameObject _spellAnim;
@@ -2040,6 +2041,15 @@ namespace WizardsVRC
             float after = _stepCine ? manager.CineAfter(card) : manager.plainAfterSeconds;
             float outSec = _stepCine ? manager.cineOutSeconds : 0f;
             spellCinematic.Prepare(this, me, watch, _stepCine, seats[actor], body, creature, targetScale);
+            // An area spell: every living combatant on the side it hits, so its bolts and bursts land on each of them.
+            if (cardDatabase.IsAoe(card) && target >= 0 && target < BattleManager.SLOTS && target != actor)
+            {
+                int side = manager.SideOf(target) * BattleManager.SIDE;
+                int n = 0;
+                for (int s = side; s < side + BattleManager.SIDE && n < _aoeTargets.Length; s++)
+                    if (manager.Occupied(s) && manager.Alive(s) && s < seats.Length) _aoeTargets[n++] = TargetPoint(s);
+                spellCinematic.SetTargets(_aoeTargets, n);
+            }
             spellCinematic.Begin(from, fwd, aim, school, cardDatabase.CineStyle(card), cardDatabase.GetPipCost(card),
                 cardDatabase.IsAoe(card), SeatScale(actor), manager.SlotName(actor), cardDatabase.GetName(card),
                 inSec, manager.CastSeconds(school), cardDatabase.CineStrike(card), cardDatabase.CineRelease(card), after, outSec);
@@ -2048,17 +2058,33 @@ namespace WizardsVRC
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.StepSeconds(_stepStart));
         }
 
+        /// <summary>
+        /// Where a combatant really stands: a monster's (or minion's) body when it's out, else its seat, on the seat's floor.
+        /// Spells and their impacts are aimed here.
+        /// </summary>
+        private Vector3 TargetPoint(int s)
+        {
+            Vector3 seat = seats[s].position;
+            Transform body = !manager.IsPlayerSeat(s) ? BodyOf(s) : null;
+            if (body == null || !body.gameObject.activeInHierarchy) return seat;
+            Vector3 p = body.position;
+            Vector3 d = p - seat;
+            d.y = 0f;
+            // A body far from its seat is on the move (walking to the middle to cast, or a minion still arriving): use the seat.
+            return d.sqrMagnitude < 9f ? new Vector3(p.x, seat.y, p.z) : seat;
+        }
+
         /// <summary>Where an attack spell lands: its target, or the middle of the side an area spell hits.</summary>
         private Vector3 StepAim(int actor, int target, int card)
         {
             if (target < 0 || target >= seats.Length || target == actor)
                 return arenaCenter != null ? arenaCenter.position + seats[actor].forward * 3f : seats[actor].position + seats[actor].forward * 4f;
-            if (!cardDatabase.IsAoe(card) || target >= BattleManager.SLOTS) return seats[target].position;
+            if (!cardDatabase.IsAoe(card) || target >= BattleManager.SLOTS) return TargetPoint(target);
             int side = manager.SideOf(target) * BattleManager.SIDE;
             Vector3 sum = Vector3.zero;
             int n = 0;
             for (int s = side; s < side + BattleManager.SIDE; s++)
-                if (manager.Occupied(s) && s < seats.Length) { sum += seats[s].position; n++; }
+                if (manager.Occupied(s) && manager.Alive(s) && s < seats.Length) { sum += seats[s].position; n++; }
             return n > 0 ? sum / n : seats[target].position;
         }
 

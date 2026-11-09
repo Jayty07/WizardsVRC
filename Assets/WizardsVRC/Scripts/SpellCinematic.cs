@@ -126,6 +126,9 @@ namespace WizardsVRC
         // Distance scale (lateral swings, arcs) and where the spell meets its target / where a creature pulls up.
         private float _reach = 1f;
         private Vector3 _hit;
+        // An area spell's targets (SetTargets): its bolts and impacts land on each of them, not between them.
+        private Vector3[] _targets = new Vector3[4];
+        private int _targetCount;
         private Vector3 _stop;
         private BattleClient _owner;
         private float _t0;
@@ -143,6 +146,8 @@ namespace WizardsVRC
         private Vector3 _fwd;
         private Vector3 _right;
         private Vector3 _aim;
+        // Where the ground effects of the hit go: the target, or an area spell's first target (not the empty middle of its side).
+        private Vector3 _impactAt;
         private Vector3 _hand;
         private float _body;
         private float _ground;
@@ -215,6 +220,7 @@ namespace WizardsVRC
             _watch = watch && cinematic && !_me;
             _creature = creature;
             _tScale = Mathf.Clamp(targetScale, 0.5f, 3f);
+            _targetCount = 0;
             _casterBody = cinematic ? body : null;
             _bodyMoved = false;
             if (seat != null)
@@ -222,6 +228,25 @@ namespace WizardsVRC
                 _seatPos = seat.position;
                 _seatRot = seat.rotation;
             }
+        }
+
+        /// <summary>An area spell's targets (after Prepare, before Begin): up to four seats it hits.</summary>
+        public void SetTargets(Vector3[] pts, int n)
+        {
+            _targetCount = 0;
+            if (pts == null) return;
+            for (int i = 0; i < n && i < pts.Length && _targetCount < _targets.Length; i++) _targets[_targetCount++] = pts[i];
+        }
+
+        /// <summary>Where bolt i lands: the target's front, or for an area spell each of its targets in turn.</summary>
+        private Vector3 HitFor(int i)
+        {
+            if (!_aoe || _targetCount == 0) return _hit;
+            Vector3 t = _targets[i % _targetCount];
+            Vector3 d = t - _from;
+            d.y = 0f;
+            Vector3 toward = d.sqrMagnitude > 0.001f ? d.normalized : _fwd;
+            return t - toward * 0.35f + Vector3.up * 1.0f;
         }
 
         /// <summary>
@@ -258,6 +283,7 @@ namespace WizardsVRC
             float front = _aoe ? 0f : 0.35f * _tScale;
             _hit = _aim - _fwd * front + Vector3.up * (1.0f * (_aoe ? 1f : _tScale));
             _stop = _aim - _fwd * ((_aoe ? 1.6f : 1.3f) * _tScale);
+            _impactAt = _aoe && _targetCount > 0 ? new Vector3(_targets[0].x, _aim.y, _targets[0].z) : _aim;
 
             _delivery = style & 15;
             if (_delivery == 0) _delivery = CardDatabase.CINE_LANCE;
@@ -562,7 +588,7 @@ namespace WizardsVRC
             {
                 float from = 0f, to = strike, launch = 0f;
                 // The main bolt meets the front of the target; a creature riding it pulls up a stride short.
-                Vector3 hit = i == 0 && _creature ? _stop + up * 1.0f : _hit;
+                Vector3 hit = i == 0 && _creature ? _stop + up * 1.0f : HitFor(i);
                 Vector3 A = _hand, B = _hand, C = hit, D = hit;
                 float side = (i % 2 == 0 ? 1f : -1f) * _flip;
                 int pair = (i + 1) / 2;
@@ -593,7 +619,7 @@ namespace WizardsVRC
                 else if (d == CardDatabase.CINE_METEOR)
                 {
                     Vector3 land = hit;
-                    if (i > 0) land = _aim + (_right * Mathf.Cos(i * 2.4f) + _fwd * Mathf.Sin(i * 2.4f)) * spread + up * 0.9f;
+                    if (i > 0 && !(_aoe && _targetCount > 0)) land = _aim + (_right * Mathf.Cos(i * 2.4f) + _fwd * Mathf.Sin(i * 2.4f)) * spread + up * 0.9f;
                     A = _hand;
                     B = _from + up * ((8f + 1.5f * _height) * Mathf.Max(0.8f, k)) + _fwd * (0.8f * k) + _right * (side * 0.6f * pair);
                     C = land + up * ((9f + 1.5f * _height) * Mathf.Max(0.8f, k)) - _fwd * (1.2f * k);
@@ -605,7 +631,8 @@ namespace WizardsVRC
                 {
                     float ang = i * 137.5f * Mathf.Deg2Rad;
                     float r = i == 0 ? 0f : spread * (0.35f + 0.65f * ((i * 0.618f) % 1f));
-                    Vector3 land = i == 0 ? new Vector3(hit.x, _aim.y + 0.2f, hit.z) : _aim + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r + up * 0.2f;
+                    Vector3 land = i == 0 || (_aoe && _targetCount > 0 && i < _targetCount * 2) ? new Vector3(hit.x, _aim.y + 0.2f, hit.z) + (_aoe && i >= _targetCount ? (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * 0.6f : Vector3.zero)
+                        : _aim + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r + up * 0.2f;
                     A = land + up * (8.5f + _height) - _fwd * (0.5f * _flip);
                     D = land;
                     float span = Mathf.Max(0.3f, strike - 0.3f);
@@ -935,23 +962,41 @@ namespace WizardsVRC
         private void Strike()
         {
             Vector3 at = _creature ? Vector3.Lerp(_stop + Vector3.up * 1.0f, _hit, 0.6f) : _hit;
-            float big = _scale * (_aoe ? 1.4f : 1f);
+            // Where the main bolt really is as it lands (so the burst is on it, whatever path it took).
+            if (!_aoe && heads != null && _headCount > 0 && heads[0] != null && heads[0].gameObject.activeInHierarchy)
+            {
+                Vector3 h0 = heads[0].position;
+                Vector3 d = h0 - at;
+                if (d.sqrMagnitude < 4f) at = h0;
+            }
+            float big = ImpactSize();
             int im = _impact;
             float burstMul = im == CardDatabase.IMPACT_NOVA ? 1.6f : im == CardDatabase.IMPACT_IMPLODE ? 1.4f :
                              im == CardDatabase.IMPACT_BURST ? 1f : im == CardDatabase.IMPACT_SHATTER ? 0.4f : 0.55f;
-            if (impactBurst != null)
+            // An area spell bursts on every target it hits (the flash and the ground effects on the first).
+            bool many = _aoe && _targetCount > 0;
+            if (many) { at = HitFor(0); big = _scale; }
+            int bursts = many ? _targetCount : 1;
+            for (int b = 0; b < bursts; b++)
             {
-                impactBurst.transform.position = at;
-                impactBurst.transform.localScale = Vector3.one * big;
-                impactBurst.Emit((int)((35 + 22 * _pips) * burstMul));
+                Vector3 bat = many ? HitFor(b) : at;
+                if (impactBurst != null)
+                {
+                    impactBurst.transform.position = bat;
+                    impactBurst.transform.localScale = Vector3.one * big;
+                    impactBurst.Emit((int)((35 + 22 * _pips) * burstMul));
+                }
+                if (shardBurst != null && (im == CardDatabase.IMPACT_SHATTER || im == CardDatabase.IMPACT_SPIKES))
+                {
+                    shardBurst.transform.position = bat;
+                    shardBurst.transform.localScale = Vector3.one * big;
+                    shardBurst.Emit(im == CardDatabase.IMPACT_SHATTER ? 40 + 25 * _pips : 12 + 6 * _pips);
+                }
             }
-            if (shardBurst != null && (im == CardDatabase.IMPACT_SHATTER || im == CardDatabase.IMPACT_SPIKES))
-            {
-                shardBurst.transform.position = at;
-                shardBurst.transform.localScale = Vector3.one * big;
-                shardBurst.Emit(im == CardDatabase.IMPACT_SHATTER ? 40 + 25 * _pips : 12 + 6 * _pips);
-            }
-            if (impactFlash != null && im != CardDatabase.IMPACT_RINGS && im != CardDatabase.IMPACT_VORTEX)
+            if (many) _impactAt = new Vector3(_targets[0].x, _aim.y, _targets[0].z);
+            else _impactAt = new Vector3(at.x, _aim.y, at.z);
+            // The flash is on the target itself (an area spell's bursts and rings are on each of its targets instead).
+            if (impactFlash != null && !many && im != CardDatabase.IMPACT_RINGS && im != CardDatabase.IMPACT_VORTEX)
             {
                 impactFlash.position = at;
                 impactFlash.gameObject.SetActive(true);
@@ -961,14 +1006,17 @@ namespace WizardsVRC
                 {
                     if (shockRings[i] == null) continue;
                     bool on = i == 0 || im == CardDatabase.IMPACT_RINGS || im == CardDatabase.IMPACT_VORTEX || (i == 1 && (im == CardDatabase.IMPACT_NOVA || _pips >= 5 || _aoe));
-                    shockRings[i].position = _aim + Vector3.up * (0.08f + 0.02f * i);
+                    // One ring under each of an area spell's targets (up to three), else all on the target.
+                    Vector3 under = _aoe && _targetCount > 0 ? new Vector3(_targets[i % _targetCount].x, _aim.y, _targets[i % _targetCount].z) : _impactAt;
+                    if (_aoe && _targetCount > 1) on = i < _targetCount;
+                    shockRings[i].position = under + Vector3.up * (0.08f + 0.02f * i);
                     shockRings[i].rotation = Quaternion.identity;
                     shockRings[i].localScale = new Vector3(0.01f, 0.01f, 0.01f);
                     shockRings[i].gameObject.SetActive(on);
                 }
             if (impactPillar != null && im == CardDatabase.IMPACT_PILLAR)
             {
-                impactPillar.position = _aim;
+                impactPillar.position = _impactAt;
                 impactPillar.localScale = new Vector3(0.01f, 0.01f, 0.01f);
                 impactPillar.gameObject.SetActive(true);
             }
@@ -981,7 +1029,7 @@ namespace WizardsVRC
                     float ang = (i * 45f + 20f * _flip) * Mathf.Deg2Rad;
                     float r = Mathf.Lerp(r0, r1, (i * 0.618f) % 1f);
                     Vector3 out_ = _right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang);
-                    _spikeAt[i] = _aim + out_ * r;
+                    _spikeAt[i] = _impactAt + out_ * r;
                     _spikeRot[i] = Quaternion.AngleAxis(15f + 12f * ((i * 0.37f) % 1f), Vector3.Cross(Vector3.up, out_));
                     _spikeH[i] = (0.9f + 0.9f * ((i * 0.53f) % 1f)) * big;
                     spikes[i].SetPositionAndRotation(_spikeAt[i], _spikeRot[i]);
@@ -990,6 +1038,12 @@ namespace WizardsVRC
                 }
             }
             Sound(_pips >= 4 && impactBigSound != null ? impactBigSound : impactSound, at);
+        }
+
+        /// <summary>How big the impact is: the spell's pips and the target's size (not the caster's: a huge boss's spell still lands on a wizard-sized target).</summary>
+        private float ImpactSize()
+        {
+            return (0.85f + 0.17f * _pips) * Mathf.Max(1f, _tScale * 0.8f) * (_aoe ? 1.25f : 1f);
         }
 
         private float Ease(float x)
@@ -1001,11 +1055,11 @@ namespace WizardsVRC
         private void AnimateImpact(float t, float dt)
         {
             int im = _impact;
-            float big = _scale * (_aoe ? 1.4f : 1f);
+            float big = ImpactSize();
             // Before an implosion the school's energy is drawn in to the target; before a rune stamp the rune comes down.
             if (im == CardDatabase.IMPACT_IMPLODE && chargeAura != null && t >= _tStrike - 0.55f && t < _tStrike)
             {
-                chargeAura.transform.position = _aim + Vector3.up * 1.0f;
+                chargeAura.transform.position = _impactAt + Vector3.up * 1.0f;
                 chargeAura.transform.localScale = Vector3.one * big;
                 _auraAcc += dt * (40f + 15f * _pips);
                 int n = (int)_auraAcc;
@@ -1021,7 +1075,7 @@ namespace WizardsVRC
                     float fall = Mathf.Clamp01(k / 0.3f);
                     float y = Mathf.Lerp(3.2f, 0.09f, fall * fall);
                     float s = 2.4f * big * (fall < 1f ? 1f : 1f + 0.15f * Ease((k - 0.3f) / 0.2f));
-                    sigilStamp.SetPositionAndRotation(_aim + Vector3.up * y, Quaternion.Euler(0f, t * 30f * _flip, 0f));
+                    sigilStamp.SetPositionAndRotation(_impactAt + Vector3.up * y, Quaternion.Euler(0f, t * 30f * _flip, 0f));
                     sigilStamp.localScale = new Vector3(s, s, s);
                     if (_sigilMat != null)
                     {
@@ -1053,7 +1107,7 @@ namespace WizardsVRC
                         if (vk < 0f) continue;
                         if (vk >= 1f) { ring.gameObject.SetActive(false); continue; }
                         float size = Mathf.Lerp(3.2f, 1.0f, vk) * big * (1f - 0.15f * i);
-                        ring.position = _aim + Vector3.up * (0.2f + vk * (2.5f + 0.6f * i) * big);
+                        ring.position = _impactAt + Vector3.up * (0.2f + vk * (2.5f + 0.6f * i) * big);
                         ring.rotation = Quaternion.Euler(8f * Mathf.Sin(t * 6f + i), t * (400f + 120f * i) * _flip, 0f);
                         ring.localScale = new Vector3(size, Mathf.Max(0.01f, 1f - vk), size);
                         continue;
@@ -1095,7 +1149,7 @@ namespace WizardsVRC
             // Embers drift up off the target while the shots hold (a nova and a vortex throw up more).
             if (embers != null && t < _tAfter)
             {
-                embers.transform.position = _aim + Vector3.up * 0.6f;
+                embers.transform.position = _impactAt + Vector3.up * 0.6f;
                 embers.transform.localScale = Vector3.one * big;
                 float fall = 1f - Mathf.Clamp01(r / Mathf.Max(0.5f, _tAfter - _tStrike));
                 float rate = (18f + 8f * _pips) * (im == CardDatabase.IMPACT_NOVA || im == CardDatabase.IMPACT_VORTEX ? 1.7f : 1f);
@@ -1214,7 +1268,7 @@ namespace WizardsVRC
             {
                 float k = t - _tStrike;
                 float flare = _impact == CardDatabase.IMPACT_NOVA ? 4f : 2.2f;
-                fxLight.transform.position = _aim + Vector3.up * 1.4f;
+                fxLight.transform.position = _impactAt + Vector3.up * 1.4f;
                 fxLight.intensity = (peak * flare) * Mathf.Exp(-k * 2.5f);
                 fxLight.range = (6f + 1.2f * _pips) * (_aoe ? 1.4f : 1f);
             }
