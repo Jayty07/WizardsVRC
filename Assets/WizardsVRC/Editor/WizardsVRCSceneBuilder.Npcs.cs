@@ -578,17 +578,15 @@ namespace WizardsVRC.EditorTools
                 case NpcSpecies.Draconian:
                 case NpcSpecies.Kobold:
                 {
-                    // A scaly tail out of the back of the robe, curving down to the ground, a spade on a Draconian's.
+                    // A thick scaly tail out of the small of the back, sweeping down behind to rest its end on the ground with
+                    // the tip lifting; ridged with belly-coloured bands, a spade on a Draconian's. A Kobold's is shorter.
                     var belly = Belly(L);
-                    for (int k = 0; k < 4; k++)
-                    {
-                        float t = k / 3f;
-                        NP(hips, "Tail", BlobMesh(), new Vector3(0, -0.32f - 0.17f * k, d * 0.9f + 0.2f * k), new Vector3(0.2f - 0.04f * k, 0.2f - 0.04f * k, 0.3f), k == 0 ? skin : (k % 2 == 0 ? skin : belly),
-                            new Vector3(-30f - 12f * k, 0, 0));
-                    }
+                    float ts = L.species == NpcSpecies.Kobold ? 0.8f : 1f;
+                    Transform tip = NpcTail(hips, new Vector3(0, -0.2f, d * 0.4f), new[] { 124f, 12f, 10f, -14f, -24f, -30f },
+                        0.34f * ts, 0.16f * ts, 0.2f * ts, 0.05f, skin, belly, false);
                     if (L.species == NpcSpecies.Draconian)
                     {
-                        NP(hips, "TailSpade", GemMesh(), new Vector3(0, -0.92f, d * 0.9f + 0.78f), new Vector3(0.16f, 0.2f, 0.04f), NpcMat(L, "Horn", L.horn), new Vector3(70f, 0, 0));
+                        NP(tip, "TailSpade", GemMesh(), new Vector3(0, 0.12f, 0), new Vector3(0.17f, 0.24f, 0.045f), NpcMat(L, "Horn", L.horn), new Vector3(0, 0, 0));
                         // Great wings spread wide from the shoulder blades: a bony arm out to a clawed wrist, fingers fanning
                         // down, and the membrane stretched between them in scallops. On pivots, so the slouched idle can
                         // flex them as she breathes.
@@ -605,21 +603,51 @@ namespace WizardsVRC.EditorTools
                 }
                 case NpcSpecies.Minotaur:
                 {
-                    Vector3 dir = new Vector3(0, -0.7f, 0.7f).normalized;
-                    NP(hips, "Tail", CylMesh(), new Vector3(0, -0.3f, d * 0.95f) + dir * 0.3f, new Vector3(0.05f, 0.3f, 0.05f), skin, Quaternion.FromToRotation(Vector3.up, dir).eulerAngles);
-                    NP(hips, "TailTuft", BlobMesh(), new Vector3(0, -0.3f, d * 0.95f) + dir * 0.64f, new Vector3(0.12f, 0.18f, 0.12f), hairMat);
+                    // A long thin bull's tail hanging down behind to the back of the knee, a tuft of hair at its end.
+                    Transform tip = NpcTail(hips, new Vector3(0, -0.12f, d * 0.45f), new[] { 160f, -4f, -3f, 0f, 6f, 10f },
+                        0.11f, 0.1f, 0.055f, 0.035f, skin, skin, false);
+                    NP(tip, "TailTuft", BlobMesh(), new Vector3(0, 0.1f, 0), new Vector3(0.11f, 0.22f, 0.11f), hairMat);
                     break;
                 }
                 case NpcSpecies.Unicorn:
                 {
                     var mane2 = L.mane2.r < 0f ? hairMat : NpcMat(L, "Mane2", L.mane2);
-                    float[] size = { 0.14f, 0.19f, 0.21f, 0.16f };
-                    for (int k = 0; k < 4; k++)
-                        NP(hips, "Tail", BlobMesh(), new Vector3(0, -0.28f - 0.16f * k, d * 0.95f + 0.1f + 0.1f * k), new Vector3(size[k], size[k] * 1.4f, size[k]), k % 2 == 0 ? hairMat : mane2,
-                            new Vector3(-20f, 0, 0));
+                    // A flowing tail of hair, high-set: out and back from the dock, then falling in a full sweep, two-toned.
+                    Transform tip = NpcTail(hips, new Vector3(0, -0.04f, d * 0.45f), new[] { 112f, 16f, 14f, 10f, 8f, 6f },
+                        0.15f, 0.17f, 0.11f, 0.14f, hairMat, mane2, true);
+                    NP(tip, "TailEnd", BlobMesh(), new Vector3(0, 0.08f, 0), new Vector3(0.11f, 0.22f, 0.1f), mane2);
                     break;
                 }
             }
+        }
+
+        /// <summary>
+        /// A jointed tail on the hips ("Hips/Tail", swished side to side by the idle clips, with a second swish at
+        /// "Hips/Tail/J0/J1/J2/Bend" so it sways in an S). Six joints: joint j turns by curl[j] degrees about X from the one
+        /// before (joint 0 from straight up, so 90 = level out behind, more = drooping), each followed by a segment tapering
+        /// from w0 to w1 and len0 to len1, with a ball at every joint so it bends without gaps. 'bushy' makes the segments
+        /// soft blobs (hair) instead of tubes; 'band' colours every other joint. Returns the tip (the end of the last segment).
+        /// </summary>
+        private static Transform NpcTail(Transform hips, Vector3 root, float[] curl, float len0, float len1, float w0, float w1, Material main, Material band, bool bushy)
+        {
+            Transform at = Pivot(hips, "Tail", root);
+            int n = curl.Length;
+            float prevLen = 0f;
+            for (int j = 0; j < n; j++)
+            {
+                float f = j / (float)(n - 1);
+                float len = Mathf.Lerp(len0, len1, f), w = Mathf.Lerp(w0, w1, f), wNext = Mathf.Lerp(w0, w1, Mathf.Min(1f, f + 1f / (n - 1)));
+                if (j == 3) at = Pivot(at, "Bend", new Vector3(0, prevLen, 0));
+                Transform joint = Pivot(at, "J" + j, j == 3 ? Vector3.zero : new Vector3(0, prevLen, 0), new Vector3(curl[j], 0, 0));
+                NP(joint, "TailJoint", BlobMesh(), Vector3.zero, Vector3.one * w * (bushy ? 1.1f : 1.04f), j % 2 == 1 ? band : main);
+                if (bushy)
+                    NP(joint, "TailHair", BlobMesh(), new Vector3(0, len * 0.5f, 0), new Vector3((w + wNext) * 0.55f, len * 1.25f, (w + wNext) * 0.5f), j % 2 == 0 ? main : band);
+                else
+                    NP(joint, "TailSegment", CylMesh(), new Vector3(0, len * 0.5f, 0), new Vector3((w + wNext) * 0.5f, len * 0.5f, (w + wNext) * 0.5f), main);
+                at = joint;
+                prevLen = len;
+            }
+            return Pivot(at, "TailTip", new Vector3(0, prevLen, 0));
         }
 
         private static Mesh _wingMesh;
@@ -1270,6 +1298,10 @@ namespace WizardsVRC.EditorTools
                     Wave(c, NpcArmR, "rotz", 4f, 1, 0f, -6f, 0.5f);
                     break;
             }
+            // A tail (the other peoples') swishes lazily in an S; nothing happens on NPCs without one.
+            float len = Mathf.Max(1f, c.length);
+            Wave(c, "Hips/Tail", "roty", len, 2, 0f, 9f);
+            Wave(c, "Hips/Tail/J0/J1/J2/Bend", "roty", len, 2, 0f, 12f, 0.2f);
             return c;
         }
 
