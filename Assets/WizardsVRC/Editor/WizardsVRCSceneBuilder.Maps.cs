@@ -36,12 +36,12 @@ namespace WizardsVRC.EditorTools
                 return new Vector2(ox + (gx - gy) * A * sc, oy + ((gx + gy) * B - h / cell * B * 2f) * sc);
             }
 
-            /// <summary>Where a world position (in a zone whose root is at height rootY) lands on the map, as 0..1 (v up).</summary>
-            public Vector2 Uv(Vector3 world, float rootY, int mapW, int mapH)
+            /// <summary>Where a world position (in a zone whose root stands at 'root') lands on the map, as 0..1 (v up).</summary>
+            public Vector2 Uv(Vector3 world, Vector3 root, int mapW, int mapH)
             {
-                float gx = world.x / cell + gw * 0.5f;
-                float gy = gh * 0.5f - world.z / cell;
-                float hm = ((world.y - rootY) / step - minL) * stepMap;
+                float gx = (world.x - root.x) / cell + gw * 0.5f;
+                float gy = gh * 0.5f - (world.z - root.z) / cell;
+                float hm = ((world.y - root.y) / step - minL) * stepMap;
                 Vector2 p = P(gx, gy, hm);
                 return new Vector2(p.x / mapW, 1f - p.y / mapH);
             }
@@ -60,6 +60,8 @@ namespace WizardsVRC.EditorTools
             public ZoneDefinition zone;
             public ZoneGrid grid;
             public float rootY;
+            /// <summary>Where the zone's root stands (an open world's districts aren't all at the castle's x and z).</summary>
+            public Vector3 rootPos;
             public MapProj proj;
             public int worldMap = -1;
             public Vector2 onWorld;

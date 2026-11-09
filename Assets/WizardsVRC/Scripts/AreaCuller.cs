@@ -10,6 +10,8 @@ namespace WizardsVRC
     /// lives under these roots (battle managers, quest state and cutscenes are under Systems), so switching them off is safe.
     /// Teleports call <see cref="Prepare"/> first, so the destination's ground is there before the player lands.
     /// The keep interior (spawn) and the cutscene film sets are never culled.
+    /// Open worlds (World 3's Bigdig): an area with a View Margin stays on while you're within that many metres of it
+    /// across the ground (same height band), so the districts round you show; its rings still sleep unless you're in it.
     /// It also swaps the sky: each area can have its own skybox (whose skyline shows the other areas where they really
     /// lie) and fog colour; anywhere else gets the default sky.
     /// </summary>
@@ -20,6 +22,9 @@ namespace WizardsVRC
         [Tooltip("World-space bounds of each area (same order as Areas).")]
         public Vector3[] boundsMin;
         public Vector3[] boundsMax;
+        [Tooltip("Per area (same order; empty or 0 = none): it stays on while you're within this many metres of its bounds " +
+                 "across the ground (x and z only), so an open world's neighbouring districts show. Its rings sleep unless you're inside it.")]
+        public float[] viewMargin;
         [Tooltip("Seconds between checks of where the player is.")]
         public float checkInterval = 0.25f;
         [Tooltip("After a teleport, nothing is switched off for this long (the player's position takes a moment to update).")]
@@ -47,7 +52,7 @@ namespace WizardsVRC
             _holdUntil = Time.time + teleportHold;
             if (areas == null) return;
             for (int i = 0; i < areas.Length; i++)
-                if (Contains(i, position)) SetArea(i, true);
+                if (Near(i, position)) SetArea(i, true, Contains(i, position));
             ApplySky(AreaAt(position));
         }
 
@@ -85,10 +90,22 @@ namespace WizardsVRC
             return p.x >= a.x && p.x <= b.x && p.y >= a.y && p.y <= b.y && p.z >= a.z && p.z <= b.z;
         }
 
-        private void SetArea(int i, bool on)
+        /// <summary>Inside the area's bounds, or (with a view margin) within that many metres of them across the ground.</summary>
+        private bool Near(int i, Vector3 p)
+        {
+            float m = viewMargin != null && i < viewMargin.Length ? viewMargin[i] : 0f;
+            if (m <= 0f) return Contains(i, p);
+            if (boundsMin == null || boundsMax == null || i >= boundsMin.Length || i >= boundsMax.Length) return true;
+            Vector3 a = boundsMin[i], b = boundsMax[i];
+            return p.x >= a.x - m && p.x <= b.x + m && p.y >= a.y && p.y <= b.y && p.z >= a.z - m && p.z <= b.z + m;
+        }
+
+        /// <summary>Shows or hides an area; its rings wake only while the player is inside it ('occupied').</summary>
+        private void SetArea(int i, bool on, bool occupied)
         {
             GameObject go = areas[i];
             if (go != null && go.activeSelf != on) go.SetActive(on);
+            on = on && occupied;
             if (_areaOn == null)
             {
                 _areaOn = new bool[areas.Length];
@@ -116,8 +133,9 @@ namespace WizardsVRC
             if (!hold) ApplySky(AreaAt(p));
             for (int i = 0; i < areas.Length; i++)
             {
-                if (Contains(i, p)) SetArea(i, true);
-                else if (!hold) SetArea(i, false);
+                bool inside = Contains(i, p);
+                if (Near(i, p)) SetArea(i, true, inside || hold);
+                else if (!hold) SetArea(i, false, false);
             }
         }
     }

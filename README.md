@@ -385,21 +385,34 @@ The portal room's third arch opens once you finish *Last Spike* (quest 77) and b
 
 **Bigdig** is laid out like a Wizard101 hub: a star of narrow, winding lanes lined with crooked buildings, all meeting
 at **Lodestone Square**, the market in the middle. The square has the Deep Bell, Deepwarden Bruma Stonehum, the
-assayer's stall and four shops selling Bigdig's gear (Lv 25+). The lane south runs down to the portal arch. The **Gilded
+assayer's stall and four shops selling Bigdig's gear (Lv 25+). The west lane runs to the portal arch. The **Gilded
 Rivet Hotel** stands on the west lane: a walk-in, three-storey lobby atrium with a marquee canopy and neon signs. Inside
 are the front desk (Mags, the manager) with its bell, a lounge bar with the mirror, a fireplace with armchairs, the
 jukebox, galleries of numbered room doors and a cage lift that's out of order (`LandmarkKind.Hotel`,
 `WizardsVRCSceneBuilder.Hotel.cs`). A short lane south-east leads to the **Brawl Pit** duelling circle and the training
-yard. Six lanes wind out to the boroughs' tunnels:
+yard. Six lanes wind out to the boroughs' tunnels.
 
-| Street | Lv | Gang you help; boss | Storyline (save ids) |
-| --- | --- | --- | --- |
-| Sprocket Row | 25-27 | the Company; Copperjaw Grubb | Company Business (133-136) |
-| The Rustworks | 27-28 | the Union; Drillmaster Vane | Union Strong (137-140) |
-| The Fusewick Canals | 28-30 | the Syndicate; Lieutenant Sorrel | Smuggler's Run (141-144) |
-| The Glimmer Mile | 30-31 | the Glimmerfangs; Agent Nightglass | Neon Nights (145-148) |
-| The Deep Seams | 31-33 | Chief Engineer Strake, in the Siphon Works (a dungeon) | The Deep Seams (149-152) |
-| Highroller Heights | 33-35 | the Assayer and Marshal Brannoch, in the Golden Seam Casino (a dungeon) | Highroller Heights (157-159) |
+**One open world.** Bigdig and its six boroughs stand together in one vast cavern (the town's **Open World** setting,
+`WizardsVRCSceneBuilder.OpenWorld.cs`). Each borough is placed just past its tunnel, its own entrance facing the town
+across 50 m of rock. Highroller Heights stands 45 m up on a plateau to the north, and the Deep Seams lie 30 m down to the
+south-west. Between the districts there's no sea: there's a chasm with glowing sludge, a rock bridge over each pair of
+linked tunnels, and the lower city of shanty towers on stilts. One cavern roof covers everything, with stalactites,
+lanterns and rock pillars. The tunnels are still the load zones: walk through one and you're carried to the far end.
+The districts round you stay switched on, so you see the rest of the city (`AreaCuller.viewMargin`; rings in the other
+districts sleep until you're in them). The quest arrow and the book's maps tell districts apart by where they lie
+(`QuestGuide.areaMinXZ`, `MapPages.mapMinXZ`). The Golden Seam Casino looks out over the whole city from Highroller's
+cliff: a gold facade with its name in lights, a tower on a rock buttress, and searchlights raking the roof.
+
+Every borough has its own layout:
+
+| Street (where) | Lv | Layout | Gang you help; boss | Storyline (save ids) |
+| --- | --- | --- | --- | --- |
+| Sprocket Row (E) | 25-27 | one bazaar street snaking back and forth, lots between the passes, the counting house at the end | the Company; Copperjaw Grubb | Company Business (133-136) |
+| The Rustworks (S) | 27-28 | a rigid factory grid: Conveyor Avenue, works yards, the smokestack over the furnace | the Union; Drillmaster Vane | Union Strong (137-140) |
+| The Fusewick Canals (NW, lower) | 28-30 | wharf quarters cut apart by canals and joined by causeways, a Threadfleet pier, a sunken basin | the Syndicate; Lieutenant Sorrel | Smuggler's Run (141-144) |
+| The Glimmer Mile (NE) | 30-31 | one long neon boulevard between raised terraces, up to the rooftop perch | the Glimmerfangs; Agent Nightglass | Neon Nights (145-148) |
+| The Deep Seams (SW, 30 m down) | 31-33 | a mine stepping down in ledges to the Siphon Works (a dungeon) | Chief Engineer Strake | The Deep Seams (149-152) |
+| Highroller Heights (N, 45 m up) | 33-35 | a plateau round the Strip; the casino (a dungeon) along its cliff edge | the Assayer and Marshal Brannoch | Highroller Heights (157-159) |
 
 Ten storylines (with Under Everything 130-132 in town, **The Parley** 153-156, Odd Jobs 162-164 and Lucky Streak
 165-166) lead to the finale, *Ante Up* and *All In* (160-161): every gang storming the casino together. **The Parley** is

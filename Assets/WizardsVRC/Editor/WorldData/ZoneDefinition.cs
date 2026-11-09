@@ -179,6 +179,15 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("Height the zone is built at, far from the castle (0), keep interior (200) and arena (400). " +
                  "Give every zone its own height at least 100 apart: 600, 700, 800...")]
         public float height = 600f;
+        [Tooltip("Town only: build every street its Street Gates lead to beside it, all in one space (one open world: World 3's " +
+                 "Bigdig), instead of each on its own island at its own Height. Each street stands just past its gate's tunnel, its " +
+                 "entrance facing the town (paint its S on that side); the tunnels still carry you from one to the next, and the " +
+                 "districts round you stay in view. A street's Height is then ignored.")]
+        public bool openWorld;
+        [Tooltip("Open world (town): metres of rock between a town gate's tunnel mouth and its street's tunnel mouth.")]
+        public float openWorldGap = 50f;
+        [Tooltip("Open world (street): metres above (+) or below (-) the town it stands round.")]
+        public float openWorldRise;
         [Tooltip("Size of one map cell in metres. 8 makes 1-cell roads 8 m wide and 3x3 ring plazas 24 m across.")]
         [Range(4f, 16f)] public float cellSize = 8f;
 

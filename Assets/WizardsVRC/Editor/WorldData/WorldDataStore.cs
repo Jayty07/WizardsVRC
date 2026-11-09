@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 29;
+        public const int CurrentVersion = 30;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -201,6 +201,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 27) UpgradeTo27();
             if (from < 28) UpgradeTo28();
             if (from < 29) UpgradeTo29();
+            if (from < 30) UpgradeTo30();
         }
 
         /// <summary>World 3's town and boroughs (world data v28).</summary>
@@ -249,6 +250,55 @@ namespace WizardsVRC.EditorTools.WorldData
         /// finale (save ids 130-166, where free) and the Bigdig world arc. Its arch in the portal room opens with Dustwind's
         /// finale (quest 77).
         /// </summary>
+        /// <summary>
+        /// v30: Bigdig becomes one open world. Every World 3 borough gets a new, unique map (its entrance on the side facing
+        /// the town, a boss spot for each borough boss) and its place round the town (Open World Rise); the town's lanes are
+        /// re-aimed at them, its portal arch moves to the west lane, and Open World is switched on. Each zone is updated only
+        /// if its map is still the v29 default; edited maps are left alone (and the town stays as it is if its map was edited).
+        /// </summary>
+        private static void UpgradeTo30()
+        {
+            var oldMaps = new Dictionary<string, uint>
+            {
+                { "Bigdig", 0x2CC35BBDu }, { "SprocketRow", 0x2DF8F95Cu }, { "Rustworks", 0x60EE501Bu }, { "FusewickCanals", 0x88E097BEu },
+                { "GlimmerMile", 0xF23FDA02u }, { "DeepSeams", 0x0F3E3DBEu }, { "HighrollerHeights", 0xBF17A182u },
+            };
+            var report = new List<string>();
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null) continue;
+                ZoneDefault d = null;
+                foreach (var w in World3Zones) if (w.key == z.zoneKey) d = w;
+                uint old;
+                if (d == null || !oldMaps.TryGetValue(z.zoneKey, out old)) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                d.fill(fresh);
+                bool current = Normalize(z.map) == Normalize(fresh.map);
+                if (!current && MapHash(z.map) != old)
+                {
+                    Debug.Log("[WizardsVRC] " + z.displayName + "'s map has been edited, so its new open-world layout wasn't applied. See WorldDefaults.Fill" + z.zoneKey + ".");
+                    Object.DestroyImmediate(fresh);
+                    continue;
+                }
+                z.map = fresh.map;
+                z.heightMap = fresh.heightMap;
+                z.heightStep = fresh.heightStep;
+                z.openWorld = fresh.openWorld;
+                z.openWorldGap = fresh.openWorldGap;
+                z.openWorldRise = fresh.openWorldRise;
+                foreach (var fe in fresh.encounters)
+                {
+                    bool have = false;
+                    foreach (var e in z.encounters) have |= e != null && e.ringSymbol == fe.ringSymbol;
+                    if (!have) z.encounters.Add(fe);
+                }
+                Object.DestroyImmediate(fresh);
+                EditorUtility.SetDirty(z);
+                report.Add(z.displayName);
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (v30): Bigdig's open world (" + string.Join(", ", report) + ").");
+        }
+
         /// <summary>
         /// v29: Bigdig laid out afresh as a star of winding lanes round Lodestone Square (like a Wizard101 hub), with its
         /// saloon now the Gilded Rivet Hotel (LandmarkKind.Hotel) and Mags its manager. The town is replaced only if its map

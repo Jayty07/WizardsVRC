@@ -342,7 +342,7 @@ namespace WizardsVRC.EditorTools
             }
             cullAreas.AddRange(wb.cullRoots);
             cullBounds.AddRange(wb.cullBounds);
-            var areaCuller = BuildAreaCuller(systems.transform, cullAreas, cullBounds, scene, encounters);
+            var areaCuller = BuildAreaCuller(systems.transform, cullAreas, cullBounds, scene, encounters, wb.cullMargin);
             // The quest guide points at the nearest unused one of a step's quest objects.
             var allTargets = new System.Collections.Generic.List<QuestTarget>();
             foreach (var go in scene.GetRootGameObjects()) allTargets.AddRange(go.GetComponentsInChildren<QuestTarget>(true));

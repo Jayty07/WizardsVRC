@@ -36,6 +36,9 @@ namespace WizardsVRC
         [Tooltip("The heights each zone spans (where you are is the zone whose band holds you); a world map has min > max.")]
         public float[] mapMinY;
         public float[] mapMaxY;
+        [Tooltip("Optional, per map: the zone's ground rectangle (x, z), for open-world districts that share a height band (min > max = any).")]
+        public Vector2[] mapMinXZ;
+        public Vector2[] mapMaxXZ;
         [Tooltip("How a world position lands on each zone's map: u = dot(xyz, pos) + w, and the same for v.")]
         public Vector4[] mapProjU;
         public Vector4[] mapProjV;
@@ -141,12 +144,15 @@ namespace WizardsVRC
         {
             VRCPlayerApi me = Networking.LocalPlayer;
             if (!Utilities.IsValid(me) || mapMinY == null || mapMaxY == null) return -1;
-            float y = me.GetPosition().y;
+            Vector3 p = me.GetPosition();
+            float y = p.y;
             int best = -1;
             float bestSpan = float.MaxValue;
             for (int i = 0; i < mapMinY.Length && i < mapMaxY.Length; i++)
             {
                 if (mapMinY[i] > mapMaxY[i] || y < mapMinY[i] || y > mapMaxY[i]) continue;
+                if (mapMinXZ != null && mapMaxXZ != null && i < mapMinXZ.Length && i < mapMaxXZ.Length && mapMinXZ[i].x <= mapMaxXZ[i].x &&
+                    (p.x < mapMinXZ[i].x || p.x > mapMaxXZ[i].x || p.z < mapMinXZ[i].y || p.z > mapMaxXZ[i].y)) continue;
                 float span = mapMaxY[i] - mapMinY[i];
                 if (span < bestSpan) { best = i; bestSpan = span; }
             }

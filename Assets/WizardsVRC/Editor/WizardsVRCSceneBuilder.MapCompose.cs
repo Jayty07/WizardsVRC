@@ -240,13 +240,13 @@ namespace WizardsVRC.EditorTools
             if (mp == null) return;
             var infos = new List<MapZoneInfo>();
             ZoneDefinition hubZone = hub != null ? hub.zone : null;
-            if (hubZone != null && hub.grid != null) infos.Add(new MapZoneInfo { zone = hubZone, grid = hub.grid, rootY = 0f });
+            if (hubZone != null && hub.grid != null) infos.Add(new MapZoneInfo { zone = hubZone, grid = hub.grid, rootY = 0f, rootPos = Vector3.zero });
             foreach (var z in wb.data.zones)
             {
                 if (z == null || !z.includeInBuild || z.isHub) continue;
                 var g = new ZoneGrid(z);
                 if (g.height == 0 || g.Find('S').Count == 0) continue;
-                infos.Add(new MapZoneInfo { zone = z, grid = g, rootY = z.height });
+                infos.Add(new MapZoneInfo { zone = z, grid = g, rootY = ZoneRootPos(z).y, rootPos = ZoneRootPos(z) });
             }
             if (infos.Count == 0) return;
             var indexOf = new Dictionary<string, int>();
@@ -263,6 +263,9 @@ namespace WizardsVRC.EditorTools
             var subtitles = new string[mapCount];
             var minY = new float[mapCount];
             var maxY = new float[mapCount];
+            var minXZ = new Vector2[mapCount];
+            var maxXZ = new Vector2[mapCount];
+            for (int mi = 0; mi < mapCount; mi++) { minXZ[mi] = new Vector2(1f, 1f); maxXZ[mi] = new Vector2(-1f, -1f); }
             var projU = new Vector4[mapCount];
             var projV = new Vector4[mapCount];
             var worldOf = new int[mapCount];
@@ -338,13 +341,14 @@ namespace WizardsVRC.EditorTools
                 textures[i] = SaveMapPng(cv, MapOutDir + "/Map_" + z.zoneKey + ".png");
                 titles[i] = z.displayName;
                 subtitles[i] = z.isHub ? "" : z.levelRange;
-                minY[i] = z.isHub ? -50f : z.height - 50f;
-                maxY[i] = z.isHub ? 60f : z.height + 60f;
+                minY[i] = z.isHub ? -50f : info.rootY - 50f;
+                maxY[i] = z.isHub ? 60f : info.rootY + 60f;
+                ZoneGroundRect(z, out minXZ[i], out maxXZ[i]);
                 // How world positions land on this map: linear, so its value at the origin and one step along each axis.
-                Vector2 o0 = pj.Uv(Vector3.zero, info.rootY, MapW, MapH);
-                Vector2 ox = pj.Uv(Vector3.right, info.rootY, MapW, MapH) - o0;
-                Vector2 oyv = pj.Uv(Vector3.up, info.rootY, MapW, MapH) - o0;
-                Vector2 oz = pj.Uv(Vector3.forward, info.rootY, MapW, MapH) - o0;
+                Vector2 o0 = pj.Uv(Vector3.zero, info.rootPos, MapW, MapH);
+                Vector2 ox = pj.Uv(Vector3.right, info.rootPos, MapW, MapH) - o0;
+                Vector2 oyv = pj.Uv(Vector3.up, info.rootPos, MapW, MapH) - o0;
+                Vector2 oz = pj.Uv(Vector3.forward, info.rootPos, MapW, MapH) - o0;
                 projU[i] = new Vector4(ox.x, oyv.x, oz.x, o0.x);
                 projV[i] = new Vector4(ox.y, oyv.y, oz.y, o0.y);
             }
@@ -467,6 +471,8 @@ namespace WizardsVRC.EditorTools
             mp.mapSubtitles = subtitles;
             mp.mapMinY = minY;
             mp.mapMaxY = maxY;
+            mp.mapMinXZ = minXZ;
+            mp.mapMaxXZ = maxXZ;
             mp.mapProjU = projU;
             mp.mapProjV = projV;
             mp.mapWorld = worldOf;

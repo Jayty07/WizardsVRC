@@ -35,6 +35,9 @@ namespace WizardsVRC.EditorTools
             // Bigdig: a rock shelf over a chasm inside one great cavern (WizardsVRCSceneBuilder.Undercity.cs).
             bool under = st == ZoneTextureStyle.Undercity;
             if (under) garden = false;
+            // In an open world: only the district's rock shelf, down to the shared chasm floor; the floor, the cavern and
+            // the city between the districts are the open world's own (WizardsVRCSceneBuilder.OpenWorld.cs).
+            bool open = InOpenWorld(z);
 
             // ---- which sides meet the water (a side with a lot of '~' on its edge has no land beyond it)
             bool[] wet = new bool[4];   // north, east, south, west (map up = north)
@@ -57,7 +60,7 @@ namespace WizardsVRC.EditorTools
                         break;
                     }
                 }
-                wet[side] = !desert && !under && water > n * 0.3f;
+                wet[side] = !desert && !under && !open && water > n * 0.3f;
             }
             if (edgeWater < float.MaxValue) seaY = edgeWater - 0.08f;
             // The map's own sea level, which OuterSea carries on past its wet edges: boats and buoys out there float on it.
@@ -66,10 +69,12 @@ namespace WizardsVRC.EditorTools
             // to the horizon at its level past the wet edges (OuterSea).
             seaY = Mathf.Min(seaY, baseY - GroundDrop - 0.3f - 0.5f);
             if (under) seaY = baseY - 45f;   // the chasm floor, far below
+            if (open) seaY = OpenFloorY(z) - root.position.y;
 
             // ---- the island: cliffs from the sea up to just under the map, reaching out past every dry side
-            float hw = W / 2f, hh = H / 2f, mN = wet[0] ? 0f : BackdropMargin, mE = wet[1] ? 0f : BackdropMargin,
-                  mS = wet[2] ? 0f : BackdropMargin, mW = wet[3] ? 0f : BackdropMargin;
+            float margin0 = open ? OpenWorldShelfMargin : BackdropMargin;
+            float hw = W / 2f, hh = H / 2f, mN = wet[0] ? 0f : margin0, mE = wet[1] ? 0f : margin0,
+                  mS = wet[2] ? 0f : margin0, mW = wet[3] ? 0f : margin0;
             float c = 14f;
             var poly = new[]
             {
@@ -87,7 +92,8 @@ namespace WizardsVRC.EditorTools
             Shape(root, "IsleCliff", PrismMesh("PSX_Isle_" + key, poly, seaY - 4f, top - 0.2f), Vector3.zero, Vector3.one, rock, false, Quaternion.identity);
             Shape(root, "IsleTop", PrismMesh("PSX_IsleTop_" + key, poly, top - 0.2f, top), Vector3.zero, Vector3.one, isleTop, false, Quaternion.identity);
             Material sandFloor = PsxTexMat("DesertFloor", new Color(0.85f, 0.62f, 0.42f), TileTexture(TerrainTexDir + "/DesertSand.png"), 6f);
-            if (under) ChasmFloor(root, W, H, seaY, rng, z.zoneKey);
+            if (open) { }
+            else if (under) ChasmFloor(root, W, H, seaY, rng, z.zoneKey);
             else if (desert) Shape(root, "DesertFloor", GridMesh(8, 8, false), new Vector3(0, seaY, 0), new Vector3(W + 900f, 1f, H + 900f), sandFloor, false, Quaternion.identity);
             else
             {
@@ -124,7 +130,7 @@ namespace WizardsVRC.EditorTools
             // How high each row's tops reach above the island (times the roofline, plus metres): enough that, from about
             // 20 m into the street, each row shows over the edge roofs in front of it.
             float[] rowRise = { 1.5f, 2.2f, 2.8f }, rowPlus = { 4f, 8f, 10f };
-            for (int side = 0; side < 4; side++)
+            for (int side = 0; side < 4 && !open; side++)
             {
                 if (wet[side]) continue;
                 bool ns = side % 2 == 0;
@@ -181,7 +187,8 @@ namespace WizardsVRC.EditorTools
             }
             // Far islets (buttes, out on the desert) all round, inside the draw distance.
             // (Tall enough that their tops clear the street's roofline too, from the desert floor far below.)
-            if (under) CavernShell(root, poly, seaY, top, roofline * 2.8f + 55f, rng, rock, bld, roof, glow, key);
+            if (open) { }
+            else if (under) CavernShell(root, poly, seaY, top, roofline * 2.8f + 55f, rng, rock, bld, roof, glow, key);
             else if (desert) DesertButtes(holder, Mathf.Max(hw, hh) + BackdropMargin + 60f, Mathf.Max(hw, hh) + BackdropMargin + 170f, seaY, 9, rng, rock, tm[6],
                 top - seaY + roofline * 2.1f + 10f);
             else Islets(holder, Vector3.zero, Mathf.Max(hw, hh) + BackdropMargin + 40f, Mathf.Max(hw, hh) + BackdropMargin + 150f, seaY, 7, rng, rock, leaves, trunk);

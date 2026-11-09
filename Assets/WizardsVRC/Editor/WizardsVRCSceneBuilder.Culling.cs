@@ -95,10 +95,14 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>The runtime AreaCuller, wired to every teleporter and battle client so destinations load before you land.</summary>
-        private static AreaCuller BuildAreaCuller(Transform systems, List<GameObject> areas, List<Bounds> bounds, Scene scene, List<BattleClient> encounters)
+        private static AreaCuller BuildAreaCuller(Transform systems, List<GameObject> areas, List<Bounds> bounds, Scene scene, List<BattleClient> encounters,
+            Dictionary<GameObject, float> margins = null)
         {
             var culler = UdonSharpUndo.AddComponent<AreaCuller>(Child(systems, "AreaCuller", Vector3.zero).gameObject);
             culler.areas = areas.ToArray();
+            culler.viewMargin = new float[areas.Count];
+            float m;
+            for (int i = 0; i < areas.Count; i++) culler.viewMargin[i] = margins != null && areas[i] != null && margins.TryGetValue(areas[i], out m) ? m : 0f;
             culler.boundsMin = new Vector3[bounds.Count];
             culler.boundsMax = new Vector3[bounds.Count];
             for (int i = 0; i < bounds.Count; i++)

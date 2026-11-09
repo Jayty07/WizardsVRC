@@ -1009,7 +1009,8 @@ namespace WizardsVRC.EditorTools
 
             bool round = z.castleStyle && z.roundCastle;
             // Big peaks round the castle (the streets' own are smaller).
-            e.mountainCentre = Mountains(root, z.zoneKey + "_" + key, e, round ? 4.4f : 0f, mouth.y + 7.5f, HubMountainScale, tm[5], tm[6]);
+            e.mountainCentre = InOpenWorld(z) ? Mountains(root, z.zoneKey + "_" + key, e, 0f, root.position.y + mouth.y - OpenFloorY(z) + 2f, 0.42f, tm[5], tm[6])
+                : Mountains(root, z.zoneKey + "_" + key, e, round ? 4.4f : 0f, mouth.y + 7.5f, HubMountainScale, tm[5], tm[6]);
             hub.gates[key] = new HubGate { landmark = l, tunnel = e, gate = gate, front = e.front };
         }
 

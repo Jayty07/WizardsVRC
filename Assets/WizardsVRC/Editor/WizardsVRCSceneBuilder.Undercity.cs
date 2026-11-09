@@ -735,7 +735,116 @@ namespace WizardsVRC.EditorTools
                 }
                 n++;
             }
+            if (casino) CasinoCrown(holder, g, z, inside, label);
             Debug.Log("[WizardsVRC World] " + (casino ? "Casino" : "Works") + " dressing over " + n + " cells of '" + label + "'.");
+        }
+
+        /// <summary>
+        /// The casino's face to the city: on the side of its block that looks toward the town (in an open world; else the
+        /// map's nearest edge), a gold facade with its name in lights, gold pilasters and marquee lights, a tall tower with
+        /// a gold dome and spire standing out over the cliff on a rock buttress, and two searchlights raking the cavern roof.
+        /// </summary>
+        private static void CasinoCrown(Transform holder, ZoneGrid g, ZoneDefinition z, HashSet<Vector2Int> inside, string label)
+        {
+            float cs = g.cell;
+            Vector3 lo = new Vector3(float.MaxValue, 0, float.MaxValue), hi = new Vector3(float.MinValue, 0, float.MinValue);
+            float floorY = 0f;
+            foreach (var c in inside)
+            {
+                Vector3 p = g.Local(c);
+                lo = Vector3.Min(lo, p);
+                hi = Vector3.Max(hi, p);
+                floorY = Mathf.Max(floorY, p.y);
+            }
+            // Which way the city lies: toward the town in an open world, else out of the map's nearest edge.
+            Vector3 rootPos = ZoneRootPos(z);
+            Vector3 toCity;
+            OpenWorldPlan plan;
+            if (_openPlan.TryGetValue(z.zoneKey, out plan) && plan.town != z) toCity = plan.townPos - rootPos;
+            else
+            {
+                Vector3 mid = (lo + hi) * 0.5f;
+                float W = g.width * cs, H = g.height * cs;
+                float dn = H / 2f - mid.z, ds = mid.z + H / 2f, de = W / 2f - mid.x, dw = mid.x + W / 2f;
+                float m = Mathf.Min(Mathf.Min(dn, ds), Mathf.Min(de, dw));
+                toCity = m == ds ? Vector3.back : m == dn ? Vector3.forward : m == de ? Vector3.right : Vector3.left;
+            }
+            toCity.y = 0f;
+            Vector3 f = Mathf.Abs(toCity.x) > Mathf.Abs(toCity.z) ? new Vector3(Mathf.Sign(toCity.x), 0, 0) : new Vector3(0, 0, Mathf.Sign(toCity.z));
+            Vector3 across = Vector3.Cross(Vector3.up, f);
+            Vector3 centre = (lo + hi) * 0.5f;
+            float halfDepth = Mathf.Abs(Vector3.Dot(hi - lo, f)) * 0.5f;
+            float width = Mathf.Abs(Vector3.Dot(hi - lo, across)) + cs * 2f;
+            Vector3 face = new Vector3(centre.x, floorY, centre.z) + f * (halfDepth + cs);   // on the wall beyond the last row inside
+            Quaternion outward = Quaternion.LookRotation(f);
+            Material gold = UnderGold(), brass = UnderBrass(), iron = UnderIron();
+            Material goldPlate = PsxTexMat("CasinoGoldPlate", new Color(0.95f, 0.75f, 0.32f), TileTexture(StreetTexDir + "/Metal.png"), 2.4f);
+            Material velvet = PsxTexMat("CasinoWall", new Color(0.4f, 0.06f, 0.1f), TileTexture(StreetTexDir + "/Velvet.png"), 2f);
+            Material rock = TunnelMats(z)[5];
+            const float faceH = 30f;
+            // The facade.
+            Deco(holder, PrimitiveType.Cube, "CasinoFacade", face + Vector3.up * (faceH / 2f), new Vector3(width, faceH, 2f), velvet, outward, false);
+            Deco(holder, PrimitiveType.Cube, "CasinoCornice", face + Vector3.up * (faceH + 0.6f) + f * 0.4f, new Vector3(width + 2f, 1.2f, 3f), gold, outward, false);
+            Deco(holder, PrimitiveType.Cube, "CasinoPlinth", face + Vector3.up * 1.5f + f * 0.4f, new Vector3(width + 1f, 3f, 2.8f), goldPlate, outward, false);
+            int piers = Mathf.Max(3, Mathf.RoundToInt(width / 7f));
+            for (int i = 0; i <= piers; i++)
+            {
+                float t = i / (float)piers * width - width / 2f;
+                Deco(holder, PrimitiveType.Cube, "CasinoPier", face + across * t + f * 1.1f + Vector3.up * (faceH / 2f), new Vector3(1.4f, faceH, 1.2f), goldPlate, outward, false);
+            }
+            foreach (float y in new[] { 4.5f, faceH - 1.5f })
+                Deco(holder, PrimitiveType.Cube, "CasinoNeonBand", face + f * 1.8f + Vector3.up * y, new Vector3(width - 1f, 0.35f, 0.15f), NeonMat(2), outward, false);
+            for (int i = 0; i < Mathf.RoundToInt(width / 2.2f); i++)
+            {
+                float t = (i + 0.5f) / Mathf.RoundToInt(width / 2.2f) * width - width / 2f;
+                Shape(holder, "CasinoMarquee", GemMesh(), face + across * t + f * 1.9f + Vector3.up * (faceH + 1.6f), new Vector3(0.5f, 0.6f, 0.5f), i % 2 == 0 ? NeonMat(2) : NeonMat(0), false,
+                    Quaternion.identity);
+            }
+            // Its name in lights, across the facade.
+            var sign = WorldText(holder, "CasinoName", face + f * 1.9f + Vector3.up * (faceH * 0.62f), Quaternion.LookRotation(-f), new Vector2(5200, 600), 0.0085f,
+                (string.IsNullOrEmpty(label) ? "THE CASINO" : label.ToUpperInvariant()), 300);
+            sign.color = new Color(1f, 0.82f, 0.3f);
+            var sub = WorldText(holder, "CasinoSub", face + f * 1.9f + Vector3.up * (faceH * 0.38f), Quaternion.LookRotation(-f), new Vector2(4000, 300), 0.0075f,
+                "HIGH ROLLERS WELCOME  *  THE HOUSE ALWAYS WINS", 140);
+            sub.color = new Color(1f, 0.4f, 0.8f);
+            // The tower: out over the cliff on a buttress of rock from the chasm floor.
+            Vector3 tower = face + f * 10f;
+            float floorLocal = InOpenWorld(z) ? OpenFloorY(z) - rootPos.y : -45f;
+            float buttressH = floorY - floorLocal + 2f;
+            Shape(holder, "CasinoButtress", CylMesh(), new Vector3(tower.x, floorLocal + buttressH / 2f - 1f, tower.z), new Vector3(22f, buttressH / 2f, 22f), rock, false, Quaternion.identity);
+            Shape(holder, "CasinoButtressCrag", BlobMesh(), new Vector3(tower.x, floorLocal + buttressH * 0.55f, tower.z), new Vector3(28f, buttressH * 0.5f, 28f), rock, false,
+                Quaternion.Euler(0, 30f, 0));
+            const float towerH = 58f;
+            Deco(holder, PrimitiveType.Cube, "CasinoTower", tower + Vector3.up * (towerH / 2f), new Vector3(14f, towerH, 14f), velvet, outward, false);
+            foreach (float s in new[] { -1f, 1f })
+                foreach (float s2 in new[] { -1f, 1f })
+                    Deco(holder, PrimitiveType.Cube, "CasinoTowerEdge", tower + across * (s * 7f) + f * (s2 * 7f) + Vector3.up * (towerH / 2f), new Vector3(1.4f, towerH, 1.4f), goldPlate,
+                        Quaternion.identity, false);
+            for (float y = 8f; y < towerH; y += 8f)
+            {
+                Deco(holder, PrimitiveType.Cube, "CasinoTowerBand", tower + Vector3.up * y, new Vector3(14.6f, 0.4f, 14.6f), NeonMat(y % 16f < 1f ? 0 : 2), Quaternion.identity, false);
+                for (int k = -1; k <= 1; k++)
+                    Deco(holder, PrimitiveType.Cube, "CasinoTowerWindow", tower + f * 7.05f + across * (k * 4f) + Vector3.up * (y + 4f), new Vector3(2f, 3f, 0.1f),
+                        PMat("CasinoWindow", new Color(1f, 0.85f, 0.5f), 1f, new Color(1f, 0.75f, 0.35f)), outward, false);
+            }
+            Shape(holder, "CasinoDome", BlobMesh(), tower + Vector3.up * (towerH + 4f), new Vector3(15f, 12f, 15f), gold, false, Quaternion.identity);
+            Shape(holder, "CasinoSpire", ConeMesh(), tower + Vector3.up * (towerH + 16f), new Vector3(3f, 16f, 3f), gold, false, Quaternion.identity);
+            Shape(holder, "CasinoSpireGem", GemMesh(), tower + Vector3.up * (towerH + 25f), new Vector3(3f, 4f, 3f), NeonMat(0), false, Quaternion.identity);
+            // A tall blade sign down the tower's face.
+            var blade = WorldText(holder, "CasinoBlade", tower + f * 7.6f + Vector3.up * (towerH * 0.55f), Quaternion.LookRotation(-f), new Vector2(500, 3200), 0.0095f,
+                "C\nA\nS\nI\nN\nO", 380);
+            blade.color = new Color(1f, 0.3f, 0.75f);
+            blade.lineSpacing = 0.85f;
+            // Searchlights raking the cavern roof.
+            Material beam = PMat("CasinoSearchlight", new Color(1f, 0.95f, 0.75f), 1f, new Color(0.9f, 0.85f, 0.6f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Vector3 baseAt = face + across * (s * (width / 2f - 2f)) + Vector3.up * (faceH + 2f) + f * 1f;
+                Shape(holder, "Searchlight", CylMesh(), baseAt, new Vector3(1.8f, 0.8f, 1.8f), brass, false, Quaternion.identity);
+                Vector3 dir = (Vector3.up * 2.2f + f * 0.9f + across * (s * 0.7f)).normalized;
+                const float len = 90f;
+                Shape(holder, "SearchlightBeam", ConeMesh(), baseAt + dir * (len / 2f), new Vector3(9f, len, 9f), beam, false, Quaternion.FromToRotation(Vector3.down, dir));
+            }
         }
     }
 }

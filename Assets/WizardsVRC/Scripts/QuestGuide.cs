@@ -27,6 +27,10 @@ namespace WizardsVRC
         [Header("Areas (keep interior, zones): each is a height band reached through a door from the castle")]
         public float[] areaMinY;
         public float[] areaMaxY;
+        [Tooltip("Optional, per area: its ground rectangle (x, z). An open world's districts share a height band, so they're told " +
+                 "apart by where they lie; leave empty (or min > max) to go by height alone.")]
+        public Vector2[] areaMinXZ;
+        public Vector2[] areaMaxXZ;
         [Tooltip("Door in the castle that leads into the area.")]
         public Transform[] areaEntrances;
         [Tooltip("Door inside the area that leads back to the castle.")]
@@ -140,8 +144,8 @@ namespace WizardsVRC
             if (areaMinY != null && areaMinY.Length > 0)
             {
                 // Different areas: leave yours through its exit, or (from the castle) head for the goal area's door.
-                int pa = AreaOf(feet.y);
-                int ga = AreaOf(goal.y);
+                int pa = AreaOf(feet);
+                int ga = AreaOf(goal);
                 if (pa != ga)
                 {
                     // The goal's area, or the one on the way to it, whose entrance is in your area: head for that door.
@@ -183,11 +187,16 @@ namespace WizardsVRC
             return areaParents != null && area >= 0 && area < areaParents.Length ? areaParents[area] : -1;
         }
 
-        /// <summary>Index of the area containing height y, or -1 for the castle.</summary>
-        private int AreaOf(float y)
+        /// <summary>Index of the area containing a position (its height band, and its ground rectangle if it has one), or -1 for the castle.</summary>
+        private int AreaOf(Vector3 p)
         {
             for (int i = 0; i < areaMinY.Length; i++)
-                if (areaMaxY != null && i < areaMaxY.Length && y >= areaMinY[i] && y < areaMaxY[i]) return i;
+            {
+                if (areaMaxY == null || i >= areaMaxY.Length || p.y < areaMinY[i] || p.y >= areaMaxY[i]) continue;
+                if (areaMinXZ != null && areaMaxXZ != null && i < areaMinXZ.Length && i < areaMaxXZ.Length && areaMinXZ[i].x <= areaMaxXZ[i].x &&
+                    (p.x < areaMinXZ[i].x || p.x > areaMaxXZ[i].x || p.z < areaMinXZ[i].y || p.z > areaMaxXZ[i].y)) continue;
+                return i;
+            }
             return -1;
         }
 

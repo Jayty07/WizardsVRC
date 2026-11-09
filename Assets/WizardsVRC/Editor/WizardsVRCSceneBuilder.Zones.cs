@@ -39,6 +39,10 @@ namespace WizardsVRC.EditorTools
             public readonly Dictionary<string, string> pointLabels = new Dictionary<string, string>();
             public readonly Dictionary<int, Transform> monsterTargets = new Dictionary<int, Transform>();
             public readonly List<float> areaMin = new List<float>(), areaMax = new List<float>();
+            /// <summary>Each area's ground rectangle (x, z) for the quest guide; min > max = any (only open worlds have one).</summary>
+            public readonly List<Vector2> areaMinXZ = new List<Vector2>(), areaMaxXZ = new List<Vector2>();
+            /// <summary>AreaCuller view margins: open-world districts stay on while you're near them.</summary>
+            public readonly Dictionary<GameObject, float> cullMargin = new Dictionary<GameObject, float>();
             public readonly List<Transform> areaIn = new List<Transform>(), areaOut = new List<Transform>();
             public readonly List<string> areaInNames = new List<string>(), areaOutNames = new List<string>();
             /// <summary>Guide area each area's way in stands in (-1 = the castle, 0 = the keep interior, else 1 + index).</summary>
@@ -232,11 +236,15 @@ namespace WizardsVRC.EditorTools
             _townOf.Clear();
             _townArea.Clear();
             _worldTowns.Clear();
+            // Where an open world's town and streets stand side by side (WizardsVRCSceneBuilder.OpenWorld.cs).
+            PlanOpenWorlds(wb.data);
             // Each later world's town first (its Street Gates are the tunnels its streets come home through), then the streets.
             foreach (var z in wb.data.zones)
                 if (z != null && z.includeInBuild && !z.isHub && z.isTown) BuildZone(z, systems, hubRoot, qm, cardDb, itemDb, playerState, encounters, wb, hub);
             foreach (var z in wb.data.zones)
                 if (z != null && z.includeInBuild && !z.isHub && !z.isTown) BuildZone(z, systems, hubRoot, qm, cardDb, itemDb, playerState, encounters, wb, hub);
+            // An open world's shared floor, cavern, rock bridges and lower city.
+            BuildOpenWorlds(wb);
             qm.streetNpcCutscenes = wb.npcCutscenes.ToArray();
         }
 
@@ -252,7 +260,7 @@ namespace WizardsVRC.EditorTools
             }
             string k = z.zoneKey;
             var root = new GameObject("Zone_" + k).transform;
-            root.position = new Vector3(0f, z.height, 0f);
+            root.position = ZoneRootPos(z);   // its own height, or its place in an open world
             AmbientBed(root, AmbientFor(z));   // WizardsVRCSceneBuilder.Ambience.cs
             wb.zoneRoots.Add(root.gameObject);
             float cs = g.cell;
@@ -382,7 +390,9 @@ namespace WizardsVRC.EditorTools
                 var tm = TunnelMats(z);
                 var e = BuildTunnel(root, "Home", mouth, -openDir, tm[0], tm[1], tm[2], tm[3], wb.behaviours);
                 TunnelFacade(e, tm[0], PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)), homeName, new Color(1f, 0.85f, 0.4f));
-                e.mountainCentre = Mountains(root, k + "_Home", e, 0f, 12f, 0.8f, tm[5], tm[6]);
+                // In an open world, a smaller rock head that falls to the chasm (the rock bridge joins it to the town's).
+                e.mountainCentre = InOpenWorld(z) ? Mountains(root, k + "_Home", e, 0f, root.position.y - OpenFloorY(z) + 2f, 0.42f, tm[5], tm[6])
+                    : Mountains(root, k + "_Home", e, 0f, 12f, 0.8f, tm[5], tm[6]);
                 // A welcome arch with the street's name a few steps out of the tunnel (Signs.cs).
                 StreetArch(root, mouth + openDir * 6f, openDir, z.displayName, z.levelRange);
                 e.passage.there = gate.tunnel.mid;
@@ -437,8 +447,12 @@ namespace WizardsVRC.EditorTools
             int parentArea = -1;
             if (town != null) parentArea = 0;
             else if (homeTown != null && _townArea.ContainsKey(homeTown.zoneKey)) parentArea = _townArea[homeTown.zoneKey];
-            wb.areaMin.Add(z.height - 50f);
-            wb.areaMax.Add(z.height + 60f);
+            wb.areaMin.Add(root.position.y - 50f);
+            wb.areaMax.Add(root.position.y + 60f);
+            Vector2 gMin, gMax;
+            ZoneGroundRect(z, out gMin, out gMax);
+            wb.areaMinXZ.Add(gMin);
+            wb.areaMaxXZ.Add(gMax);
             wb.areaIn.Add(inDoor.transform);
             wb.areaOut.Add(outDoor.transform);
             wb.areaParent.Add(parentArea);
@@ -527,6 +541,7 @@ namespace WizardsVRC.EditorTools
             ClearTunnelPaths(root);
             wb.cullRoots.Add(root.gameObject);
             wb.cullBounds.Add(ZoneCullBounds(root.position, W, H));
+            if (InOpenWorld(z)) wb.cullMargin[root.gameObject] = OpenWorldViewMargin;
             wb.MusicArea(z, ZoneCullBounds(root.position, W, H), z.displayName);
             root.gameObject.SetActive(false);
         }
@@ -1507,6 +1522,12 @@ namespace WizardsVRC.EditorTools
             guide.areaParents = parents.ToArray();
             guide.areaMinY = min.ToArray();
             guide.areaMaxY = max.ToArray();
+            var minXZ = new List<Vector2> { new Vector2(1f, 1f) };
+            var maxXZ = new List<Vector2> { new Vector2(-1f, -1f) };
+            minXZ.AddRange(wb.areaMinXZ);
+            maxXZ.AddRange(wb.areaMaxXZ);
+            guide.areaMinXZ = minXZ.ToArray();
+            guide.areaMaxXZ = maxXZ.ToArray();
             guide.areaEntrances = into.ToArray();
             guide.areaExits = outof.ToArray();
             guide.areaEntranceNames = inNames.ToArray();
