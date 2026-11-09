@@ -321,14 +321,15 @@ namespace WizardsVRC
         // fizzled or discarded. Treasure cards drawn but never cast stay in the sideboard.
         public const int TC_FLAG = 100000;
         [Header("Treasure cards")]
-        [Tooltip("The action tray's Treasure button: draws one treasure card from your deck's sideboard (once a round).")]
+        [Tooltip("The action tray's Treasure button: draws one treasure card from your deck's sideboard for each card you've discarded this round.")]
         public GameObject treasureButton;
         public Text treasureLabel;
         [Tooltip("Per hand card: the gold TREASURE ribbon shown on treasure cards.")]
         public GameObject[] cardTreasureTags;
         private int[] _tcPool = new int[CharacterData.SIDE_SIZE];
         private int _tcPoolCount;
-        private int _tcDrawRound = -1;
+        /// <summary>Cards discarded this round not yet traded for a treasure card (each discard lets you draw one).</summary>
+        private int _tcDiscards;
         private int _sentRaw;            // the sent card as it was in the hand (a treasure card keeps its flag)
         private int _unpickRaw;
         private int _castRaw;            // the hand card being cast right now
@@ -939,6 +940,7 @@ namespace WizardsVRC
                     _unpickCard = 0;
                     _unpickRaw = 0;
                     _tcSent = 0;
+                    _tcDiscards = 0;
                     _selHand = -1;
                     _discardMode = false;
                     _note = "Pick a card, or Pass.";
@@ -1678,7 +1680,7 @@ namespace WizardsVRC
         private void BuildTreasurePool(CharacterData c)
         {
             _tcPoolCount = 0;
-            _tcDrawRound = -1;
+            _tcDiscards = 0;
             _tcSent = 0;
             _tcFizzle = 0;
             int list = c.ActiveDeckList();
@@ -1697,20 +1699,23 @@ namespace WizardsVRC
 
         private bool CanDrawTreasure()
         {
-            return CanAct() && !_discardMode && _tcPoolCount > 0 && _handCount < HAND_SIZE && _tcDrawRound != manager.round;
+            return CanAct() && _tcPoolCount > 0 && _handCount < HAND_SIZE && _tcDiscards > 0;
         }
 
-        /// <summary>The Treasure button (Wizard101's Draw): one treasure card from your sideboard into your hand, once a round. It doesn't use your turn.</summary>
+        /// <summary>
+        /// The Treasure button (Wizard101's Draw): one treasure card from your sideboard into your hand. To play a treasure card
+        /// you must discard a card first: each card discarded this round lets you draw one. Drawing doesn't use your turn.
+        /// </summary>
         public void DrawTreasure()
         {
             if (!CanAct()) return;
             if (_tcPoolCount <= 0) { _note = "No treasure cards left in your deck's sideboard."; RefreshHand(); return; }
             if (_handCount >= HAND_SIZE) { _note = "Your hand is full. Discard a card to draw a treasure card."; RefreshHand(); return; }
-            if (_tcDrawRound == manager.round) { _note = "You can draw one treasure card a round."; RefreshHand(); return; }
+            if (_tcDiscards <= 0) { _note = "Discard a card first: each card you discard lets you draw a treasure card."; RefreshHand(); return; }
             if (_discardMode) _discardMode = false;
             int id = _tcPool[--_tcPoolCount];
             _hand[_handCount++] = id + TC_FLAG;
-            _tcDrawRound = manager.round;
+            _tcDiscards--;
             _note = "Drew a treasure card: " + cardDatabase.GetName(id) + ".";
             if (uiAudio != null) uiAudio.PlayCardClick();
             RefreshHand();
@@ -1778,7 +1783,10 @@ namespace WizardsVRC
                 RemoveFromHand(i);
                 // Wizard101: a discarded treasure card is gone for good.
                 if (raw >= TC_FLAG) SpendTreasure(card);
-                _note = "Discarded " + cardDatabase.GetName(card) + (raw >= TC_FLAG ? " (the treasure card is used up)." : ".");
+                // Each discard makes room for a treasure card from the sideboard.
+                _tcDiscards++;
+                _note = "Discarded " + cardDatabase.GetName(card) + (raw >= TC_FLAG ? " (the treasure card is used up)." : ".") +
+                        (_tcPoolCount > 0 ? " You can draw a treasure card." : "");
                 RefreshHand();
                 return;
             }
@@ -3771,7 +3779,7 @@ namespace WizardsVRC
                 if (show) targetLabels[t].text = manager.SlotName(t) + "\n" + _shownHp[t].ToString() + " / " + manager.maxHp[t].ToString();
             }
             if (potionLabel != null) potionLabel.text = "\uE014 Potion (" + CountPotions().ToString() + ")";
-            if (treasureLabel != null) treasureLabel.text = "Treasure (" + _tcPoolCount.ToString() + ")";
+            if (treasureLabel != null) treasureLabel.text = _tcDiscards > 0 && _tcPoolCount > 0 ? "Draw Treasure (" + _tcPoolCount.ToString() + ")" : "Treasure (" + _tcPoolCount.ToString() + ")";
             if (treasureButton != null)
             {
                 Image tb = treasureButton.GetComponent<Image>();

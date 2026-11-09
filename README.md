@@ -600,8 +600,9 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   `ItemDatabase.GetDeckTreasureCapacity`); on the book's Deck page the Treasure icon (the last one in the header) lists the
   treasure cards you own, click one to move it into the shown deck's sideboard, and the row under the deck switches
   (Item Spells / Treasure Cards tabs) to the sideboard, where clicking a card takes it back out. In a duel the action
-  tray's **Treasure** button draws one card from the equipped deck's sideboard into your hand (once a round, it doesn't
-  use your turn); it wears a gold TREASURE ribbon. A treasure card is used up when it's cast, fizzles or is discarded;
+  tray's **Treasure** button draws one card from the equipped deck's sideboard into your hand, but only after you've
+  **discarded a card**: each card discarded this round lets you draw one treasure card (drawing doesn't use your turn,
+  and unused discards don't carry over to the next round). It wears a gold TREASURE ribbon. A treasure card is used up when it's cast, fizzles or is discarded;
   ones drawn but not cast stay in the sideboard. Saved in save format v13 (`CharacterData.treasureCounts`, `sideCards`).
   - **The Library sells them:** Librarian Wren's counter in the castle grounds (`GoldShop.OpenTreasure`) has a treasure
     card of every school spell up to level 33, by school (school buttons jump to each), priced by pip cost:
