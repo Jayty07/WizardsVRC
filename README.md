@@ -449,6 +449,10 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
 - **Fizzles** keep your pips, and the card isn't lost: it goes back into your deck at a random spot (Wizard101 rule), or to
   the end of your hand if `BattleClient.fizzleReturnsToHand` is on. Spells cost **1 mana per pip**, charged when cast, even on a fizzle;
   cards you don't have the mana for are greyed out.
+- **Burns (damage over time):** every burn spell hits when it lands (its own hit, or `CardDatabase.dotInitialPct`
+  (25%) of its burn when it has none), and its burn is `dotBoostPct` (150%) of the amount it lists. A blade boosts both
+  the hit and the burn (used once per cast), and so does the caster's damage bonus; the target's resist lowers the burn.
+  The card shows both numbers.
 - **Critical / Block:** gear Critical % doubles a hit or heal (`critMultiplier`); the target's Block % can stop it.
   Gear Pierce % ignores that much of shields and resist. Bosses have `bossCritPct`.
 - **School matchups:** monsters and minions take `creatureSchoolWeakness` (30%) more damage from the opposite school

@@ -363,6 +363,28 @@ namespace WizardsVRC
         }
 
         public int GetAux(int cardId) { int i = IndexOf(cardId); return i < 0 ? 0 : aux[i]; }
+
+        [Header("Burns (damage over time)")]
+        [Tooltip("Every burn spell's damage over time, as a percentage of the amount it lists (before blades and the caster's damage bonus).")]
+        public int dotBoostPct = 150;
+        [Tooltip("A burn spell without a hit of its own still hits for this percentage of its (boosted) burn when it lands.")]
+        public int dotInitialPct = 25;
+
+        /// <summary>A burn spell's burn over its rounds (boosted), before blades and the caster's bonus.</summary>
+        public int DotTotal(int cardId)
+        {
+            int i = IndexOf(cardId);
+            return i < 0 ? 0 : Mathf.Max(0, aux[i] * dotBoostPct / 100);
+        }
+
+        /// <summary>A burn spell's hit when it lands: its own when it has one, else a share of its burn (at least 1).</summary>
+        public int DotHit(int cardId, bool roll)
+        {
+            int i = IndexOf(cardId);
+            if (i < 0) return 0;
+            if (powers[i] > 0) return roll ? RollPower(cardId) : powers[i];
+            return Mathf.Max(1, DotTotal(cardId) * dotInitialPct / 100);
+        }
         public int BasicSpell(int school) { return 100 + school * TIERS; }
         public int TierOf(int cardId) { return GetSchool(cardId) == GENERAL || cardId >= FIRST_EXTRA_ID ? -1 : (cardId - 100) % TIERS; }
 
@@ -606,7 +628,10 @@ namespace WizardsVRC
             {
                 case EFFECT_DAMAGE: return hit + pierce;
                 case EFFECT_DOT:
-                    return (p > 0 ? hit + "\n+ " : "") + Num(x.ToString()) + " " + CardSchoolIcon(sc) + Icon(ICON_DOT) + all + " over " + DOT_ROUNDS.ToString() + " rounds";
+                {
+                    string first = p > 0 ? hit : Num(DotHit(cardId, false).ToString()) + " " + CardSchoolIcon(sc) + Icon(ICON_DAMAGE) + all;
+                    return first + "\n+ " + Num(DotTotal(cardId).ToString()) + " " + CardSchoolIcon(sc) + Icon(ICON_DOT) + " over " + DOT_ROUNDS.ToString() + " rounds";
+                }
                 case EFFECT_DETONATE: return "Set off " + Icon(ICON_DOT) + " burns\n" + Num("+" + p.ToString() + "%") + " " + Icon(ICON_DAMAGE);
                 case EFFECT_TAUNT:
                     return "Taunt " + Num(x.ToString()) + " rounds\n" + Num("-" + p.ToString() + "%") + " " + Icon(ICON_ANY) + Icon(ICON_SHIELD);
@@ -663,8 +688,8 @@ namespace WizardsVRC
             {
                 case EFFECT_DAMAGE: return "Deals " + range + dmg + (x > 0 ? ", ignoring " + x.ToString() + "% of shields and resist." : ".");
                 case EFFECT_DOT:
-                    return (p > 0 ? "Deals " + range + dmg + ", then burns" : "Burns" + (aoe[i] != 0 ? " all enemies" : "")) + " for " +
-                           x.ToString() + " more over " + DOT_ROUNDS.ToString() + " rounds.";
+                    return "Deals " + (p > 0 ? range : DotHit(cardId, false).ToString()) + dmg + ", then burns for " +
+                           DotTotal(cardId).ToString() + " more over " + DOT_ROUNDS.ToString() + " rounds (blades boost both).";
                 case EFFECT_DETONATE: return "Sets off all of a target's burns at once, for +" + p.ToString() + "% damage.";
                 case EFFECT_TAUNT:
                     return "Taunt: monsters must attack you for " + x.ToString() + " rounds, and you gain a " + p.ToString() + "% shield against every school.";

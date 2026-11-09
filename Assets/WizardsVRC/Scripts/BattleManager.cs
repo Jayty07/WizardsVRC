@@ -1644,24 +1644,31 @@ namespace WizardsVRC
                 int spellSchool = cardDatabase.GetSchool(cardId);
                 int pierce = effect == CardDatabase.EFFECT_DAMAGE || effect == CardDatabase.EFFECT_STUN ? Mathf.Clamp(auxVal, 0, 100) : 0;
                 // Blades are used once per cast (even when it hits every enemy); traps and shields once per target hit.
-                int bladeMul = power > 0 ? UseFx(blades, FX_BLADE, s, spellSchool, true) : 100;
+                // A burn spell always lands a hit (its own, or a share of its burn), and its blade boosts the burn too.
+                bool dot = effect == CardDatabase.EFFECT_DOT;
+                int bladeMul = power > 0 || dot ? UseFx(blades, FX_BLADE, s, spellSchool, true) : 100;
                 int total = 0;
                 for (int k = 0; k < n; k++)
                 {
                     int t = _targets[k];
                     if (effect == CardDatabase.EFFECT_SHATTER && power > 0) BreakFx(shields, FX_SHIELD, t);
                     else if (effect == CardDatabase.EFFECT_SHATTER) ClearFx(shields, t);
-                    if (power > 0)
+                    if (power > 0 || dot)
                     {
-                        int amount = Hit(s, t, cardDatabase.RollPower(cardId), spellSchool, bladeMul, pierce);
+                        int amount = Hit(s, t, dot ? cardDatabase.DotHit(cardId, true) : cardDatabase.RollPower(cardId), spellSchool, bladeMul, pierce);
                         total += amount;
                         AddAct(group, s, t, cardId, KIND_DAMAGE, amount);
                     }
-                    if (effect == CardDatabase.EFFECT_DOT && hp[t] > 0)
+                    if (dot && hp[t] > 0)
                     {
-                        dotLeft[t] += auxVal;
+                        // The burn: boosted, then by the blade and the caster's damage bonus, less the target's resist.
+                        int burn = cardDatabase.DotTotal(cardId) * bladeMul / 100;
+                        burn = burn * (100 + dmgPct[s]) / 100;
+                        burn = burn * (100 - resistPct[t]) / 100;
+                        burn = Mathf.Max(1, burn);
+                        dotLeft[t] += burn;
                         dotTurns[t] = CardDatabase.DOT_ROUNDS;
-                        AddAct(group, s, t, cardId, KIND_BUFF, auxVal);
+                        AddAct(group, s, t, cardId, KIND_BUFF, burn);
                     }
                     if (effect == CardDatabase.EFFECT_STUN && hp[t] > 0)
                     {
