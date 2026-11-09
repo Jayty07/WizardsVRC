@@ -105,7 +105,8 @@ Shader "WizardsVRC/WardDome"
                 // The pulse rolling down from the crown.
                 float phase = frac(t / _PulseEvery);
                 float ringAt = 1.0 - phase;                      // elevation of the pulse front
-                float pulse = exp(-pow((up - ringAt) * 18.0, 2.0)) * (1.0 - phase * 0.6);
+                float pd = (up - ringAt) * 18.0;
+                float pulse = exp(-pd * pd) * (1.0 - phase * 0.6);
 
                 // Brighter where you look through it edge-on (towards the horizon), faint overhead.
                 float rim = pow(1.0 - up, 3.0);
