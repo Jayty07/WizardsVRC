@@ -139,6 +139,14 @@ namespace WizardsVRC.EditorTools
             if (boss == 0) return;
             if (regulars.Count == 0) regulars.AddRange(elites);
             if (regulars.Count == 0) regulars.Add(boss);
+            // A boss fought at the end of the street's dungeon already waits behind a door (the dungeon's sigil): no tower.
+            if (site.x < 0 && _dungeonCells != null)
+                foreach (var e in z.encounters)
+                {
+                    if (e == null || e.roster == null || !e.roster.Contains(boss) || !ZoneGrid.IsRingDigit(e.Symbol)) continue;
+                    var home = g.Find(e.Symbol);
+                    if (home.Count > 0 && _dungeonCells.Contains(home[0])) return;
+                }
             Vector2Int cell = site.x >= 0 ? site : TowerSigilCell(g, start, ringCells);
             if (cell.x < 0)
             {
