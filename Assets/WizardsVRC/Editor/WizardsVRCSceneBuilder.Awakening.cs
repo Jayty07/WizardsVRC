@@ -92,6 +92,8 @@ namespace WizardsVRC.EditorTools
                 new Beat(H, "{name}. Yes... I believe I have heard that name before. In the dream.", 5f, 1f, -1, O, S, 0),
                 new Beat(H, "And {school} magic answers you. Good. Your professor will teach you to wield it.", 5f, 1f, -1, O, S, 0),
                 new Beat(H, "The crystal is fading, and old enemies stir in the north. I will not pretend we are ready for what I have seen.", 6f, 1f, -1, O, S, 0),
+                new Beat(H, "You will see the Starfall Ward overhead: the dome of light the crystal raised over these isles long ago. Nothing from beyond it has ever reached us.", 7f, 1f, -1, O, S, 0),
+                new Beat(H, "But the ward drinks from the crystal. If one fails, so will the other.", 5f, 1f, -1, O, S, 0),
                 new Beat(H, outdoorSchools
                     ? "Your professor waits at the School of {school}'s hall, out in the castle grounds. Go, and find them."
                     : "Your professor waits in the Hall of Schools, beyond that door. Go, and find them.", 5.5f, 1f, -1, O, S, 0),

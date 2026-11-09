@@ -349,7 +349,10 @@ namespace WizardsVRC.EditorTools
             questManager.questTargets = allTargets.ToArray();
             streets.Add(areaCuller);
             Lap("overlays and area culling");
-            BuildSkies(LayOutWorld(hubPlan, hubRoot, wb), areaCuller, RenderSettings.skybox);
+            var skyAreas = LayOutWorld(hubPlan, hubRoot, wb);
+            BuildSkies(skyAreas, areaCuller, RenderSettings.skybox);
+            // The Starfall Ward: the great dome of light over World 1 (WizardsVRCSceneBuilder.Ward.cs).
+            BuildWardDomes(skyAreas);
             Lap("skies");
 
             // Interface sounds: every button gets a click / hover sound; cards, the book and cutscenes call it directly.

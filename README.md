@@ -306,6 +306,24 @@ a round chamber with five arches. Starfall Isle's always glows; World 2's lights
 you through to **Archrock**, Dustwind's town (the sandstone arch at its south end brings you back); the other three stay
 dark.
 
+## The Starfall Ward
+
+A great dome of light fills the sky over **World 1**: the castle and every street round it. It's drawn in every World 1
+place (a hemisphere just inside the draw distance, centred on the place, never fogged) with the `WizardsVRC/WardDome`
+shader, which animates it on the GPU: a lattice of glowing hexagons over the whole sky, shimmering bands, cells that
+flare now and then, a pulse rolling down from the crown every 9 seconds, and a ring of turning runes and a glowing seam
+where it meets the horizon. Material: `Materials/StarfallWard.mat` (builder: `WizardsVRCSceneBuilder.Ward.cs`).
+
+**Story.** The Starfall Crystal raised the ward over the isles long ago, and nothing from beyond the Everweave has ever
+reached them since; the Headmaster tells you so on waking, and that the ward drinks from the crystal ("if one fails, so
+will the other"). The arc it carries:
+- **World 1**: there, taken for granted by everyone, overhead wherever you go.
+- **World 3**: the heart of the story. The fading crystal starves the ward: it flickers, cracks spread across it, and the
+  hunt is on for a way to mend it (or to learn who is breaking it).
+- **World 4**: it fails, and the hub is invaded.
+The shader's **Crack** (`_Crack`, 0 whole to 1 failing) is there for those chapters: cells break along their edges, red
+fractures spread, the light gutters and turns red. Set it on the material (or from a script for a story beat).
+
 ## World 2: Dustwind (Lv 13-25)
 
 A Wild West world (see the World 2 plan): the Dominion's Railmaster, **Ironhand Calloway**, is laying the Iron Line across
