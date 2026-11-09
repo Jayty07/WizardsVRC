@@ -302,6 +302,8 @@ namespace WizardsVRC.EditorTools
             streets.Add(homeTeleport);
             // Notices, tooltips, titles and auras, elixirs, the Starshard Shop and the gold shops (WizardsVRCSceneBuilder.Cosmetics.cs).
             WireExtras(systems.transform, playerState, itemDb, cardDb, book, hud, deckPages, questManager, null, encounters);
+            // Debug buttons for testing (book > Settings > Debug), only when enabled (WizardsVRCSceneBuilder.Debug.cs).
+            BuildDebugTools(systems.transform, playerState, questManager, cardDb, hud, book);
             Lap("quest wiring, shops and extras");
             // Every word in the book (every tab, the cards, the wardrobe and shop pages) in the pixel font, like the signs.
             if (book.bookRoot != null) ApplyCombatFont(book.bookRoot.transform);
@@ -310,7 +312,7 @@ namespace WizardsVRC.EditorTools
             muter.panels = new[]
             {
                 ((CutscenePlayer)cutscenes[0]).screenRoot, interactionMenu.menuRoot, trainer.panelRoot,
-                trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot, GoldShopPanel, RailroadPanel, BountyPanel,
+                trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot, GoldShopPanel, RailroadPanel, BountyPanel, DebugPanel,
             };
             streets.Add(muter);
             // Pop-ups, menus, dialogue, the HUD, the quest arrow's words and the duel hand draw over everything, so they're
@@ -320,7 +322,7 @@ namespace WizardsVRC.EditorTools
             {
                 foreach (var go in new GameObject[] { ((CutscenePlayer)cutscenes[0]).screenRoot, interactionMenu.menuRoot, trainer.panelRoot,
                              trainer.popup != null ? trainer.popup.popupRoot : null, book.bookRoot, hud.hudRoot,
-                             questGuide.labelRoot != null ? questGuide.labelRoot.gameObject : null, GoldShopPanel, TooltipRoot, RailroadPanel, BountyPanel })
+                             questGuide.labelRoot != null ? questGuide.labelRoot.gameObject : null, GoldShopPanel, TooltipRoot, RailroadPanel, BountyPanel, DebugPanel })
                     OverlayUI(go, overlay);
                 foreach (var ec in encounters) { OverlayUI(ec.handRoot, overlay); OverlayUI(ec.fleeConfirmRoot, overlay); }
             }
@@ -517,7 +519,7 @@ namespace WizardsVRC.EditorTools
         private const bool SunShadows = false;
 
         /// <summary>Every runtime script; each needs an UdonSharp program asset in ProgramsDir.</summary>
-        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery", "HudGrip", "CastPattern", "PatternWand", "SpellCinematic", "MapPages", "CardPacks" };
+        private static readonly string[] ProgramNames = { "CharacterData", "SaveManager", "PlayerState", "TeleportHelper", "CharacterSelectUI", "ItemDatabase", "InventoryBook", "PlayerHUD", "EventRelay", "CardDatabase", "DeckPages", "BattleManager", "BattleClient", "BattleQueuePad", "Wanderer", "QuestTarget", "Cutscene", "CutscenePlayer", "IntroFlow", "QuestManager", "SpellTrainer", "NewSpellPopup", "InteractionMenu", "NpcInteractions", "QuestPages", "QuestGuide", "QuestNpc", "QuestGate", "AreaCuller", "UiAudio", "Seat", "LocalToggle", "MugReset", "RestoreOrb", "TunnelGate", "TunnelPassage", "TavernJukebox", "AwakeningSequence", "CharacterCreator", "InteractMuter", "DungeonSigil", "MusicDirector", "FireFlicker", "NotificationCenter", "CosmeticsDatabase", "PlayerCosmetics", "StarshardStore", "GoldShop", "ItemTooltip", "WardrobePages", "ShopPages", "ShopPreview", "TowerFloor", "LevelRewards", "Railroad", "DepotStop", "BountyBoard", "HighNoon", "DustStorm", "MonsterRig", "AreaDiscovery", "HudGrip", "CastPattern", "PatternWand", "SpellCinematic", "MapPages", "CardPacks", "DebugTools" };
 
         /// <summary>Creates the program assets that are missing (and marks the rest current). True if any was made.</summary>
         private static bool CreateMissingPrograms()
@@ -930,6 +932,11 @@ namespace WizardsVRC.EditorTools
             // VR: which hip the casting wand waits at when a spell's rune is drawn (CastPattern).
             GameObject wandBtn = Button(right, "WandHand", new Vector2(0, -395), new Vector2(560, 85), "Wand hand: Right", brown, target, nameof(InventoryBook.SettingToggleWandHand));
             book.wandSettingLabel = wandBtn.GetComponentInChildren<Text>();
+            // Debug buttons (only shown while they're enabled for you; DebugTools).
+            GameObject debugBtn = Button(right, "Debug", new Vector2(300, 430), new Vector2(170, 60), "Debug", new Color(0.55f, 0.18f, 0.12f), target, nameof(InventoryBook.SettingOpenDebug));
+            debugBtn.GetComponentInChildren<Text>().fontSize = 26;
+            debugBtn.SetActive(false);
+            book.debugButton = debugBtn;
             view.gameObject.SetActive(false);
         }
 

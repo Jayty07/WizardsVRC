@@ -28,6 +28,14 @@ All art is generic placeholder geometry.
    **WizardsVRC > Options > Bake Occlusion On Rebuild** to bake every time. Generated pictures (card art, the book's maps,
    the skylines) are only written and re-imported when they changed, so a rebuild with no art changes skips that work.
    Each rebuild logs how long it took and each stage's time, slowest first (`[WizardsVRC] Rebuild took ...`).
+
+   **Debug buttons (testing):** tick **WizardsVRC > Options > Debug Buttons** and rebuild (or tick *Debug Enabled* on
+   `Systems/DebugTools` in the scene, no rebuild needed). A red **Debug** button then appears at the top right of the
+   book's Settings page; it opens a panel with: Level +1 / +5 / max, Training points +5, Gold +1,000, Starshards +100, Full
+   health and mana, Treasure cards (3 of each), Learn my school's spells, Learn every spell, Next step of tracked quest and
+   Finish tracked quest (rewards given as usual). They act on your own wizard and save at once (not during a duel). Fill
+   *Allowed Names* on `Systems/DebugTools` to show them only to certain VRChat display names. The build log warns while
+   they're on: turn them off before publishing.
 6. Commit the generated files (scene, materials, program assets) so they are in the repo too.
 
 ## Build & Test (local only)

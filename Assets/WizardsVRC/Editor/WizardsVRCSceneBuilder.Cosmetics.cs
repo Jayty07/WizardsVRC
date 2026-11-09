@@ -40,7 +40,7 @@ namespace WizardsVRC.EditorTools
         private static void ResetExtras()
         {
             BookTabBadge = null; BookWardrobe = null; BookShop = null; BookNotices = null; BookMap = null;
-            GoldShopPanel = null; TooltipRoot = null;
+            GoldShopPanel = null; TooltipRoot = null; DebugPanel = null;
             ExtraBehaviours.Clear();
             ShopCounters.Clear();
             ShopCounterNames.Clear();

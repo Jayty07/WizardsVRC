@@ -525,6 +525,25 @@ namespace WizardsVRC
             }
         }
 
+        /// <summary>
+        /// Debug buttons (DebugTools): finishes quest q's current step as if its objective were done (a quest you could take
+        /// but haven't started starts instead). Finishing the last step completes it with its rewards. False if nothing happened.
+        /// </summary>
+        public bool DebugAdvance(int q)
+        {
+            if (!HasCharacter() || q < 0 || q >= QuestCount()) return false;
+            if (!IsStarted(q))
+            {
+                if (!Available(q)) return false;
+                SetStage(q, 1);
+                return true;
+            }
+            if (!IsActive(q)) return false;
+            int i = StepIndex(q);
+            Advance(q, Mathf.Max(1, stepCounts[i] - playerState.current.questCounters[q]));
+            return true;
+        }
+
         private void Complete(int q, int stage)
         {
             CharacterData c = playerState.current;

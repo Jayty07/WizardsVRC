@@ -84,6 +84,9 @@ namespace WizardsVRC
         [Tooltip("Which hip the casting wand waits at (CastPattern), right or left.")]
         public Text wandSettingLabel;
         public Text vrHudSettingLabel;
+        [Tooltip("The Settings page's Debug button (shown only while DebugTools allows the local player).")]
+        public GameObject debugButton;
+        public DebugTools debugTools;
         public CastPattern castPattern;
         [Tooltip("Background music (the Music setting sets its volume).")]
         public MusicDirector music;
@@ -368,6 +371,14 @@ namespace WizardsVRC
             RefreshSettings("");
         }
 
+        /// <summary>The Debug button: closes the book and opens the debug panel in front of you.</summary>
+        public void SettingOpenDebug()
+        {
+            if (debugTools == null || !debugTools.Allowed()) return;
+            CloseBook();
+            debugTools.Open();
+        }
+
         public void SettingSaveNow()
         {
             bool ok = playerState != null && playerState.SaveNow();
@@ -414,6 +425,8 @@ namespace WizardsVRC
             if (vrHudSettingLabel != null) vrHudSettingLabel.text = "VR HUD: " + (hud != null && hud.vrWrist ? "Over left hand" : "In view");
             if (changeCharacterLabel != null) changeCharacterLabel.text = Time.time <= _confirmUntil ? "Press again to confirm" : "Change Character";
             if (settingsStatus != null) settingsStatus.text = status;
+            bool debug = debugTools != null && debugTools.Allowed();
+            if (debugButton != null && debugButton.activeSelf != debug) debugButton.SetActive(debug);
         }
 
         private void ApplyView()
