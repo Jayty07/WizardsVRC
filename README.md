@@ -309,11 +309,18 @@ after quest 77 and takes you down to **Bigdig**; the other two stay dark.
 
 ## The Starfall Ward
 
-A great dome of light fills the sky over **World 1**: the castle and every street round it. It's drawn in every World 1
-place (a hemisphere just inside the draw distance, centred on the place, never fogged) with the `WizardsVRC/WardDome`
-shader, which animates it on the GPU: a lattice of glowing hexagons over the whole sky, shimmering bands, cells that
-flare now and then, a pulse rolling down from the crown every 9 seconds, and a ring of turning runes and a glowing seam
-where it meets the horizon. Material: `Materials/StarfallWard.mat` (builder: `WizardsVRCSceneBuilder.Ward.cs`).
+A great dome of light covers **World 1**, raised by the Starfall Crystal: one dome for the whole world, centred on the
+crystal in the castle and big enough to take in every street (its radius is the farthest street's distance plus 420 m).
+In the castle its crown is straight overhead; out on a street it stands off over the castle, its wall sweeping down out
+of the sky behind you, and the crystal's beam of light climbs from the castle to the crown, so you can always see what is
+keeping the isles safe. The `WizardsVRC/WardDome` shader draws it on a hemisphere that follows the camera just inside the
+draw distance; each pixel traces its view ray out to the real dome where it stands relative to that place in the world's
+layout (the same layout the skylines use), so it can be any size and is never clipped or fogged. It's animated on the GPU:
+a lattice of glowing hexagons whose colour drifts through blue, violet and gold, aurora curtains rippling round its lower
+reaches, starlight twinkling in the cells, cells that flare now and then, a pulse spreading out from the crown every 9
+seconds (from a street, rolling towards you from the castle), motes of light streaming up the crystal's beam, and a ring
+of turning runes and a glowing seam where it meets the ground. Each World 1 place has its own material with the dome's
+centre and radius (`Materials/StarfallWard_<zone>.mat`; builder: `WizardsVRCSceneBuilder.Ward.cs`).
 
 **Story.** The Starfall Crystal raised the ward over the isles long ago, and nothing from beyond the Everweave has ever
 reached them since; the Headmaster tells you so on waking, and that the ward drinks from the crystal ("if one fails, so
