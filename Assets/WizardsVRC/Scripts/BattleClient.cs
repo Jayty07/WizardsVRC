@@ -2354,6 +2354,8 @@ namespace WizardsVRC
             int e = cardDatabase.GetEffect(card);
             if (e == CardDatabase.EFFECT_DOT) return " is set ablaze (" + v.ToString() + " burn damage over " + CardDatabase.DOT_ROUNDS.ToString() + " rounds)";
             if (e == CardDatabase.EFFECT_DISPEL) return " loses every shield and blade";
+            if (e == CardDatabase.EFFECT_HACK) return " hacks in and steals " + v.ToString() + (v == 1 ? " charm" : " charms");
+            if (e == CardDatabase.EFFECT_FIELD) return " raises the " + cardDatabase.GetName(card) + ": " + cardDatabase.SchoolName(cardDatabase.GetSchool(card)) + " spells +" + v.ToString() + "%";
             if (e == CardDatabase.EFFECT_TAUNT) return " taunts the monsters and gains a " + v.ToString() + "% shield";
             if (e == CardDatabase.EFFECT_CURSE || e == CardDatabase.EFFECT_TRITRAP) return " is trapped (+" + v.ToString() + "%)";
             if (e == CardDatabase.EFFECT_STRIKEFX && cardDatabase.GetAux(card) / 1000 == 2) return " is trapped (+" + v.ToString() + "%)";
@@ -4062,6 +4064,8 @@ namespace WizardsVRC
             if (e == CardDatabase.EFFECT_TRAP) return "Trap +" + v.ToString() + "%";
             if (e == CardDatabase.EFFECT_DOT) return "Burning!";
             if (e == CardDatabase.EFFECT_DISPEL) return "Dispelled!";
+            if (e == CardDatabase.EFFECT_HACK) return "Hacked! +" + v.ToString();
+            if (e == CardDatabase.EFFECT_FIELD) return "Grid +" + v.ToString() + "%";
             if (e == CardDatabase.EFFECT_TAUNT) return "Taunt!";
             if (e == CardDatabase.EFFECT_FOCUS) return "Focus +" + v.ToString() + "%";
             if (e == CardDatabase.EFFECT_MULTIWARD) return Mathf.Clamp(cardDatabase.GetAux(card), 1, 3).ToString() + " Shields " + v.ToString() + "%";

@@ -10,5 +10,8 @@ namespace WizardsVRC
         Death = 4,
         Myth = 5,
         Balance = 6,
+        // 7 is the healing-charm code in battle (no school).
+        /// <summary>The Tech School: The Dominion's. Hidden from players for now (CardDatabase.TECH).</summary>
+        Tech = 8,
     }
 }

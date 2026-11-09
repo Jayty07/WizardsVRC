@@ -70,6 +70,14 @@ namespace WizardsVRC.EditorTools
             { 178, new[] { CardDatabase.CINE_PORTAL, CardDatabase.IMPACT_PILLAR, CardDatabase.CHARGE_COLUMN, CardDatabase.CAM_REVERSE, 1, Orb, 1, 2 } },     // Sphinx of Scales: steps through a gate, a column of judgement
             { 182, new[] { CardDatabase.CINE_METEOR, CardDatabase.IMPACT_RINGS, CardDatabase.CHARGE_SPIRAL, CardDatabase.CAM_FOLLOW, 1, Disc, 1, 2 } },      // Sandstorm Sphinx: bounds up and lands, rings of sand
             { 183, new[] { CardDatabase.CINE_ORBIT, CardDatabase.IMPACT_NOVA, CardDatabase.CHARGE_COLUMN, CardDatabase.CAM_CRANE, 7, Orb, 0, 2 } },          // Grand Convergence: seven orbs converge, a nova
+            // ---- Tech (The Dominion's school)
+            { 300, new[] { CardDatabase.CINE_VOLLEY, CardDatabase.IMPACT_BURST, CardDatabase.CHARGE_STREAM, CardDatabase.CAM_STANDARD, 3, Shard, 0, 0 } },    // Sidearm Burst: three quick shots
+            { 301, new[] { CardDatabase.CINE_ZIGZAG, CardDatabase.IMPACT_IMPLODE, CardDatabase.CHARGE_SPIRAL, CardDatabase.CAM_FOLLOW, 1, Orb, 0, 0 } },     // Taser Dart: a crackling dart that seizes up
+            { 304, new[] { CardDatabase.CINE_ZIGZAG, CardDatabase.IMPACT_SIGIL, CardDatabase.CHARGE_GYRO, CardDatabase.CAM_LOW, 2, Disc, 1, 0 } },          // Firewall Breach: code skitters in, the breach rune stamps
+            { 306, new[] { CardDatabase.CINE_BEAM, CardDatabase.IMPACT_SHATTER, CardDatabase.CHARGE_COLUMN, CardDatabase.CAM_STANDARD, 1, Orb, 0, 0 } },    // Railgun: one blinding slug, armour shatters
+            { 307, new[] { CardDatabase.CINE_VOLLEY, CardDatabase.IMPACT_RINGS, CardDatabase.CHARGE_GYRO, CardDatabase.CAM_LOW, 12, Shard, 0, 0 } },        // Gatling Storm: a hail of rounds
+            { 312, new[] { CardDatabase.CINE_WAVE, CardDatabase.IMPACT_SIGIL, CardDatabase.CHARGE_SPIRAL, CardDatabase.CAM_CRANE, 6, Disc, 0, 0 } },        // Zero-Day Exploit: a wave of code over every enemy
+            { 313, new[] { CardDatabase.CINE_RAIN, CardDatabase.IMPACT_PILLAR, CardDatabase.CHARGE_COLUMN, CardDatabase.CAM_CRANE, 15, Shard, 0, 3 } },     // Orbital Strike: fire from orbit
         };
 
         private static int PackStyle(int[] s)
@@ -81,7 +89,8 @@ namespace WizardsVRC.EditorTools
         private static bool IsAttackEffect(int e)
         {
             return e == CardDatabase.EFFECT_DAMAGE || e == CardDatabase.EFFECT_DRAIN || e == CardDatabase.EFFECT_DOT || e == CardDatabase.EFFECT_STUN ||
-                   e == CardDatabase.EFFECT_DETONATE || e == CardDatabase.EFFECT_SHATTER || e == CardDatabase.EFFECT_STRIKEFX;
+                   e == CardDatabase.EFFECT_DETONATE || e == CardDatabase.EFFECT_SHATTER || e == CardDatabase.EFFECT_STRIKEFX ||
+                   e == CardDatabase.EFFECT_BARRAGE || e == CardDatabase.EFFECT_HACK;
         }
 
         /// <summary>Fills CardDatabase.cineStyles: every attack spell's recipe, each one's delivery and impact its own.</summary>

@@ -549,6 +549,21 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   `bossHealGraceRounds` (4) rounds before it can heal again. Monsters sometimes put a blade or shield on themselves first, and otherwise cast their biggest affordable attack
   (occasionally saving pips).
 
+- **The Tech School (hidden, The Dominion's):** `School.Tech` / `CardDatabase.TECH` (code 8; 7 is the healing-charm
+  code), electric teal, badge `Textures/FxIcons/SchoolTech.png` (`Tools/make_tech_icon.py`). Machine guns, hacking, cyber
+  attacks and armour-piercing shots. Its gimmick: **barrages** (`EFFECT_BARRAGE`: many small hits, each its own hit, so
+  each strips a shield, and one blade boosts every shot), **hacks** (`EFFECT_HACK`: steal the target's blades, and
+  shields too), drones, turrets and mechs that fire three-shot bursts, and the **Neon Grid** (`EFFECT_FIELD`: a bubble
+  over the whole duel, +25% to every Tech spell for 4 rounds; one at a time). Nobody teaches it yet (players get it
+  much later); the book's Deck page shows its tab only once you know one of its spells. Monsters can use it now (set a
+  monster's school to Tech and give it Tech spells). Spells (id, level, pips):
+  - Professor: 300 **Sidearm Burst** (L1, 1: 3 x 22-34), 301 **Taser Dart** (L5, 2: 80-120 and stun), 302 **Kevlar Plating**
+    (L10, 0: 45% shield against any school), 303 **Proximity Mine** (L16, 0: +35% Tech trap), 304 **Firewall Breach**
+    (L22, 2: 60-90, steals blades and shields), 305 **Overclock** (L26, 0: +40% Tech blade), 306 **Railgun** (L33, 4:
+    360-520, ignores 30% of shields and resist), 307 **Gatling Storm** (L42, 5: 8 x 70-95).
+  - School quests: 308 **Scout Drone** (L7, 2: 220-health drone), 309 **Neon Grid** (L12, 1: the bubble), 310 **Sentry
+    Turret** (L18, 3: 380 health), 311 **Assault Mech** (L28, 4: 650 health), 312 **Zero-Day Exploit** (L38, 3: 120-170
+    to all enemies, steals all their blades and shields), 313 **Orbital Strike** (L48, 7: 5 x 110-150 on every enemy).
 - **Spell design:** each school has a 12-spell tree on the Wizard101 milestones (L1 low-pip attack, L5 secondary
   attack/utility, L10 blade, L12 trap, L16 low-rank AoE or early minion, L22 shield/dispel, L26 mid attack, L28 minion,
   L33 buff utility / high-impact trap, L35 quest spell, L42 big hit, L48 7-pip AoE) and plays to its role: Storm glass

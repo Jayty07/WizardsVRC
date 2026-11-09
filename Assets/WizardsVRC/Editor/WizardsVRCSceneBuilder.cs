@@ -985,8 +985,9 @@ namespace WizardsVRC.EditorTools
             GoldRule(view, "DeckHeaderRuleTop", new Vector2(0, headerY + 44f), 1240f);
             GoldRule(view, "DeckHeaderRuleBottom", new Vector2(0, headerY - 44f), 1240f);
             TitlePlate(view, "DeckHeaderTitle", new Vector2(0, headerY), new Vector2(340, 78), "Spell Deck", new Color(0.62f, 0.42f, 0.78f), 38);
-            string[] icons = { "", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General" };
-            float[] iconX = { -567f, -479f, -391f, -303f, -215f, 215f, 303f, 391f, 479f };
+            // The tenth, Tech (The Dominion's school), takes the gem's place on the right once you know a Tech spell (DeckPages).
+            string[] icons = { "", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General", "Tech" };
+            float[] iconX = { -567f, -479f, -391f, -303f, -215f, 215f, 303f, 391f, 479f, 567f };
             deck.filterImages = new Image[DeckPages.FILTERS];
             for (int f = 0; f < DeckPages.FILTERS; f++)
             {
@@ -1017,10 +1018,12 @@ namespace WizardsVRC.EditorTools
                     img.texture = PixelTexture(FxIconDir + "/School" + icons[f] + ".png");
                 }
                 deck.filterImages[f] = ring;
+                if (f == DeckPages.FILTER_TECH) { deck.techFilterButton = b; b.SetActive(false); }
             }
             // A gold gem closing the right-hand row (five icons on the left, four and the gem on the right).
             RectTransform endGem = Panel(view, "DeckHeaderGem", new Vector2(567f, headerY), new Vector2(30, 30), new Color(0.95f, 0.75f, 0.3f));
             endGem.localRotation = Quaternion.Euler(0, 0, 45f);
+            deck.techPlaceholder = endGem.gameObject;
 
             // ---- right page: the spells you know in the chosen school, six big cards to a page
             deck.filterTitle = InkLabel(right, "FilterTitle", new Vector2(0, 428), new Vector2(700, 58), "", 36, TextAnchor.MiddleCenter);

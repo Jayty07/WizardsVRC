@@ -24,6 +24,13 @@ namespace WizardsVRC
     public class CardDatabase : UdonSharpBehaviour
     {
         public const int GENERAL = -1;
+        /// <summary>
+        /// The Tech School, The Dominion's own (School.Tech): machine guns, hacking, cyber attacks and armour-piercing shots.
+        /// Its gimmick: barrages (many small hits, each stripping a shield, all boosted by one blade), hacks (stealing a
+        /// target's blades and shields), drones and turrets that fire bursts, and the Neon Grid. Hidden: nobody teaches it
+        /// yet, and the book's Deck page only shows its tab once you know one of its spells. Code 8 (7 is the healing-charm code).
+        /// </summary>
+        public const int TECH = 8;
 
         public const int EFFECT_DAMAGE = 0;
         public const int EFFECT_HEAL = 1;
@@ -68,6 +75,18 @@ namespace WizardsVRC
         public const int EFFECT_HEALBLADE = 20;
         /// <summary>Heals the caster only, for power.</summary>
         public const int EFFECT_SELFHEAL = 21;
+        /// <summary>
+        /// Tech's barrage (machine guns and the like): aux hits of power..powerMax each on every target. Each bullet is its
+        /// own hit, so each one uses up a shield (barrages tear through stacked shields), and the cast's blade boosts them all.
+        /// </summary>
+        public const int EFFECT_BARRAGE = 22;
+        /// <summary>
+        /// Tech's hack: power..powerMax damage (if any), then the target's blades are stolen onto the caster; aux 1 steals
+        /// its shields too.
+        /// </summary>
+        public const int EFFECT_HACK = 23;
+        /// <summary>A bubble over the whole duel: every spell of the card's school deals power% more (everyone's) for aux rounds. One at a time.</summary>
+        public const int EFFECT_FIELD = 24;
 
         /// <summary>The school code a healing blade carries in the blade list (only heals use it).</summary>
         public const int HEAL_SCHOOL = 7;
@@ -97,6 +116,7 @@ namespace WizardsVRC
             172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183,
             200, 201, 202, 203,
             184, 185, 186, 187, 188, 204,
+            300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313,
         };
         [HideInInspector] public int[] schools =
         {
@@ -109,6 +129,7 @@ namespace WizardsVRC
             6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
             -1, -1, -1, -1,
             6, 6, 6, 6, 3, -1,
+            8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
         };
         [HideInInspector] public int[] levelReqs =
         {
@@ -121,6 +142,7 @@ namespace WizardsVRC
             1, 5, 10, 12, 16, 20, 18, 22, 33, 35, 25, 48,
             1, 2, 3, 4,
             24, 30, 18, 20, 6, 5,
+            1, 5, 10, 16, 22, 26, 33, 42, 7, 12, 18, 28, 38, 48,
         };
         [HideInInspector] public int[] pipCosts =
         {
@@ -133,6 +155,7 @@ namespace WizardsVRC
             1, 2, 0, 0, 3, 0, 4, 4, 1, 1, 5, 7,
             0, 1, 0, 0,
             1, 1, 1, 1, 0, 2,
+            1, 2, 0, 0, 2, 0, 4, 5, 2, 1, 3, 4, 3, 7,
         };
         [HideInInspector] public int[] accuracies =
         {
@@ -145,6 +168,7 @@ namespace WizardsVRC
             85, 85, 100, 100, 85, 100, 85, 100, 100, 100, 85, 85,
             100, 100, 100, 100,
             100, 100, 100, 100, 100, 100,
+            85, 85, 100, 100, 85, 100, 85, 85, 100, 100, 100, 100, 85, 85,
         };
         [HideInInspector] public int[] powers =
         {
@@ -157,6 +181,7 @@ namespace WizardsVRC
             65, 130, 25, 25, 160, 80, 265, 500, 35, 35, 415, 450,
             50, 100, 15, 15,
             50, 50, 25, 25, 35, 420,
+            22, 80, 45, 35, 60, 40, 360, 70, 220, 25, 380, 650, 120, 110,
         };
         [HideInInspector] public int[] effects =
         {
@@ -169,6 +194,7 @@ namespace WizardsVRC
             0, 0, 3, 6, 0, 2, 0, 13, 7, 7, 0, 0,
             2, 1, 3, 5,
             15, 15, 16, 16, 20, 21,
+            EFFECT_BARRAGE, EFFECT_STUN, EFFECT_WARD, EFFECT_TRAP, EFFECT_HACK, EFFECT_EMPOWER, EFFECT_DAMAGE, EFFECT_BARRAGE, EFFECT_MINION, EFFECT_FIELD, EFFECT_MINION, EFFECT_MINION, EFFECT_HACK, EFFECT_BARRAGE,
         };
         [HideInInspector] public int[] aoe =
         {
@@ -181,6 +207,7 @@ namespace WizardsVRC
             0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
             0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
         };
         [HideInInspector] public string[] names =
         {
@@ -193,6 +220,7 @@ namespace WizardsVRC
             "Prism Ray", "Sand Djinn", "Accord Edge", "Sand Snare", "Sandstorm", "Balance Aegis", "Sphinx of Scales", "Sand Golem", "Elemental Tri-Blade", "Spirit Tri-Blade", "Sandstorm Sphinx", "Grand Convergence",
             "Tower Ward", "Mend", "Empower", "Steady Mind",
             "Elemental Tri-Shield", "Spirit Tri-Shield", "Elemental Tri-Trap", "Spirit Tri-Trap", "Wellspring Charm", "Second Wind",
+            "Sidearm Burst", "Taser Dart", "Kevlar Plating", "Proximity Mine", "Firewall Breach", "Overclock", "Railgun", "Gatling Storm", "Scout Drone", "Neon Grid", "Sentry Turret", "Assault Mech", "Zero-Day Exploit", "Orbital Strike",
         };
         [HideInInspector] public int[] prereqs =
         {
@@ -205,6 +233,7 @@ namespace WizardsVRC
             0, 172, 173, 174, 175, 176, 177, 178, 179, 180, 180, 182,
             0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
+            0, 300, 301, 302, 303, 304, 305, 306, 300, 308, 309, 310, 311, 312,
         };
         [HideInInspector] public int[] aux =
         {
@@ -217,6 +246,7 @@ namespace WizardsVRC
             0, 0, 1, 1, 0, 0, 0, 100, 0, 0, 0, 0,
             0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
+            3, 0, 1, 0, 1, 0, 30, 8, 60, 4, 90, 140, 1, 5,
         };
         [HideInInspector] public int[] powerMax =
         {
@@ -229,6 +259,7 @@ namespace WizardsVRC
             95, 200, 0, 0, 240, 0, 395, 0, 0, 0, 625, 670,
             0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
+            34, 120, 0, 0, 90, 0, 520, 95, 0, 0, 0, 0, 170, 150,
         };
 
         // Tri-blades, tri-shields and tri-traps: Elemental = Fire, Ice, Storm; Spirit = Life, Death, Myth.
@@ -237,14 +268,17 @@ namespace WizardsVRC
         /// <summary>School spells outside the 12-tier trees (ids 184+): not taught in order, no prerequisites.</summary>
         public const int FIRST_EXTRA_ID = 184;
         /// <summary>Spells only ever earned from a quest (besides each school's trial spell): Life's Wellspring Charm.</summary>
-        [HideInInspector] public int[] questOnlyIds = { 188 };
+        // Wellspring Charm, then the Tech School's quest spells (Scout Drone, Neon Grid, Sentry Turret, Assault Mech,
+        // Zero-Day Exploit, Orbital Strike): for when Tech is taught, later in the game.
+        [HideInInspector] public int[] questOnlyIds = { 188, 308, 309, 310, 311, 312, 313 };
 
-        [HideInInspector] public string[] schoolNames = { "Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance" };
+        // Index 7 is the healing-charm code (no school); 8 is Tech.
+        [HideInInspector] public string[] schoolNames = { "Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance", "General", "Tech" };
         [HideInInspector] public Color[] schoolColors =
         {
             new Color(0.85f, 0.3f, 0.15f), new Color(0.45f, 0.7f, 0.95f), new Color(0.55f, 0.35f, 0.85f),
             new Color(0.35f, 0.75f, 0.35f), new Color(0.3f, 0.3f, 0.3f), new Color(0.85f, 0.7f, 0.2f),
-            new Color(0.75f, 0.6f, 0.4f),
+            new Color(0.75f, 0.6f, 0.4f), new Color(0.6f, 0.6f, 0.65f), new Color(0.2f, 0.85f, 0.8f),
         };
         /// <summary>
         /// Optional cast cinematic per card (same index as <see cref="ids"/>; null = default spell orb). The scene builder fills
@@ -430,7 +464,17 @@ namespace WizardsVRC
         }
 
         /// <summary>Heals that target the caster only (no picking).</summary>
-        public bool SelfOnly(int cardId) { return GetEffect(cardId) == EFFECT_SELFHEAL; }
+        public bool SelfOnly(int cardId) { int e = GetEffect(cardId); return e == EFFECT_SELFHEAL || e == EFFECT_FIELD; }
+
+        /// <summary>A school players can't see or learn yet (Tech): the Deck page shows it only once you know one of its spells.</summary>
+        public bool IsHiddenSchool(int school) { return school == TECH; }
+
+        /// <summary>True if the character knows any spell of the school.</summary>
+        public bool KnowsAnyOf(CharacterData c, int school)
+        {
+            for (int i = 0; i < ids.Length; i++) if (schools[i] == school && Knows(c, ids[i])) return true;
+            return false;
+        }
         public int QuestSpell(int school) { return 100 + school * TIERS + QUEST_TIER; }
 
         public bool IsAoe(int cardId) { int i = IndexOf(cardId); return i >= 0 && aoe[i] != 0; }
@@ -441,7 +485,7 @@ namespace WizardsVRC
             int e = GetEffect(cardId);
             return e == EFFECT_HEAL || e == EFFECT_WARD || e == EFFECT_EMPOWER || e == EFFECT_FOCUS || e == EFFECT_TRIBLADE ||
                    e == EFFECT_TAUNT || e == EFFECT_MINION || e == EFFECT_TRISHIELD || e == EFFECT_MULTIWARD || e == EFFECT_HEALBLADE ||
-                   e == EFFECT_SELFHEAL;
+                   e == EFFECT_SELFHEAL || e == EFFECT_FIELD;
         }
 
         /// <summary>Ice shields and General shields block every school; other shields block their own school.</summary>
@@ -670,6 +714,10 @@ namespace WizardsVRC
                 case EFFECT_CURSE:
                     return Num("+" + p.ToString() + "%") + " " + Icon(ICON_ANY) + Icon(ICON_TRAP) + " on them\n" + Num("+" + x.ToString() + "%") + " " + Icon(ICON_ANY) + Icon(ICON_TRAP) + " on you";
                 case EFFECT_HEALBLADE: return Num("+" + p.ToString() + "%") + " " + Icon(ICON_HEAL) + Icon(ICON_BLADE) + " next heal";
+                case EFFECT_BARRAGE: return Num(x.ToString()) + " x " + hit;
+                case EFFECT_HACK:
+                    return (p > 0 ? hit + "\n" : "") + "Steal " + Icon(ICON_BLADE) + (x == 1 ? Icon(ICON_SHIELD) : "") + (aoe[i] != 0 ? " from all" : "");
+                case EFFECT_FIELD: return "Grid: " + Num("+" + p.ToString() + "%") + " " + CardSchoolIcon(sc) + Icon(ICON_DAMAGE) + "\nall, " + Num(x.ToString()) + " rounds";
                 default: return "";
             }
         }
@@ -701,6 +749,14 @@ namespace WizardsVRC
                 case EFFECT_MINION:
                     return "Summons a " + SchoolName(schools[i]) + " minion with " + p.ToString() + " health that fights beside you (" + x.ToString() + " power).";
                 case EFFECT_HEAL: return "Heals " + p.ToString() + " health" + (aoe[i] != 0 ? " to all allies." : ".");
+                case EFFECT_BARRAGE:
+                    return "A barrage of " + x.ToString() + " shots, " + range + dmg + " each. Every shot is its own hit, so each one uses up a shield; a blade boosts every shot.";
+                case EFFECT_HACK:
+                    return (p > 0 ? "Deals " + range + dmg + ", then steals " : "Steals ") + "every blade" + (x == 1 ? " and shield" : "") +
+                           (aoe[i] != 0 ? " from all enemies" : " from the target") + " for yourself.";
+                case EFFECT_FIELD:
+                    return "A grid over the whole duel: every " + SchoolName(schools[i]) + " spell (anyone's) deals " + p.ToString() + "% more for " + x.ToString() +
+                           " rounds. A new grid replaces it.";
                 case EFFECT_WARD:
                     return "Shield: blocks " + p.ToString() + "% of the next " + SchoolPhrase(ShieldSchool(cardId), "spell from any school") +
                            (ShieldSchool(cardId) == ANY_SCHOOL ? "" : " spell") + " that hits. " + StackNote;

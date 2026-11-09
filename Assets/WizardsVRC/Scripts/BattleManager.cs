@@ -229,6 +229,10 @@ namespace WizardsVRC
         [UdonSynced] public int[] dotTurns = new int[SLOTS];
         /// <summary>1 = loses its next cast.</summary>
         [UdonSynced] public int[] stunned = new int[SLOTS];
+        /// <summary>The duel's grid bubble (EFFECT_FIELD, e.g. Tech's Neon Grid): its school, +damage % and rounds left (0 = none).</summary>
+        [UdonSynced] public int bubbleSchool = -1;
+        [UdonSynced] public int bubblePct;
+        [UdonSynced] public int bubbleRounds;
         /// <summary>Rounds left in which monsters must attack this slot.</summary>
         [UdonSynced] public int[] taunt = new int[SLOTS];
         /// <summary>Stun shields: each blocks one stun. A slot gains one whenever it's stunned, so stuns can't chain.</summary>
@@ -1132,6 +1136,9 @@ namespace WizardsVRC
 
         private void StartBattle()
         {
+            bubbleRounds = 0;
+            bubblePct = 0;
+            bubbleSchool = -1;
             if (pvpMode) { StartDuel(); return; }
             int n = 0;
             for (int s = 0; s < SLOTS; s++)
@@ -1333,6 +1340,7 @@ namespace WizardsVRC
             fxLogCount = 0;
             _pendFx = 0;
             int group = 0;
+            if (bubbleRounds > 0) bubbleRounds--;
             for (int s = 0; s < SLOTS; s++)
             {
                 if (!Alive(s) || dotLeft[s] <= 0 || dotTurns[s] <= 0) continue;
@@ -1388,6 +1396,7 @@ namespace WizardsVRC
                     int[] arr = e == CardDatabase.EFFECT_WARD || e == CardDatabase.EFFECT_TRISHIELD || e == CardDatabase.EFFECT_MULTIWARD ? shields : blades;
                     if (FxCount(arr, s) == 0) buff = spell;
                 }
+                else if (e == CardDatabase.EFFECT_FIELD) { if (bubbleRounds <= 0 || bubbleSchool != cardDatabase.GetSchool(spell)) buff = spell; }
                 else if (!cardDatabase.TargetsAllies(spell) && (attack == 0 || cardDatabase.GetPipCost(spell) > cardDatabase.GetPipCost(attack))) attack = spell;
             }
 
@@ -1464,6 +1473,16 @@ namespace WizardsVRC
             if (sc == 1) taunt[s] = 1;
             int t = EnemyTarget(s);
             if (t < 0) { AddAct(group, s, s, 0, KIND_PASS, 0); return; }
+            if (sc == CardDatabase.TECH)
+            {
+                // A drone, turret or mech fires a three-shot burst (each a hit of its own, like a barrage).
+                for (int h = 0; h < 3 && hp[t] > 0; h++)
+                {
+                    int shot = Hit(s, t, power * Random.Range(30, 40) / 100, sc, 100, 0);
+                    AddAct(group, s, t, card, KIND_DAMAGE, shot);
+                }
+                return;
+            }
             int amount = Hit(s, t, power * Random.Range(90, 111) / 100, sc, 100, 0);
             AddAct(group, s, t, card, KIND_DAMAGE, amount);
             if (sc == 4 && amount > 0)
@@ -1485,6 +1504,8 @@ namespace WizardsVRC
             pierce = Mathf.Clamp(pierce + piercePct[s], 0, 100);
             int amount = power * (100 + dmgPct[s]) / 100;
             amount = amount * bladeMul / 100;
+            // The grid bubble boosts every spell of its school, whoever casts it.
+            if (bubbleRounds > 0 && spellSchool >= 0 && spellSchool == bubbleSchool) amount = amount * (100 + bubblePct) / 100;
             amount = amount * UseFx(traps, FX_TRAP, t, spellSchool, true) / 100;
             int shieldMul = UseFx(shields, FX_SHIELD, t, spellSchool, false);
             shieldMul = 100 - (100 - shieldMul) * (100 - pierce) / 100;
@@ -1516,6 +1537,29 @@ namespace WizardsVRC
             if (t >= 0 && blockPct[t] > 0 && Random.Range(0, 100) < blockPct[t]) { _nextFlags |= FLAG_BLOCKED; return amount; }
             _nextFlags |= FLAG_CRIT;
             return amount * critMultiplier / 100;
+        }
+
+        /// <summary>
+        /// Tech's hack: every blade on t (and its shields, when 'shields') moves onto s. The target's are shown breaking;
+        /// the caster gains them (a buff act with how many).
+        /// </summary>
+        private void Hack(int s, int t, bool alsoShields, int cardId, int group)
+        {
+            if (t < 0 || t == s) return;
+            int stolen = 0;
+            int b = t * FX_MAX;
+            for (int k = 0; k < FX_MAX; k++)
+                if (blades[b + k] != 0) { AddFx(blades, s, blades[b + k]); stolen++; }
+            if (stolen > 0) BreakFx(blades, FX_BLADE, t);
+            if (alsoShields)
+            {
+                int took = 0;
+                for (int k = 0; k < FX_MAX; k++)
+                    if (shields[b + k] != 0) { AddFx(shields, s, shields[b + k]); took++; }
+                if (took > 0) BreakFx(shields, FX_SHIELD, t);
+                stolen += took;
+            }
+            if (stolen > 0) AddAct(group, s, s, cardId, KIND_BUFF, stolen);
         }
 
         /// <summary>Remembers a used-up effect for the next act entry (the hit it belongs to).</summary>
@@ -1637,8 +1681,18 @@ namespace WizardsVRC
             bool aoe = cardDatabase.IsAoe(cardId);
 
             int auxVal = cardDatabase.GetAux(cardId);
+            if (effect == CardDatabase.EFFECT_FIELD)
+            {
+                // One grid at a time: a new one replaces the last.
+                bubbleSchool = cardDatabase.GetSchool(cardId);
+                bubblePct = power;
+                bubbleRounds = Mathf.Max(1, auxVal) + 1;   // +1: this round's tick has passed; it lasts aux full rounds
+                AddAct(group, s, s, cardId, KIND_BUFF, power);
+                return;
+            }
             if (effect == CardDatabase.EFFECT_DAMAGE || effect == CardDatabase.EFFECT_DRAIN || effect == CardDatabase.EFFECT_DOT ||
-                effect == CardDatabase.EFFECT_STUN || effect == CardDatabase.EFFECT_SHATTER || effect == CardDatabase.EFFECT_STRIKEFX)
+                effect == CardDatabase.EFFECT_STUN || effect == CardDatabase.EFFECT_SHATTER || effect == CardDatabase.EFFECT_STRIKEFX ||
+                effect == CardDatabase.EFFECT_BARRAGE || effect == CardDatabase.EFFECT_HACK)
             {
                 int n = CollectTargets(aoe, target, 1 - mySide);
                 int spellSchool = cardDatabase.GetSchool(cardId);
@@ -1653,12 +1707,24 @@ namespace WizardsVRC
                     int t = _targets[k];
                     if (effect == CardDatabase.EFFECT_SHATTER && power > 0) BreakFx(shields, FX_SHIELD, t);
                     else if (effect == CardDatabase.EFFECT_SHATTER) ClearFx(shields, t);
-                    if (power > 0 || dot)
+                    if (effect == CardDatabase.EFFECT_BARRAGE && power > 0)
+                    {
+                        // Every shot is its own hit (each uses up a shield and shows its own number); the blade boosts them all.
+                        int shots = Mathf.Clamp(auxVal, 1, 12);
+                        for (int h = 0; h < shots && hp[t] > 0; h++)
+                        {
+                            int shot = Hit(s, t, cardDatabase.RollPower(cardId), spellSchool, bladeMul, 0);
+                            total += shot;
+                            AddAct(group, s, t, cardId, KIND_DAMAGE, shot);
+                        }
+                    }
+                    else if (power > 0 || dot)
                     {
                         int amount = Hit(s, t, dot ? cardDatabase.DotHit(cardId, true) : cardDatabase.RollPower(cardId), spellSchool, bladeMul, pierce);
                         total += amount;
                         AddAct(group, s, t, cardId, KIND_DAMAGE, amount);
                     }
+                    if (effect == CardDatabase.EFFECT_HACK && hp[s] > 0) Hack(s, t, auxVal == 1, cardId, group);
                     if (dot && hp[t] > 0)
                     {
                         // The burn: boosted, then by the blade and the caster's damage bonus, less the target's resist.

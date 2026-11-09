@@ -37,6 +37,16 @@ namespace WizardsVRC.EditorTools
             public float strike = 1.1f, seconds = 2.1f;
         }
 
+        /// <summary>A spell's school colour (Tech's electric teal; General a warm parchment).</summary>
+        private static Color SpellSchoolColor(int school)
+        {
+            if (school == CardDatabase.TECH) return TechColor;
+            return school >= 0 && school < SchoolColors.Length ? SchoolColors[school] : new Color(0.85f, 0.8f, 0.6f);
+        }
+
+        /// <summary>The Tech School's colour (The Dominion's school, hidden from players for now).</summary>
+        private static readonly Color TechColor = new Color(0.2f, 0.85f, 0.8f);
+
         /// <summary>How a spell looks when it's cast, from its name, effect and school.</summary>
         private static SpellLook SpellLookFor(CardDatabase db, int i)
         {
@@ -44,10 +54,11 @@ namespace WizardsVRC.EditorTools
             int e = db.effects[i];
             int school = db.schools[i];
             bool aoe = db.aoe[i] != 0;
-            Color col = school >= 0 && school < SchoolColors.Length ? SchoolColors[school] : new Color(0.85f, 0.8f, 0.6f);
+            Color col = SpellSchoolColor(school);
             var L = new SpellLook();
             bool attack = e == CardDatabase.EFFECT_DAMAGE || e == CardDatabase.EFFECT_DRAIN || e == CardDatabase.EFFECT_DOT ||
-                          e == CardDatabase.EFFECT_STUN || e == CardDatabase.EFFECT_DETONATE || e == CardDatabase.EFFECT_SHATTER;
+                          e == CardDatabase.EFFECT_STUN || e == CardDatabase.EFFECT_DETONATE || e == CardDatabase.EFFECT_SHATTER ||
+                          e == CardDatabase.EFFECT_BARRAGE || e == CardDatabase.EFFECT_HACK;
             if (e == CardDatabase.EFFECT_HEAL || e == CardDatabase.EFFECT_SELFHEAL)
             {
                 L.mode = FxArea; L.area = "Bloom"; L.strike = 0.9f; L.seconds = 1.8f;
@@ -133,7 +144,7 @@ namespace WizardsVRC.EditorTools
             for (int i = 0; i < n; i++)
             {
                 int school = db.schools[i];
-                Color col = school >= 0 && school < SchoolColors.Length ? SchoolColors[school] : new Color(0.85f, 0.8f, 0.6f);
+                Color col = SpellSchoolColor(school);
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SpellAnimationDir + "/" + db.ids[i] + ".prefab");
                 if (prefab == null) prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SpellAnimationDir + "/" + db.names[i] + ".prefab");
                 SpellLook look = SpellLookFor(db, i);

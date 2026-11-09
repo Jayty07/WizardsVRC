@@ -27,8 +27,10 @@ namespace WizardsVRC
         public const int ITEM_SLOTS = 18;
         public const int ITEM_ROW = 9;
         public const int BOOK_CELLS = 6;
-        /// <summary>Filters, in the order of the icons across the top: All, then the schools, then General.</summary>
-        public const int FILTERS = 9;
+        /// <summary>Filters, in the order of the icons across the top: All, then the schools, then General, then Tech (hidden).</summary>
+        public const int FILTERS = 10;
+        /// <summary>The Tech School's filter: its icon only shows once you know a Tech spell.</summary>
+        public const int FILTER_TECH = 9;
         public const int FILTER_ALL = 0;
 
         public PlayerState playerState;
@@ -58,6 +60,9 @@ namespace WizardsVRC
         [Header("Top: school filters")]
         [Tooltip("The round school icons across the top (FILTERS of them): their backing discs light up for the chosen one.")]
         public Image[] filterImages;
+        [Tooltip("The Tech School's icon (shown once you know one of its spells) and the gem that stands in its place until then.")]
+        public GameObject techFilterButton;
+        public GameObject techPlaceholder;
 
         [Header("Right page: the spells you know")]
         public Text filterTitle;
@@ -82,8 +87,8 @@ namespace WizardsVRC
         private Color _badgeNone = new Color(0.45f, 0.36f, 0.28f);
 
         // School shown by each filter icon (-2 = all, -1 = General): All, Fire, Ice, Storm, Myth, Life, Death, Balance, General.
-        private int[] _filterSchool = { -2, 0, 1, 2, 5, 3, 4, 6, -1 };
-        private string[] _filterNames = { "All", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General" };
+        private int[] _filterSchool = { -2, 0, 1, 2, 5, 3, 4, 6, -1, CardDatabase.TECH };
+        private string[] _filterNames = { "All", "Fire", "Ice", "Storm", "Myth", "Life", "Death", "Balance", "General", "Tech" };
 
         private int _deckItem;
         private int[] _owned = new int[CharacterData.INVENTORY_SLOTS + 1];
@@ -114,6 +119,7 @@ namespace WizardsVRC
         public void Filter6() { SetFilter(6); }
         public void Filter7() { SetFilter(7); }
         public void Filter8() { SetFilter(8); }
+        public void Filter9() { SetFilter(9); }
 
         public void DeckSlot0() { RemoveSlot(0); }
         public void DeckSlot1() { RemoveSlot(1); }
@@ -406,6 +412,11 @@ namespace WizardsVRC
 
         private void BuildLists(CharacterData c)
         {
+            // The hidden Tech School: no tab (nor its filter) until you know one of its spells.
+            bool tech = cardDatabase.KnowsAnyOf(c, CardDatabase.TECH);
+            if (techFilterButton != null && techFilterButton.activeSelf != tech) techFilterButton.SetActive(tech);
+            if (techPlaceholder != null && techPlaceholder.activeSelf == tech) techPlaceholder.SetActive(!tech);
+            if (!tech && _filter == FILTER_TECH) _filter = FILTER_ALL;
             BuildOwned(c);
             bool stillOwned = false;
             for (int i = 0; i < _ownedCount; i++) if (_owned[i] == _deckItem) stillOwned = true;
