@@ -99,6 +99,13 @@ namespace WizardsVRC.EditorTools.WorldData
         TrainDepot,
         /// <summary>The bounty board (one cell): wanted posters for three bounties at a time (see BountyBoard).</summary>
         BountyBoard,
+        /// <summary>
+        /// A kobold hotel (Bigdig's), filling its block (paint the whole block; NPCs painted inside work the front desk): a
+        /// walk-in, three-storey lobby atrium with a marquee canopy, neon signs, the front desk and key cubbies, a lounge bar
+        /// with the mirror, a fireplace with armchairs, galleries of numbered room doors and a cage lift. Works like the
+        /// Tavern (jukebox, the desk bell for fresh mugs, seats). About 36 m by 30 m.
+        /// </summary>
+        Hotel,
     }
 
     /// <summary>

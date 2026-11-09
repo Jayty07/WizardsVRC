@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 28;
+        public const int CurrentVersion = 29;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -200,6 +200,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 26) UpgradeTo26();
             if (from < 27) UpgradeTo27();
             if (from < 28) UpgradeTo28();
+            if (from < 29) UpgradeTo29();
         }
 
         /// <summary>World 3's town and boroughs (world data v28).</summary>
@@ -248,6 +249,56 @@ namespace WizardsVRC.EditorTools.WorldData
         /// finale (save ids 130-166, where free) and the Bigdig world arc. Its arch in the portal room opens with Dustwind's
         /// finale (quest 77).
         /// </summary>
+        /// <summary>
+        /// v29: Bigdig laid out afresh as a star of winding lanes round Lodestone Square (like a Wizard101 hub), with its
+        /// saloon now the Gilded Rivet Hotel (LandmarkKind.Hotel) and Mags its manager. The town is replaced only if its map
+        /// is still the v28 default; quest 131's step for Mags gets the new names either way.
+        /// </summary>
+        private static void UpgradeTo29()
+        {
+            const uint oldBigdig = 0x28196F68u;
+            var report = new List<string>();
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || z.zoneKey != "Bigdig") continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                WorldDefaults.FillBigdig(fresh);
+                bool current = Normalize(z.map) == Normalize(fresh.map);
+                if (!current && MapHash(z.map) != oldBigdig)
+                {
+                    Debug.Log("[WizardsVRC] Bigdig's map has been edited, so the new layout (winding lanes round Lodestone Square, the Gilded Rivet Hotel) " +
+                              "wasn't applied. See WorldDefaults.FillBigdig.");
+                    Object.DestroyImmediate(fresh);
+                    continue;
+                }
+                z.map = fresh.map;
+                z.npcs = fresh.npcs;
+                z.points = fresh.points;
+                z.encounters = fresh.encounters;
+                z.landmarks = fresh.landmarks;
+                Object.DestroyImmediate(fresh);
+                EditorUtility.SetDirty(z);
+                report.Add("Bigdig's new layout and the Gilded Rivet Hotel");
+            }
+            foreach (var ql in FindAll<Questline>())
+            {
+                bool dirty = false;
+                foreach (var q in ql.quests)
+                {
+                    if (q == null || q.saveId != 131 || q.steps == null) continue;
+                    foreach (var st in q.steps)
+                        if (st != null && st.npc == "Mags" && st.guideLabel == "Mags, Keeper of the Gilded Rivet")
+                        {
+                            st.objective = "Talk to Mags at the Gilded Rivet Hotel";
+                            st.guideLabel = "Mags, Manager of the Gilded Rivet Hotel";
+                            dirty = true;
+                        }
+                }
+                if (dirty) { EditorUtility.SetDirty(ql); report.Add("Mags's quest step"); }
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (v29): " + string.Join(", ", report) + ".");
+        }
+
         private static void UpgradeTo28()
         {
             var report = new List<string>();

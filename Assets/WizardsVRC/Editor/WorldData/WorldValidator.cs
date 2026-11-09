@@ -248,7 +248,7 @@ namespace WizardsVRC.EditorTools.WorldData
                         if (cells.Count != fp.width * fp.height && !facesCentre) r.Warn(ln + " doesn't fill a rectangle; it's built over its whole bounding box.");
                         if (g.DoorDirection(l) == Vector2Int.zero) r.Error(ln + " has no open cell next to it (at its own height) for its door.");
                     }
-                    else if (!l.Solid && cells.Count > 1 && l.kind != LandmarkKind.Tavern && l.kind != LandmarkKind.Saloon && l.kind != LandmarkKind.DuelCircle &&
+                    else if (!l.Solid && cells.Count > 1 && l.kind != LandmarkKind.Tavern && l.kind != LandmarkKind.Saloon && l.kind != LandmarkKind.Hotel && l.kind != LandmarkKind.DuelCircle &&
                              l.kind != LandmarkKind.HealthOrb && l.kind != LandmarkKind.ManaOrb)
                         r.Warn(ln + " is placed " + cells.Count + " times; only the first is used.");
                     if (l.kind == LandmarkKind.BankChest) r.Warn(ln + ": the practice chest is no longer built; remove it from the landmark list.");
@@ -258,6 +258,8 @@ namespace WizardsVRC.EditorTools.WorldData
                     if (l.kind == LandmarkKind.DuelCircle && !z.isHub && !z.isTown) r.Warn(ln + ": duelling circles only work in the hub or a town (Is Hub / Is Town), so it is left out here.");
                     if (l.kind == LandmarkKind.Saloon && Mathf.Min(fp.width, fp.height) * g.cell < 24f)
                         r.Warn(ln + " block is only " + Mathf.Min(fp.width, fp.height) * g.cell + " m across; a saloon needs about 24 m by 32 m or more.");
+                    if (l.kind == LandmarkKind.Hotel && Mathf.Min(fp.width, fp.height) * g.cell < 28f)
+                        r.Warn(ln + " block is only " + Mathf.Min(fp.width, fp.height) * g.cell + " m across; a hotel needs about 36 m by 30 m.");
                     if (l.kind == LandmarkKind.Tavern && Mathf.Min(fp.width, fp.height) * g.cell < 30f)
                         r.Warn(ln + " block is only " + Mathf.Min(fp.width, fp.height) * g.cell + " m across; a tavern needs about 30 m or more."); 
                     if (!z.isHub && (l.kind == LandmarkKind.Keep || l.kind == LandmarkKind.ArenaPad ||
@@ -267,7 +269,7 @@ namespace WizardsVRC.EditorTools.WorldData
                         r.Warn(ln + ": street gates only work in the hub or a town (Is Hub / Is Town), so it is left out here.");
                     if (l.kind == LandmarkKind.StreetGate && string.IsNullOrEmpty(l.targetZone)) r.Error(ln + ": set Target Zone (the zone key it leads to).");
                     if ((l.IsBuilding || l.kind == LandmarkKind.Fountain || l.kind == LandmarkKind.Tower || l.kind == LandmarkKind.Waterfall ||
-                         l.kind == LandmarkKind.Tavern || l.kind == LandmarkKind.Saloon || l.kind == LandmarkKind.DuelCircle) && cells.Count > 1)
+                         l.kind == LandmarkKind.Tavern || l.kind == LandmarkKind.Saloon || l.kind == LandmarkKind.Hotel || l.kind == LandmarkKind.DuelCircle) && cells.Count > 1)
                     {
                         bool flat = true;
                         foreach (var c in cells) if (g.Level(c) != g.Level(cells[0])) flat = false;

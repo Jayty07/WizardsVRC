@@ -149,6 +149,7 @@ namespace WizardsVRC.EditorTools
                 case LandmarkKind.Keep: priority = 1; return label.Length > 0 ? label : "Headmaster's Tower";
                 case LandmarkKind.Tavern: priority = 1; return label.Length > 0 ? label : "Tavern";
                 case LandmarkKind.Saloon: priority = 1; return label.Length > 0 ? label : "Saloon";
+                case LandmarkKind.Hotel: priority = 1; return label.Length > 0 ? label : "Hotel";
                 case LandmarkKind.DungeonSigil: priority = 1; return label.Length > 0 ? label : "Dungeon";
                 case LandmarkKind.TrainDepot: priority = 1; return label.Length > 0 ? label : "Depot";
                 case LandmarkKind.DuelCircle: priority = 1; return "Duelling Circle";

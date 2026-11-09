@@ -68,7 +68,15 @@ namespace WizardsVRC.EditorTools
             float h1Hash = g.Hash(r.xMin, r.yMin, 1), h2Hash = g.Hash(r.xMin, r.yMin, 2), h3Hash = g.Hash(r.xMin, r.yMin, 3);
             float sx = r.width * cs, sz = r.height * cs;
             Vector2Int fd = g.FrontSide(r);
-            Vector3 front = fd == Vector2Int.zero ? Vector3.back : ZoneGrid.ToLocalDir(fd);
+            if (fd == Vector2Int.zero)
+            {
+                // Hemmed in on every side (deep inside a block): only its roofline shows, so just the mass and a roof.
+                float hm = Mathf.Lerp(z.buildingHeight.x, z.buildingHeight.y, h1Hash) * 0.55f + 4f + h2Hash * 3f + (edge ? 5f : 0f);
+                Block(parent, "Back", c + Vector3.up * (hm / 2f), new Vector3(sx, hm, sz), wall);
+                Deco(parent, PrimitiveType.Cube, "BackRoof", c + Vector3.up * (hm + 0.15f), new Vector3(sx + 0.3f, 0.3f, sz + 0.3f), roof, Quaternion.identity, false);
+                return;
+            }
+            Vector3 front = ZoneGrid.ToLocalDir(fd);
             Vector3 across = Vector3.Cross(Vector3.up, front);
             float width = Mathf.Abs(front.x) > 0.5f ? sz : sx;
             float depth = Mathf.Abs(front.x) > 0.5f ? sx : sz;

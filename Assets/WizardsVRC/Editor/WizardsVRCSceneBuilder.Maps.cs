@@ -108,7 +108,7 @@ namespace WizardsVRC.EditorTools
         private static bool LandmarkBlock(LandmarkKind k)
         {
             return k == LandmarkKind.SchoolHall || k == LandmarkKind.Keep || k == LandmarkKind.Library || k == LandmarkKind.Shop || k == LandmarkKind.Tower ||
-                   k == LandmarkKind.Tavern || k == LandmarkKind.Saloon || k == LandmarkKind.Fountain || k == LandmarkKind.DuelCircle;
+                   k == LandmarkKind.Tavern || k == LandmarkKind.Saloon || k == LandmarkKind.Hotel || k == LandmarkKind.Fountain || k == LandmarkKind.DuelCircle;
         }
 
         /// <summary>The connected blocks of cells painted with c (a symbol can be painted in several places).</summary>
@@ -232,6 +232,7 @@ namespace WizardsVRC.EditorTools
                             case LandmarkKind.Library: o.roof = new Color32(70, 120, 200, 255); o.height = 10f; break;
                             case LandmarkKind.Shop: o.roof = Shade(roof, 0.9f + 0.3f * MapHash(r.x, r.y, 9)); o.height = 8f; break;
                             case LandmarkKind.Saloon: o.roof = new Color32(150, 90, 50, 255); o.height = 10f; o.flatRoof = true; break;
+                            case LandmarkKind.Hotel: o.roof = new Color32(170, 120, 60, 255); o.height = 14f; o.flatRoof = true; break;
                             case LandmarkKind.Tavern: o.kind = 4; o.roof = new Color32(130, 80, 190, 255); o.height = 12.6f; break;
                             case LandmarkKind.Fountain: o.kind = 5; break;
                             case LandmarkKind.DuelCircle: o.kind = 6; break;

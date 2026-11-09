@@ -836,7 +836,8 @@ namespace WizardsVRC.EditorTools
                 else front = Quaternion.Euler(0, npc.facing, 0) * Vector3.forward;
                 // An NPC painted inside a tavern's block keeps the bar: behind the counter, facing the room.
                 Vector3 barSpot, barFront;
-                if (TavernBarkeepSpot(g, z, cells[0], out barSpot, out barFront) || SaloonBarkeepSpot(g, z, cells[0], out barSpot, out barFront))
+                if (TavernBarkeepSpot(g, z, cells[0], out barSpot, out barFront) || SaloonBarkeepSpot(g, z, cells[0], out barSpot, out barFront) ||
+                    HotelDeskSpot(g, z, cells[0], out barSpot, out barFront))
                 {
                     pos = barSpot;
                     front = barFront;

@@ -332,6 +332,7 @@ namespace WizardsVRC.EditorTools
                         case LandmarkKind.Waterfall: WaterfallLandmark(root, g, l, PMat("WaterfallRock", new Color(0.5f, 0.47f, 0.45f), 3f)); break;
                         case LandmarkKind.Tavern: TavernLandmark(root, g, z, l, behaviours, stone, roof, gold, window, wood); break;
                         case LandmarkKind.Saloon: SaloonLandmark(root, g, z, l, behaviours, gold, window); break;
+                        case LandmarkKind.Hotel: HotelLandmark(root, g, z, l, behaviours, window); break;
                         case LandmarkKind.TrainDepot: TrainDepotLandmark(root, g, z, l, data); break;
                         case LandmarkKind.BountyBoard: BountyBoardLandmark(root, g, l); break;
                         case LandmarkKind.StreetGate: if (hub != null) HubTunnelLandmark(root, g, z, l, cell, hub, data, stone, gold); break;

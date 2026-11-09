@@ -383,8 +383,14 @@ riveted plate and brass, lit by furnaces and neon. The Dominion is quietly sipho
 singing gold struck from the same star as the Starfall Crystal), while the kobold gangs are too busy feuding to notice.
 The portal room's third arch opens once you finish *Last Spike* (quest 77) and brings you to **Bigdig**, the town.
 
-**Bigdig** (Lodestone Square, under the Big Drill): Deepwarden Bruma Stonehum, the **Gilded Rivet** saloon, the **Brawl
-Pit** duelling circle, four shops selling Bigdig's gear (Lv 25+), and six tunnels out to the boroughs:
+**Bigdig** is laid out like a Wizard101 hub: a star of narrow, winding lanes lined with crooked buildings, all meeting
+at **Lodestone Square**, the market in the middle. The square has the Deep Bell, Deepwarden Bruma Stonehum, the
+assayer's stall and four shops selling Bigdig's gear (Lv 25+). The lane south runs down to the portal arch. The **Gilded
+Rivet Hotel** stands on the west lane: a walk-in, three-storey lobby atrium with a marquee canopy and neon signs. Inside
+are the front desk (Mags, the manager) with its bell, a lounge bar with the mirror, a fireplace with armchairs, the
+jukebox, galleries of numbered room doors and a cage lift that's out of order (`LandmarkKind.Hotel`,
+`WizardsVRCSceneBuilder.Hotel.cs`). A short lane south-east leads to the **Brawl Pit** duelling circle and the training
+yard. Six lanes wind out to the boroughs' tunnels:
 
 | Street | Lv | Gang you help; boss | Storyline (save ids) |
 | --- | --- | --- | --- |

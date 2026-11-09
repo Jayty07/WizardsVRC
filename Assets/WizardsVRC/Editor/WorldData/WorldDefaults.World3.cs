@@ -124,9 +124,12 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>
-        /// Bigdig (the town, cells of 6 m): Lodestone Square, under the Big Drill. The portal arch home stands at the south
-        /// end (S); Gearwright Street runs north past the shops, the Brawl Pit (the duelling circle) and the Gilded Rivet to
-        /// the Deepwarden's hall. Six tunnels lead out to the boroughs, opened in story order.
+        /// Bigdig (the town, cells of 6 m): a star of narrow, winding lanes lined with crooked buildings, all meeting at
+        /// Lodestone Square, the market in the middle (the Deep Bell, the Deepwarden, the assayer's stall and the four shops
+        /// round it). The lane south runs down to the portal arch home (S); the others wind out to the six tunnels to the
+        /// boroughs, opened in story order: Highroller Heights (NW), the Deep Seams (N), the Glimmer Mile (NE), Sprocket
+        /// Row (E), the Rustworks (SW) and the Fusewick Canals (W). The Gilded Rivet Hotel stands on the west lane; a short
+        /// lane south-east leads to the Brawl Pit's yard and the training yard behind it.
         /// </summary>
         public static void FillBigdig(ZoneDefinition z)
         {
@@ -140,37 +143,45 @@ namespace WizardsVRC.EditorTools.WorldData
             z.cellSize = 6f;
             z.lampDensity = 0.55f;
             z.map =
-            "#####################################\n" +
-            "#########O#################Y#########\n" +
-            "#########.#################.#########\n" +
-            "#########.#######...#######.#########\n" +
-            "#########.#######.....X....K#########\n" +
-            "#########.#######...###.....#########\n" +
-            "##......................E..........##\n" +
-            "#M.................................C#\n" +
-            "##...#######........#################\n" +
-            "####.#######..W.....#################\n" +
-            "####.......#####A...#######========##\n" +
-            "####.......................=,,,,,,=##\n" +
-            "####.LLLLL..........UUUU..D=,aaaaa=##\n" +
-            "####.LQLLL..........UUUU....,a,,,a=##\n" +
-            "####.LLLLL..........UUUU....,a,1,a=##\n" +
-            "####.LLLLL..K.......UUUU....,a,,,a=##\n" +
-            "####.......G......P.........,a,,,a=##\n" +
-            "####............B.......+..=,aaaaa=##\n" +
-            "####.######................=,,,,,,=##\n" +
-            "####.#######.mm......jj...#========##\n" +
-            "####.#######.mm......jj...###########\n" +
-            "#N..........*......................R#\n" +
-            "##............................+....##\n" +
-            "############.oo......nn.#############\n" +
-            "############.oo......nn.#############\n" +
-            "############.##......##.#############\n" +
-            "############.##....w.##.#############\n" +
-            "#################...#################\n" +
-            "#################...#################\n" +
-            "#################.S.#################\n" +
-            "#####################################\n";
+            "#############################################\n" +
+            "#####.O.################.Y.##################\n" +
+            "#####...################...##################\n" +
+            "#####...################...############.....#\n" +
+            "#####...################...############....C#\n" +
+            "#####....###############...###########......#\n" +
+            "#####......############....#########....#####\n" +
+            "#######.....##########....##########...######\n" +
+            "########.......#######...##########....######\n" +
+            "###########....#######...#########...K#######\n" +
+            "############...########X.########....########\n" +
+            "#############...#######...######....#########\n" +
+            "##############...######...###.......#########\n" +
+            "#########........##oo#....###....############\n" +
+            "#########.........#oo....#nn...+#############\n" +
+            "#########....K............nn..###############\n" +
+            "#########.............A......################\n" +
+            "#.....######.......G.....X...######...#######\n" +
+            "#M...X..###..................####...........#\n" +
+            "#.............*.......W...............X....R#\n" +
+            "######......####............E......####.....#\n" +
+            "#######LLLLLL####...B...P....#...############\n" +
+            "#######LLLLLL####............################\n" +
+            "#######LLQLLL###..............###############\n" +
+            "#######LLLLLL#....#mm...jj##..KUUUU....######\n" +
+            "#######LLLLLL#...##mm..#jj###..UUUU....######\n" +
+            "#############....###...######..UUUU.D..######\n" +
+            "############....####+..######..UUUU....######\n" +
+            "###########....#####...######..........######\n" +
+            "##########....#######...######=====,,,=######\n" +
+            "#########.K...########...#####=,,,,,,,=######\n" +
+            "#######.....##########...#####=,aaaaa,=######\n" +
+            "######.....###########...#####=,a,,,a,=######\n" +
+            "#####.....############..######=,a,1,a,=######\n" +
+            "#.......#############...######=,a,,,a,=######\n" +
+            "#N.....##############...######=,aaaaa,=######\n" +
+            "#.....###############.w.######=,,,,,,,=######\n" +
+            "#####################.S.######=========######\n" +
+            "#############################################\n";
             z.npcs = new List<ZoneNpc>
             {
                 Npc("A", "Bruma", "Deepwarden Bruma Stonehum", new Color(0.36f, 0.3f, 0.5f), new Color(0.85f, 0.7f, 0.3f), false,
@@ -180,8 +191,8 @@ namespace WizardsVRC.EditorTools.WorldData
                     "Need a message run? A parcel? A tunnel nobody else knows? Pip's your kobold. Fastest legs under the world!"),
                 Npc("D", "Krunk", "Krunk, Brawl Pit Boss", new Color(0.5f, 0.2f, 0.18f), new Color(0.3f, 0.12f, 0.1f), true,
                     "The Brawl Pit's open to anyone with a wand and a death wish. The dummies take bets. Kidding. Mostly."),
-                Npc("Q", "Mags", "Mags, Keeper of the Gilded Rivet", new Color(0.62f, 0.45f, 0.2f), new Color(0.4f, 0.28f, 0.12f), false,
-                    "First fizz is free for the wizard. Second fizz, I'm putting on the Company's tab. They owe me anyway."),
+                Npc("Q", "Mags", "Mags, Manager of the Gilded Rivet Hotel", new Color(0.62f, 0.45f, 0.2f), new Color(0.4f, 0.28f, 0.12f), false,
+                    "Welcome to the Gilded Rivet, finest hotel under the world. First fizz is free for the wizard. The rooms are not. The lift is broken. Don't ask."),
                 Npc("G", "Grindle", "Grandpa Grindle", new Color(0.45f, 0.42f, 0.5f), new Color(0.3f, 0.28f, 0.34f), true,
                     "When I was a pup, the gold sang so loud you couldn't sleep. Now? I sleep fine. That's what scares me."),
                 new ZoneNpc
@@ -205,7 +216,7 @@ namespace WizardsVRC.EditorTools.WorldData
             };
             z.landmarks = new List<ZoneLandmark>
             {
-                new ZoneLandmark { symbol = "L", kind = LandmarkKind.Saloon, label = "The Gilded Rivet" },
+                new ZoneLandmark { symbol = "L", kind = LandmarkKind.Hotel, label = "The Gilded Rivet Hotel" },
                 new ZoneLandmark { symbol = "U", kind = LandmarkKind.DuelCircle, label = "The Brawl Pit" },
                 // Shops, in the order of their wares: robes and hats, wands, charms and rings, potions and decks.
                 new ZoneLandmark { symbol = "o", kind = LandmarkKind.Shop, label = "Gearwright's Outfitters", doorSide = DoorSide.Centre },
@@ -907,7 +918,7 @@ namespace WizardsVRC.EditorTools.WorldData
                         "And it's going quiet, seam by seam. Every gang in the city blames every other. I need someone none of them owns.")),
                 Q(131, "Gang Colours", 130, 25, 1100, 240, 0,
                     "Four gangs carve up Bigdig, and the Deepwarden wants you to know who's who before you go poking around their turf.",
-                    Talk("Mags", "Talk to Mags in the Gilded Rivet", "Mags, Keeper of the Gilded Rivet",
+                    Talk("Mags", "Talk to Mags at the Gilded Rivet Hotel", "Mags, Manager of the Gilded Rivet Hotel",
                         "Gangs? Sweetie, Bigdig IS gangs. Gold for the Company, rust for the Union, brass for the Syndicate and neon for the Glimmerfangs.",
                         "They used to just argue over claims. Now there are fights every night, and everybody swears somebody else started it."),
                     Talk("Krunk", "Talk to Krunk at the Brawl Pit", "Krunk, Brawl Pit Boss",
