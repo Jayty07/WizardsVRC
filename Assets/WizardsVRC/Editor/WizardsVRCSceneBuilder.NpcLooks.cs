@@ -111,13 +111,78 @@ namespace WizardsVRC.EditorTools
             }
         }
 
-        /// <summary>A street NPC's design: its own if it's listed here, otherwise dressed from its name and colours.</summary>
-        private static NpcLook NpcLookFor(ZoneNpc npc)
+        /// <summary>Looks made for NPCs the builder adds itself (the kobold dig crews' foremen), by key.</summary>
+        private static readonly System.Collections.Generic.Dictionary<string, NpcLook> _npcLookOverrides = new System.Collections.Generic.Dictionary<string, NpcLook>();
+
+        /// <summary>
+        /// A street NPC's design: its own if it's listed here, otherwise dressed from its name and colours. In World 2
+        /// (Dustwind) most residents are lizardfolk and other reptiles, dressed the same (WorldTwoReptile).
+        /// </summary>
+        private static NpcLook NpcLookFor(ZoneNpc npc, ZoneDefinition zone = null)
         {
+            NpcLook given;
+            if (npc.key != null && _npcLookOverrides.TryGetValue(npc.key, out given)) return given;
             NpcLook L = NamedLook(npc.key);
             if (L == null) L = InferredLook(npc);
             if (npc.displayName != null && npc.displayName.ToLowerInvariant().Contains("ghost")) L.ghost = true;
+            if (zone != null && zone.world == 2) WorldTwoReptile(L, npc.key);
             return L;
+        }
+
+        /// <summary>
+        /// Dustwind's people: about six in seven of its residents are reptiles, keeping their clothes, hats and tools.
+        /// Mostly lizardfolk of five kinds (iguana, gecko, frilled, horned, crocodile), some old tortoises and the odd
+        /// kobold, in desert colours (sand, rust, olive, ochre, terracotta, slate, banded black and orange) with bright
+        /// crests and frills. A ghost, a tree spirit or a character who's already another people stays as they are.
+        /// </summary>
+        private static void WorldTwoReptile(NpcLook L, string key)
+        {
+            if (L.species != NpcSpecies.Human || L.ghost || L.outfit == NpcOutfit.Bark) return;
+            int h = StableSeed("reptile_" + (key ?? ""));
+            if (h % 7 == 0) return;   // a few humans live out here too
+            Color[] skins =
+            {
+                new Color(0.78f, 0.62f, 0.4f), new Color(0.66f, 0.34f, 0.2f), new Color(0.45f, 0.5f, 0.28f), new Color(0.72f, 0.42f, 0.3f),
+                new Color(0.42f, 0.48f, 0.55f), new Color(0.36f, 0.52f, 0.4f), new Color(0.8f, 0.58f, 0.22f), new Color(0.26f, 0.19f, 0.16f),
+            };
+            Color[] accents =
+            {
+                new Color(0.95f, 0.5f, 0.15f), new Color(0.85f, 0.2f, 0.18f), new Color(0.2f, 0.65f, 0.62f), new Color(0.95f, 0.8f, 0.25f),
+                new Color(0.55f, 0.32f, 0.7f), new Color(0.3f, 0.55f, 0.85f),
+            };
+            Color[] eyes = { new Color(1f, 0.75f, 0.2f), new Color(0.85f, 0.45f, 0.12f), new Color(0.55f, 0.85f, 0.3f), new Color(0.95f, 0.9f, 0.4f) };
+            int pick = (h / 7) % 10;
+            Color skin = skins[(h / 70) % skins.Length];
+            Color accent = accents[(h / 560) % accents.Length];
+            if (skin.r < 0.3f) accent = new Color(0.95f, 0.5f, 0.2f);   // gila-banded: black and orange
+            L.skin = skin;
+            L.hair = accent;
+            L.hairStyle = NpcHair.Bald;
+            L.beard = NpcBeard.None;
+            L.eyes = eyes[(h / 3360) % eyes.Length];
+            L.belly = Color.Lerp(skin, new Color(0.95f, 0.9f, 0.75f), 0.5f);
+            L.horn = Color.Lerp(skin, new Color(0.92f, 0.86f, 0.7f), 0.55f);
+            if (pick < 2)
+            {
+                L.species = NpcSpecies.Tortoise;
+                L.skin = Color.Lerp(skin, new Color(0.5f, 0.52f, 0.4f), 0.5f);
+                L.horn = Color.Lerp(new Color(0.45f, 0.32f, 0.18f), skin, 0.25f);   // the shell and beak
+                L.hair = Color.Lerp(L.skin, Color.black, 0.25f);
+                if (L.build == NpcBuild.Slim || L.build == NpcBuild.Tall) L.build = NpcBuild.Stout;
+                if (L.right == NpcItem.Staff) L.right = NpcItem.Cane;
+            }
+            else if (pick == 9)
+            {
+                L.species = NpcSpecies.Kobold;
+                L.extra = accent;
+                L.build = NpcBuild.Small;
+                L.height = Mathf.Min(L.height, 0.85f);
+            }
+            else
+            {
+                L.species = NpcSpecies.Lizard;
+                L.reptile = (h / 26880) % 5;
+            }
         }
 
         private static NpcLook NamedLook(string key)

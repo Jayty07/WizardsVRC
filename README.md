@@ -361,6 +361,20 @@ on a flatbed car with the desert rushing past (the *Ghost Rider* title). Monster
 Spell levels were moved so Dustwind has new spells to learn: each school's rank 4 attack at **18**, its shield at
 **20**, its second rank 4 spell at **22** and its rank 5 attack at **25** (they were 26, 22, 28 and 42).
 
+
+**Dustwind's people** are mostly reptiles: about six in seven residents are lizardfolk (iguana, gecko, frilled, horned
+or crocodile), old tortoises or the odd kobold, in desert colours with bright crests, keeping the clothes, hats and
+tools their looks give them (`WorldTwoReptile` in `WizardsVRCSceneBuilder.NpcLooks.cs`; the new species are in
+`WizardsVRCSceneBuilder.Npcs.cs`).
+
+**Kobold dig crews** from Bigdig (World 3, the kobolds' homeland underground) are prospecting in four World 1 streets
+(Lantern Row, Tidewatch Docks, Kiln Street, Thornhollow Grove) and five in Dustwind (Tumbleweed Row, Coyote Gulch,
+Copperbottom Mine, Thunder Mesa, Lonesome Bend): a claim against a wall with a dig hole, spoil heap, ore cart of gold,
+gold pan, lantern and company sign, a foreman you can talk to and a digger or two. What the foremen say hints at
+World 3: Bigdig's singing gold has gone quiet, the elders say it and the Starfall Crystal were struck from the same
+star, someone is buying it all up, and there's an old kobold door below Copperbottom Mine locked from the other side.
+The crews are added by the builder (`WizardsVRCSceneBuilder.Kobolds.cs`), each on an open spot clear of the duel rings.
+
 ## Duels (PvP)
 
 The circle's sign (on a carved board) turns to face you, staying upright, and shows the circle's name with its countdown.

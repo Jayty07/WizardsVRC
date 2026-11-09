@@ -466,6 +466,8 @@ namespace WizardsVRC.EditorTools
                 Vector3 tp = g.Local(towerSite);
                 ringCells.RemoveAll(c => { Vector3 d = g.Local(c) - tp; d.y = 0f; return d.magnitude < DuelCircleRadius + 4f; });
             }
+            // A kobold dig crew from Bigdig, if this street has one (WizardsVRCSceneBuilder.Kobolds.cs).
+            KoboldCrew(root, g, z, qm, wb, ringCells, towerSite);
             var spotsRoot = Child(root, "RingSpots_" + z.zoneKey, Vector3.zero);
             var ringByCell = new Dictionary<Vector2Int, Transform>();
             var outsideSpots = new List<Transform>();
@@ -796,25 +798,38 @@ namespace WizardsVRC.EditorTools
 
         // ------------------------------------------------------------------ NPCs and points
 
-        private static void BuildNpc(Transform root, ZoneGrid g, ZoneDefinition z, ZoneNpc npc, QuestManager qm, WorldBuild wb)
+        /// <summary>
+        /// A street NPC on its map symbol (facing the nearest road or its set facing), or, for one the builder adds itself
+        /// (a kobold foreman), at 'placeAt' facing 'placeFront' in the zone's space.
+        /// </summary>
+        private static void BuildNpc(Transform root, ZoneGrid g, ZoneDefinition z, ZoneNpc npc, QuestManager qm, WorldBuild wb,
+            Vector3? placeAt = null, Vector3? placeFront = null)
         {
-            var cells = g.Find(npc.Symbol);
-            if (cells.Count == 0) return;
+            var cells = placeAt.HasValue ? new List<Vector2Int>() : g.Find(npc.Symbol);
+            if (cells.Count == 0 && !placeAt.HasValue) return;
             if (wb.npcIds.ContainsKey(npc.key))
             {
                 Debug.LogError("[WizardsVRC World] NPC key '" + npc.key + "' is used in two zones; the second is skipped.");
                 return;
             }
-            Vector3 pos = g.Local(cells[0]);
-            Vector3 front;
-            if (npc.facing < 0f) front = ZoneGrid.ToLocalDir(g.OpenDirection(cells[0]));
-            else front = Quaternion.Euler(0, npc.facing, 0) * Vector3.forward;
-            // An NPC painted inside a tavern's block keeps the bar: behind the counter, facing the room.
-            Vector3 barSpot, barFront;
-            if (TavernBarkeepSpot(g, z, cells[0], out barSpot, out barFront) || SaloonBarkeepSpot(g, z, cells[0], out barSpot, out barFront))
+            Vector3 pos, front;
+            if (placeAt.HasValue)
             {
-                pos = barSpot;
-                front = barFront;
+                pos = placeAt.Value;
+                front = placeFront.HasValue ? placeFront.Value : Vector3.forward;
+            }
+            else
+            {
+                pos = g.Local(cells[0]);
+                if (npc.facing < 0f) front = ZoneGrid.ToLocalDir(g.OpenDirection(cells[0]));
+                else front = Quaternion.Euler(0, npc.facing, 0) * Vector3.forward;
+                // An NPC painted inside a tavern's block keeps the bar: behind the counter, facing the room.
+                Vector3 barSpot, barFront;
+                if (TavernBarkeepSpot(g, z, cells[0], out barSpot, out barFront) || SaloonBarkeepSpot(g, z, cells[0], out barSpot, out barFront))
+                {
+                    pos = barSpot;
+                    front = barFront;
+                }
             }
             // The wizard model faces its local -Z, so turn it until -Z points along 'front'.
             float yaw = Mathf.Atan2(-front.x, -front.z) * Mathf.Rad2Deg;
@@ -822,7 +837,7 @@ namespace WizardsVRC.EditorTools
 
             // Its own design (WizardsVRCSceneBuilder.NpcLooks.cs), built and animated by WizardsVRCSceneBuilder.Npcs.cs.
             float npcTop, npcFace;
-            Transform t = NpcModel(root, "NPC_" + npc.key, pos, yaw, NpcLookFor(npc), npc.displayName, "(click to talk)", out npcTop, out npcFace);
+            Transform t = NpcModel(root, "NPC_" + npc.key, pos, yaw, NpcLookFor(npc, z), npc.displayName, "(click to talk)", out npcTop, out npcFace);
             var qn = UdonSharpUndo.AddComponent<QuestNpc>(t.gameObject);
             qn.questManager = qm;
             qn.npcId = id;
