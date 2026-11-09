@@ -93,7 +93,8 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/CosmeticsDatabase.cs`, `PlayerCosmetics.cs`, `WardrobePages.cs`, `ShopPages.cs`, `StarshardStore.cs` | Titles, auras, spell skins and elixirs; showing what each player wears to everyone; the book's Wardrobe and Starshard Shop tabs; the optional VRChat Creator Economy products. See *Shops, Starshards, titles and auras* |
 | `Assets/WizardsVRC/Scripts/GoldShop.cs`, `ItemTooltip.cs` | The castle's gold shops (click a shop's counter) and the hover tooltips on items, gear slots, spell cards and shop rows (gear shows the worn piece beside it) |
 | `Assets/WizardsVRC/Scripts/NotificationCenter.cs` | The book's Notices tab, the unread badges and the toast |
-| `Assets/WizardsVRC/Scripts/TowerFloor.cs`, `Editor/WizardsVRCSceneBuilder.Towers.cs` | **Boss towers** (Wizard101 Golem Tower style): every street with a boss gets a four-pad sigil leading to a tower of wave floors (the street's monsters, leaders that taunt you on arrival) and the boss on top; win to go up a floor; clearing it marks your wizard and pays Starshards. See *Boss towers* in [WORLD_BUILDING.md](WORLD_BUILDING.md) |
+| `Assets/WizardsVRC/Scripts/TowerFloor.cs`, `Editor/WizardsVRCSceneBuilder.Towers.cs` | **Boss towers**: every street's boss waits behind a door at the far end of the street, in a tall tower you can see from the entrance. The four-pad sigil in front of it stays sealed until a quest sends you to fight the boss; inside is a single chamber with the boss, who speaks as you arrive; beating it marks your wizard and pays Starshards. See *Boss towers* in [WORLD_BUILDING.md](WORLD_BUILDING.md) |
+| `Assets/WizardsVRC/Scripts/TreasureCache.cs`, `Editor/WizardsVRCSceneBuilder.Caches.cs` | **Treasure caches** (the Cache landmark): a chest at the end of a side branch; click it for gold. It's empty only for you and fills again after 20 minutes |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Secret.cs` | **Secret bosses**: the Kraken beneath Tidewatch Docks (a diving bell at the water's edge, opened by Fenwick's level-8 side quest, down to a sunken platform with kelp, coral and a wreck), plus the Kraken's and its tentacles' bodies. See *Secret bosses* in [WORLD_BUILDING.md](WORLD_BUILDING.md) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Backdrop.cs` | What you see past a street's edge, matching the skylines (every place an isle in a sea): the street's rocky island and cliffs down to a rolling sea, its neighbourhood round the map in its own style (rooftops, chimneys and lamplit windows; hills, trees and giant flowers; forest; crags and ruins; smokestacks and slag; warehouses), climbing away in three rows of rock terraces sized from the street's own roofline so it shows over the edge buildings, with a skyline row of tall shapes (towers, spires, smokestacks, giant trees, crags, sandstone spires) behind, boats, buoys and a lighthouse off any shore the street meets, and islets out at sea, also round the castle. Merged into one mesh per material, nothing solid |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Signs.cs` | Every name over a building, shop, tunnel or door is lettered in the pixel font on a carved board with a gold border (`Textures/UI/SignBoard.png`), backed by a wooden slab with gold finials; each street gets a welcome arch with its name and level range a few steps out of its tunnel |
@@ -407,12 +408,12 @@ Every borough has its own layout:
 
 | Street (where) | Lv | Layout | Gang you help; boss | Storyline (save ids) |
 | --- | --- | --- | --- | --- |
-| Sprocket Row (E) | 25-27 | one bazaar street snaking back and forth, lots between the passes, the counting house at the end | the Company; Copperjaw Grubb | Company Business (133-136) |
-| The Rustworks (S) | 27-28 | a rigid factory grid: Conveyor Avenue, works yards, the smokestack over the furnace | the Union; Drillmaster Vane | Union Strong (137-140) |
-| The Fusewick Canals (NW, lower) | 28-30 | wharf quarters cut apart by canals and joined by causeways, a Threadfleet pier, a sunken basin | the Syndicate; Lieutenant Sorrel | Smuggler's Run (141-144) |
-| The Glimmer Mile (NE) | 30-31 | one long neon boulevard between raised terraces, up to the rooftop perch | the Glimmerfangs; Agent Nightglass | Neon Nights (145-148) |
-| The Deep Seams (SW, 30 m down) | 31-33 | a mine stepping down in ledges to the Siphon Works (a dungeon) | Chief Engineer Strake | The Deep Seams (149-152) |
-| Highroller Heights (N, 45 m up) | 33-35 | a plateau round the Strip; the casino (a dungeon) along its cliff edge | the Assayer and Marshal Brannoch | Highroller Heights (157-159) |
+| Sprocket Row (E) | 25-27 | the bazaar road winding east, south, east and south to Counting House Court; forks to the counterfeiters' yard and the back alley | the Company; Copperjaw Grubb | Company Business (133-136) |
+| The Rustworks (S) | 27-28 | Gate Road, Crucible Lane and the conveyor line down to the Drill Pit; forks to the union hall and the smokestack yard | the Union; Drillmaster Vane | Union Strong (137-140) |
+| The Fusewick Canals (NW, lower) | 28-30 | Low Wharf and Tanner's Quay, over the Grand Canal and the Sludge Cut to the canal mouth; forks to the runners' den and the locks | the Syndicate; Lieutenant Sorrel | Smuggler's Run (141-144) |
+| The Glimmer Mile (NE) | 30-31 | the Low Mile, the Arcade Stair, the Middle Mile and the Marquee Climb up three terraces to the Top Terrace; forks to the arcade alley and the rooftops | the Glimmerfangs; Agent Nightglass | Neon Nights (145-148) |
+| The Deep Seams (SW, 30 m down) | 31-33 | galleries stepping down past the miners' camp and the old seam to the Siphon Works (a dungeon) | Chief Engineer Strake | The Deep Seams (149-152) |
+| Highroller Heights (N, 45 m up) | 33-35 | the cab rank, the Boulevard and the High Strip to the casino's forecourt (the casino is a dungeon); a fork down the West Strip to its back door | the Assayer and Marshal Brannoch | Highroller Heights (157-159) |
 
 Ten storylines (with Under Everything 130-132 in town, **The Parley** 153-156, Odd Jobs 162-164 and Lucky Streak
 165-166) lead to the finale, *Ante Up* and *All In* (160-161): every gang storming the casino together. **The Parley** is
@@ -420,7 +421,8 @@ where the kobolds wise up: the gang bosses, called to a moot, argue it out in sc
 `Name|words`, `!Name|words` for an enemy) until they shake on it. Monsters are ids 60-88: kobold gang toughs and the
 Dominion's Tech-school troops; items are 200-263 (`Tools/make_items.py`).
 
-- **Bosses who speak first:** a zone encounter with **Intro Lines** plays a cutscene as you walk up to its ring (a wide
+- **Bosses who speak first:** a zone encounter with **Intro Lines** plays a cutscene as you walk up to its ring, or for a
+  street boss as you arrive in its tower (a wide
   shot, then close on the boss; `EncounterIntro`, builder `WizardsVRCSceneBuilder.Intros.cs`). Strake, the Assayer and
   Marshal Brannoch all have one.
 - **The look** (`WizardsVRCSceneBuilder.Undercity.cs`, texture style **Undercity**): riveted deck-plate streets, oily grit
@@ -502,6 +504,22 @@ their own sound as you come near. The loops are generated by `Tools/make_ambient
 Each player's client only runs what's near them: areas you aren't in (hub, boss arena, every zone) are switched off
 locally, nothing past the fog is drawn, and small props are chunked so they stop drawing beyond each zone's Detail
 Distance. See *Performance (culling)* in [WORLD_BUILDING.md](WORLD_BUILDING.md).
+
+## How the streets are laid out
+
+Every street in Worlds 1-3 follows the checklist in the *WizardsVRC Level Design Guide* (world data v32):
+
+- One long road from the tunnel to the boss, bending four or five times and forking once or twice, that never loops back
+  on itself or returns to the entrance: about 300-450 m (two to four minutes' walk).
+- Fights on the road: each group's duel ring and patrol sit on the road's centre line, with a clear verge along the walls,
+  and nothing within three cells of the entrance. Every quest NPC and object can be reached along the verges without
+  crossing a patrol.
+- About six to eight rings a street, one family of monsters, and each street's fog and sky a little darker than the one
+  before it in its world.
+- The boss behind a door at the far end: its tower (sealed until the story reaches it) is the street's landmark, seen
+  from the entrance. The dungeon streets (the Hollow Keep, Copperbottom Mine, Lonesome Bend, the Deep Seams, Highroller
+  Heights) end at their dungeon's sigil instead.
+- Every side branch ends in something: a quest NPC or object, a minor boss or a treasure cache.
 
 ## Building zones, monsters and quests
 

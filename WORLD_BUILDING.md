@@ -104,18 +104,25 @@ reached from S".
 
 ### Making it feel like Wizard101
 
-- Roads 1-2 cells wide (8-16 m), with plazas where the rings are.
-- Loop roads around blocks of houses so there's more than one way through, and **dead-end courtyards** (`,`) to hide
-  quest items, NPCs and side quests in.
-- Give each encounter a **long patrol** that follows the street: a line down a lane and along the next one, or a loop
-  round a block of houses or a whole square. About one patrol monster per 7-8 cells of route (up to 10).
-- You don't need to paint many ring spots: the builder fills every street with as many duel ring spots as fit (open,
-  level ground with no NPC, quest point, landmark or entrance inside the ring, spaced so rings never overlap), so a
-  duel forms right where you met the monster. Painted digits are always spots too; plazas and little 3x3 squares just
-  off the lane make good ones.
-- Fill the lanes with several encounters rather than one huge one: each encounter has its own monsters and patrol,
-  and can run up to *Max Fights* duels at once.
-- Put the boss in its own walled courtyard (`=` walls, a narrow gate) with an Explore point at the gate.
+Every default street follows the checklist in the *WizardsVRC Level Design Guide*:
+
+- **One long road that winds and forks but never loops.** The street is a spine of 4-5 legs, 5 cells wide, bending at
+  right angles from the entrance to the boss at the far end, 300-450 m of walking (about two to four minutes). One or two
+  side branches fork off it and end in dead ends. No road comes back round a block to meet itself, and nothing leads back
+  to the tunnel: the end and every dead end are well away from the entrance.
+- **Fights on the road, sidewalks along the walls.** Put each encounter's ring digit on the road's centre line and its
+  patrol (a 1-cell line of its letter) on along the centre line from 2 cells past the ring, so the cell either side of the
+  patrol (the verge along the walls) stays clear. No patrol cell may touch a wall, even diagonally, and nothing fights
+  within 3 cells of the entrance. Extra ring spots in a street only form near patrols and painted rings, so a fight never
+  starts on the verge.
+- **Every quest spot reachable without crossing a patrol or a ring's plaza.** NPCs, quest points and caches go on the
+  verges, in little alcoves off them, or in the side branches.
+- **About 6 to 8 rings** (one painted digit per encounter), each street's monsters one family, each street a little
+  darker and moodier than the one before it in its world (fog and sky).
+- **The boss behind a door at the end.** The boss's ring digit goes in the plaza at the end of the spine; its tower
+  stands there (see *Boss towers*), tall enough to see from the entrance.
+- **Every dead end pays off**: a quest NPC or point, an Explore point, a minor boss's ring, or a treasure cache (the Cache
+  landmark, usually `$`).
 
 ### Battle rings (where fights happen)
 
@@ -208,6 +215,7 @@ stands on (a rotated square) and the paths up to its door.
 | Saloon | town | Dustwind's **Western saloon** filling its block (about 4 x 5 cells of 6 m or more): a long two-storey timber hall with a painted false front, a porch with hitching rails and a trough, batwing doors, a long bar with a brass foot rail, stools, sarsaparilla mugs and the **mug bell**, bottle shelves and the **mirror** behind the bar, checker tables, a stage with a **player piano** (its keys move while the jukebox plays) and the **jukebox** screen on the back wall (Big screen drops it down; heard only inside), a pot-belly stove with the stylized **fire** and log seats, wagon-wheel chandeliers, and balcony galleries up a staircase with benches looking down on the stage. NPCs painted in its block stand behind the bar |
 | Train Depot | town | a platform and ticket booth with the station's sign: click the window for the railroad timetable (see the README). Streets of World 2 on get a **whistle stop** by their `S` automatically |
 | Bounty Board | town | the wanted-poster board (Dustwind's bounties, from level 17) |
+| Cache | streets | a **treasure cache**: a chest on a plinth with its back to the wall and a glint over it (one per painted cell). Click it for some gold (about two or three of the street's fights' worth); it's empty only for you and fills again after 20 minutes. Put one at the end of each side branch. **Label** = its name (blank = picked for the street's world) |
 | Health Orb, Mana Orb | any | a floating red / blue orb **starts** on every cell you paint and then drifts round the area on its own wandering loop (to a few random places within about 10 cells and back, along walkable ground). Streets also get about one of each kind per 110 walkable cells without painting any. Walking into one restores 25% of your health / mana (at least 10) if you need it; it vanishes for you only and comes back after 30 s, further along its loop |
 
 ### The castle hub
@@ -429,30 +437,29 @@ from one budget: what a full set of the seven gear slots adds at a level, split 
 ### Boss towers
 
 Every street whose encounters include a **boss** (a monster with *Is Boss* ticked in the Monster Catalog) gets a boss
-tower automatically, like Wizard101's Golem Tower. Nothing to paint:
+tower automatically: the boss waiting behind a door, like Wizard101's street bosses. Nothing to paint but the boss's ring:
 
-- **The boss lives in its tower**, not out in the street: the encounter(s) with the tower's boss aren't built (unless
-  their ring is inside a dungeon, like Morvane's throne hall, where the boss stays). On the boss's old ring stands a
-  **real tower** (stone with lit window slits, its door, a banner in the boss's school colour, battlements, a pointed
-  roof or, in the desert, a sandstone lookout, and the school's crystal on top), and in front of it the way in.
-  Quest arrows for the boss lead there. Without a street ring, the sigil goes on open level ground as far along the
-  street as fits, with a smaller tower beside it if there's room.
-- **The way in** is a four-pad sigil with a rune obelisk. It works like a dungeon sigil: stand on a pad, others join
-  during the 10 second countdown, and the party goes in together; the tower is theirs until they've all left.
-- **Inside**, the party climbs: three floors of waves, then the boss. Each floor is a round, closed stone chamber (a solid
-  floor, a beamed ceiling, night through the window slits) with a duel ring, dim and lit by torches on every pillar,
-  four braziers round the ring and drifting dust. The floor's monsters walk the far side of the chamber like a street
-  patrol and the wave's leader taunts you as you arrive (a greeting with its portrait in a red, hostile rim). **Run into
-  one and the fight starts** in the ring like any encounter; the others join a round later if there's a seat. Win and you're
-  taken up to the next floor; flee and you stay on the floor to try again; lose and you're back out by the sigil.
-- **The waves** are the street's own monsters, weakest first, then its elites; the top floor is the boss with its
-  strongest followers. Waves scale with the party (two monsters solo, one more per extra wizard); the boss fights a solo
-  wizard alone and brings one follower per extra wizard.
+- **The boss lives in its tower**, not out in the street: the encounter(s) with the tower's boss aren't built. On the
+  boss's ring (paint it in the plaza at the far end of the street) stands a **real tower** about 28 m tall, well over the
+  roofs so you can steer by it from the entrance (stone with lit window slits, its door, a banner in the boss's school
+  colour, battlements, a pointed roof or, in the desert, a sandstone lookout, and the school's crystal on top), and in
+  front of it the way in. Quest arrows for the boss lead there. A boss whose ring is inside the street's dungeon (Morvane,
+  Calloway, the Deep Seams and the casino) stays there instead, and gets no tower: the dungeon is its door.
+- **The door** is a four-pad sigil with a rune obelisk. It stays **sealed until the story reaches the boss**: it opens
+  for a wizard who has started (or finished) any quest with a step against that boss, and its sign says so until then.
+  Then it works like a dungeon sigil: stand on a pad, others join during the 10 second countdown, and the party goes in
+  together; the tower is theirs until they've all left.
+- **Inside** is one round, closed stone chamber (a solid floor, a beamed ceiling, night through the window slits) with a
+  duel ring, lit by torches and four braziers, and the boss walking the far side. As you arrive it speaks: its
+  encounter's **Intro Lines** if it has any (`Name|words` lines are other speakers'), otherwise a taunt. Run into it and
+  the fight starts; the boss fights a solo wizard alone and brings one follower per extra wizard. Flee and you stay in the
+  chamber to try again; lose and you're back out by the door.
 - **The top**: beat the boss and you come out on the roof (a chest, a view over the clouds, a veil home). Your wizard
   is marked as having cleared that tower (the *Tower Climber* title) and gets Starshards (double the first time).
-  Every floor has a veil to give up and leave.
+  The chamber has a veil to give up and leave.
+- `TowerWaves` in `WizardsVRCSceneBuilder.Towers.cs` (0) can put floors of the street's own monsters back under the boss's.
 
-Towers are built far from everything (`TowerOrigin` in `WizardsVRCSceneBuilder.Towers.cs`), each its own culled area.
+Towers are built far from everything (`TowerOrigin`), each its own culled area.
 
 ### Secret bosses
 
@@ -605,103 +612,90 @@ them up. The guide arrow and HUD tracker work automatically from the step's targ
 
 ```
 #############################
-#^,,,,,,,,,,,^,,,,,,,,,,,,,^#
-#,==========,,,,==========,,#
-#,=,,,,,,,,=.....=ccccccc=,,#
-#,=,ddd,,,,=..Y..=c,....c=,,#
-#,=,d4d,,,,=..X..=c,....c=,,#
-#,=,ddd,,,,.......c,.3..c=,,#
-#,=,,,,,,,,=.....=c,....c=,,#
-#,=====.====..=..=c,....c=,,#
-#,,,,,,.,,,,..=..=ccccccc=,,#
-#,^,,,,.,,,,..=..====.====,,#
-#,,.........2...............#
-#,,bbbbbbbbbbbbbbbbbbbbbbb..#
-#,,b,,,,,,=,,,.,,,=,,,,2,b,,#
-#^,b,,^,,,=,,,.,,,=,,^,,,b,^#
-#,,b,,,,,,=,,,.,,,=,,,,,,b,,#
-#,,b,,,,,,=====.====,,,,,b,,#
-#,2b.....................b,,#
-#,,b,,,,,,,,,,,2,,,,,,,,.b,,#
-#,,b,,,,^,,,,.....,,,,^,2b,,#
-#,,b,,,,,,,,,.....,,,,,,.b,,#
-#,,b,,,,2,,,,,,.,,,2,,,,.b,,#
-#,,bbbbbbbbbbbbbbbbbbbbbbb..#
-#,,.........................#
-#,,,,,,==,==,1,.,,,==,==,,,,#
-#,^,,,,=,,,=,,,.,,,=,,,=,,^,#
-#,,,,,,=,,,aaaaaaaa=,,,=,,,,#
-#,,,,,,=,,,a,,,,,,a=,,,=,,,,#
-#,,,,,,=,,,a,,1,,,a=,,,=,,,,#
-#,,,,,,=,,,a,,,,,,a=,,,=,,,,#
-#,,,,,,====a......a====,,,,,#
-#,aaaaaaaaaa,,.,,,aaaaaaaaa,#
-#,,^,,,1,,,,M..,,,1,,,^,,,,,#
-#,,,,,,,,,,,,.S.,,,,,,,,,,,,#
+#=,,,,,,,,,,,=###############
+#=,.........,^###############
+#^,.........,=###############
+#=,....4....,=###############
+#=,.........,^###############
+#^,.........,=###############
+#=,,,,,,,,,,,=###############
+#=^=,...,=^===###############
+###=,.e.,==============^#####
+###^,.e.,==,,,,,,,,,,,$=#####
+###=,...,=^,,,.......,,=#####
+###=,.5..==,,,..Y....,,^#####
+###^,....==,,,X......,,=#####
+###=,...,=^,,,.......,,=#####
+###=,.c.,==,,,,,,,,,,,,^#####
+###^,.c.,===^==^,,,==^==#####
+###=,.c.,=#####^,,,=#########
+###=,...,=#####^,,,=#########
+###=,.3.,=======,,,====^==###
+###=,...,,,,,,,,,,,,,,,,,^###
+###^,,,,........,,,.....,=###
+###=,,,,..bbbb.2,,,ffff.,=###
+###=,,,,........,,,.....,^###
+###^,,.,,,,,,,,,,,,,,.6.,=###
+#==^=,,,============,...,^###
+#^,,,,,,,,==^==^==^=,...,=###
+#=,,,,,,,,^=,,,,,,,,,.a.,=###
+#=,,,,,,,,^=,.........a.,=###
+#=,,,,,,,,^=,......1.aa.,=###
+#=$,,,,~~~^=,...........,=###
+#=,,,,,~~~==M...,,,,,,,,,^###
+#^~~~~~~~~#=,...,=^==^==^=###
+###########=,.S.,=###########
 #############################
 ```
 
-Ring 1 Thistle Sprouts (line `a` past the sprout pen and along the south lawns), ring 2 Puddle Newts (loop `b` round the
-whole middle of the garden, 6 newts), ring 3 Mischief Moths (loop `c` round the walled moth garden), ring 4 Old Briarwick
-in the briar patch. Y = overgrown gazebo, X = Explore point, M = Gardener Moss, S = gate from the castle. Every digit is a
-ring spot, along with all the others the builder fits in; a duel forms at the free one nearest the wizard.
+The first street, built to the checklist: from the gate (S) east along the sprout beds, north up the rose walk, west along
+the long border and north up the west walk into the Briar Court, where Old Briarwick's tower stands (ring 4). Lawn verges
+(`,`) run along the hedges either side of the paved walk, and each patrol walks the middle of the walk past its ring:
+1 Thistle Sprouts, 6 Border Newts, 2 Puddle Newts, 3 Mischief Moths, 5 Sprout Beds. The forks: the old gazebo garden
+(Y, with the Explore point X and a cache) and the lily pond (a cache). M = Gardener Moss by the gate.
 
 ## The default Lantern Row (Lv 4-6)
 
 ```
-#################################
-###########^,,,,,,,,,^###########
-###########,.........,###########
-###########,.........,###########
-###########,...ddd...,###########
-###########,...d4d...,###########
-###########,...ddd...,###########
-###########,.........,###########
-###########==,.....,==###########
-#############=..X..=#############
-######fffffffffffffffffffffffff##
-#####...#.6.##.##.3.##.#######f##
-#####.7.#...##.##...##.#######f##
-##ggggggg#....ccccccccc....###f##
-##g#####g#.###c....#..c###.#..f##
-##g#^,G#g#.###c..3.#..c###...6f##
-##g#,,,#g#.###c......3c###.#..f##
-##g##.##ggg###ccccccccc###.###f##
-##gggg########.#####.#####.#..f##
-######........L#####.........6f##
-######.7.####.######.#######..f##
-#........####.######.#########f##
-#.#####.#####bbbbbbbb#####,,,#f##
-#.#,,C#.###..b......b.####,K,#f##
-#.#,,,#.....2b......b..###.,,#f##
-#.##.##.###..b...2..b2.###.###f##
-#....##.#####b......b......###f##
-######..#####b......b.#.#######.#
-#####...#####bbbbbbbb.........L.#
-#####.5.############.1.######.#.#
-##eeeeeee#####....aaaaaaaaaa.##.#
-##e#####e####...##a#####.###.##.#
-##e#^G,#e####.5.##a#####.###....#
-##e#,,J.eeeeeee.##a#####.###.####
-##e#,,,.5.####e###a......###.####
-##e...#...####e#..a#####.###.####
-##e5.....#####e..1a#####.....####
-##...#####....e...a##############
-##########....e...a##############
-##########........a##############
-######............a##############
-######..L......1..a##############
-######..T..1......a##############
-######.aaaaaaaaaaaa##############
-##########...S...################
-#################################
+###############################
+###############################
+###############################
+######...........^#############
+#####^.....4.....##############
+######...........##############
+######...........##############
+######...........^#############
+#####^#^#.....#################
+########^..f..........L^#######
+#########..f..........^########
+#########..ff.6..eee..#########
+########^..........e..#########
+#########..........e..^########
+#########^#^#^#^#.....#########
+#################..5..######~~#
+############^#^#^.....######~~#
+###^#^#^#^#^#K##L.....######~~#
+###^...............g..^#^#^#~~#
+####...............g.......#~~#
+####..bbb..3.cc..7.g.......^~~#
+###^..b....................#~~#
+##^#..................#^J..#~~#
+##^L..2..^#^#^#^#^#^#^#^...#~~#
+##^#........G...X######^...#~~#
+####............$^######...^~~#
+###^.....###############..G^~~#
+###^..a...........^#####...#~~#
+####..a...........######...#~~#
+####..aaa.1.......#####^...#~~#
+####..............######...^~~#
+###^..............^#####...#~~#
+#############T....^#####...#~~#
+############^.....######$^C#~~#
+############^..S..##########~~#
+###############################
 ```
 
-Ring 1 Gloom Wisps (line `a` from the entrance plaza up the south lane and along the lower street), 2 Lantern Snatchers
-(loop `b` round the market square), 3 the snatcher gang (loop `c`), 4 Snuffer in his tower courtyard, 5 a wisp pack (line
-`e` through the south-west alleys), 6 Lamplighters (snatchers and wisps, line `f` the length of the high street and down the east lane),
-7 Alley Wisps (line `g` round the west houses). The little squares off the lanes are duel ring spots.
-
-264 m x 368 m of crooked lanes, crossroads, loops round the house blocks and dead-end courtyards, with the four story
-quests (ids 2-5, unchanged so existing saves keep their progress) and two new side quests (6: Whiskers Is Missing,
-7: Pip's Broken Toy).
+Three terraces climbing north (height map): Wick Street, Tallow Steps, the Row, Chandlers' Climb and the Snuffer's Court
+at the top, where Ashwick's tower stands (ring 4). Rings 1, 2, 3, 7, 5 and 6 sit on the road's centre line with their
+patrols, the lamps (L) and Marla (K) in alcoves off the verges. The forks: the back alley behind the Row (the tower
+doorstep X, a cog and a cache) and the canal quay (Pip, a cog, Whiskers the cat C and a cache). T = Tilda by the tunnel.

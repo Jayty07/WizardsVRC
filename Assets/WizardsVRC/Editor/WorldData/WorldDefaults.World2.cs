@@ -315,6 +315,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.height = 1400f;
             z.lampDensity = 0.1f;
             z.cornerRadius = 1.5f;
+            z.fogColor = new Color(0.86f, 0.62f, 0.42f);
+            z.skyHorizonColor = new Color(0.9f, 0.58f, 0.32f);
+            z.skyTopColor = new Color(0.25f, 0.33f, 0.77f);
             z.map =
             "#################################\n" +
             "#############~~~~~~~~~~~~~#######\n" +
@@ -539,9 +542,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.roofColor = new Color(0.3f, 0.3f, 0.34f);
             z.accentColor = new Color(1f, 0.55f, 0.3f);
             // Coal smoke over the yard.
-            z.skyTopColor = new Color(0.36f, 0.36f, 0.5f);
-            z.skyHorizonColor = new Color(0.9f, 0.62f, 0.45f);
-            z.fogColor = new Color(0.7f, 0.58f, 0.5f);
+            z.skyTopColor = new Color(0.24f, 0.24f, 0.35f);
+            z.skyHorizonColor = new Color(0.63f, 0.41f, 0.28f);
+            z.fogColor = new Color(0.49f, 0.4f, 0.33f);
             z.map =
             "#################################\n" +
             "#################################\n" +
@@ -628,9 +631,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.buildingColor = new Color(0.62f, 0.4f, 0.3f);
             z.accentColor = new Color(0.75f, 0.85f, 1f);
             // Storm greys over the mesa.
-            z.skyTopColor = new Color(0.26f, 0.28f, 0.38f);
-            z.skyHorizonColor = new Color(0.62f, 0.6f, 0.62f);
-            z.fogColor = new Color(0.5f, 0.5f, 0.54f);
+            z.skyTopColor = new Color(0.19f, 0.2f, 0.29f);
+            z.skyHorizonColor = new Color(0.47f, 0.45f, 0.47f);
+            z.fogColor = new Color(0.37f, 0.37f, 0.41f);
             z.map =
             "###############################\n" +
             "###############################\n" +
@@ -747,9 +750,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.roofColor = new Color(0.26f, 0.22f, 0.26f);
             z.accentColor = new Color(0.55f, 0.95f, 0.85f);
             // Dusk purples.
-            z.skyTopColor = new Color(0.2f, 0.14f, 0.36f);
-            z.skyHorizonColor = new Color(0.78f, 0.45f, 0.5f);
-            z.fogColor = new Color(0.42f, 0.32f, 0.44f);
+            z.skyTopColor = new Color(0.17f, 0.11f, 0.34f);
+            z.skyHorizonColor = new Color(0.74f, 0.39f, 0.44f);
+            z.fogColor = new Color(0.39f, 0.29f, 0.41f);
             z.map =
             "###################################\n" +
             "###################################\n" +

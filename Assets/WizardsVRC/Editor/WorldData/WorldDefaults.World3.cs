@@ -248,6 +248,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.musicTrack = "Music_Zone_KilnStreet";
             z.height = 2100f;
             z.accentColor = new Color(1f, 0.8f, 0.25f);
+            z.fogColor = new Color(0.32f, 0.21f, 0.18f);
+            z.skyHorizonColor = new Color(0.67f, 0.36f, 0.19f);
+            z.skyTopColor = new Color(0.1f, 0.07f, 0.1f);
             z.map =
             "##############################\n" +
             "##############################\n" +
@@ -439,7 +442,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.cornerRadius = 1.5f;
             z.grassColor = new Color(0.3f, 0.36f, 0.26f);
             z.accentColor = new Color(0.55f, 1f, 0.45f);
-            z.fogColor = new Color(0.2f, 0.24f, 0.16f);
+            z.fogColor = new Color(0.16f, 0.2f, 0.13f);
+            z.skyHorizonColor = new Color(0.46f, 0.25f, 0.13f);
+            z.skyTopColor = new Color(0.07f, 0.05f, 0.07f);
             z.map =
             "################################\n" +
             "##############~~~###############\n" +
@@ -808,7 +813,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.buildingColor = new Color(0.4f, 0.28f, 0.3f);
             z.roofColor = new Color(0.55f, 0.42f, 0.18f);
             z.accentColor = new Color(1f, 0.82f, 0.3f);
-            z.skyHorizonColor = new Color(0.6f, 0.35f, 0.18f);
+            z.skyHorizonColor = new Color(0.28f, 0.15f, 0.06f);
+            z.fogColor = new Color(0.12f, 0.08f, 0.07f);
+            z.skyTopColor = new Color(0.04f, 0.03f, 0.04f);
             z.map =
             "####################################\n" +
             "####################################\n" +

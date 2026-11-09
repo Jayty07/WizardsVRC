@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 31;
+        public const int CurrentVersion = 32;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -203,6 +203,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 29) UpgradeTo29();
             if (from < 30) UpgradeTo30();
             if (from < 31) UpgradeTo31();
+            if (from < 32) UpgradeTo32();
         }
 
         /// <summary>World 3's town and boroughs (world data v28).</summary>
@@ -256,6 +257,64 @@ namespace WizardsVRC.EditorTools.WorldData
         /// (so the builder skipped them). They're now RunnerPip and SludgeMarla, in Bigdig and the Fusewick Canals and in
         /// World 3's quests (save ids 130-166).
         /// </summary>
+        /// <summary>
+        /// v32: every street of Worlds 1-3 rebuilt to the level-design checklist: one long winding road that forks but never
+        /// loops or comes back to the entrance, fights on the road with clear verges along the walls, no patrol near the
+        /// entrance, quest spots reachable without crossing a patrol, 6-8 rings, the boss's tower at the far end, and a
+        /// treasure cache (Cache landmark) or quest spot at every dead end; each street's fog and sky a little darker than
+        /// the one before it. A street is replaced (map, heights, encounters, landmarks, colour script, the Kraken's bell)
+        /// only if its map is still the v31 default; edited maps are left alone and say so.
+        /// </summary>
+        private static void UpgradeTo32()
+        {
+            var oldMaps = new Dictionary<string, uint>
+            {
+                { "SunpetalGardens", 0x303C7205u }, { "LanternRow", 0xC8FD441Du }, { "TidewatchDocks", 0xDB35EAF2u }, { "KilnStreet", 0x7E8D9412u },
+                { "ThornhollowGrove", 0xC636B19Du }, { "HollowKeep", 0xE65CEC30u }, { "TumbleweedRow", 0x33B6CCAEu }, { "CoyoteGulch", 0x04B28AF7u },
+                { "CopperbottomMine", 0x7C279E9Au }, { "IronLineRailyard", 0xBA569763u }, { "ThunderMesa", 0x3CBB8CFAu }, { "LonesomeBend", 0x8C6CBDDCu },
+                { "SprocketRow", 0x235A9C99u }, { "Rustworks", 0x07FA4086u }, { "FusewickCanals", 0x932AD4A2u }, { "GlimmerMile", 0x0FBE596Du },
+                { "DeepSeams", 0x74CEB7DAu }, { "HighrollerHeights", 0xB7329211u },
+            };
+            var fills = new Dictionary<string, System.Action<ZoneDefinition>>
+            {
+                { "SunpetalGardens", WorldDefaults.FillSunpetalGardens }, { "LanternRow", WorldDefaults.FillLanternRow },
+            };
+            foreach (var d in World1Zones) fills[d.key] = d.fill;
+            foreach (var d in World2Zones) fills[d.key] = d.fill;
+            foreach (var d in World3Zones) fills[d.key] = d.fill;
+            var report = new List<string>();
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                uint old;
+                System.Action<ZoneDefinition> fill;
+                if (z == null || !oldMaps.TryGetValue(z.zoneKey, out old) || !fills.TryGetValue(z.zoneKey, out fill)) continue;
+                var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+                fill(fresh);
+                bool current = Normalize(z.map) == Normalize(fresh.map);
+                if (!current && MapHash(z.map) != old)
+                {
+                    Debug.Log("[WizardsVRC] " + z.displayName + "'s map has been edited, so its new layout (the level-design checklist) wasn't applied. " +
+                              "See WorldDefaults.Fill" + z.zoneKey + ".");
+                    Object.DestroyImmediate(fresh);
+                    continue;
+                }
+                z.map = fresh.map;
+                z.heightMap = fresh.heightMap;
+                z.heightStep = fresh.heightStep;
+                z.encounters = fresh.encounters;
+                z.landmarks = fresh.landmarks;
+                z.fogColor = fresh.fogColor;
+                z.skyTopColor = fresh.skyTopColor;
+                z.skyHorizonColor = fresh.skyHorizonColor;
+                if (z.secretBoss != null && z.secretBoss.enabled && fresh.secretBoss != null && fresh.secretBoss.enabled)
+                    z.secretBoss.entranceSymbol = fresh.secretBoss.entranceSymbol;
+                Object.DestroyImmediate(fresh);
+                EditorUtility.SetDirty(z);
+                report.Add(z.displayName);
+            }
+            if (report.Count > 0) Debug.Log("[WizardsVRC] Upgraded world data (v32): streets rebuilt to the level-design checklist (" + string.Join(", ", report) + ").");
+        }
+
         private static void UpgradeTo31()
         {
             var rename = new Dictionary<string, string> { { "Pip", "RunnerPip" }, { "Marla", "SludgeMarla" } };

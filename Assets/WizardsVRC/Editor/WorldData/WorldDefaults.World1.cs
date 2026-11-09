@@ -72,9 +72,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.buildingHeight = new Vector2(6f, 11f);
             z.lampDensity = 0.25f;
             // Grey sea mist.
-            z.skyTopColor = new Color(0.42f, 0.5f, 0.6f);
-            z.skyHorizonColor = new Color(0.8f, 0.82f, 0.84f);
-            z.fogColor = new Color(0.62f, 0.66f, 0.7f);
+            z.skyTopColor = new Color(0.21f, 0.25f, 0.31f);
+            z.skyHorizonColor = new Color(0.41f, 0.42f, 0.44f);
+            z.fogColor = new Color(0.32f, 0.34f, 0.36f);
             z.horizonDistance = 1050f;
             z.npcs = new List<ZoneNpc>
             {
@@ -208,9 +208,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.buildingHeight = new Vector2(8f, 14f);
             z.lampDensity = 0.3f;
             // A smoky orange sky over the chimneys.
-            z.skyTopColor = new Color(0.35f, 0.18f, 0.12f);
-            z.skyHorizonColor = new Color(0.95f, 0.55f, 0.25f);
-            z.fogColor = new Color(0.55f, 0.38f, 0.3f);
+            z.skyTopColor = new Color(0.27f, 0.12f, 0.07f);
+            z.skyHorizonColor = new Color(0.74f, 0.39f, 0.13f);
+            z.fogColor = new Color(0.43f, 0.28f, 0.21f);
             z.horizonDistance = 1150f;
             z.npcs = new List<ZoneNpc>
             {
@@ -315,9 +315,9 @@ namespace WizardsVRC.EditorTools.WorldData
             z.buildingHeight = new Vector2(6f, 9f);
             z.lampDensity = 0.08f;
             // Green shade under the canopy.
-            z.skyTopColor = new Color(0.26f, 0.45f, 0.38f);
-            z.skyHorizonColor = new Color(0.76f, 0.86f, 0.66f);
-            z.fogColor = new Color(0.45f, 0.58f, 0.45f);
+            z.skyTopColor = new Color(0.13f, 0.24f, 0.2f);
+            z.skyHorizonColor = new Color(0.4f, 0.46f, 0.34f);
+            z.fogColor = new Color(0.23f, 0.31f, 0.23f);
             z.horizonDistance = 1100f;
             z.npcs = new List<ZoneNpc>
             {
