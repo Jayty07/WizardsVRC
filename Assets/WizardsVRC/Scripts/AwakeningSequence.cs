@@ -433,7 +433,11 @@ namespace WizardsVRC
             FollowHead(dt);
         }
 
-        /// <summary>Lids sit on your head; the words float ahead of you and follow lazily, always upright.</summary>
+        /// <summary>
+        /// Lids sit on your head. The words don't follow it: they're set down in the air ahead of you, upright, when you
+        /// arrive somewhere (the dream, the study; facing the way that place faces you) and stay put there while you look
+        /// around, like a sign. Only a move of more than a few metres (a teleport) sets them down again.
+        /// </summary>
         private void FollowHead(float dt)
         {
             VRCPlayerApi me = Networking.LocalPlayer;
@@ -441,23 +445,20 @@ namespace WizardsVRC
             VRCPlayerApi.TrackingData head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
             if (lids != null) lids.SetPositionAndRotation(head.position, head.rotation);
             if (subtitleRoot == null) return;
-            Vector3 fwd = head.rotation * Vector3.forward;
+            Vector3 flatHead = head.position;
+            flatHead.y = subtitleRoot.position.y;
+            bool moved = (subtitleRoot.position - flatHead).sqrMagnitude > 16f;   // more than 4 m away: you were moved
+            if (!_snapWords && !moved) return;
+            // Face the way the place faces you (so the words are where you're meant to look), else the way you look.
+            Transform spot = _place == PLACE_DREAM ? dreamSpot : wakeSpot;
+            Vector3 fwd = spot != null ? spot.forward : head.rotation * Vector3.forward;
             fwd.y = 0f;
             if (fwd.sqrMagnitude < 0.0001f) fwd = Vector3.forward;
             fwd.Normalize();
-            Vector3 want = head.position + fwd * 1.7f + Vector3.down * 0.2f;
-            Quaternion rot = Quaternion.LookRotation(fwd, Vector3.up);
-            if (_snapWords || (subtitleRoot.position - want).sqrMagnitude > 25f)
-            {
-                subtitleRoot.SetPositionAndRotation(want, rot);
-                _snapWords = false;
-            }
-            else
-            {
-                float k = 1f - Mathf.Exp(-dt * 2.5f);
-                subtitleRoot.position = Vector3.Lerp(subtitleRoot.position, want, k);
-                subtitleRoot.rotation = Quaternion.Slerp(subtitleRoot.rotation, rot, k);
-            }
+            Vector3 at = (spot != null ? new Vector3(spot.position.x, head.position.y, spot.position.z) : head.position) + fwd * 1.7f + Vector3.down * 0.2f;
+            subtitleRoot.SetPositionAndRotation(at, Quaternion.LookRotation(fwd, Vector3.up));
+            // Keep snapping until the teleport has landed you at the spot (the move lands a frame or two later).
+            if (spot == null || (new Vector3(head.position.x - spot.position.x, 0f, head.position.z - spot.position.z)).sqrMagnitude < 4f) _snapWords = false;
         }
 
         private void ApplyLids()
