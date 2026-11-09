@@ -426,6 +426,14 @@ namespace WizardsVRC.EditorTools
                 EditorSceneManager.SaveScene(scene, ScenePath);
                 Lap("occlusion bake");
             }
+            else
+            {
+                // The last bake belongs to the old scene's renderers, so it's thrown away rather than left to cull the wrong
+                // things; Build & Test and uploads offer to bake it first (WizardsVRCSceneBuilder.Timing.cs).
+                StaticOcclusionCulling.Clear();
+                OcclusionStale = true;
+                EditorSceneManager.SaveScene(scene, ScenePath);
+            }
             AddSceneToBuildSettings();
             AssetDatabase.SaveAssets();
             Lap("saving assets");

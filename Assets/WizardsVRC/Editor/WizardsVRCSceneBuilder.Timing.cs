@@ -12,6 +12,8 @@ namespace WizardsVRC.EditorTools
     ///    an unchanged picture keeps its imported (and compressed) copy, so most rebuilds import almost nothing.
     ///  - The hub's occlusion bake (StaticOcclusionCulling.Compute, minutes on its own) is off by default: tick
     ///    WizardsVRC > Options > Bake Occlusion On Rebuild, or run WizardsVRC > Bake Hub Occlusion once before you upload.
+    ///    A rebuild that skips it clears the old bake (it would cull the wrong things), and Build &amp; Test or an upload
+    ///    then asks to bake it first (OcclusionBuildCheck): without it the hub draws every building at once and runs slowly.
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
@@ -20,6 +22,23 @@ namespace WizardsVRC.EditorTools
 
         /// <summary>Bake the hub's occlusion culling at the end of every rebuild (slow; off unless ticked in the menu).</summary>
         private static bool BakeOcclusionOnRebuild { get { return EditorPrefs.GetBool(BakeOcclusionPref, false); } }
+
+        private const string OcclusionStalePref = "WizardsVRC.OcclusionStale";
+
+        /// <summary>The last rebuild didn't bake occlusion (the scene has none until it's baked).</summary>
+        internal static bool OcclusionStale
+        {
+            get { return EditorPrefs.GetBool(OcclusionStalePref, false); }
+            set { EditorPrefs.SetBool(OcclusionStalePref, value); }
+        }
+
+        /// <summary>Bakes the hub's occlusion for the open scene and saves it (OcclusionBuildCheck).</summary>
+        internal static bool BakeOcclusionForBuild()
+        {
+            BakeHubOcclusion();
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+            return !OcclusionStale;
+        }
 
         [MenuItem(BakeOcclusionMenu)]
         private static void ToggleBakeOcclusion()
@@ -70,7 +89,7 @@ namespace WizardsVRC.EditorTools
             foreach (var l in laps) parts.Add(l.Key + " " + l.Value.ToString("0.0") + "s");
             Debug.Log("[WizardsVRC] Rebuild took " + _buildClock.Elapsed.TotalSeconds.ToString("0.0") + "s. By stage, slowest first: " + string.Join(", ", parts) +
                       ". Generated pictures: " + _pngsWritten + " changed, " + _pngsKept + " unchanged (not re-imported)." +
-                      (BakeOcclusionOnRebuild ? "" : " Occlusion wasn't baked (WizardsVRC > Bake Hub Occlusion before uploading)."));
+                      (BakeOcclusionOnRebuild ? "" : " Occlusion wasn't baked: Build & Test and uploads will offer to bake it (or WizardsVRC > Bake Hub Occlusion)."));
         }
 
         // ------------------------------------------------------------------ pictures
@@ -97,6 +116,30 @@ namespace WizardsVRC.EditorTools
         {
             if (a == null || b == null || a.Length != b.Length) return false;
             for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Before Build &amp; Test or an upload of MainWorld: if the last rebuild skipped the occlusion bake, offers to bake it now
+    /// (a few minutes). Without it the hub has no occlusion culling and draws every building, wall and prop at once.
+    /// </summary>
+    public class OcclusionBuildCheck : VRC.SDKBase.Editor.BuildPipeline.IVRCSDKBuildRequestedCallback
+    {
+        public int callbackOrder { get { return -10; } }
+
+        public bool OnBuildRequested(VRC.SDKBase.Editor.BuildPipeline.VRCSDKRequestedBuildType requestedBuildType)
+        {
+            if (requestedBuildType != VRC.SDKBase.Editor.BuildPipeline.VRCSDKRequestedBuildType.Scene) return true;
+            if (!WizardsVRCSceneBuilder.OcclusionStale) return true;
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().path != WizardsVRCSceneBuilder.ScenePath) return true;
+            int choice = EditorUtility.DisplayDialogComplex("WizardsVRC: occlusion culling isn't baked",
+                "The last rebuild skipped the occlusion bake, so the hub would draw every building at once and run slowly.\n\n" +
+                "Bake it now? It takes a few minutes, and lasts until the next rebuild.",
+                "Bake now", "Cancel build", "Build without it");
+            if (choice == 1) return false;
+            if (choice == 0 && !WizardsVRCSceneBuilder.BakeOcclusionForBuild())
+                Debug.LogWarning("[WizardsVRC] Occlusion bake didn't finish; building without it.");
             return true;
         }
     }

@@ -529,7 +529,7 @@ namespace WizardsVRC.EditorTools
             StaticOcclusionCulling.smallestOccluder = 3f;
             StaticOcclusionCulling.smallestHole = 0.25f;
             StaticOcclusionCulling.backfaceThreshold = 100f;
-            if (StaticOcclusionCulling.Compute()) Debug.Log("[WizardsVRC] Occlusion culling baked.");
+            if (StaticOcclusionCulling.Compute()) { OcclusionStale = false; Debug.Log("[WizardsVRC] Occlusion culling baked."); }
             else Debug.LogWarning("[WizardsVRC] Occlusion bake failed or was cancelled; the hub still culls by distance and area.");
         }
 

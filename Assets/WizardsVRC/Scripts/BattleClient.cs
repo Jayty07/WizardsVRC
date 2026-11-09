@@ -323,6 +323,7 @@ namespace WizardsVRC
         [Header("Treasure cards")]
         [Tooltip("The action tray's Treasure button: draws one treasure card from your deck's sideboard for each card you've discarded this round.")]
         public GameObject treasureButton;
+        private Image _treasureImage;
         public Text treasureLabel;
         [Tooltip("Per hand card: the gold TREASURE ribbon shown on treasure cards.")]
         public GameObject[] cardTreasureTags;
@@ -3783,8 +3784,8 @@ namespace WizardsVRC
             if (treasureLabel != null) treasureLabel.text = _tcDiscards > 0 && _tcPoolCount > 0 ? "Draw Treasure (" + _tcPoolCount.ToString() + ")" : "Treasure (" + _tcPoolCount.ToString() + ")";
             if (treasureButton != null)
             {
-                Image tb = treasureButton.GetComponent<Image>();
-                if (tb != null) tb.color = CanDrawTreasure() ? new Color(0.62f, 0.45f, 0.12f) : new Color(0.32f, 0.28f, 0.22f);
+                if (_treasureImage == null) _treasureImage = treasureButton.GetComponent<Image>();
+                if (_treasureImage != null) _treasureImage.color = CanDrawTreasure() ? new Color(0.62f, 0.45f, 0.12f) : new Color(0.32f, 0.28f, 0.22f);
             }
             if (discardImage != null) discardImage.color = _discardMode ? new Color(0.8f, 0.55f, 0.2f) : new Color(0.4f, 0.3f, 0.25f);
             if (statusLabel != null) statusLabel.text = StatusText();
