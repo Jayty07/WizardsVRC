@@ -106,6 +106,12 @@ namespace WizardsVRC.EditorTools.WorldData
         /// Tavern (jukebox, the desk bell for fresh mugs, seats). About 36 m by 30 m.
         /// </summary>
         Hotel,
+        /// <summary>
+        /// A treasure cache (one cell, best at the end of a side alley: the payoff for a dead end). Click it for some gold;
+        /// it's empty only for you, and fills again after a while. Paint it several times for several caches. Label = its
+        /// name (blank = picked for the street's look).
+        /// </summary>
+        Cache,
     }
 
     /// <summary>

@@ -342,6 +342,7 @@ namespace WizardsVRC.EditorTools
                             hub.padRequiredQuest = l.requiredQuest;
                             hub.padLockedHint = l.lockedHint ?? "";
                             break;
+                        case LandmarkKind.Cache: break;   // built with the zone's points (WizardsVRCSceneBuilder.Caches.cs)
                         case LandmarkKind.HealthOrb:
                         case LandmarkKind.ManaOrb:
                             foreach (var oc in cells)

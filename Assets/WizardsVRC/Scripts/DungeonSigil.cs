@@ -42,6 +42,14 @@ namespace WizardsVRC
         public Vector3 boundsMin;
         public Vector3 boundsMax;
 
+        [Header("Story seal")]
+        [Tooltip("Quests (save ids) that open it: sealed for a wizard who hasn't started any of them (a street boss's tower opens " +
+                 "when the story sends you to fight the boss). Empty = always open.")]
+        public int[] openIfStarted;
+        public QuestManager questManager;
+        [Tooltip("Shown on the sign while it's sealed for you.")]
+        public string sealedText = "";
+
         [UdonSynced] public int state;
         [UdonSynced] public int countdownEndMs;
         [UdonSynced] public int[] padIds = new int[PADS];
@@ -95,12 +103,22 @@ namespace WizardsVRC
                     Vector3 d = pos - pads[i].position;
                     if (Mathf.Abs(d.y) < 2f && d.x * d.x + d.z * d.z < padRadius * padRadius) { pad = i; break; }
                 }
+            // Sealed for me: the pads don't take me.
+            if (pad >= 0 && !Unsealed()) pad = -1;
             if (pad != _myPad)
             {
                 _myPad = pad;
                 SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(NetPad), id, pad);
             }
             UpdateLabel();
+        }
+
+        /// <summary>Open for the local wizard: no story seal, or they've started (or finished) one of its quests.</summary>
+        public bool Unsealed()
+        {
+            if (openIfStarted == null || openIfStarted.Length == 0 || questManager == null) return true;
+            for (int i = 0; i < openIfStarted.Length; i++) if (questManager.IsStarted(openIfStarted[i])) return true;
+            return false;
         }
 
         private bool Inside(Vector3 p)
@@ -271,6 +289,7 @@ namespace WizardsVRC
                 int left = Mathf.Max(0, Mathf.CeilToInt((countdownEndMs - Now()) / 1000f));
                 t = dungeonName + "\nEntering in " + left + "...  Step onto a free pad to join.";
             }
+            else if (!Unsealed()) t = sealedText.Length > 0 ? sealedText : dungeonName + "\nSealed.";
             else t = dungeonName + "\nStand on the sigil's pads to enter (up to 4 wizards).";
             if (t != _lastText)
             {

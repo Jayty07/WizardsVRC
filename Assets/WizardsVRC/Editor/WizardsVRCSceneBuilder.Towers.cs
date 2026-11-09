@@ -9,19 +9,21 @@ using WizardsVRC.EditorTools.WorldData;
 namespace WizardsVRC.EditorTools
 {
     /// <summary>
-    /// Boss towers, like Wizard101's Golem Tower: every street with a boss gets a tower. Its way in is a four-pad sigil
-    /// out in the street (DungeonSigil: the party goes in together and has the tower to itself). Inside, the party climbs
-    /// floor by floor: each floor is a round stone chamber with a duel ring and a wave of the street's monsters, whose
-    /// leader stands across the ring and taunts you as you arrive (TowerFloor). Step into the ring to fight; win and you
-    /// go up to the next floor. The top floor is the street's boss; beat it and you come out on the roof, where a veil
-    /// takes you home. Losing (or leaving by a veil) puts you back by the sigil.
+    /// Boss towers: every street's boss waits behind a door, like Wizard101's. The street's boss leaves the street for
+    /// its tower, which rises at the far end of the street (its landmark, seen from the entrance); the door is a four-pad
+    /// sigil in front of it (DungeonSigil: the party goes in together and has the tower to itself), sealed until the
+    /// story reaches the boss (it opens once you've started a quest that sends you to fight it, and stays open). Inside
+    /// is a single round stone chamber with the boss across the duel ring; it speaks as you arrive (its encounter's
+    /// Intro Lines, or a taunt), and you step into the ring to fight. Beat it and you come out on the roof, where a veil
+    /// takes you home. Losing (or leaving by the veil) puts you back by the sigil. TowerWaves (0) wave floors of the
+    /// street's monsters can still be put back under the boss's.
     ///
     /// Towers are built far from everything (TowerOrigin), one beside the other, each its own culled area.
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
         private static readonly Vector3 TowerOrigin = new Vector3(-3200f, 700f, 3200f);
-        private const int TowerWaves = 3;                     // floors of waves before the boss floor
+        private const int TowerWaves = 0;                     // floors of waves before the boss floor (none: just the boss behind the door)
         private const float TowerFloorH = 14f, TowerRoomR = 15f, TowerWallH = 10f;
         private static int _towerCount;
         private static readonly List<string> TowerNames = new List<string>();
@@ -164,6 +166,10 @@ namespace WizardsVRC.EditorTools
                 new[] { elite, hi, mid, hi },
                 new[] { boss, elite, hi, mid },
             };
+            // Only the last TowerWaves wave floors, then the boss (with none, the tower is the boss's chamber alone).
+            int floors = TowerWaves + 1;
+            int drop = rosters.Count - floors;
+            rosters.RemoveRange(0, drop);
             // No wave bigger than the street's biggest encounter (Lantern Row: two).
             int most = 1;
             foreach (var e in z.encounters) if (e != null && e.roster != null) most = Mathf.Max(most, e.roster.Count);
@@ -179,9 +185,21 @@ namespace WizardsVRC.EditorTools
                         "Every floor is harder than the last, wizard. This one is ours." },
                 new[] { bossName + " waits at the top. You will never reach it!",
                         "We are the last door before the summit. Nobody gets past us." },
-                new[] { "So. You climbed my tower.",
+                new[] { "So. You found my door.",
                         z.displayName + " is mine, wizard. Every street, every stone. Come, let us end this!" },
             };
+            var keptLines = new string[floors][];
+            System.Array.Copy(lines, lines.Length - floors, keptLines, 0, floors);
+            lines = keptLines;
+            // The boss's own words when its encounter has Intro Lines ("Name|words" lines are other speakers').
+            foreach (var e in z.encounters)
+                if (e != null && e.roster != null && e.roster.Count > 0 && e.roster[0] == boss && HasLines(e.introLines))
+                {
+                    var own = new List<string>();
+                    foreach (var l in e.introLines) if (!string.IsNullOrEmpty(l)) own.Add(l);
+                    lines[floors - 1] = own.ToArray();
+                    break;
+                }
 
             // ---- the tower, far away, its own area
             var troot = new GameObject("Tower_" + z.zoneKey).transform;
@@ -199,7 +217,6 @@ namespace WizardsVRC.EditorTools
             var veilMat = PMat("TowerVeil", new Color(0.65f, 0.4f, 1f), 1f, new Color(0.65f, 0.4f, 1f) * 1.2f);
             var slit = PMat("TowerWindowNight", new Color(0.12f, 0.14f, 0.3f), 1f, new Color(0.1f, 0.12f, 0.32f));
 
-            int floors = TowerWaves + 1;
             var arrivals = new Transform[floors + 1];
             for (int k = 0; k <= floors; k++)
             {
@@ -228,6 +245,10 @@ namespace WizardsVRC.EditorTools
             }
             if (towerR > 0f) StreetTower(zoneRoot, towerPos, face, towerR, col, outerStone, gold, banner, towerName, IsDesert(z));
             DungeonSigil sigil = TowerSigil(zoneRoot, systems, z, sc, face, towerName, col, outerStone, gold, wb);
+            // Sealed until the story sends you to fight the boss: open once any quest with a step against it has started.
+            sigil.questManager = qm;
+            sigil.openIfStarted = QuestsFighting(boss, wb.data);
+            sigil.sealedText = towerName + "\nSealed. It opens when your story leads you to " + bossName + ".";
             // Quest arrows for the boss (it no longer walks the street) lead to the tower's sigil.
             if (!wb.monsterTargets.ContainsKey(boss)) wb.monsterTargets[boss] = sigil.outside;
             sigil.start = arrivals[0];
@@ -265,7 +286,7 @@ namespace WizardsVRC.EditorTools
                 client.hubReturn = arrivals[k];             // fled: still on this floor, try again
                 client.defeatReturn = sigil.outside;        // beaten: back out by the sigil
                 client.victoryReturn = arrivals[k + 1];     // won: up to the next floor (the roof after the boss)
-                client.padTitle = (isTop ? "The Top: " + bossName : "Floor " + (k + 1) + " of " + floors) + "\nRun into a monster to fight";
+                client.padTitle = (isTop ? bossName : "Floor " + (k + 1) + " of " + floors) + "\nRun into " + (isTop ? "it" : "a monster") + " to fight";
                 // No sign over the ring: the leader's greeting says which floor this is.
 
                 // Their beat: back and forth along the far (north) side of the chamber, well away from where you arrive.
@@ -300,8 +321,8 @@ namespace WizardsVRC.EditorTools
                 floor.centre = room;
                 floor.radius = TowerRoomR + 1f;
                 floor.speaker = MonsterLabel(rosters[k][0]);
-                floor.line = lines[k][0];
-                floor.floorTitle = isTop ? "Top floor" : "Floor " + (k + 1);
+                floor.line = StripSpeaker(lines[k][0]);
+                floor.floorTitle = isTop ? (floors > 1 ? "Top floor" : "") : "Floor " + (k + 1);
                 floor.isTop = isTop;
                 floor.towerName = towerName;
                 floor.clearBits = 1 | (1 << (1 + Mathf.Min(index, 28)));
@@ -316,10 +337,17 @@ namespace WizardsVRC.EditorTools
                     Shot(room, "Shot_Wide", new Vector3(0, 3.4f, -(TowerRoomR - 3.5f)), new Vector3(0, 1.4f, 4f)),
                     Shot(room, "Shot_Leader", far * 0.32f + new Vector3(2.2f, 2.1f, -1.5f), far),
                 };
-                var cs = MakeCutscene(wb.cutsceneParent, name + "_Greeting", floor.speaker, lines[k], "tower_" + (isTop ? "boss" : "floor" + k), shots);
+                var cs = MakeCutscene(wb.cutsceneParent, name + "_Greeting", floor.speaker, (string[])lines[k].Clone(), "tower_" + (isTop ? "boss" : "floor" + k), shots);
                 cs.cutsceneId = name + "_Greeting";
-                cs.stances = new int[lines[k].Length];
-                for (int i = 0; i < cs.stances.Length; i++) cs.stances[i] = Cutscene.STANCE_HOSTILE;
+                SpeakerLines(cs, floor.speaker, shots, wb);
+                // The leader's own lines are hostile (red rim); anyone else named keeps their own stance.
+                if (cs.stances == null || cs.stances.Length != cs.lines.Length)
+                {
+                    cs.stances = new int[cs.lines.Length];
+                    for (int i = 0; i < cs.stances.Length; i++) cs.stances[i] = Cutscene.STANCE_HOSTILE;
+                }
+                else
+                    for (int i = 0; i < cs.stances.Length; i++) if (cs.speakers[i] == floor.speaker) cs.stances[i] = Cutscene.STANCE_HOSTILE;
                 floor.cutscene = cs;
                 floor.cutscenePlayer = qm != null ? qm.cutscenePlayer : null;
                 wb.behaviours.Add(cs);
@@ -362,7 +390,35 @@ namespace WizardsVRC.EditorTools
             wb.cullBounds.Add(towerBox);
             wb.MusicArea(z, towerBox, towerName, true);
             troot.gameObject.SetActive(false);
-            Debug.Log("[WizardsVRC World] " + z.displayName + ": " + towerName + " (" + TowerWaves + " wave floors, then " + bossName + ").");
+            Debug.Log("[WizardsVRC World] " + z.displayName + ": " + towerName + " (" + (TowerWaves > 0 ? TowerWaves + " wave floors, then " : "") + bossName +
+                      " behind the door" + (sigil.openIfStarted.Length > 0 ? ", opened by quest " + string.Join("/", System.Array.ConvertAll(sigil.openIfStarted, id => id.ToString())) : "") + ").");
+        }
+
+        /// <summary>Save ids of the quests with a step against this monster (Defeat, Collect or Boss): they open its door.</summary>
+        private static int[] QuestsFighting(int monster, WorldDataStore.Data data)
+        {
+            var ids = new List<int>();
+            if (data == null) return ids.ToArray();
+            foreach (var ql in data.questlines)
+            {
+                if (ql == null || ql.quests == null) continue;
+                foreach (var q in ql.quests)
+                {
+                    if (q == null || q.steps == null || ids.Contains(q.saveId)) continue;
+                    foreach (var st in q.steps)
+                        if (st != null && st.monsterId == monster &&
+                            (st.kind == QuestStepKind.Boss || st.kind == QuestStepKind.Defeat || st.kind == QuestStepKind.Collect)) { ids.Add(q.saveId); break; }
+                }
+            }
+            return ids.ToArray();
+        }
+
+        /// <summary>A "Name|words" line without its speaker.</summary>
+        private static string StripSpeaker(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return "";
+            int bar = line.IndexOf('|');
+            return bar > 0 && bar < 64 ? line.Substring(bar + 1).Trim() : line;
         }
 
         /// <summary>
@@ -378,13 +434,13 @@ namespace WizardsVRC.EditorTools
             if (desert) stone = PsxTexMat("TowerSandstone", new Color(0.78f, 0.5f, 0.36f), TileTexture(TerrainTexDir + "/RedRock.png"), 2.6f);
             var roofMat = PMat("TowerRoof_" + ColorUtility.ToHtmlStringRGB(col), Color.Lerp(col, new Color(0.2f, 0.18f, 0.25f), 0.45f), 1f);
             var glow = PMat("TowerSlitGlow", new Color(1f, 0.7f, 0.35f), 1f, new Color(1f, 0.55f, 0.2f));
-            const float h = 22f;
+            const float h = 28f;   // well over the street's roofs: the street's landmark, seen from the way in
             Shape(t, "TowerBase", CylMesh(), new Vector3(0, 1f, 0), new Vector3(r * 2f + 1.2f, 1f, r * 2f + 1.2f), stone, true, Quaternion.identity);
             Shape(t, "TowerBody", CylMesh(), new Vector3(0, h / 2f, 0), new Vector3(r * 2f, h / 2f, r * 2f), stone, true, Quaternion.identity);
-            foreach (float y in new[] { 7.5f, 14.5f })
+            foreach (float y in new[] { 7.5f, 14.5f, 21.5f })
                 Shape(t, "TowerBand", CylMesh(), new Vector3(0, y, 0), new Vector3(r * 2f + 0.4f, 0.25f, r * 2f + 0.4f), gold, false, Quaternion.identity);
             // Window slits round it, lit from inside.
-            for (int k = 0; k < 3; k++)
+            for (int k = 0; k < 4; k++)
                 for (int i = 0; i < 6; i++)
                 {
                     float a = i * 60f + k * 30f + 30f;

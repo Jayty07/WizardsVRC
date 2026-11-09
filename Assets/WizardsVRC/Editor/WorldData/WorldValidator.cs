@@ -249,7 +249,7 @@ namespace WizardsVRC.EditorTools.WorldData
                         if (g.DoorDirection(l) == Vector2Int.zero) r.Error(ln + " has no open cell next to it (at its own height) for its door.");
                     }
                     else if (!l.Solid && cells.Count > 1 && l.kind != LandmarkKind.Tavern && l.kind != LandmarkKind.Saloon && l.kind != LandmarkKind.Hotel && l.kind != LandmarkKind.DuelCircle &&
-                             l.kind != LandmarkKind.HealthOrb && l.kind != LandmarkKind.ManaOrb)
+                             l.kind != LandmarkKind.HealthOrb && l.kind != LandmarkKind.ManaOrb && l.kind != LandmarkKind.Cache)
                         r.Warn(ln + " is placed " + cells.Count + " times; only the first is used.");
                     if (l.kind == LandmarkKind.BankChest) r.Warn(ln + ": the practice chest is no longer built; remove it from the landmark list.");
                     if (l.kind == LandmarkKind.DuelCircle && Mathf.Min(fp.width, fp.height) * g.cell < 2f * (ZoneGrid.RingClearance + 1f))

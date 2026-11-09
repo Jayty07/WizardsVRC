@@ -28,6 +28,7 @@ namespace WizardsVRC.EditorTools
             public readonly List<UdonSharpBehaviour> behaviours = new List<UdonSharpBehaviour>();
             /// <summary>Street health / mana orbs (they get the interface sounds once those exist).</summary>
             public readonly List<RestoreOrb> orbs = new List<RestoreOrb>();
+            public readonly List<TreasureCache> caches = new List<TreasureCache>();
             public readonly List<GameObject> zoneRoots = new List<GameObject>();
             public readonly Dictionary<string, int> npcIds = new Dictionary<string, int>();
             public readonly Dictionary<string, Transform> npcTargets = new Dictionary<string, Transform>();
@@ -470,6 +471,8 @@ namespace WizardsVRC.EditorTools
             // ---- NPCs, points, encounters
             foreach (var npc in z.npcs) if (npc != null) BuildNpc(root, g, z, npc, qm, wb);
             foreach (var p in z.points) if (p != null) BuildPoints(root, g, p, qm, wb, glow, deadLamp, wood);
+            // Treasure caches at the ends of side alleys (WizardsVRCSceneBuilder.Caches.cs).
+            BuildCaches(root, g, z, playerState, wb, wood, glow);
             // Duel rings aren't tied to one monster group: the street is filled with as many ring spots as fit, and a fight
             // forms at the free one nearest the wizard (the patrol monster walks over to it).
             var ringHome = new Dictionary<Vector2Int, Vector2Int>();
@@ -1078,12 +1081,24 @@ namespace WizardsVRC.EditorTools
                 }
             }
 
-            // Then as many more as fit.
+            // Then as many more as fit: in a street only on the road, by its patrols and painted rings (fights form on the road,
+            // never on the sidewalks along the walls, so a wizard passing through on an errand isn't drawn into one).
+            bool street = !z.isHub && !z.isTown;
+            bool OnRoad(Vector2Int c)
+            {
+                for (int yy = c.y - 2; yy <= c.y + 2; yy++)
+                    for (int xx = c.x - 2; xx <= c.x + 2; xx++)
+                    {
+                        char ch = g.At(xx, yy);
+                        if ((ch >= 'a' && ch <= 'i') || ZoneGrid.IsRingDigit(ch)) return true;
+                    }
+                return false;
+            }
             for (int y = 0; y < g.height; y++)
                 for (int x = 0; x < g.width; x++)
                 {
                     var c = new Vector2Int(x, y);
-                    if (FarEnough(c) && Fits(c)) placed.Add(c);
+                    if (FarEnough(c) && Fits(c) && (!street || OnRoad(c))) placed.Add(c);
                 }
             return placed;
         }
