@@ -57,6 +57,11 @@ namespace WizardsVRC.EditorTools
                 wet[side] = !desert && water > n * 0.3f;
             }
             if (edgeWater < float.MaxValue) seaY = edgeWater - 0.08f;
+            // The map's own sea level, which OuterSea carries on past its wet edges: boats and buoys out there float on it.
+            float wetY = edgeWater < float.MaxValue ? edgeWater : seaY;
+            // Never above the island's top (or it floods the street and the land round it); the map's own sea carries on
+            // to the horizon at its level past the wet edges (OuterSea).
+            seaY = Mathf.Min(seaY, baseY - GroundDrop - 0.3f - 0.5f);
 
             // ---- the island: cliffs from the sea up to just under the map, reaching out past every dry side
             float hw = W / 2f, hh = H / 2f, mN = wet[0] ? 0f : BackdropMargin, mE = wet[1] ? 0f : BackdropMargin,
@@ -88,6 +93,12 @@ namespace WizardsVRC.EditorTools
             // Rocks along the foot of the cliffs.
             for (int i = 0; i < poly.Length; i++)
             {
+                // Not along a side that meets the sea: there the island's edge is the map's edge, under the harbour, and
+                // the rocks would poke up through the water by the quays. Edges 0, 2, 4, 6 are south, east, north and west;
+                // the odd ones are the corners between them.
+                bool sWet = wet[2], eWet = wet[1], nWet = wet[0], wWet = wet[3];
+                bool onWet = i == 0 ? sWet : i == 1 ? sWet || eWet : i == 2 ? eWet : i == 3 ? eWet || nWet : i == 4 ? nWet : i == 5 ? nWet || wWet : i == 6 ? wWet : wWet || sWet;
+                if (onWet) continue;
                 Vector2 a = poly[i], b = poly[(i + 1) % poly.Length];
                 float len = (b - a).magnitude;
                 for (float t = 0.05f; t < 1f; t += 18f / Mathf.Max(18f, len))
@@ -147,15 +158,15 @@ namespace WizardsVRC.EditorTools
                 for (int k = 0; k < 5; k++)
                 {
                     Vector3 p = along * Rr(-len * 0.45f, len * 0.45f) + outward * (edge + Rr(18f, 70f));
-                    Boat(holder, new Vector3(p.x, seaY, p.z), Quaternion.Euler(0, Rr(0, 360), 0), rng, z.accentColor);
+                    Boat(holder, new Vector3(p.x, wetY, p.z), Quaternion.Euler(0, Rr(0, 360), 0), rng, z.accentColor);
                 }
                 for (int k = 0; k < 6; k++)
                 {
                     Vector3 p = along * Rr(-len * 0.5f, len * 0.5f) + outward * (edge + Rr(8f, 40f));
-                    Buoy(holder, new Vector3(p.x, seaY, p.z), k % 2 == 0);
+                    Buoy(holder, new Vector3(p.x, wetY, p.z), k % 2 == 0);
                 }
                 Vector3 lh = along * Rr(-len * 0.25f, len * 0.25f) + outward * (edge + 110f);
-                Lighthouse(holder, new Vector3(lh.x, seaY, lh.z), rock);
+                Lighthouse(holder, new Vector3(lh.x, wetY, lh.z), rock);
             }
             // Far islets (buttes, out on the desert) all round, inside the draw distance.
             // (Tall enough that their tops clear the street's roofline too, from the desert floor far below.)

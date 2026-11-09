@@ -42,11 +42,59 @@ namespace WizardsVRC.EditorTools.WorldData
                     int v = ZoneDefinition.LevelOf(h[y][x]);
                     _levels[x, y] = v == int.MinValue ? 0 : v;
                 }
+            // Land only: the lowest ground (the sea's sunk cells below don't count; off the map counts as this).
+            landMinLevel = int.MaxValue;
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                    if (!IsWater(rows[y][x])) landMinLevel = Mathf.Min(landMinLevel, _levels[x, y]);
+            if (landMinLevel == int.MaxValue) landMinLevel = 0;
+            SinkTheSea();
             for (int y = 0; y < height; y++)
                 for (int x = 0; x < width; x++)
                 {
                     minLevel = Mathf.Min(minLevel, _levels[x, y]);
                     maxLevel = Mathf.Max(maxLevel, _levels[x, y]);
+                }
+        }
+
+        /// <summary>The lowest level of the map's land (off the map counts as this, so its edges get no walls).</summary>
+        public readonly int landMinLevel;
+
+        /// <summary>
+        /// Water that reaches the map's edge is the sea (a harbour, a shore): it lies a step below the lowest land round
+        /// it, so the quays stand above the water with a wall down to it, rather than the sea sitting level with the
+        /// street like a pond. Ponds inside the map are left as they are.
+        /// </summary>
+        private void SinkTheSea()
+        {
+            var seen = new HashSet<Vector2Int>();
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                {
+                    var s = new Vector2Int(x, y);
+                    if (!IsWater(rows[y][x]) || seen.Contains(s)) continue;
+                    var body = new List<Vector2Int>();
+                    var queue = new Queue<Vector2Int>();
+                    seen.Add(s);
+                    queue.Enqueue(s);
+                    bool edge = false;
+                    int shore = int.MaxValue;
+                    while (queue.Count > 0)
+                    {
+                        var p = queue.Dequeue();
+                        body.Add(p);
+                        if (p.x == 0 || p.y == 0 || p.x == width - 1 || p.y == height - 1) edge = true;
+                        foreach (var d in Dirs)
+                        {
+                            var n = p + d;
+                            if (n.x < 0 || n.y < 0 || n.x >= width || n.y >= height) continue;
+                            if (IsWater(rows[n.y][n.x])) { if (seen.Add(n)) queue.Enqueue(n); }
+                            else shore = Mathf.Min(shore, _levels[n.x, n.y]);
+                        }
+                    }
+                    if (!edge) continue;
+                    if (shore == int.MaxValue) shore = landMinLevel;
+                    foreach (var p in body) _levels[p.x, p.y] = Mathf.Min(_levels[p.x, p.y], shore - 1);
                 }
         }
 

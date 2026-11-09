@@ -212,7 +212,7 @@ namespace WizardsVRC.EditorTools
             /// <summary>On the map (round castles: and inside the island's circle).</summary>
             public bool In(int x, int y) { return x >= 0 && y >= 0 && x < g.width && y < g.height && !g.IsVoid(x, y); }
             /// <summary>Level, with cells off the map at the base (so the zone's outer edge gets a wall down to it).</summary>
-            public int Lv(int x, int y) { return In(x, y) ? g.Level(x, y) : g.minLevel; }
+            public int Lv(int x, int y) { return In(x, y) ? g.Level(x, y) : g.landMinLevel; }
             public bool Lawn(int x, int y) { return In(x, y) && IsLawn(g.At(x, y)); }
             public bool Water(int x, int y) { return In(x, y) && ZoneGrid.IsWater(g.At(x, y)); }
             public int Surface(int x, int y) { return Lawn(x, y) ? MatLawn : Water(x, y) ? MatBed : MatPaving; }
