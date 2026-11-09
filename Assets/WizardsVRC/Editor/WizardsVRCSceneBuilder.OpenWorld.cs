@@ -24,10 +24,10 @@ namespace WizardsVRC.EditorTools
             public Vector3 townPos;
             public readonly Dictionary<string, Vector3> rootPos = new Dictionary<string, Vector3>();
             public readonly List<ZoneDefinition> members = new List<ZoneDefinition>();
-            public readonly List<Rect> rects = new List<Rect>();
+            public readonly List<UnityEngine.Rect> rects = new List<UnityEngine.Rect>();
             /// <summary>Linked tunnel mouths (world): the gate's mouth and outward, the street's mouth and outward.</summary>
             public readonly List<Vector3[]> links = new List<Vector3[]>();
-            public Rect region;
+            public UnityEngine.Rect region;
             public float floorY;
             public float shelfY;
         }
@@ -51,7 +51,7 @@ namespace WizardsVRC.EditorTools
                 var plan = new OpenWorldPlan { town = town, townPos = new Vector3(0f, town.height, 0f) };
                 plan.rootPos[town.zoneKey] = plan.townPos;
                 plan.members.Add(town);
-                Rect region = ZoneRect(plan.townPos, tg);
+                UnityEngine.Rect region = ZoneRect(plan.townPos, tg);
                 plan.rects.Add(region);
                 float floor = plan.townPos.y + tg.minLevel * tg.step;
                 plan.shelfY = floor;
@@ -80,7 +80,7 @@ namespace WizardsVRC.EditorTools
                     plan.members.Add(sz);
                     var r = ZoneRect(pos, sg);
                     plan.rects.Add(r);
-                    region = Rect.MinMaxRect(Mathf.Min(region.xMin, r.xMin), Mathf.Min(region.yMin, r.yMin), Mathf.Max(region.xMax, r.xMax), Mathf.Max(region.yMax, r.yMax));
+                    region = UnityEngine.Rect.MinMaxRect(Mathf.Min(region.xMin, r.xMin), Mathf.Min(region.yMin, r.yMin), Mathf.Max(region.xMax, r.xMax), Mathf.Max(region.yMax, r.yMax));
                     plan.links.Add(new[] { gate, outward, pos + home, -od });
                     floor = Mathf.Min(floor, pos.y + sg.minLevel * sg.step);
                 }
@@ -88,7 +88,7 @@ namespace WizardsVRC.EditorTools
                 for (int i = 0; i < plan.rects.Count; i++)
                     for (int j = i + 1; j < plan.rects.Count; j++)
                     {
-                        Rect a = plan.rects[i], b = plan.rects[j];
+                        UnityEngine.Rect a = plan.rects[i], b = plan.rects[j];
                         float gx = Mathf.Max(b.xMin - a.xMax, a.xMin - b.xMax), gz = Mathf.Max(b.yMin - a.yMax, a.yMin - b.yMax);
                         if (Mathf.Max(gx, gz) < 2f * OpenWorldShelfMargin + 4f)
                             Debug.LogWarning("[WizardsVRC World] " + plan.members[i].displayName + " and " + plan.members[j].displayName +
@@ -103,10 +103,10 @@ namespace WizardsVRC.EditorTools
             }
         }
 
-        private static Rect ZoneRect(Vector3 pos, ZoneGrid g)
+        private static UnityEngine.Rect ZoneRect(Vector3 pos, ZoneGrid g)
         {
             float w = g.width * g.cell, h = g.height * g.cell;
-            return new Rect(pos.x - w / 2f, pos.z - h / 2f, w, h);
+            return new UnityEngine.Rect(pos.x - w / 2f, pos.z - h / 2f, w, h);
         }
 
         /// <summary>Where a zone's root stands: its place in its open world, else straight up from the castle at its Height.</summary>
@@ -136,7 +136,7 @@ namespace WizardsVRC.EditorTools
             if (z == null || !_openPlan.TryGetValue(z.zoneKey, out plan)) return;
             int i = plan.members.IndexOf(z);
             if (i < 0 || i >= plan.rects.Count) return;
-            Rect r = plan.rects[i];
+            UnityEngine.Rect r = plan.rects[i];
             // Out to halfway across the rock to the next district, so nowhere in the open world is in no district.
             float m = 0.5f * Mathf.Max(20f, plan.town.openWorldGap) + 10f;
             min = new Vector2(r.xMin - m, r.yMin - m);
@@ -151,7 +151,7 @@ namespace WizardsVRC.EditorTools
             foreach (var plan in _openPlans)
             {
                 var z = plan.town;
-                Rect reg = plan.region;
+                UnityEngine.Rect reg = plan.region;
                 var root = new GameObject("OpenWorld_" + z.zoneKey).transform;
                 root.position = new Vector3(reg.center.x, plan.floorY, reg.center.y);
                 var rng = new System.Random(StableSeed(z.zoneKey) ^ 0x0be7);
@@ -197,7 +197,7 @@ namespace WizardsVRC.EditorTools
                         bool clear = true;
                         foreach (var r in plan.rects)
                         {
-                            var big = new Rect(r.xMin - 16f, r.yMin - 16f, r.width + 32f, r.height + 32f);
+                            var big = new UnityEngine.Rect(r.xMin - 16f, r.yMin - 16f, r.width + 32f, r.height + 32f);
                             if (big.Contains(world)) { clear = false; break; }
                         }
                         if (!clear) continue;

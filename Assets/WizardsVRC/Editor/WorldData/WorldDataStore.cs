@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 30;
+        public const int CurrentVersion = 31;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -202,6 +202,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 28) UpgradeTo28();
             if (from < 29) UpgradeTo29();
             if (from < 30) UpgradeTo30();
+            if (from < 31) UpgradeTo31();
         }
 
         /// <summary>World 3's town and boroughs (world data v28).</summary>
@@ -250,6 +251,47 @@ namespace WizardsVRC.EditorTools.WorldData
         /// finale (save ids 130-166, where free) and the Bigdig world arc. Its arch in the portal room opens with Dustwind's
         /// finale (quest 77).
         /// </summary>
+        /// <summary>
+        /// v31: World 3's Runner Pip and Sludge-Pilot Marla had the same NPC keys as World 1's Pip and Marla the Candlemaker
+        /// (so the builder skipped them). They're now RunnerPip and SludgeMarla, in Bigdig and the Fusewick Canals and in
+        /// World 3's quests (save ids 130-166).
+        /// </summary>
+        private static void UpgradeTo31()
+        {
+            var rename = new Dictionary<string, string> { { "Pip", "RunnerPip" }, { "Marla", "SludgeMarla" } };
+            var zoneOf = new Dictionary<string, string> { { "Pip", "Bigdig" }, { "Marla", "FusewickCanals" } };
+            int n = 0;
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || z.npcs == null) continue;
+                bool dirty = false;
+                foreach (var npc in z.npcs)
+                {
+                    string to, zone;
+                    if (npc == null || !rename.TryGetValue(npc.key ?? "", out to) || !zoneOf.TryGetValue(npc.key, out zone) || z.zoneKey != zone) continue;
+                    npc.key = to;
+                    dirty = true;
+                    n++;
+                }
+                if (dirty) EditorUtility.SetDirty(z);
+            }
+            foreach (var ql in FindAll<Questline>())
+            {
+                bool dirty = false;
+                foreach (var q in ql.quests)
+                {
+                    if (q == null || q.saveId < 130 || q.saveId > 166) continue;
+                    string to;
+                    if (rename.TryGetValue(q.giverNpc ?? "", out to)) { q.giverNpc = to; dirty = true; n++; }
+                    if (q.steps == null) continue;
+                    foreach (var st in q.steps)
+                        if (st != null && rename.TryGetValue(st.npc ?? "", out to)) { st.npc = to; dirty = true; n++; }
+                }
+                if (dirty) EditorUtility.SetDirty(ql);
+            }
+            if (n > 0) Debug.Log("[WizardsVRC] Upgraded world data (v31): World 3's Pip and Marla renamed (RunnerPip, SludgeMarla) in " + n + " places.");
+        }
+
         /// <summary>
         /// v30: Bigdig becomes one open world. Every World 3 borough gets a new, unique map (its entrance on the side facing
         /// the town, a boss spot for each borough boss) and its place round the town (Open World Rise); the town's lanes are
