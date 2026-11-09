@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.IO;
+using UnityEditor;
 using UdonSharp;
 using UdonSharpEditor;
 using UnityEngine;
@@ -356,37 +358,109 @@ namespace WizardsVRC.EditorTools
                     Shape(root, "Eye", BlobMesh(), new Vector3(sx * 0.48f, 1.15f, 0.68f), new Vector3(0.36f, 0.3f, 0.2f), eye, false, Quaternion.identity);
                     Shape(root, "Pupil", BlobMesh(), new Vector3(sx * 0.48f, 1.15f, 0.77f), new Vector3(0.08f, 0.24f, 0.06f), PMat("KrakenPupil", new Color(0.05f, 0.03f, 0.05f), 1f), false, Quaternion.identity);
                 }
+                // Eight arms out from under the head, each a chain of joints (so every segment meets the next and the
+                // whole arm can curl and sway): the two at the front reared up in an S, the rest spread over the water,
+                // their tips curling up. Suckers on the underside.
+                var arms = new List<string>();
+                var rests = new List<float>();
                 for (int k = 0; k < 8; k++)
                 {
                     float a = k * 45f + 22.5f;
-                    Quaternion yaw = Quaternion.Euler(0, a, 0);
-                    for (int j = 0; j < 4; j++)
-                    {
-                        float r = 0.75f + j * 0.42f, h = 0.3f + Mathf.Sin(j * 0.95f) * 0.3f + (k % 2) * j * 0.12f;
-                        float w = 0.34f * (1f - j * 0.2f);
-                        Shape(root, "Tentacle", CylMesh(), yaw * new Vector3(0, h, r), new Vector3(w, 0.26f, w), mat, false, yaw * Quaternion.Euler(70f - j * 15f, 0, 0));
-                        if (j > 0) Shape(root, "Sucker", BlobMesh(), yaw * new Vector3(0, h - w * 0.4f, r), Vector3.one * w * 0.45f, pale, false, Quaternion.identity);
-                    }
-                    Shape(root, "TentacleTip", ConeMesh(), yaw * new Vector3(0, 1.1f + (k % 2) * 0.4f, 2.5f), new Vector3(0.12f, 0.5f, 0.12f), mat, false, yaw * Quaternion.Euler(25f, 0, 0));
+                    bool front = k == 0 || k == 7;
+                    var pivot = Child(root, "Arm" + k, new Vector3(Mathf.Sin(a * Mathf.Deg2Rad) * 0.62f, 0.55f, Mathf.Cos(a * Mathf.Deg2Rad) * 0.62f));
+                    pivot.localRotation = Quaternion.Euler(0, a, 0);
+                    float[] curl = front ? new[] { 55f, -10f, -14f, -12f, 8f, 22f, 30f, 34f }
+                                         : new[] { 112f + (k % 2) * 6f, -4f, -6f, -10f, -16f, -22f, -28f, -34f };
+                    arms.AddRange(TentacleChain(pivot, "Arm" + k, curl, 0.44f, 0.24f, 0.36f, 0.07f, mat, pale));
+                    rests.AddRange(curl);
                 }
+                AnimateTentacles(root.gameObject, "Kraken", arms, rests, 3f);
             }
             else
             {
-                // One arm rising from the water: tapering segments curling over at the top, suckers up its front.
-                Vector3 at = Vector3.zero;
-                for (int j = 0; j < 7; j++)
-                {
-                    float w = 0.55f * (1f - j * 0.11f);
-                    float bend = j * 9f;
-                    at += Quaternion.Euler(bend, 0, 0) * new Vector3(0, 0.42f, 0);
-                    Shape(root, "Arm", CylMesh(), at, new Vector3(w, 0.24f, w), mat, false, Quaternion.Euler(bend, 0, 0));
-                    Shape(root, "Sucker", BlobMesh(), at + Quaternion.Euler(bend, 0, 0) * new Vector3(0, 0, w * 0.48f), Vector3.one * w * 0.38f, pale, false, Quaternion.identity);
-                }
-                Shape(root, "ArmTip", ConeMesh(), at + new Vector3(0, -0.1f, 0.35f), new Vector3(0.18f, 0.55f, 0.18f), mat, false, Quaternion.Euler(120f, 0, 0));
+                // One arm rising from the water, curling over at the top towards you, suckers up its front.
+                var pivot = Child(root, "Arm0", Vector3.zero);
+                float[] curl = { 0f, 6f, 8f, 10f, 14f, 18f, 24f, 30f, 36f };
+                var arms = TentacleChain(pivot, "Arm0", curl, 0.48f, 0.26f, 0.56f, 0.09f, mat, pale);
+                AnimateTentacles(root.gameObject, "Tentacle", arms, new List<float>(curl), 2.5f);
             }
             foreach (var t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = false;
             foreach (var r in root.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return root.gameObject;
         }
+
+        /// <summary>
+        /// A tentacle as a chain of joints under 'pivot': joint j turns by curl[j] degrees about its local X from the one
+        /// before (joint 0 from straight up: 90 = level, outwards along the pivot's forward), then a tapering segment runs
+        /// up its local Y to the next joint. A ball at each joint hides the seams; a cone tips it. Suckers sit on the side
+        /// 'underside' points to (+1 = the side facing the ground when the arm lies flat). Returns each joint's path from
+        /// the creature's root (for AnimateTentacles).
+        /// </summary>
+        private static List<string> TentacleChain(Transform pivot, string pivotPath, float[] curl, float len0, float len1, float w0, float w1,
+                                                  Material mat, Material pale, float underside = 1f)
+        {
+            var paths = new List<string>();
+            Transform at = pivot;
+            string path = pivotPath;
+            int n = curl.Length;
+            for (int j = 0; j < n; j++)
+            {
+                float f = n > 1 ? j / (float)(n - 1) : 0f;
+                float len = Mathf.Lerp(len0, len1, f), w = Mathf.Lerp(w0, w1, f), wNext = Mathf.Lerp(w0, w1, Mathf.Min(1f, f + 1f / Mathf.Max(1, n - 1)));
+                var joint = Child(at, "J" + j, j == 0 ? Vector3.zero : new Vector3(0, Mathf.Lerp(len0, len1, (j - 1) / (float)Mathf.Max(1, n - 1)), 0));
+                joint.localRotation = Quaternion.Euler(curl[j], 0, 0);
+                path += "/J" + j;
+                paths.Add(path);
+                Shape(joint, "Knuckle", BlobMesh(), Vector3.zero, Vector3.one * w * 1.02f, mat, false, Quaternion.identity);
+                // A segment tapering from this joint's width to the next one's (a cylinder squeezed a little at the far end).
+                Shape(joint, "Segment", CylMesh(), new Vector3(0, len * 0.5f, 0), new Vector3((w + wNext) * 0.5f, len * 0.5f, (w + wNext) * 0.5f), mat, false, Quaternion.identity);
+                if (j > 0)
+                    Shape(joint, "Sucker", BlobMesh(), new Vector3(0, len * 0.5f, underside * w * 0.42f), new Vector3(w * 0.5f, w * 0.5f, w * 0.22f), pale, false, Quaternion.identity);
+                at = joint;
+            }
+            float lastLen = len1;
+            Shape(at, "Tip", ConeMesh(), new Vector3(0, lastLen + w1 * 1.3f, 0), new Vector3(w1, w1 * 3f, w1), mat, false, Quaternion.identity);
+            return paths;
+        }
+
+        /// <summary>
+        /// A looping sway for tentacle joints (an Animator on the creature's shape): a wave travelling from each arm's base to
+        /// its tip, bigger towards the tip, each arm a little out of step with the next. Kept as Animations/Rigs/Tentacles_*.
+        /// </summary>
+        private static void AnimateTentacles(GameObject root, string key, List<string> jointPaths, List<float> rests, float seconds)
+        {
+            RuntimeAnimatorController rc;
+            if (!_tentacleControllers.TryGetValue(key, out rc) || rc == null)
+            {
+                Directory.CreateDirectory(RigDir);
+                string path = RigDir + "/Tentacles_" + key + ".controller";
+                if (AssetDatabase.LoadAssetAtPath<Object>(path) != null) AssetDatabase.DeleteAsset(path);
+                var ctrl = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(path);
+                var clip = NewClip("Sway", true);
+                for (int i = 0; i < jointPaths.Count; i++)
+                {
+                    string p = jointPaths[i];
+                    // Which joint along its arm (J0, J1, ...) and which arm ("Arm3/J0/J1" is arm 3, joint 1).
+                    int j, arm;
+                    int.TryParse(p.Substring(p.LastIndexOf("/J") + 2), out j);
+                    int.TryParse(p.Substring(3, p.IndexOf('/') - 3), out arm);
+                    float rest = i < rests.Count ? rests[i] : 0f;
+                    float phase = arm * 0.17f - j * 0.09f;
+                    Wave(clip, p, "rotx", seconds, 1, rest, 3f + j * 2.2f, phase);
+                    Wave(clip, p, "rotz", seconds, 1, 0f, 2f + j * 1.4f, phase + 0.25f);
+                }
+                AssetDatabase.AddObjectToAsset(clip, ctrl);
+                ctrl.layers[0].stateMachine.AddState("Sway").motion = clip;
+                rc = ctrl;
+                _tentacleControllers[key] = rc;
+            }
+            var anim = root.GetComponent<Animator>();
+            if (anim == null) anim = root.AddComponent<Animator>();
+            anim.runtimeAnimatorController = rc;
+            anim.applyRootMotion = false;
+            anim.cullingMode = AnimatorCullingMode.CullCompletely;
+        }
+
+        private static readonly Dictionary<string, RuntimeAnimatorController> _tentacleControllers = new Dictionary<string, RuntimeAnimatorController>();
     }
 }

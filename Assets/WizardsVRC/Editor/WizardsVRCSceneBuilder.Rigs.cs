@@ -39,6 +39,7 @@ namespace WizardsVRC.EditorTools
         {
             _rigPrefabs.Clear();
             _rigControllers.Clear();
+            _tentacleControllers.Clear();
             if (AssetDatabase.IsValidFolder(RigDir)) AssetDatabase.DeleteAsset(RigDir);
         }
 
