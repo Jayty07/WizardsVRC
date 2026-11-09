@@ -562,7 +562,13 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   shields too), drones, turrets and mechs that fire three-shot bursts, and the **Neon Grid** (`EFFECT_FIELD`: a bubble
   over the whole duel, +25% to every Tech spell for 4 rounds; one at a time). Nobody teaches it yet (players get it
   much later); the book's Deck page shows its tab only once you know one of its spells. Monsters can use it now (set a
-  monster's school to Tech and give it Tech spells). Spells (id, level, pips):
+  monster's school to Tech and give it Tech spells). Its look: a microchip casting glyph (two pins a side, a charge
+  zig-zagging across it; `Tools/make_glyph_draw.py`) drawn with a digital style (scanlines, a rolling scan bar, blocky
+  glitches; GlyphDraw shader style 9), teal effect colours, a box-shaped burst of streaking data shards when it's cast and
+  falling data streaks off the pen, a teal card frame with gold circuit traces (`Tools/make_card_frames.py`), Tech
+  shield / blade / trap icons (`Tools/make_fx_icons.py`), a cog icon in card text (U+E007 in the pixel font) and a night
+  skyline over a glowing grid on its card art. Looks are indexed by `CardDatabase.LookIndex` (0-6 the schools, 7 General,
+  8 Tech); Tech casts with the General cast sound. Spells (id, level, pips):
   - Professor: 300 **Sidearm Burst** (L1, 1: 3 x 22-34), 301 **Taser Dart** (L5, 2: 80-120 and stun), 302 **Kevlar Plating**
     (L10, 0: 45% shield against any school), 303 **Proximity Mine** (L16, 0: +35% Tech trap), 304 **Firewall Breach**
     (L22, 2: 60-90, steals blades and shields), 305 **Overclock** (L26, 0: +40% Tech blade), 306 **Railgun** (L33, 4:

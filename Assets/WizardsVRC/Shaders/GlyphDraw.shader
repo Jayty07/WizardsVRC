@@ -8,6 +8,7 @@
 //   1 Fire     flickering flame              5 Death    dim, with ghostly wisps crawling up it
 //   2 Ice      frosty, glinting sparkles     6 Myth     a golden shimmer sweeping across
 //   3 Storm    crackling, jittering bolts    7 Balance  even, gently pulsing
+//   9 Tech     a digital trace: scanlines sweeping down it, blocky glitches dropping out and flaring
 Shader "WizardsVRC/GlyphDraw"
 {
     Properties
@@ -86,6 +87,12 @@ Shader "WizardsVRC/GlyphDraw"
                     float jump = floor(time * 14.0);
                     uv.x += (Hash(float2(jump, floor(uv.y * 16.0))) - 0.5) * 0.025;
                 }
+                // Tech: now and then a whole row band shifts sideways a few pixels, like a glitching display.
+                if (style == 9)
+                {
+                    float g = Hash(float2(floor(time * 9.0), floor(uv.y * 10.0)));
+                    if (g > 0.9) uv.x += (g - 0.95) * 0.4;
+                }
                 // Point sampling on the texel grid (the data must not be blended between pixels).
                 float2 texel = (floor(uv * _MainTex_TexelSize.zw) + 0.5) * _MainTex_TexelSize.xy;
                 float4 d = tex2D(_MainTex, texel);
@@ -133,6 +140,14 @@ Shader "WizardsVRC/GlyphDraw"
                 else if (style == 7)   // balance: even, gently pulsing
                 {
                     b *= 0.9 + 0.1 * sin(time * 2.0);
+                }
+                else if (style == 9)   // tech: scanlines rolling down, a bright scan bar, square blocks blinking out and flaring
+                {
+                    float scan = 0.8 + 0.2 * step(0.5, frac(uv.y * 48.0));
+                    float bar = saturate(1.0 - abs(frac(uv.y - time * 0.6) - 0.5) * 12.0);
+                    float block = Hash(floor(uv * 12.0) + floor(time * 8.0));
+                    b *= scan * (block < 0.07 ? 0.15 : block > 0.95 ? 1.8 : 1.0) + bar * 0.9;
+                    col = lerp(col, float3(0.85, 1.0, 1.0), bar * 0.6);
                 }
 
                 b *= _Fade * (1.0 + _Flare) * _Intensity;

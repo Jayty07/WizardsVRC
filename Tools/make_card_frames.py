@@ -23,9 +23,9 @@ PARCH = (236, 222, 186)
 PARCH_D = (198, 172, 128)
 INK = (62, 40, 24)
 RING = {'Fire': (235, 90, 30), 'Ice': (110, 180, 240), 'Storm': (150, 90, 220), 'Life': (70, 190, 80), 'Death': (120, 110, 130),
-        'Myth': (230, 180, 40), 'Balance': (200, 165, 100), 'General': (190, 190, 205)}
+        'Myth': (230, 180, 40), 'Balance': (200, 165, 100), 'General': (190, 190, 205), 'Tech': (60, 215, 205)}
 FILL = {'Fire': (69, 24, 20), 'Ice': (24, 42, 79), 'Storm': (42, 24, 70), 'Life': (24, 60, 29), 'Death': (27, 24, 34),
-        'Myth': (69, 46, 20), 'Balance': (60, 46, 29), 'General': (42, 42, 56)}
+        'Myth': (69, 46, 20), 'Balance': (60, 46, 29), 'General': (42, 42, 56), 'Tech': (16, 52, 56)}
 
 def _font(rows_by_char, w, h):
     out = {}
@@ -201,11 +201,11 @@ def outline_alpha(img, c=OUT):
 
 # Vibrant card colours per school (frame); the badge icons keep their own softer palette.
 CARD = {'Fire': (255, 78, 18), 'Ice': (36, 166, 255), 'Storm': (170, 60, 255), 'Life': (30, 212, 70), 'Death': (46, 42, 54),
-        'Myth': (255, 194, 0), 'Balance': (240, 138, 40), 'General': (178, 186, 216)}
+        'Myth': (255, 194, 0), 'Balance': (240, 138, 40), 'General': (178, 186, 216), 'Tech': (24, 196, 186)}
 # How much the bevel / art glow lighten toward white (dark schools keep it low so they stay dark).
 HIGHLIGHT = {'Death': 0.16}
 
-SCHOOLS = ['Fire', 'Ice', 'Storm', 'Life', 'Death', 'Myth', 'Balance', 'General']
+SCHOOLS = ['Fire', 'Ice', 'Storm', 'Life', 'Death', 'Myth', 'Balance', 'General', 'Tech']
 W, H = 80, 112
 
 
@@ -257,9 +257,41 @@ def frame_card(school, icons):
         for x in range(-11, 12):
             e = (x / 11.5) ** 2 + (y / 6.5) ** 2
             if e <= 1: px[15 + x, 64 + y] = (OUT if e > 0.78 else (GOLD_L if y < -2 else GOLD)) + (255,)
+    if school == 'Tech': circuitry(px)
     # school badge
     paste(img, icon_from(icons, 'School' + school, 14), W - 17, 3)
     return img
+
+
+def circuitry(px):
+    """The Tech School's frame: gold circuit traces with solder pads etched along its teal border, and a gunmetal
+    parchment cool tint under the text so it reads as a data slate."""
+    trace, pad = GOLD_D, GOLD_L
+    # Down each side: short traces stepping in and out of the border, each ending in a pad.
+    for side in (0, 1):
+        x0 = 1 if side == 0 else W - 5
+        for y in range(24, H - 10, 9):
+            for x in range(x0, x0 + 3):
+                px[x, y] = trace + (255,)
+            ys = y + 3
+            for yy in range(y, ys + 1):
+                px[x0 + (2 if side == 0 else 0), yy] = trace + (255,)
+            px[x0 + (2 if side == 0 else 0), ys] = pad + (255,)
+    # Along the bottom: a bus of three lines with a chip in the middle.
+    for x in range(14, W - 14):
+        if x % 6 != 0:
+            px[x, H - 3] = trace + (255,)
+    for y in range(H - 5, H - 1):
+        for x in range(W // 2 - 4, W // 2 + 4):
+            px[x, y] = (OUT if y in (H - 5, H - 2) or x in (W // 2 - 4, W // 2 + 3) else (40, 60, 64)) + (255,)
+    # The parchment takes a faint cool tint, darker toward the bottom like a screen.
+    for y in range(62, H - 6):
+        for x in range(6, W - 6):
+            r, g, b, a = px[x, y]
+            if (r, g, b) == PARCH:
+                px[x, y] = mix(PARCH, (200, 225, 222), 0.55) + (255,)
+            elif (r, g, b) == PARCH_D:
+                px[x, y] = mix(PARCH_D, (150, 180, 178), 0.55) + (255,)
 
 
 def icon_from(icons, name, size):
@@ -275,7 +307,8 @@ SAMPLES = [("Ember Lance", "Fire", "1", "75%", "Deals 65-95 Fire damage"), ("Fro
            ("Spark Lash", "Storm", "1", "70%", "Deals 90-130 Storm damage"), ("Thorn Volley", "Life", "1", "90%", "Deals 55-85 Life damage"),
            ("Shade Siphon", "Death", "1", "85%", "Drains 55-85 health, heals you half"), ("Mirage Dart", "Myth", "1", "80%", "Deals 70-100 Myth damage"),
            ("Prism Ray", "Balance", "1", "85%", "Deals 65-95 Balance damage"), ("Tower Ward", "General", "0", "100%", "Shield: blocks 50% of the next spell"),
-           ("Rime Edge", "Ice", "0", "100%", "Blade: +35% to the next Ice spell")]
+           ("Rime Edge", "Ice", "0", "100%", "Blade: +35% to the next Ice spell"),
+           ("Sidearm Burst", "Tech", "1", "85%", "Barrage: 3 x 22-34 Tech damage")]
 
 
 def with_text(card, name, school, pips, acc, text, icons=None):

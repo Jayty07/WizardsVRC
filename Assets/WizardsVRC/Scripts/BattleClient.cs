@@ -2778,7 +2778,7 @@ namespace WizardsVRC
             _castPeak = manager.CastPeakSeconds(school);
             _fizzling = false;
             _burstAt = -100f;
-            int mi = fxMats == null || fxMats.Length == 0 ? -1 : (school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1);
+            int mi = fxMats == null || fxMats.Length == 0 ? -1 : cardDatabase.LookIn(school, fxMats.Length);
             float scale = SeatScale(from);
             Vector3 at = CasterPos(from);
             _ringBase = at + Vector3.up * 0.15f;
@@ -2806,14 +2806,14 @@ namespace WizardsVRC
             }
             if (castGlyph != null && glyphDrawTex != null && glyphDrawTex.Length > 0)
             {
-                int gi = school >= 0 && school < glyphDrawTex.Length - 1 ? school : glyphDrawTex.Length - 1;
+                int gi = cardDatabase.LookIn(school, glyphDrawTex.Length);
                 _glyphIndex = gi;
                 if (_glyphMat == null) _glyphMat = castGlyph.material;
                 _glyphMat.SetTexture("_MainTex", glyphDrawTex[gi]);
                 if (glyphColors != null && gi < glyphColors.Length) _glyphMat.SetColor("_Color", glyphColors[gi]);
                 if (glyphEdgeColors != null && gi < glyphEdgeColors.Length) _glyphMat.SetColor("_EdgeColor", glyphEdgeColors[gi]);
-                // Styles: 0 = General, 1-7 = the schools (see the GlyphDraw shader).
-                _glyphMat.SetFloat("_Style", gi == glyphDrawTex.Length - 1 ? 0f : gi + 1f);
+                // Styles: 0 = General, 1-7 = the schools, 9 = Tech (see the GlyphDraw shader).
+                _glyphMat.SetFloat("_Style", gi == 7 ? 0f : gi + 1f);
                 // A spell skin from the Starshard Shop draws the symbol in its colour (same school style).
                 int skin = SkinIndex(from);
                 if (skin > 0 && cosmetics != null)
@@ -2845,7 +2845,8 @@ namespace WizardsVRC
         {
             if (castAudio == null) return;
             castAudio.Stop();
-            AudioClip clip = school < 0 ? generalCastSound : castSounds != null && school < castSounds.Length ? castSounds[school] : null;
+            // A school without its own cast sound (Tech) uses the General one.
+            AudioClip clip = school < 0 || castSounds == null || school >= castSounds.Length || castSounds[school] == null ? generalCastSound : castSounds[school];
             if (clip == null) return;
             castAudio.transform.position = CasterPos(from) + Vector3.up * 1.2f;
             castAudio.clip = clip;
@@ -2888,7 +2889,7 @@ namespace WizardsVRC
             _burstDone = true;
             _burstAt = Time.time;
             if (castBursts == null || castBursts.Length == 0) return;
-            int i = _castSchool >= 0 && _castSchool < castBursts.Length - 1 ? _castSchool : castBursts.Length - 1;
+            int i = cardDatabase.LookIn(_castSchool, castBursts.Length);
             ParticleSystem ps = castBursts[i];
             if (ps == null) return;
             float scale = SeatScale(_castFrom);
@@ -3095,7 +3096,7 @@ namespace WizardsVRC
         private int FxIconIndex(int kind, int school)
         {
             if (school == CardDatabase.HEAL_SCHOOL) school = 3;   // a healing charm looks like a Life blade
-            return kind * 8 + (school >= 0 && school < 7 ? school : 7);
+            return kind * CardDatabase.LOOKS + cardDatabase.LookIndex(school);
         }
 
         // ------------------------------------------------------------------ bodies and defeat
@@ -3238,7 +3239,7 @@ namespace WizardsVRC
         {
             if (minionSkins == null || fxMats == null || fxMats.Length == 0) return;
             int sc = cardDatabase.GetSchool(manager.SummonCard(s));
-            Material m = fxMats[sc >= 0 && sc < fxMats.Length - 1 ? sc : fxMats.Length - 1];
+            Material m = fxMats[cardDatabase.LookIn(sc, fxMats.Length)];
             for (int p = 0; p < 2; p++)
             {
                 int i = s * 2 + p;
@@ -3725,7 +3726,7 @@ namespace WizardsVRC
                 int card = HandCard(_hand[i]);
                 bool usable = manager.CanAfford(_slot, card) && HasManaFor(card);
                 int sc = cardDatabase.GetSchool(card);
-                Sprite frame = cardFrames != null && cardFrames.Length > 0 ? cardFrames[sc >= 0 && sc < 7 && sc < cardFrames.Length ? sc : cardFrames.Length - 1] : null;
+                Sprite frame = cardFrames != null && cardFrames.Length > 0 ? cardFrames[cardDatabase.LookIn(sc, cardFrames.Length)] : null;
                 Color col;
                 if (frame != null)
                 {
@@ -3932,7 +3933,7 @@ namespace WizardsVRC
         {
             if (fxMats == null || fxMats.Length == 0) return null;
             if (school == CardDatabase.HEAL_SCHOOL) school = 3;
-            return fxMats[school >= 0 && school < fxMats.Length - 1 ? school : fxMats.Length - 1];
+            return fxMats[cardDatabase.LookIn(school, fxMats.Length)];
         }
 
         // ------------------------------------------------------------------ pips at the seats
@@ -4232,7 +4233,7 @@ namespace WizardsVRC
             if (icon != -2 && schoolIcons != null && schoolIcons.Length > 0)
             {
                 int n = schoolIcons.Length;
-                tex = schoolIcons[icon >= 0 && icon < n - 1 ? icon : n - 1];
+                tex = schoolIcons[cardDatabase.LookIn(icon, n)];
             }
             FloatTex(slot, text, color, tex);
         }

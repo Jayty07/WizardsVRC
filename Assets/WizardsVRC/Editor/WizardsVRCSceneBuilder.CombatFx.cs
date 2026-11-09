@@ -442,9 +442,9 @@ namespace WizardsVRC.EditorTools
                 client.floaterIcons[i] = img;
                 holder.gameObject.SetActive(false);
             }
-            client.schoolIcons = new Texture[SchoolLabels.Length + 1];
-            for (int k = 0; k <= SchoolLabels.Length; k++)
-                client.schoolIcons[k] = PixelTexture(FxIconDir + "/School" + (k < SchoolLabels.Length ? SchoolLabels[k] : "General") + ".png");
+            client.schoolIcons = new Texture[CardDatabase.LOOKS];
+            for (int k = 0; k < CardDatabase.LOOKS; k++)
+                client.schoolIcons[k] = PixelTexture(FxIconDir + "/School" + LookLabel(k) + ".png");
 
             var hit = Child(ring, "HitAudio", Vector3.zero).gameObject.AddComponent<AudioSource>();
             hit.playOnAwake = false;

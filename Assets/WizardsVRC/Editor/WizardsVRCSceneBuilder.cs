@@ -353,7 +353,10 @@ namespace WizardsVRC.EditorTools
             {
                 ec.uiAudio = uiAudio;
                 ec.lookPalette = (Color[])LookPalette.Clone();
-                ec.schoolColors = (Color[])SchoolColors.Clone();
+                // The seven schools, General, then Tech (school 8: Dominion monsters casting Tech spells).
+                var looks = new Color[CardDatabase.LOOKS];
+                for (int k = 0; k < looks.Length; k++) looks[k] = LookColor(k);
+                ec.schoolColors = looks;
             }
             hud.lookPalette = (Color[])LookPalette.Clone();
             foreach (var orb in hubPlan.orbBehaviours) orb.uiAudio = uiAudio;
@@ -1633,9 +1636,9 @@ namespace WizardsVRC.EditorTools
             Texture2D seatTex = PixelTexture(TexturesDir + "/DuelRingSeat.png");
             Material seatEmpty = CutoutMat("DuelSeatEmpty", seatTex, new Color(0.45f, 0.42f, 0.5f), new Color(0.08f, 0.08f, 0.1f));
             client.seatEmptyMat = seatEmpty;
-            client.seatSchoolMats = new Material[SchoolLabels.Length];
-            for (int k = 0; k < SchoolLabels.Length; k++)
-                client.seatSchoolMats[k] = CutoutMat("DuelSeat" + SchoolLabels[k], seatTex, SchoolColors[k], SchoolColors[k] * 1.6f);
+            client.seatSchoolMats = new Material[CardDatabase.LOOKS];
+            for (int k = 0; k < CardDatabase.LOOKS; k++)
+                client.seatSchoolMats[k] = CutoutMat("DuelSeat" + LookLabel(k), seatTex, LookColor(k), LookColor(k) * 1.6f);
             client.seatRings = new Renderer[BattleManager.SLOTS];
             client.seatScales = new float[BattleManager.SLOTS];
             // The two halves read clearly: cool-tinted empty seats for wizards (south), warm for monsters (north), and a
@@ -1647,32 +1650,34 @@ namespace WizardsVRC.EditorTools
             client.gaugeSchoolColors = new[]
             {
                 new Color(1f, 0.36f, 0.1f), new Color(0.22f, 0.7f, 1f), new Color(0.72f, 0.36f, 1f), new Color(0.2f, 0.9f, 0.3f),
-                new Color(0.72f, 0.68f, 0.8f), new Color(1f, 0.8f, 0.08f), new Color(0.96f, 0.6f, 0.2f),
+                new Color(0.72f, 0.68f, 0.8f), new Color(1f, 0.8f, 0.08f), new Color(0.96f, 0.6f, 0.2f), new Color(0.85f, 0.85f, 0.9f),
+                new Color(0.2f, 0.95f, 0.88f),
             };
             // Shields (chest height), blades (over the head) and traps (at the feet) orbit each seat while they're active.
-            client.fxMats = new Material[SchoolLabels.Length + 1];
-            for (int k = 0; k <= SchoolLabels.Length; k++)
+            client.fxMats = new Material[CardDatabase.LOOKS];
+            for (int k = 0; k < CardDatabase.LOOKS; k++)
             {
-                Color c = k < SchoolLabels.Length ? SchoolColors[k] : new Color(0.85f, 0.85f, 0.9f);
-                Material fm = Mat("DuelFx" + (k < SchoolLabels.Length ? SchoolLabels[k] : "General"), c);
+                Color c = LookColor(k);
+                Material fm = Mat("DuelFx" + LookLabel(k), c);
                 fm.EnableKeyword("_EMISSION");
                 fm.SetColor("_EmissionColor", c * 1.3f);
                 client.fxMats[k] = fm;
             }
             // Icon art per kind and school (Textures/FxIcons/<Shield|Blade|Trap><School|General>.png), plus a bright
-            // version that blinks when one breaks. Index kind * 8 + school (7 = General).
-            client.fxIconMats = new Material[3 * 8];
-            client.fxIconFlashMats = new Material[3 * 8];
-            client.fxIconTextures = new Texture[3 * 8];
+            // version that blinks when one breaks. Index kind * LOOKS + look (7 = General, 8 = Tech).
+            int looks = CardDatabase.LOOKS;
+            client.fxIconMats = new Material[3 * looks];
+            client.fxIconFlashMats = new Material[3 * looks];
+            client.fxIconTextures = new Texture[3 * looks];
             for (int kind = 0; kind < 3; kind++)
-                for (int k = 0; k < 8; k++)
+                for (int k = 0; k < looks; k++)
                 {
-                    string label = FxKindNames[kind] + (k < SchoolLabels.Length ? SchoolLabels[k] : "General");
+                    string label = FxKindNames[kind] + LookLabel(k);
                     Texture2D tex = PixelTexture(FxIconDir + "/" + label + ".png");
                     if (tex == null) { Debug.LogWarning("[WizardsVRC] Missing effect icon " + FxIconDir + "/" + label + ".png"); continue; }
-                    client.fxIconTextures[kind * 8 + k] = tex;
-                    client.fxIconMats[kind * 8 + k] = CutoutMat("FxIcon" + label, tex, Color.white, Color.white * 0.6f);
-                    client.fxIconFlashMats[kind * 8 + k] = CutoutMat("FxIconFlash" + label, tex, Color.white, Color.white * 3f);
+                    client.fxIconTextures[kind * looks + k] = tex;
+                    client.fxIconMats[kind * looks + k] = CutoutMat("FxIcon" + label, tex, Color.white, Color.white * 0.6f);
+                    client.fxIconFlashMats[kind * looks + k] = CutoutMat("FxIconFlash" + label, tex, Color.white, Color.white * 3f);
                 }
             int fxMax = BattleManager.FX_MAX;
             client.fxOrbits = new Transform[BattleManager.SLOTS * 3];
@@ -1848,11 +1853,11 @@ namespace WizardsVRC.EditorTools
             }
 
             // School-coloured particle burst that explodes off the caster at the cast sound's peak.
-            client.castBursts = new ParticleSystem[SchoolLabels.Length + 1];
-            for (int k = 0; k <= SchoolLabels.Length; k++)
+            client.castBursts = new ParticleSystem[CardDatabase.LOOKS];
+            for (int k = 0; k < CardDatabase.LOOKS; k++)
             {
-                string label = k < SchoolLabels.Length ? SchoolLabels[k] : "General";
-                Color c = k < SchoolLabels.Length ? SchoolColors[k] : new Color(0.9f, 0.9f, 0.95f);
+                string label = LookLabel(k);
+                Color c = k == 7 ? new Color(0.9f, 0.9f, 0.95f) : LookColor(k);
                 var go = Child(ring.transform, "CastBurst" + label, Vector3.zero).gameObject;
                 var ps = go.AddComponent<ParticleSystem>();
                 ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -1877,6 +1882,21 @@ namespace WizardsVRC.EditorTools
                 sizeLife.enabled = true;
                 sizeLife.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
                 var pr = go.GetComponent<ParticleSystemRenderer>();
+                if (k == CardDatabase.TECH)
+                {
+                    // Tech: a box of data shards bursting straight out (no arc), stretched into streaks, with a second
+                    // flicker of small bits.
+                    shape.shapeType = ParticleSystemShapeType.Box;
+                    shape.scale = new Vector3(0.7f, 0.7f, 0.7f);
+                    main.gravityModifier = 0f;
+                    main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 9f);
+                    main.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.16f);
+                    main.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.7f);
+                    emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 110), new ParticleSystem.Burst(0.08f, 60), new ParticleSystem.Burst(0.2f, 40) });
+                    pr.renderMode = ParticleSystemRenderMode.Stretch;
+                    pr.velocityScale = 0.05f;
+                    pr.lengthScale = 2f;
+                }
                 // Same emissive school material as the shield/blade icons: the built-in particle shaders can be stripped
                 // from the VRChat build (they rendered as magenta), so stay on the Standard shader.
                 Material pm = client.fxMats[k];
@@ -1895,8 +1915,8 @@ namespace WizardsVRC.EditorTools
             tip.SetActive(false);
             client.penTip = tip.transform;
             client.penTipRenderer = tip.GetComponent<Renderer>();
-            client.glyphTrails = new ParticleSystem[SchoolLabels.Length + 1];
-            for (int k = 0; k <= SchoolLabels.Length; k++)
+            client.glyphTrails = new ParticleSystem[CardDatabase.LOOKS];
+            for (int k = 0; k < CardDatabase.LOOKS; k++)
                 client.glyphTrails[k] = GlyphTrail(ring.transform, k, client.fxMats[k]);
 
             // A fizzle's puff of grey smoke, and its sound (Tools/make_fizzle_sound.py).
@@ -2061,9 +2081,9 @@ namespace WizardsVRC.EditorTools
             client.cardTreasureTags = new GameObject[hand];
             // Design 1 "Classic" frames per school (Textures/Cards/CardFrame<School>.png, made by Tools/make_card_frames.py):
             // the frame, parchment, name banner, art window, pip gem and accuracy seal; the text goes on top.
-            client.cardFrames = new Sprite[8];
-            for (int k = 0; k < 8; k++)
-                client.cardFrames[k] = SpriteTexture(CardsDir + "/CardFrame" + (k < SchoolLabels.Length ? SchoolLabels[k] : "General") + ".png");
+            client.cardFrames = new Sprite[CardDatabase.LOOKS];
+            for (int k = 0; k < CardDatabase.LOOKS; k++)
+                client.cardFrames[k] = SpriteTexture(CardsDir + "/CardFrame" + LookLabel(k) + ".png");
             Color ink = new Color(0.24f, 0.16f, 0.09f);
             Color nameGold = new Color(1f, 0.94f, 0.63f);
             Vector2 cardSize = new Vector2(196, 280);
@@ -2450,16 +2470,33 @@ namespace WizardsVRC.EditorTools
         }
 
         // Drawn symbols: energy colour and pen-tip colour per school (then General), as GlyphPenData.Labels.
+        // Per look (the seven schools, General, then Tech: the order of GlyphPenData.Labels).
         private static readonly Color[] GlyphColors =
         {
             new Color(1f, 0.42f, 0.1f), new Color(0.45f, 0.8f, 1f), new Color(0.66f, 0.42f, 1f), new Color(0.35f, 0.95f, 0.4f),
             new Color(0.5f, 0.32f, 0.68f), new Color(1f, 0.76f, 0.22f), new Color(0.92f, 0.66f, 0.4f), new Color(0.72f, 0.82f, 1f),
+            new Color(0.2f, 0.95f, 0.88f),
         };
         private static readonly Color[] GlyphEdgeColors =
         {
             new Color(1f, 0.92f, 0.55f), new Color(0.92f, 1f, 1f), new Color(0.95f, 0.92f, 1f), new Color(0.88f, 1f, 0.72f),
             new Color(0.72f, 1f, 0.82f), new Color(1f, 1f, 0.82f), new Color(1f, 0.96f, 0.82f), new Color(1f, 1f, 1f),
+            new Color(0.85f, 1f, 1f),
         };
+
+        /// <summary>Look k's name for art files: the seven schools, then General (7), then Tech (8). A school code works too.</summary>
+        private static string LookLabel(int k)
+        {
+            if (k >= 0 && k < SchoolLabels.Length) return SchoolLabels[k];
+            return k == CardDatabase.TECH ? "Tech" : "General";
+        }
+
+        /// <summary>Look k's colour: the seven schools, General (7), Tech (8).</summary>
+        private static Color LookColor(int k)
+        {
+            if (k >= 0 && k < SchoolColors.Length) return SchoolColors[k];
+            return k == CardDatabase.TECH ? TechColor : new Color(0.85f, 0.85f, 0.9f);
+        }
 
         /// <summary>The drawn symbol's material (WizardsVRC/GlyphDraw); null if the shader is missing.</summary>
         private static Material GlyphDrawMat()
@@ -2510,7 +2547,7 @@ namespace WizardsVRC.EditorTools
         /// </summary>
         private static ParticleSystem GlyphTrail(Transform parent, int k, Material mat)
         {
-            string label = k < SchoolLabels.Length ? SchoolLabels[k] : "General";
+            string label = LookLabel(k);
             // lifetime min/max, speed min/max, size min/max, gravity
             float[][] look =
             {
@@ -2522,6 +2559,7 @@ namespace WizardsVRC.EditorTools
                 new[] { 0.6f, 1f, 0.2f, 0.5f, 0.03f, 0.07f, -0.05f },      // Myth
                 new[] { 0.7f, 1.1f, 0.1f, 0.3f, 0.04f, 0.08f, 0.1f },      // Balance
                 new[] { 0.5f, 0.9f, 0.2f, 0.4f, 0.04f, 0.08f, 0f },        // General
+                new[] { 0.25f, 0.55f, 0.6f, 1.4f, 0.03f, 0.06f, 0.45f },   // Tech: quick bits of data streaking down
             };
             float[] v = look[Mathf.Clamp(k, 0, look.Length - 1)];
             var go = Child(parent, "GlyphTrail" + label, Vector3.zero).gameObject;
@@ -2547,6 +2585,13 @@ namespace WizardsVRC.EditorTools
             var pr = go.GetComponent<ParticleSystemRenderer>();
             pr.sharedMaterial = mat;
             pr.renderMode = ParticleSystemRenderMode.Billboard;
+            if (k == CardDatabase.TECH)
+            {
+                // Tech's are streaks, stretched along their fall like a digital rain.
+                pr.renderMode = ParticleSystemRenderMode.Stretch;
+                pr.velocityScale = 0.12f;
+                pr.lengthScale = 1.5f;
+            }
             return ps;
         }
 

@@ -160,15 +160,24 @@ namespace WizardsVRC
             {
                 if (_glyphMat == null) _glyphMat = glyph.material;
                 int n = glyphTex != null ? glyphTex.Length : 0;
-                int gi = school >= 0 && school < n - 1 ? school : n - 1;
+                int gi = n > 0 ? LookOf(school, n) : -1;
                 if (gi >= 0 && glyphTex[gi] != null) _glyphMat.SetTexture("_MainTex", glyphTex[gi]);
-                _glyphMat.SetFloat("_Style", gi == n - 1 ? 0f : gi + 1f);
+                _glyphMat.SetFloat("_Style", gi == 7 ? 0f : gi + 1f);
                 _glyphMat.SetColor("_Color", skinColor);
                 _glyphMat.SetColor("_EdgeColor", Color.Lerp(skinColor, Color.white, 0.55f));
                 _glyphMat.SetFloat("_Reveal", 0f);
                 _glyphMat.SetFloat("_Fade", 1f);
                 _glyphMat.SetFloat("_Flare", 0f);
             }
+        }
+
+        /// <summary>A school's look among 'len' (the seven schools, then General at 7, then Tech at 8 when there is one).</summary>
+        private int LookOf(int school, int len)
+        {
+            if (len <= 0) return 0;
+            if (school >= 0 && school < 7 && school < len) return school;
+            if (school == CardDatabase.TECH && len > 8) return 8;
+            return Mathf.Min(7, len - 1);
         }
 
         private void StopAuras()

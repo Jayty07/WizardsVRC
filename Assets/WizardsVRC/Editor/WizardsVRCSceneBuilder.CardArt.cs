@@ -24,7 +24,7 @@ namespace WizardsVRC.EditorTools
         private static readonly int[] ArtBayer = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
         private static readonly Color ArtInk = new Color(0.07f, 0.05f, 0.1f);
 
-        // Per school (0 Fire .. 6 Balance, 7 General): sky top, sky bottom, ground, light (glow and rim), motes.
+        // Per school (0 Fire .. 6 Balance, 7 General, 8 Tech): sky top, sky bottom, ground, light (glow and rim), motes.
         private static readonly Color[,] ArtPalette =
         {
             { new Color(0.30f, 0.04f, 0.05f), new Color(0.98f, 0.48f, 0.12f), new Color(0.16f, 0.05f, 0.05f), new Color(1f, 0.75f, 0.3f), new Color(1f, 0.6f, 0.2f) },
@@ -35,6 +35,7 @@ namespace WizardsVRC.EditorTools
             { new Color(0.42f, 0.24f, 0.04f), new Color(1f, 0.85f, 0.40f), new Color(0.35f, 0.20f, 0.05f), new Color(1f, 0.95f, 0.6f), new Color(1f, 0.95f, 0.6f) },
             { new Color(0.70f, 0.30f, 0.18f), new Color(1f, 0.80f, 0.48f), new Color(0.55f, 0.32f, 0.14f), new Color(1f, 0.9f, 0.6f), new Color(1f, 0.85f, 0.55f) },
             { new Color(0.18f, 0.22f, 0.38f), new Color(0.70f, 0.74f, 0.86f), new Color(0.30f, 0.32f, 0.42f), new Color(1f, 1f, 1f), new Color(1f, 1f, 0.85f) },
+            { new Color(0.02f, 0.05f, 0.08f), new Color(0.08f, 0.32f, 0.36f), new Color(0.04f, 0.10f, 0.12f), new Color(0.55f, 1f, 0.95f), new Color(0.4f, 1f, 0.9f) },
         };
 
         private static readonly Dictionary<string, Color32[]> _artIcons = new Dictionary<string, Color32[]>();
@@ -239,6 +240,31 @@ namespace WizardsVRC.EditorTools
                     }
                     break;
                 }
+                case 8:   // Tech: a night skyline of towers with lit windows, a glowing grid floor running to the horizon
+                {
+                    for (int b = 0; b < 9; b++)
+                    {
+                        int bx = R(rng, -4, ArtW), bw = R(rng, 8, 16), top = horizon - R(rng, 10, 34);
+                        for (int y = top; y < horizon; y++)
+                            for (int x = bx; x < bx + bw; x++)
+                            {
+                                bool window = (x - bx) % 3 == 1 && (y - top) % 4 == 2 && rng.NextDouble() < 0.45;
+                                Put(px, x, y, window ? new Color(0.5f, 1f, 0.92f) : new Color(0.03f, 0.09f, 0.12f));
+                            }
+                    }
+                    for (int y = horizon; y < ArtH; y++)
+                        for (int x = 0; x < ArtW; x++) Put(px, x, y, ground);
+                    // The grid: lines across, getting further apart toward you, and lines running to a vanishing point.
+                    for (int k = 1; k < 8; k++)
+                    {
+                        int gy = horizon + (int)(k * k * 0.55f);
+                        for (int x = 0; x < ArtW; x++) Put(px, x, gy, new Color(0.25f, 0.95f, 0.9f), 0.7f);
+                    }
+                    for (int k = -8; k <= 8; k++)
+                        for (int y = horizon; y < ArtH; y++)
+                            Put(px, ArtW / 2 + (int)(k * (y - horizon) * 0.9f), y, new Color(0.25f, 0.95f, 0.9f), 0.55f);
+                    break;
+                }
                 default:   // General: a starry dusk
                     for (int k = 0; k < 40; k++)
                         Put(px, R(rng, 0, ArtW), R(rng, 0, (int)(ArtH * 0.7f)), new Color(1f, 1f, 0.9f), (float)rng.NextDouble() * 0.8f + 0.2f);
@@ -279,7 +305,7 @@ namespace WizardsVRC.EditorTools
         /// <summary>One of the game's 64 x 64 effect icons (Textures/FxIcons/&lt;Kind&gt;&lt;School&gt;.png), top-down.</summary>
         private static Color32[] ArtIcon(string kind, int school)
         {
-            string name = kind + (school >= 0 && school < SchoolLabels.Length ? SchoolLabels[school] : "General");
+            string name = kind + LookLabel(school);
             Color32[] px;
             if (_artIcons.TryGetValue(name, out px)) return px;
             string path = FxIconDir + "/" + name + ".png";
@@ -377,11 +403,11 @@ namespace WizardsVRC.EditorTools
                 case CardDatabase.EFFECT_DISPEL:
                 case CardDatabase.EFFECT_STRIKEFX: kind = "School"; school = s; break;
             }
-            if (school < 0 || school > 6) school = 7;
+            if (school != CardDatabase.TECH && (school < 0 || school > 6)) school = 7;
             return kind != null;
         }
 
-        private static int ArtSchool(int s) { return s >= 0 && s <= 6 ? s : 7; }
+        private static int ArtSchool(int s) { return s >= 0 && s <= 6 ? s : s == CardDatabase.TECH ? 8 : 7; }
 
         // ------------------------------------------------------------------ the subject: a render of the spell's animation
 

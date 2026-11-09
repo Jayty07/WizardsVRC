@@ -19,16 +19,17 @@ namespace WizardsVRC.EditorTools
             public RawImage art;
         }
 
-        /// <summary>Card frames (index School, 7 = General) and shield / blade / trap icons (kind * 8 + school) for CardDatabase.</summary>
+        /// <summary>Card frames (index CardDatabase.LookIndex: the schools, 7 = General, 8 = Tech) and shield / blade / trap icons (kind * LOOKS + look) for CardDatabase.</summary>
         private static void AssignCardArt(CardDatabase db)
         {
-            db.cardFrames = new Sprite[8];
-            for (int k = 0; k < 8; k++)
-                db.cardFrames[k] = SpriteTexture(CardsDir + "/CardFrame" + (k < SchoolLabels.Length ? SchoolLabels[k] : "General") + ".png");
-            db.effectIcons = new Texture[3 * 8];
+            int looks = CardDatabase.LOOKS;
+            db.cardFrames = new Sprite[looks];
+            for (int k = 0; k < looks; k++)
+                db.cardFrames[k] = SpriteTexture(CardsDir + "/CardFrame" + LookLabel(k) + ".png");
+            db.effectIcons = new Texture[3 * looks];
             for (int kind = 0; kind < 3; kind++)
-                for (int k = 0; k < 8; k++)
-                    db.effectIcons[kind * 8 + k] = PixelTexture(FxIconDir + "/" + FxKindNames[kind] + (k < SchoolLabels.Length ? SchoolLabels[k] : "General") + ".png");
+                for (int k = 0; k < looks; k++)
+                    db.effectIcons[kind * looks + k] = PixelTexture(FxIconDir + "/" + FxKindNames[kind] + LookLabel(k) + ".png");
         }
 
         /// <summary>

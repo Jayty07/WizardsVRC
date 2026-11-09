@@ -12,11 +12,13 @@ import sys
 from PIL import Image
 
 D = sys.argv[1]
-NAMES = ['Fire', 'Ice', 'Storm', 'Life', 'Death', 'Myth', 'Balance', 'General']
+NAMES = ['Fire', 'Ice', 'Storm', 'Life', 'Death', 'Myth', 'Balance', 'General', 'Tech']
 RING = {'Fire': (235, 90, 30), 'Ice': (110, 180, 240), 'Storm': (150, 90, 220), 'Life': (70, 190, 80), 'Death': (120, 110, 130),
-        'Myth': (230, 180, 40), 'Balance': (200, 165, 100), 'General': (190, 190, 205)}
+        'Myth': (230, 180, 40), 'Balance': (200, 165, 100), 'General': (190, 190, 205), 'Tech': (60, 215, 205)}
 FILL = {'Fire': (69, 24, 20), 'Ice': (24, 42, 79), 'Storm': (42, 24, 70), 'Life': (24, 60, 29), 'Death': (27, 24, 34),
-        'Myth': (69, 46, 20), 'Balance': (60, 46, 29), 'General': (42, 42, 56)}
+        'Myth': (69, 46, 20), 'Balance': (60, 46, 29), 'General': (42, 42, 56), 'Tech': (16, 52, 56)}
+# Badge colours that aren't part of the symbol (besides FILL): the Tech badge's lighter inner disc and its ring.
+SKIP = {'Tech': [(24, 74, 78), (60, 215, 205), (170, 250, 240), (30, 24, 36)]}
 OUT = (30, 24, 36)
 GOLD = (255, 205, 70)
 GOLD_D = (190, 130, 40)
@@ -183,7 +185,7 @@ def symbol(name, size):
     for y in range(52):
         for x in range(52):
             p = sp[x + 6, y + 6]
-            if math.hypot(x + 6 - 31.5, y + 6 - 31.5) <= 26.0 and p[3] and p[:3] != f:
+            if math.hypot(x + 6 - 31.5, y + 6 - 31.5) <= 26.0 and p[3] and p[:3] != f and p[:3] not in SKIP.get(name, ()):
                 q[x, y] = p
                 pal.add(p[:3])
     small = sym.resize((size, size), Image.BOX)

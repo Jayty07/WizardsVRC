@@ -249,6 +249,15 @@ namespace WizardsVRC
             return t - toward * 0.35f + Vector3.up * 1.0f;
         }
 
+        /// <summary>A school's look among 'len' (the seven schools, then General at 7, then Tech at 8 when there is one).</summary>
+        private int LookOf(int school, int len)
+        {
+            if (len <= 0) return 0;
+            if (school >= 0 && school < 7 && school < len) return school;
+            if (school == CardDatabase.TECH && len > 8) return 8;
+            return Mathf.Min(7, len - 1);
+        }
+
         /// <summary>
         /// Starts the attack spell's choreography (after <see cref="Prepare"/>): cast from 'from' (the middle of the ring
         /// for a cinematic, else the seat) facing 'fwd' at 'aim' (the target, or the middle of the side an area spell
@@ -267,7 +276,7 @@ namespace WizardsVRC
             _aim = aim;
             _body = Mathf.Clamp(body, 0.5f, 3f);
             int looks = sparkMats != null && sparkMats.Length > 0 ? sparkMats.Length : 8;
-            _look = school >= 0 && school < looks - 1 ? school : looks - 1;
+            _look = LookOf(school, looks);
             _pips = Mathf.Clamp(pips, 0, 8);
             _aoe = aoe;
             _scale = (0.85f + 0.17f * _pips) * Mathf.Max(1f, _body * 0.8f);
@@ -1436,7 +1445,8 @@ namespace WizardsVRC
             if (glyphDrawTex != null && _look < glyphDrawTex.Length && glyphDrawTex[_look] != null) m.SetTexture("_MainTex", glyphDrawTex[_look]);
             m.SetColor("_Color", _color);
             if (glyphEdgeColors != null && _look < glyphEdgeColors.Length) m.SetColor("_EdgeColor", glyphEdgeColors[_look]);
-            m.SetFloat("_Style", _look >= 7 ? 0f : _look + 1f);
+            // 0 = General, 1-7 the schools, 9 = Tech (the GlyphDraw shader).
+            m.SetFloat("_Style", _look == 7 ? 0f : _look + 1f);
             m.SetFloat("_Reveal", 0f);
             m.SetFloat("_Fade", 1f);
             m.SetFloat("_Flare", 0f);

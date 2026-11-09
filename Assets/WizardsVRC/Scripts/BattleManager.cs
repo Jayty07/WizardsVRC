@@ -297,7 +297,9 @@ namespace WizardsVRC
         public float CastPeakSeconds(int school)
         {
             float len = CastSeconds(school);
-            float p = school < 0 ? generalCastPeakSeconds : castPeakSeconds != null && school < castPeakSeconds.Length ? castPeakSeconds[school] : len * 0.6f;
+            // A school without its own cast sound (Tech) times like a General spell.
+            bool general = school < 0 || castSeconds == null || school >= castSeconds.Length;
+            float p = general ? generalCastPeakSeconds : castPeakSeconds != null && school < castPeakSeconds.Length ? castPeakSeconds[school] : len * 0.6f;
             return Mathf.Clamp(p, 0f, len);
         }
 

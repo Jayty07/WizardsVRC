@@ -137,6 +137,15 @@ namespace WizardsVRC
             if (wand != null) wand.gameObject.SetActive(false);
         }
 
+        /// <summary>A school's look among 'len' (the seven schools, then General at 7, then Tech at 8 when there is one).</summary>
+        private int LookOf(int school, int len)
+        {
+            if (len <= 0) return 0;
+            if (school >= 0 && school < 7 && school < len) return school;
+            if (school == CardDatabase.TECH && len > 8) return 8;
+            return Mathf.Min(7, len - 1);
+        }
+
         /// <summary>
         /// Opens the board for a spell of 'school' (-1 = General) costing 'pips' at 'accuracy' (with the caster's bonuses);
         /// 'maxSeconds' is how long the round still gives. Calls caller._PatternDone() when it's finished.
@@ -149,7 +158,7 @@ namespace WizardsVRC
             _vr = me.IsUserInVR();
             _school = school;
             int symbols = glyphDrawTex != null ? glyphDrawTex.Length : 8;
-            _glyph = school >= 0 && school < symbols - 1 ? school : Mathf.Max(0, symbols - 1);
+            _glyph = LookOf(school, symbols);
             _count = NodeCount(pips, accuracy);
             _next = 0;
             _hits = 0;

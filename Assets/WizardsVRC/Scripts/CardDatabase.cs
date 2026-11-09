@@ -626,10 +626,15 @@ namespace WizardsVRC
         // School icons: glyphs U+E000-U+E006 in the combat pixel font (Fonts/PsxNameFont.txt -> PsxPixel.ttf), coloured.
         private string[] _schoolIconGlyphs = { "\uE000", "\uE001", "\uE002", "\uE003", "\uE004", "\uE005", "\uE006" };
         private string[] _schoolIconHex = { "#F25926", "#8CD9FF", "#A666F2", "#66E666", "#B3A6C7", "#F2CC40", "#D99966" };
+        // The Tech School's icon: a cog (U+E007 in the pixel font), in electric teal.
+        private const string TechIconGlyph = "\uE007";
+        private const string TechIconHex = "#3CD7CD";
+        private const string TechCardHex = "#1E9C94";
 
         /// <summary>The school's icon as rich text (its glyph in the school's colour), for labels in the combat font.</summary>
         public string SchoolIcon(int school)
         {
+            if (school == TECH) return "<color=" + TechIconHex + ">" + TechIconGlyph + "</color>";
             if (school < 0 || school >= _schoolIconGlyphs.Length) return "";
             return "<color=" + _schoolIconHex[school] + ">" + _schoolIconGlyphs[school] + "</color>";
         }
@@ -642,13 +647,24 @@ namespace WizardsVRC
         [Tooltip("Shield / blade / trap icons for the art window: index kind * 8 + school (7 = General / any school).")]
         public Texture[] effectIcons;
 
+        /// <summary>Looks per school (card frames, effect icons, casting symbols, effect colours): the seven schools, General, Tech.</summary>
+        public const int LOOKS = 9;
+
+        /// <summary>Which look a school uses: 0-6 the schools, 7 General (and anything else), 8 the Tech School.</summary>
+        public int LookIndex(int school) { return school >= 0 && school < 7 ? school : school == TECH ? 8 : 7; }
+
+        /// <summary>The look for a school in an array of 'len' looks (an older array without Tech falls back to General).</summary>
+        public int LookIn(int school, int len)
+        {
+            int i = LookIndex(school);
+            return i < len ? i : Mathf.Max(0, Mathf.Min(7, len - 1));
+        }
+
         /// <summary>Frame art for the card's school (null when there is none).</summary>
         public Sprite FrameFor(int cardId)
         {
             if (cardFrames == null || cardFrames.Length == 0) return null;
-            int sc = GetSchool(cardId);
-            int i = sc >= 0 && sc < 7 ? sc : 7;
-            return i < cardFrames.Length ? cardFrames[i] : cardFrames[cardFrames.Length - 1];
+            return cardFrames[LookIn(GetSchool(cardId), cardFrames.Length)];
         }
 
         /// <summary>Art for the card's picture window: its painted picture; without one, a shield, blade or trap shows its icon.</summary>
@@ -666,7 +682,7 @@ namespace WizardsVRC
             else if (e == EFFECT_TRAP) { kind = 2; sc = TrapSchool(cardId); }
             else if (e == EFFECT_TRITRAP || e == EFFECT_CURSE) { kind = 2; sc = ANY_SCHOOL; }
             if (kind < 0 || effectIcons == null) return null;
-            int i = kind * 8 + (sc >= 0 && sc < 7 ? sc : 7);
+            int i = kind * LOOKS + LookIndex(sc);
             return i < effectIcons.Length ? effectIcons[i] : null;
         }
 
@@ -753,6 +769,7 @@ namespace WizardsVRC
         /// <summary>A school's icon for card text (deeper colour, for the parchment); any school shows a sparkle.</summary>
         public string CardSchoolIcon(int school)
         {
+            if (school == TECH) return "<color=" + TechCardHex + ">" + TechIconGlyph + "</color>";
             if (school < 0 || school >= _schoolIconGlyphs.Length) return Icon(ICON_ANY);
             return "<color=" + _cardSchoolHex[school] + ">" + _schoolIconGlyphs[school] + "</color>";
         }

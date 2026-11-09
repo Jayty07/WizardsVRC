@@ -1,7 +1,7 @@
 """The school symbols a caster draws in the air with arcane energy (Assets/WizardsVRC/Textures/CastDraw).
 
 Each symbol is a few pen strokes (a flame, a snowflake, a lightning bolt, a flower, a skull, an open book, a pair of
-scales, a star for General spells), followed by a ring round it like a spell seal. For each one this writes:
+scales, a star for General spells, a microchip for the Tech School), followed by a ring round it like a spell seal. For each one this writes:
 
     GlyphDraw<School>.png   128x128, read as data (not colour) by the WizardsVRC/GlyphDraw shader:
                               R = when the pen passes this pixel (0 = first, 1 = last), so the shader can reveal the
@@ -28,7 +28,7 @@ SIZE = 128
 SAMPLES = 64
 CORE = 2.1    # px
 HALO = 4.4    # px
-LABELS = ["Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance", "General"]
+LABELS = ["Fire", "Ice", "Storm", "Life", "Death", "Myth", "Balance", "General", "Tech"]
 
 
 # ------------------------------------------------------------------ stroke helpers (u, v in 0..1, v up)
@@ -162,7 +162,20 @@ def general():
     return [star]
 
 
-SYMBOLS = [fire, ice, storm, life, death, myth, balance, general]
+def tech():
+    """The Tech School (The Dominion's): a microchip, two pins a side, with a charge zig-zagging across its core."""
+    body = line((0.30, 0.30), (0.30, 0.70), (0.70, 0.70), (0.70, 0.30), (0.30, 0.30))
+    pins = []
+    for t in (0.42, 0.58):
+        pins.append(line((t, 0.70), (t, 0.84)))
+        pins.append(line((0.70, t), (0.84, t)))
+        pins.append(line((t, 0.30), (t, 0.16)))
+        pins.append(line((0.30, t), (0.16, t)))
+    charge = line((0.40, 0.60), (0.56, 0.54), (0.44, 0.46), (0.60, 0.40))
+    return [body] + pins + [charge]
+
+
+SYMBOLS = [fire, ice, storm, life, death, myth, balance, general, tech]
 
 
 # ------------------------------------------------------------------ rendering
@@ -247,7 +260,7 @@ def main():
         f.write("namespace WizardsVRC.EditorTools\n{\n")
         f.write("    /// <summary>The pen tip's path while a caster draws their school's symbol (see Tools/make_glyph_draw.py).</summary>\n")
         f.write("    public static class GlyphPenData\n    {\n")
-        f.write("        /// <summary>Order of the symbols: the seven schools, then General.</summary>\n")
+        f.write("        /// <summary>Order of the symbols: the seven schools, then General, then Tech (school 8).</summary>\n")
         f.write("        public static readonly string[] Labels = { %s };\n" % ", ".join('"%s"' % l for l in LABELS))
         f.write("        public const int Samples = %d;\n" % SAMPLES)
         f.write("        public static readonly float[] U = { %s };\n" % floats(us))

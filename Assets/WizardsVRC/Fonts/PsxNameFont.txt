@@ -728,7 +728,7 @@
 ..#..
 .#.#.
 #...#
-# School icons (private-use characters U+E000-U+E006: Fire, Ice, Storm, Life, Death, Myth, Balance),
+# School icons (private-use characters U+E000-U+E006: Fire, Ice, Storm, Life, Death, Myth, Balance; U+E007: Tech, a cog),
 # shown in the duel as "Rank 2 <icon> Boss" (BattleManager.MatchupText, CardDatabase.SchoolIcon).
 :
 ...#...
@@ -786,6 +786,14 @@
 ##.#.##
 ...#...
 .#####.
+:
+.#.#.#.
+#######
+.##.##.
+###.###
+.##.##.
+#######
+.#.#.#.
 
 # Spell-card icons (U+E010-U+E01B), coloured on the cards by CardDatabase.GetCardText:
 # damage, shield, blade, trap, heal, stun, over time, accuracy, minion, break, any school, pips.
