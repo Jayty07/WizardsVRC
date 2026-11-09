@@ -28,15 +28,17 @@ namespace WizardsVRC.EditorTools
             Texture2D stone = TileTexture(TerrainTexDir + "/StoneWall.png");
             ZoneTextureStyle st = z.textureStyle;
             // The street's own paving and lawn (see ZoneTextureStyle); walls and kerbs are stone everywhere.
+            // Bigdig (Undercity): riveted iron deck plates for streets, oily grit for the "lawns", iron-plated retaining walls.
+            bool under = st == ZoneTextureStyle.Undercity;
             string pave = st == ZoneTextureStyle.Garden || st == ZoneTextureStyle.Keep ? "Flagstone"
                 : st == ZoneTextureStyle.Forest || st == ZoneTextureStyle.Boomtown || st == ZoneTextureStyle.Mine ? "Dirt"
-                : st == ZoneTextureStyle.Desert ? "DesertSand" : "Cobble";
+                : st == ZoneTextureStyle.Desert ? "DesertSand" : under ? "DeckPlate" : "Cobble";
             string lawnTex = st == ZoneTextureStyle.Forest ? "ForestFloor" : st == ZoneTextureStyle.Mine ? "MineRock"
-                : st == ZoneTextureStyle.Desert || st == ZoneTextureStyle.Boomtown ? "DesertSand" : "Grass";
-            float paveTile = pave == "Flagstone" ? 3.4f : pave == "Dirt" || pave == "DesertSand" ? 3f : 2.4f;
+                : st == ZoneTextureStyle.Desert || st == ZoneTextureStyle.Boomtown ? "DesertSand" : under ? "Sludge" : "Grass";
+            float paveTile = pave == "Flagstone" ? 3.4f : pave == "Dirt" || pave == "DesertSand" || pave == "DeckPlate" ? 3f : 2.4f;
             bool redRock = st == ZoneTextureStyle.Desert || st == ZoneTextureStyle.Boomtown;
             Texture2D wallTex = st == ZoneTextureStyle.Forge ? TileTexture(TerrainTexDir + "/Brick.png") : redRock ? TileTexture(TerrainTexDir + "/RedRock.png")
-                : st == ZoneTextureStyle.Mine ? TileTexture(TerrainTexDir + "/MineRock.png") : stone;
+                : st == ZoneTextureStyle.Mine ? TileTexture(TerrainTexDir + "/MineRock.png") : under ? TileTexture(StreetTexDir + "/Metal.png") : stone;
             return new TerrainMats
             {
                 paving = PsxTexMat(k + "_Paving", z.roadColor, TileTexture(TerrainTexDir + "/" + pave + ".png"), paveTile),
@@ -717,6 +719,9 @@ namespace WizardsVRC.EditorTools
                 case "DesertSand": return 1.25f;
                 case "RedRock": return 1.3f;
                 case "MineRock": return 1.6f;
+                case "Corrugated": return 1.5f;
+                case "DeckPlate": return 1.7f;
+                case "Sludge": return 1.9f;
                 case "RailTies": return 1.7f;
                 case "Adobe": return 1.05f;
                 case "Clapboard": return 1.6f;
@@ -745,6 +750,16 @@ namespace WizardsVRC.EditorTools
                 low = PsxTexMat(k + "_LowWall", z.lowWallColor, TileTexture(st == ZoneTextureStyle.Desert ? TerrainTexDir + "/RedRock.png" : StreetTexDir + "/Timber.png"), 2.2f);
                 leaves = PsxTexMat(k + "_Tree", z.treeColor, TileTexture(StreetTexDir + "/Cactus.png"), 1.4f);
                 trunk = PsxTexMat(k + "_Trunk", new Color(0.42f, 0.3f, 0.2f), TileTexture(StreetTexDir + "/Timber.png"), 1.4f);
+                return;
+            }
+            if (st == ZoneTextureStyle.Undercity)
+            {
+                // Bigdig: rusty corrugated iron and riveted plate, brass pipes; stalagmites (cave rock) where a map has trees.
+                building = PsxTexMat(k + "_Building", z.buildingColor, TileTexture(StreetTexDir + "/Corrugated.png"), 2.6f);
+                roof = PsxTexMat(k + "_Roof", z.roofColor, TileTexture(StreetTexDir + "/Metal.png"), 2.4f);
+                low = PsxTexMat(k + "_LowWall", z.lowWallColor, TileTexture(StreetTexDir + "/Metal.png"), 2f);
+                leaves = PsxTexMat(k + "_Tree", Color.Lerp(z.treeColor, new Color(0.45f, 0.4f, 0.38f), 0.6f), TileTexture(TerrainTexDir + "/MineRock.png"), 2.4f);
+                trunk = PMat("Brass", new Color(0.85f, 0.65f, 0.25f), 1f, new Color(0.2f, 0.14f, 0.02f));
                 return;
             }
             string wallTex = st == ZoneTextureStyle.Docks ? StreetTexDir + "/Boards.png" : st == ZoneTextureStyle.Forge ? TerrainTexDir + "/Brick.png"

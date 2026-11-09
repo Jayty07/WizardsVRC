@@ -545,15 +545,64 @@ def timber():
     v = np.where(knot, 0.12, v)
     return finish(v, WOOD)
 
+
+# ------------------------------------------------------------------ Bigdig (World 3): the kobold undercity
+
+def corrugated():
+    """Rusty corrugated iron sheets: vertical ribs, a lapped seam across with a row of rivets, rust streaks running down."""
+    rib = np.sin(XX / N * 2 * np.pi * 8)
+    v = 0.52 + 0.2 * rib + 0.06 * (fbm(601) - 0.5)
+    lap = (YY % 32) < 2
+    v = np.where(lap, 0.16, v)
+    v = np.where((YY % 32) == 2, v + 0.14, v)
+    for cy in (4, 36):
+        for cx in range(4, N, 8):
+            d = np.hypot(XX - cx, YY - cy)
+            v = np.where(d < 1.6, 0.9, v)
+    streak = np.clip(value_noise(16, 602)[:1, :].repeat(N, 0) * 1.6 - 0.9, 0, 1)
+    streak *= np.clip(1.0 - (YY % 32) / 32.0, 0, 1)
+    v -= streak * 0.45 + np.clip(value_noise(8, 603) - 0.6, 0, 1) * 0.5
+    return finish(v, [(0.0, (0.14, 0.08, 0.06)), (0.45, (0.55, 0.40, 0.32)), (0.8, (0.80, 0.74, 0.68)), (1.0, (0.98, 0.94, 0.88))])
+
+
+def deck_plate():
+    """Iron deck plates: big riveted squares with a raised diamond tread, worn bright where feet go."""
+    v = 0.45 + 0.08 * (fbm(611) - 0.5)
+    d1 = ((XX + YY) % 8 == 0) & ((XX // 4 + YY // 4) % 2 == 0)
+    d2 = ((XX - YY) % 8 == 0) & ((XX // 4 + YY // 4) % 2 == 1)
+    v = np.where(d1 | d2, v + 0.22, v)
+    seam = ((XX % 32) < 1) | ((YY % 32) < 1)
+    v = np.where(seam, 0.12, v)
+    for cx in (3, 29, 35, 61):
+        for cy in (3, 29, 35, 61):
+            d = np.hypot(XX - cx, YY - cy)
+            v = np.where(d < 1.7, 0.85, v)
+    v += np.clip(value_noise(4, 612) - 0.55, 0, 1) * 0.35
+    v -= np.clip(value_noise(8, 613) - 0.65, 0, 1) * 0.5
+    return finish(v, [(0.0, (0.10, 0.09, 0.11)), (0.5, (0.50, 0.47, 0.48)), (1.0, (0.92, 0.88, 0.82))])
+
+
+def sludge():
+    """Oily cavern ground: dark grit, slick puddles with a bright rim, scattered bolts and scrap."""
+    v = 0.4 + 0.14 * (fbm(621) - 0.5) + 0.08 * (value_noise(32, 622) - 0.5)
+    pool = value_noise(4, 623)
+    v = np.where(pool > 0.7, 0.12 + 0.1 * value_noise(16, 624), v)
+    v = np.where((pool > 0.67) & (pool <= 0.7), 0.74, v)
+    bits = rng(625).random((N, N)) > 0.975
+    v = np.where(bits, 0.9, v)
+    return finish(v, [(0.0, (0.06, 0.07, 0.07)), (0.5, (0.42, 0.40, 0.36)), (1.0, (0.90, 0.86, 0.76))])
+
 TERRAIN = {
     'Cobble': cobble, 'Flagstone': flagstone, 'Grass': grass, 'ForestFloor': forest_floor, 'Dirt': dirt,
     'StoneWall': stone_wall, 'Brick': brick, 'WoodPlanks': planks, 'MountainRock': mountain_rock, 'MountainSnow': mountain_snow,
     'DesertSand': desert_sand, 'RedRock': red_rock, 'MineRock': mine_rock, 'RailTies': rail_ties,
+    'DeckPlate': deck_plate, 'Sludge': sludge,
 }
 STREET = {
     'Plaster': plaster, 'Boards': boards, 'RoofTiles': roof_tiles, 'Leaves': leaves, 'Hedge': hedge, 'Bark': bark, 'Velvet': velvet,
     'Metal': metal, 'Sand': sand, 'Cloth': cloth, 'Chalkboard': chalkboard,
     'Adobe': adobe, 'Clapboard': clapboard, 'Shingles': shingles, 'Cactus': cactus, 'Timber': timber,
+    'Corrugated': corrugated,
 }
 
 made = []

@@ -1035,6 +1035,24 @@ namespace WizardsVRC.EditorTools
                     PsxTexMat("ButteTop", new Color(0.9f, 0.72f, 0.5f), TileTexture(TerrainTexDir + "/DesertSand.png"), 6f),
                 };
             }
+            if (z != null && z.textureStyle == ZoneTextureStyle.Undercity)
+            {
+                // Bigdig: iron-plated tunnels through cave rock; dark rock where the mountains would have snow.
+                Texture2D cave = TileTexture(TerrainTexDir + "/MineRock.png");
+                Material uFloor = PsxTexMat("TunnelFloorUnder", new Color(0.46f, 0.42f, 0.4f), TileTexture(TerrainTexDir + "/DeckPlate.png"), 3f);
+                uFloor.SetFloat("_OffsetFactor", 1f);
+                uFloor.SetFloat("_OffsetUnits", 1f);
+                return new[]
+                {
+                    PsxTexMat("TunnelIron", Color.Lerp(z.buildingColor, new Color(0.45f, 0.42f, 0.44f), 0.5f), TileTexture(StreetTexDir + "/Metal.png"), 2.4f),
+                    uFloor,
+                    PMat("TunnelDark", new Color(0.04f, 0.04f, 0.06f), 1f),
+                    PMat("TunnelLantern", new Color(1f, 0.75f, 0.4f), 1f, new Color(1f, 0.6f, 0.2f)),
+                    PMat("RailingIron", new Color(0.17f, 0.16f, 0.21f), 1f),
+                    PsxTexMat("CaveRock", new Color(0.55f, 0.48f, 0.45f), cave, 7f),
+                    PsxTexMat("CaveRockTop", new Color(0.38f, 0.34f, 0.33f), cave, 6f),
+                };
+            }
             Texture2D wallTex = TileTexture(TerrainTexDir + "/StoneWall.png");
             Material floor = PsxTexMat("TunnelFloor", new Color(0.5f, 0.45f, 0.4f), TileTexture(TerrainTexDir + "/Cobble.png"), 2.4f);
             // Where the street's paving runs into the mouth, the paving wins (no flicker between the two).

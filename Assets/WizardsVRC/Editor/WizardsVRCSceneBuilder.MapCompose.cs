@@ -74,6 +74,7 @@ namespace WizardsVRC.EditorTools
                 case ZoneTextureStyle.Keep: return new[] { "Skeleton", "GhostBlue", "Bat", "WizardDeath", "Question", "Sparkle" };
                 case ZoneTextureStyle.Desert:
                 case ZoneTextureStyle.Boomtown: return new[] { "Cactus", "Tumbleweed", "Cowboy", "Rat", "Sparkle", "Question" };
+                case ZoneTextureStyle.Undercity: return new[] { "Imp", "Rat", "Notes", "LanternGhost", "Sparkle", "Question" };
                 case ZoneTextureStyle.Mine: return new[] { "Troll", "Bat", "LanternGhost", "Cowboy", "Question" };
                 default: return new[] { "WizardStorm", "GhostPink", "Rat", "LanternGhost", "Question", "Notes" };
             }

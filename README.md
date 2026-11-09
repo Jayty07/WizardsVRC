@@ -303,8 +303,8 @@ leads to the Headmaster's office.)
 
 Travel **between worlds** goes through the **portal room**, through the door on the west wall of the Headmaster's study:
 a round chamber with five arches. Starfall Isle's always glows; World 2's lights up once you finish quest 16 and takes
-you through to **Archrock**, Dustwind's town (the sandstone arch at its south end brings you back); the other three stay
-dark.
+you through to **Archrock**, Dustwind's town (the sandstone arch at its south end brings you back); World 3's lights up
+after quest 77 and takes you down to **Bigdig**; the other two stay dark.
 
 ## The Starfall Ward
 
@@ -375,6 +375,47 @@ gold pan, lantern and company sign, a foreman and a digger or two, all fast-talk
 World 3: Bigdig's singing gold has gone quiet, the elders say it and the Starfall Crystal were struck from the same
 star, someone is buying it all up, and there's an old kobold door below Copperbottom Mine locked from the other side.
 The crews are added by the builder (`WizardsVRCSceneBuilder.Kobolds.cs`), each on an open spot clear of the duel rings.
+
+## World 3: Bigdig (Lv 25-35)
+
+The kobolds' homeland: one vast cavern under Dustwind, its boroughs stacked up the rock in rusty corrugated iron,
+riveted plate and brass, lit by furnaces and neon. The Dominion is quietly siphoning Bigdig's **Mother Lode** (the
+singing gold struck from the same star as the Starfall Crystal), while the kobold gangs are too busy feuding to notice.
+The portal room's third arch opens once you finish *Last Spike* (quest 77) and brings you to **Bigdig**, the town.
+
+**Bigdig** (Lodestone Square, under the Big Drill): Deepwarden Bruma Stonehum, the **Gilded Rivet** saloon, the **Brawl
+Pit** duelling circle, four shops selling Bigdig's gear (Lv 25+), and six tunnels out to the boroughs:
+
+| Street | Lv | Gang you help; boss | Storyline (save ids) |
+| --- | --- | --- | --- |
+| Sprocket Row | 25-27 | the Company; Copperjaw Grubb | Company Business (133-136) |
+| The Rustworks | 27-28 | the Union; Drillmaster Vane | Union Strong (137-140) |
+| The Fusewick Canals | 28-30 | the Syndicate; Lieutenant Sorrel | Smuggler's Run (141-144) |
+| The Glimmer Mile | 30-31 | the Glimmerfangs; Agent Nightglass | Neon Nights (145-148) |
+| The Deep Seams | 31-33 | Chief Engineer Strake, in the Siphon Works (a dungeon) | The Deep Seams (149-152) |
+| Highroller Heights | 33-35 | the Assayer and Marshal Brannoch, in the Golden Seam Casino (a dungeon) | Highroller Heights (157-159) |
+
+Ten storylines (with Under Everything 130-132 in town, **The Parley** 153-156, Odd Jobs 162-164 and Lucky Streak
+165-166) lead to the finale, *Ante Up* and *All In* (160-161): every gang storming the casino together. **The Parley** is
+where the kobolds wise up: the gang bosses, called to a moot, argue it out in scenes with several voices (lines written
+`Name|words`, `!Name|words` for an enemy) until they shake on it. Monsters are ids 60-88: kobold gang toughs and the
+Dominion's Tech-school troops; items are 200-263 (`Tools/make_items.py`).
+
+- **Bosses who speak first:** a zone encounter with **Intro Lines** plays a cutscene as you walk up to its ring (a wide
+  shot, then close on the boss; `EncounterIntro`, builder `WizardsVRCSceneBuilder.Intros.cs`). Strake, the Assayer and
+  Marshal Brannoch all have one.
+- **The look** (`WizardsVRCSceneBuilder.Undercity.cs`, texture style **Undercity**): riveted deck-plate streets, oily grit
+  lawns, buildings with a shopfront, an overhanging upper storey and a crooked top, water tanks and smokestacks on the
+  roofs, porthole windows, striped awnings, brass pipes and neon blade signs; stalagmites and pipe stacks where a map
+  has trees. Past the map there's no sea: each street stands on a rock shelf over a chasm of glowing sludge, its
+  neighbourhood climbing away in shanty towers, cranes, gear towers and neon billboards, rock pillars with shanties
+  clinging to them, and the cavern's walls and roof over it all, hung with stalactites, chains and lanterns. Points can
+  be neon signs, blasting barrels, heaps of gold, slot machines, card tables and roulette wheels; the casino gets red
+  carpet, velvet walls with gold pilasters and chandeliers, the Siphon Works pipe runs and warning lamps.
+- **Bigdig's people** are kobolds (named looks for the gang bosses; `WorldThreeKobold` in `WizardsVRCSceneBuilder.NpcLooks.cs`).
+
+The siege of Starfall, when the ward falls, is still to come as World 3's last chapter (see *The Everweave: Main Story
+Plan*).
 
 ## Duels (PvP)
 

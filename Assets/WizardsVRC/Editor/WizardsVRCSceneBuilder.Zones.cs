@@ -340,7 +340,8 @@ namespace WizardsVRC.EditorTools
             if (z.textureStyle == ZoneTextureStyle.Forest) ForestGrowth(layout, g, z, trunk, stairCells);
             else foreach (var t in g.Find('^'))
             {
-                if (IsDesert(z) || z.textureStyle == ZoneTextureStyle.Mine) Saguaro(layout, g.Local(t), 0.8f + g.Hash(t.x, t.y, 4) * 0.6f, g.Hash(t.x, t.y, 5), leaves, true);
+                if (z.textureStyle == ZoneTextureStyle.Undercity) UndercityTree(layout, g, t, leaves, trunk);
+                else if (IsDesert(z) || z.textureStyle == ZoneTextureStyle.Mine) Saguaro(layout, g.Local(t), 0.8f + g.Hash(t.x, t.y, 4) * 0.6f, g.Hash(t.x, t.y, 5), leaves, true);
                 else Tree(layout, g, t, trunk, leaves);
             }
             StreetLamps(layout, g, z, wood, glow, stairCells);
@@ -351,6 +352,8 @@ namespace WizardsVRC.EditorTools
             if (z.landmarks != null && z.landmarks.Count > 0)
                 BuildLandmarks(root, g, z, town, null, wb.data, bld, roof, PMat("Gold", new Color(1f, 0.78f, 0.2f), 1f, new Color(0.25f, 0.18f, 0f)),
                     PMat("BannerBlue", new Color(0.15f, 0.25f, 0.75f), 1f), door, window, wood, wb.behaviours);
+            // Bigdig's dungeons: the casino's carpet, velvet and chandeliers; the siphon works' pipes (WizardsVRCSceneBuilder.Undercity.cs).
+            if (z.textureStyle == ZoneTextureStyle.Undercity && _dungeonCells != null) UndercityDungeon(layout, g, z, _dungeonCells, stairCells);
             if (town != null)
             {
                 foreach (var kv in town.gates)
@@ -719,6 +722,12 @@ namespace WizardsVRC.EditorTools
                 FrontierHouse(parent, g, z, r, wall, roof, window);
                 return;
             }
+            if (z.textureStyle == ZoneTextureStyle.Undercity)
+            {
+                // Bigdig's corrugated, neon-lit buildings (WizardsVRCSceneBuilder.Undercity.cs).
+                UndercityHouse(parent, g, z, r, index, wall, roof, window);
+                return;
+            }
             float cs = g.cell;
             Vector3 c = RectCenter(g, r);
             bool edge = r.xMin == 0 || r.yMin == 0 || r.xMax == g.width || r.yMax == g.height;
@@ -932,8 +941,9 @@ namespace WizardsVRC.EditorTools
                         labelY = 2.9f;
                         break;
                     default:
-                        // Dustwind's props (WizardsVRCSceneBuilder.Dustwind.cs).
-                        click = DustwindLook(holder, g, cells[n], p, wood, ref labelY);
+                        // Bigdig's props (WizardsVRCSceneBuilder.Undercity.cs), then Dustwind's (WizardsVRCSceneBuilder.Dustwind.cs).
+                        if (p.look >= ZonePointLook.NeonSign) click = UndercityPointLook(holder, g, cells[n], p, wood, ref labelY);
+                        else click = DustwindLook(holder, g, cells[n], p, wood, ref labelY);
                         break;
                 }
                 if (!string.IsNullOrEmpty(p.label))

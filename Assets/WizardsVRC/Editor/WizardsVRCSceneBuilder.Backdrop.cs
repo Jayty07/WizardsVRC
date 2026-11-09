@@ -32,6 +32,9 @@ namespace WizardsVRC.EditorTools
             // Dustwind: a mesa edge over desert flats instead of an island in the sea.
             bool desert = IsDesert(z) || st == ZoneTextureStyle.Mine;
             if (desert) garden = false;
+            // Bigdig: a rock shelf over a chasm inside one great cavern (WizardsVRCSceneBuilder.Undercity.cs).
+            bool under = st == ZoneTextureStyle.Undercity;
+            if (under) garden = false;
 
             // ---- which sides meet the water (a side with a lot of '~' on its edge has no land beyond it)
             bool[] wet = new bool[4];   // north, east, south, west (map up = north)
@@ -54,7 +57,7 @@ namespace WizardsVRC.EditorTools
                         break;
                     }
                 }
-                wet[side] = !desert && water > n * 0.3f;
+                wet[side] = !desert && !under && water > n * 0.3f;
             }
             if (edgeWater < float.MaxValue) seaY = edgeWater - 0.08f;
             // The map's own sea level, which OuterSea carries on past its wet edges: boats and buoys out there float on it.
@@ -62,6 +65,7 @@ namespace WizardsVRC.EditorTools
             // Never above the island's top (or it floods the street and the land round it); the map's own sea carries on
             // to the horizon at its level past the wet edges (OuterSea).
             seaY = Mathf.Min(seaY, baseY - GroundDrop - 0.3f - 0.5f);
+            if (under) seaY = baseY - 45f;   // the chasm floor, far below
 
             // ---- the island: cliffs from the sea up to just under the map, reaching out past every dry side
             float hw = W / 2f, hh = H / 2f, mN = wet[0] ? 0f : BackdropMargin, mE = wet[1] ? 0f : BackdropMargin,
@@ -73,7 +77,8 @@ namespace WizardsVRC.EditorTools
                 new Vector2(hw + mE - c, hh + mN), new Vector2(-hw - mW + c, hh + mN), new Vector2(-hw - mW, hh + mN - c), new Vector2(-hw - mW, -hh - mS + c),
             };
             float top = baseY - GroundDrop - 0.3f;
-            Material isleTop = desert ? PsxTexMat(z.zoneKey + "_IsleSand", z.groundColor, TileTexture(TerrainTexDir + "/DesertSand.png"), 3f)
+            Material isleTop = under ? PsxTexMat(z.zoneKey + "_IsleSludge", z.groundColor, TileTexture(TerrainTexDir + "/Sludge.png"), 3f)
+                : desert ? PsxTexMat(z.zoneKey + "_IsleSand", z.groundColor, TileTexture(TerrainTexDir + "/DesertSand.png"), 3f)
                 : garden || st == ZoneTextureStyle.Forest
                 ? PsxTexMat(z.zoneKey + "_IsleGrass", z.grassColor, TileTexture(TerrainTexDir + "/Grass.png"), 3f)
                 : PsxTexMat(z.zoneKey + "_IsleGround", z.groundColor, TileTexture(TerrainTexDir + "/Dirt.png"), 3f);
@@ -82,7 +87,8 @@ namespace WizardsVRC.EditorTools
             Shape(root, "IsleCliff", PrismMesh("PSX_Isle_" + key, poly, seaY - 4f, top - 0.2f), Vector3.zero, Vector3.one, rock, false, Quaternion.identity);
             Shape(root, "IsleTop", PrismMesh("PSX_IsleTop_" + key, poly, top - 0.2f, top), Vector3.zero, Vector3.one, isleTop, false, Quaternion.identity);
             Material sandFloor = PsxTexMat("DesertFloor", new Color(0.85f, 0.62f, 0.42f), TileTexture(TerrainTexDir + "/DesertSand.png"), 6f);
-            if (desert) Shape(root, "DesertFloor", GridMesh(8, 8, false), new Vector3(0, seaY, 0), new Vector3(W + 900f, 1f, H + 900f), sandFloor, false, Quaternion.identity);
+            if (under) ChasmFloor(root, W, H, seaY, rng, z.zoneKey);
+            else if (desert) Shape(root, "DesertFloor", GridMesh(8, 8, false), new Vector3(0, seaY, 0), new Vector3(W + 900f, 1f, H + 900f), sandFloor, false, Quaternion.identity);
             else
             {
                 var sea = Shape(root, "Sea", GridMesh(64, 64, false), new Vector3(0, seaY, 0), new Vector3(W + 900f, 1f, H + 900f), PsxSwellMat(), false, Quaternion.identity);
@@ -137,7 +143,12 @@ namespace WizardsVRC.EditorTools
                         if (p.x > hw + mE - 4f || p.x < -hw - mW + 4f || p.z > hh + mN - 4f || p.z < -hh - mS + 4f) continue;   // off the island
                         Quaternion face = Quaternion.LookRotation(-outward) * Quaternion.Euler(0, Rr(-12f, 12f), 0);
                         var piece = Child(holder, "Piece", Vector3.zero);
-                        if (row == 2) SkylineProp(piece, st, garden, desert, p, rng, bld, roof, leaves, trunk, glow, rock, tm[6], z.accentColor);
+                        if (under)
+                        {
+                            if (row == 2) UndercitySkylineProp(piece, p, rng, bld, roof, glow);
+                            else UndercityBackdropProp(piece, p, face, row > 0, rng, bld, roof, glow, rock);
+                        }
+                        else if (row == 2) SkylineProp(piece, st, garden, desert, p, rng, bld, roof, leaves, trunk, glow, rock, tm[6], z.accentColor);
                         else if (desert) DesertBackdropProp(piece, st, p, face, row > 0, rng, bld, roof, leaves, trunk, glow, rock, tm[6]);
                         else BackdropProp(piece, st, garden, p, face, row > 0, rng, bld, roof, leaves, trunk, glow, rock, z.accentColor);
                         float target = (roofline * rowRise[row] + rowPlus[row]) * Rr(0.9f, 1.12f);
@@ -170,7 +181,8 @@ namespace WizardsVRC.EditorTools
             }
             // Far islets (buttes, out on the desert) all round, inside the draw distance.
             // (Tall enough that their tops clear the street's roofline too, from the desert floor far below.)
-            if (desert) DesertButtes(holder, Mathf.Max(hw, hh) + BackdropMargin + 60f, Mathf.Max(hw, hh) + BackdropMargin + 170f, seaY, 9, rng, rock, tm[6],
+            if (under) CavernShell(root, poly, seaY, top, roofline * 2.8f + 55f, rng, rock, bld, roof, glow, key);
+            else if (desert) DesertButtes(holder, Mathf.Max(hw, hh) + BackdropMargin + 60f, Mathf.Max(hw, hh) + BackdropMargin + 170f, seaY, 9, rng, rock, tm[6],
                 top - seaY + roofline * 2.1f + 10f);
             else Islets(holder, Vector3.zero, Mathf.Max(hw, hh) + BackdropMargin + 40f, Mathf.Max(hw, hh) + BackdropMargin + 150f, seaY, 7, rng, rock, leaves, trunk);
 
@@ -184,7 +196,9 @@ namespace WizardsVRC.EditorTools
             // As House() builds them: Dustwind's frontier buildings are 8-13 m and 6 m taller on the map's edge, the rest
             // the zone's buildingHeight and 4 m taller on the edge; then the roof ridge and chimneys.
             bool frontier = z.textureStyle == ZoneTextureStyle.Boomtown || z.textureStyle == ZoneTextureStyle.Desert || z.textureStyle == ZoneTextureStyle.Mine;
-            float house = frontier ? 8f + 5f + 6f + 2f : z.buildingHeight.y + 4f + 2.2f;
+            // Bigdig's (UndercityHouse): a shopfront, an upper storey and a crooked top, with tanks and stacks on the roof.
+            float house = frontier ? 8f + 5f + 6f + 2f : z.textureStyle == ZoneTextureStyle.Undercity ? z.buildingHeight.y * 0.55f + 2f + 9f + 5.3f + 3f
+                : z.buildingHeight.y + 4f + 2.2f;
             float ground = float.MinValue;
             for (int x = 0; x < g.width; x++) ground = Mathf.Max(ground, Mathf.Max(g.Elevation(x, 0), g.Elevation(x, g.height - 1)));
             for (int y = 0; y < g.height; y++) ground = Mathf.Max(ground, Mathf.Max(g.Elevation(0, y), g.Elevation(g.width - 1, y)));
