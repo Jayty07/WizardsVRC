@@ -173,26 +173,9 @@ namespace WizardsVRC.EditorTools
             WallAlongX(root, "OfficeWallS", -12, -7, 7, roomH, new float[0], 0, 0, wallMat);
             WallAlongZ(root, "OfficeWallW", -7, -12, 0, roomH, new float[0], 0, 0, wallMat);
             WallAlongZ(root, "OfficeWallE", 7, -12, 0, roomH, new float[0], 0, 0, wallMat);
-            Block(office, "Rug", new Vector3(0, 0.02f, -0.5f), new Vector3(7, 0.04f, 6), PMat("OfficeRug", new Color(0.25f, 0.2f, 0.6f), 2f));
-            var shelf = PMat("Bookshelf", new Color(0.35f, 0.2f, 0.1f), 2f);
-            var books = new[] { PMat("BookRed", new Color(0.8f, 0.2f, 0.2f), 1f), PMat("BookBlue", new Color(0.2f, 0.35f, 0.85f), 1f), PMat("BookGreen", new Color(0.2f, 0.65f, 0.3f), 1f) };
-            for (int i = 0; i < 4; i++)
-            {
-                float x = -5.25f + i * 3.5f;
-                if (i == 1 || i == 2) x = i == 1 ? -2.6f : 2.6f;
-                Block(office, "Shelf", new Vector3(x, 1.75f, -5.65f), new Vector3(2.2f, 3.5f, 0.6f), shelf);
-                for (int r = 0; r < 3; r++)
-                    for (int b = 0; b < 5; b++)
-                        Block(office, "Book", new Vector3(x - 0.8f + b * 0.4f, 0.75f + r * 1.05f, -5.4f), new Vector3(0.28f, 0.7f, 0.3f), books[(b + r + i) % 3]);
-            }
-            Block(office, "Desk", new Vector3(0, 0.5f, -2.2f), new Vector3(3.2f, 1f, 1.2f), wood);
-            Shape(office, "DeskOrb", GemMesh(), new Vector3(-1f, 1.35f, -2.2f), new Vector3(0.35f, 0.5f, 0.35f), PMat("Crystal_9FD8FF", new Color(0.62f, 0.85f, 1f), 1f, new Color(0.37f, 0.5f, 0.6f)), false, Quaternion.identity);
-            Block(office, "Window", new Vector3(0, 4f, -5.78f), new Vector3(3f, 2.6f, 0.1f), window);
-            Block(office, "Fireplace", new Vector3(-6.6f, 1.2f, 2f), new Vector3(0.8f, 2.4f, 2.6f), trim);
-            Shape(office, "Fire", ConeMesh(), new Vector3(-6.1f, 0.6f, 2f), new Vector3(0.9f, 1f, 0.9f), PMat("Flame", new Color(1f, 0.55f, 0.1f), 1f, new Color(1f, 0.4f, 0.05f)), false, Quaternion.identity);
-            for (int i = 0; i < 2; i++) Planter(office, new Vector3(-5.5f + i * 11f, 0, 5.2f), PMat("Dirt", new Color(0.62f, 0.45f, 0.28f), 6f));
+            // Bookcases, the desk and its clutter, the fireplace, the owl and the cat... (WizardsVRCSceneBuilder.Office.cs).
+            FurnishOffice(office, trim, gold, wood, window, roomH);
             PointLight(office, new Vector3(0, 5.5f, -1f), new Color(1f, 0.85f, 0.65f), 16f, 1.5f);
-            PointLight(office, new Vector3(-5.5f, 1.5f, 2f), new Color(1f, 0.55f, 0.2f), 6f, 1.2f);
             float hmTop, hmFace;
             info.headmaster = NpcModel(office, "Headmaster", new Vector3(0, 0, -3.6f), 180f, HeadmasterLook(), "Headmaster Greymantle", "(click to talk)", out hmTop, out hmFace);
             info.officeSpawn = Child(office, "OfficeSpawn", new Vector3(0, 0.05f, 2.5f));
