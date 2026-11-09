@@ -251,6 +251,11 @@ add(260,"Superior Healing Potion",POTION,25,desc="A fizzing red bottle from Fuse
 add(261,"Fizzing Mana Bomb",POTION,25,desc="A blue sphere with a fuse. Drink it before it goes off.",color=(0.15,0.35,0.95),potion=(0,60))
 add(262,"Tinker's Deck",DECK,27,desc="A deck in a riveted brass case. It clicks shut very satisfyingly.",color=(0.7,0.55,0.3),deck=(55,7))
 add(263,"Highroller's Deck",DECK,33,'quest',desc="Gilt-edged cards in a velvet box. The house's own.",color=(0.6,0.15,0.2),deck=(60,7))
+# ---- casting styles (ids 264-267): wands that change how you draw a spell's rune (ItemDatabase.castStyleItems, CastPattern)
+add(264,"Runecutter Saber",WAND,6,desc="A duelling sabre with a rune-etched blade. Cast by slashing the rune's strokes through the air, quickly, one cut at a time.",color=(0.75,0.85,0.95))
+add(265,"Conductor's Baton",WAND,9,desc="An ebony baton with a silver tip. Cast in rhythm: touch each point of the rune on the beat of its metronome.",color=(0.2,0.18,0.22))
+add(266,"Wisp Lantern",WAND,14,desc="A little brass lantern on a rod. Its wisp runs the rune's path; keep the lantern in its glow all the way.",color=(0.55,0.95,0.85))
+add(267,"Dominion Sidearm",WAND,26,desc="A captured Dominion service pistol, re-chambered by Bigdig tinkers for rune-shot. Cast by shooting each target as it appears.",color=(0.35,0.38,0.45))
 
 def stats(it):
     if it['cat'] in (DECK,POTION): return [0]*9

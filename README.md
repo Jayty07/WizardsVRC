@@ -70,7 +70,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/DeckPages.cs` | Book's Deck tab, laid out like a spell deck screen: the "Spell Deck" plaque with a round icon per school (All, the seven schools, General) to filter by; the deck shown (flip through and equip the decks you own) with every card as its own square (click to take one out) and, under it, a row of the item spells your gear adds in battle; six big cards of the spells you know on the right (click to add a copy), each with how many the deck holds, page arrows down the sides; pointing at any card shows its details |
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
-| `Assets/WizardsVRC/Scripts/CastPattern.cs`, `PatternWand.cs` | Drawing a spell's rune before it's sent (spells under 100% accuracy): the board of points along the school's symbol, the hip wand in VR (a local pickup; `PatternWand` relays its grab and drop), numbered points on desktop, the quality that cuts the fizzle chance |
+| `Assets/WizardsVRC/Scripts/CastPattern.cs`, `PatternWand.cs` | Drawing a spell's rune before it's sent (spells under 100% accuracy): the board of points along the school's symbol, the hip wand in VR (a local pickup; `PatternWand` relays its grab, drop and the sidearm's trigger), numbered points on desktop, the four casting styles (sabre, baton, lantern, sidearm), the quality that cuts the fizzle chance |
 | `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell's own choreography (delivery, impact, wind-up, film style, bolts) on one shared rig, a creature riding the path; a wizard's attack spell as a cinematic (iris fade, taken to the middle of the ring, first-person wind-up, filmed release and hit on the cutscene screen, back to the seat) |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
 | `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb that drifts round the area on a wandering loop (server-clock timed, so everyone sees it in the same place): walk into it to restore health / mana (local; respawns after 30 s) |
@@ -529,6 +529,19 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   points hit takes that share of `BattleManager.patternFizzleCut` (90%) off the spell's chance to fizzle: a perfect rune
   on a 75% spell fizzles 2.5% of the time. Monsters never draw one. Sounds: `Audio/Cast/Pattern_*.wav`
   (`Tools/make_spell_cast_sounds.py`).
+- **Casting styles:** four wands change how the rune is drawn (`ItemDatabase.castStyleItems`; the item's details say
+  which). In VR the wand pickup shows that wand's model, and the sidearm is a pickup of its own.
+
+  | Wand (item, Lv, sold) | VR | Desktop |
+  | --- | --- | --- |
+  | Runecutter Saber (264, Lv 6) | draw the sabre and slash through the board along each glowing stroke (point to point), fast, in order. A cut counts where the blade crosses the board, and one long sweep can cut several strokes | swing your view fast across each stroke |
+  | Conductor's Baton (265, Lv 9) | after a two-beat count-in on the metronome, each point comes due on its own beat (it swells as it nears). Touch it with the baton on the beat (±0.24 s) | click it on the beat. Early or late loses it |
+  | Wisp Lantern (266, Lv 14) | a wisp runs the rune's path (jumping where the pen lifts). Keep the lantern in its glow. The quality is the share of the run spent in the glow | keep your view (the crosshair) on it |
+  | Dominion Sidearm (267, Lv 26) | the points pop up one at a time as targets that shrink as they fade. Draw the pistol (aim laser) and pull the trigger on each. A wild shot eats 30% of the target's time | click each target before it fades |
+
+  Any other wand draws the usual way. Bigger spells make every style harder: more points, smaller targets, faster beats,
+  a quicker wisp and quicker targets. Each style fits itself into the time left in the round. Sounds:
+  `Pattern_Slash`, `Pattern_Shot`, `Pattern_Beat` and `Pattern_Wisp`.
 - **A wizard's attack spell is a cinematic** (`BattleManager.FLAG_CINE` on its first act, so every client times it the
   same): your view irises shut in your school's colour (`Shaders/SpellFade.shader`), you vanish from your seat in a burst
   and appear in the middle of the ring facing your target, and it opens again. You cast in first person: the symbol is

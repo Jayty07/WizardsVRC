@@ -1866,7 +1866,11 @@ namespace WizardsVRC
                 _discardMode = false;
                 if (uiAudio != null) uiAudio.PlaySpellSelect();
                 int accuracy = 100 - manager.FizzleChance(_slot, card, 0);
-                castPattern.Begin(this, cardDatabase.GetSchool(card), cardDatabase.GetPipCost(card), accuracy, manager.SecondsLeft() - 1.5f, cardDatabase.GetName(card));
+                // The equipped wand's casting style (the sabre, sidearm, baton or lantern) decides how the rune is drawn.
+                int style = 0;
+                if (itemDatabase != null && playerState != null && playerState.HasCharacter() && playerState.current != null)
+                    style = itemDatabase.CastStyle(playerState.current.equipped[CharacterData.EQUIP_WEAPON]);
+                castPattern.Begin(this, cardDatabase.GetSchool(card), cardDatabase.GetPipCost(card), accuracy, manager.SecondsLeft() - 1.5f, cardDatabase.GetName(card), style);
                 _note = "Draw the rune to cast " + cardDatabase.GetName(card) + "...";
                 RefreshHand();
                 UpdateHandVisible();

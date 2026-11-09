@@ -10,6 +10,10 @@ bells, choir and reverb as the quest sounds (make_quest_sounds.py).
     Spell_Release.wav    the spell let go: a punch of air sweeping down over a thump, sparks off it (0.9 s)
     Spell_Impact.wav     it hits: a falling boom, a crack, a shimmering tail (1.7 s)
     Spell_ImpactBig.wav  a big spell (4+ pips) hits: a deeper double boom and rumble, a bell chord and a choir, debris (2.9 s)
+    Pattern_Slash.wav    a stroke cut with the Runecutter blade: a fast swish and a bright steel ring (0.6 s)
+    Pattern_Shot.wav     a rune-shot from the Dominion sidearm: a crack, a short punch and a brass ping (0.6 s)
+    Pattern_Beat.wav     the Conductor's Baton's metronome: one dry wooden click (0.2 s)
+    Pattern_Wisp.wav     the Wisp Lantern's wisp setting off: a soft breathy glide up (0.8 s)
 
     python3 Tools/make_spell_cast_sounds.py Assets/WizardsVRC/Audio/Cast      (needs numpy and scipy)
 """
@@ -149,6 +153,32 @@ def main(folder):
     out += q.choir(t, [n('D3'), n('A3'), n('D4'), n('F4')], 0.02, 2.4, 0.3, swell=0.12)
     out += q.sparkles(t, 0.15, 2.0, 30, 0.04, lo=2000, hi=8000, rise=-1.0)
     q.write(os.path.join(folder, 'Spell_ImpactBig.wav'), out, T, wet=0.38, size=1.2, gain=0.95)
+
+    # (Added later, after every sound above, so they keep their random draws.)
+    # A stroke cut: a fast high swish and a bright steel ring.
+    T = 0.6
+    t = q.timeline(T)
+    out = sweep_noise(t, 0.0, 0.18, 1500, 9000, 0.45, shape=0.9) + q.bell(t, n('B6'), 0.08, 0.5, 0.12, decay=6)
+    out += q.celesta(t, n('F#7'), 0.08, 0.4, 0.1, decay=8)
+    q.write(os.path.join(folder, 'Pattern_Slash.wav'), out, T, wet=0.15, size=0.5, gain=0.7)
+
+    # A rune-shot: a crack, a short punch, a brass ping.
+    T = 0.6
+    t = q.timeline(T)
+    out = crack(t, 0.0, 0.7, dur=0.12, hp=1500) + boom(t, 0.0, 0.3, 220, 70, 0.6, decay=14) + q.bell(t, n('E6'), 0.03, 0.5, 0.08, decay=7)
+    q.write(os.path.join(folder, 'Pattern_Shot.wav'), out, T, wet=0.12, size=0.6, gain=0.75)
+
+    # The metronome: one dry wooden click.
+    T = 0.2
+    t = q.timeline(T)
+    out = boom(t, 0.0, 0.08, 1800, 900, 0.5, decay=60) + crack(t, 0.0, 0.25, dur=0.03, hp=2500)
+    q.write(os.path.join(folder, 'Pattern_Beat.wav'), out, T, wet=0.05, size=0.3, gain=0.6)
+
+    # The wisp sets off: a breathy glide up with a glint.
+    T = 0.8
+    t = q.timeline(T)
+    out = sweep_noise(t, 0.0, 0.6, 500, 3500, 0.18, shape=1.6) + q.celesta(t, n('A6'), 0.3, 0.45, 0.1, decay=6)
+    q.write(os.path.join(folder, 'Pattern_Wisp.wav'), out, T, wet=0.3, size=0.8, gain=0.55)
 
 
 if __name__ == '__main__':

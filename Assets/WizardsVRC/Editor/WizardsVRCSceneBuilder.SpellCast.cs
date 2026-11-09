@@ -141,24 +141,20 @@ namespace WizardsVRC.EditorTools
             pattern.penJump = (int[])GlyphPenData.Jump.Clone();
             pattern.penSamples = GlyphPenData.Samples;
 
-            // The wand: a dark wood shaft with a gold band and a gem tip in the school's colour, held anywhere.
+            // The wand pickup: one model per casting style (the equipped wand's: CastPattern shows the one in use), each
+            // with a working end ("Tip") and parts tinted in the spell's school colour.
             var wandGo = new GameObject("CastingWand");
             wandGo.transform.SetParent(root, false);
             int pickupLayer = LayerMask.NameToLayer("Pickup");
-            Material wood = PMat("CastWandWood", new Color(0.28f, 0.18f, 0.12f), 1f);
-            Material grip = PMat("CastWandGrip", new Color(0.14f, 0.09f, 0.07f), 1f);
-            Material gold = PMat("CastWandGold", new Color(1f, 0.82f, 0.36f), 1f, new Color(0.5f, 0.38f, 0.1f));
-            var shaft = Shape(wandGo.transform, "Shaft", CylMesh(), new Vector3(0, 0, 0.11f), new Vector3(0.016f, 0.13f, 0.016f), wood, false, Quaternion.Euler(90f, 0, 0));
-            var handle = Shape(wandGo.transform, "Handle", CylMesh(), new Vector3(0, 0, -0.035f), new Vector3(0.026f, 0.055f, 0.026f), grip, false, Quaternion.Euler(90f, 0, 0));
-            var band = Shape(wandGo.transform, "Band", CylMesh(), new Vector3(0, 0, 0.025f), new Vector3(0.03f, 0.008f, 0.03f), gold, false, Quaternion.Euler(90f, 0, 0));
-            var pommel = Shape(wandGo.transform, "Pommel", GemMesh(), new Vector3(0, 0, -0.095f), new Vector3(0.03f, 0.03f, 0.03f), gold, false, Quaternion.Euler(90f, 0, 0));
-            var gem = Shape(wandGo.transform, "Gem", GemMesh(), new Vector3(0, 0, 0.255f), new Vector3(0.028f, 0.05f, 0.028f), cores[0], false, Quaternion.Euler(90f, 0, 0));
-            foreach (var go in new[] { shaft, handle, band, pommel, gem })
-            {
-                go.isStatic = false;
-                go.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            }
-            var tip = Child(wandGo.transform, "Tip", new Vector3(0, 0, 0.28f));
+            var models = new GameObject[CastPattern.STYLE_COUNT];
+            var tips = new Transform[CastPattern.STYLE_COUNT];
+            var gems = new List<Renderer>();
+            Renderer wandGemR;
+            models[CastPattern.STYLE_WAND] = CastWandModel(wandGo.transform, cores[0], out tips[CastPattern.STYLE_WAND], out wandGemR);
+            Transform bladeBase;
+            models[CastPattern.STYLE_BLADE] = CastSabreModel(wandGo.transform, cores[0], gems, out tips[CastPattern.STYLE_BLADE], out bladeBase);
+            models[CastPattern.STYLE_BATON] = CastBatonModel(wandGo.transform, cores[0], gems, out tips[CastPattern.STYLE_BATON]);
+            models[CastPattern.STYLE_LANTERN] = CastLanternModel(wandGo.transform, cores[0], gems, out tips[CastPattern.STYLE_LANTERN]);
             var col = wandGo.AddComponent<BoxCollider>();
             col.center = new Vector3(0, 0, 0.09f);
             col.size = new Vector3(0.06f, 0.06f, 0.4f);
@@ -177,11 +173,63 @@ namespace WizardsVRC.EditorTools
             relay.pattern = pattern;
             UdonSharpEditorUtility.CopyProxyToUdon(relay);
             if (pickupLayer >= 0) foreach (Transform t in wandGo.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = pickupLayer;
+            for (int k = 0; k < models.Length; k++) if (models[k] != null) models[k].SetActive(k == CastPattern.STYLE_WAND);
             pattern.wand = wandGo.transform;
-            pattern.wandTip = tip;
+            pattern.wandTip = tips[CastPattern.STYLE_WAND];
             pattern.wandPickup = pickup;
-            pattern.wandGem = gem.GetComponent<Renderer>();
+            pattern.wandGem = wandGemR;
+            pattern.wandCollider = col;
+            pattern.styleModels = models;
+            pattern.styleTips = tips;
+            pattern.styleGems = gems.ToArray();
+            pattern.bladeBase = bladeBase;
             wandGo.SetActive(false);
+
+            // The Dominion sidearm: a pickup of its own (Auto Hold, so the trigger fires).
+            Transform muzzle;
+            Renderer cell;
+            var gunGo = CastPistolModel(root, cores[0], out muzzle, out cell);
+            var gcol = gunGo.AddComponent<BoxCollider>();
+            gcol.center = new Vector3(0, -0.02f, 0.05f);
+            gcol.size = new Vector3(0.05f, 0.14f, 0.26f);
+            var grb = gunGo.AddComponent<Rigidbody>();
+            grb.isKinematic = true;
+            grb.useGravity = false;
+            var gpick = gunGo.AddComponent<VRCPickup>();
+            gpick.InteractionText = "Dominion sidearm";
+            gpick.UseText = "Fire";
+            gpick.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes;
+            gpick.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Grip;
+            gpick.ExactGrip = gunGo.transform.Find("Grip");
+            gpick.allowManipulationWhenEquipped = false;
+            gpick.DisallowTheft = true;
+            gpick.proximity = 0.6f;
+            var grelay = UdonSharpUndo.AddComponent<PatternWand>(gunGo);
+            grelay.pattern = pattern;
+            UdonSharpEditorUtility.CopyProxyToUdon(grelay);
+            if (pickupLayer >= 0) foreach (Transform t in gunGo.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = pickupLayer;
+            pattern.pistol = gunGo.transform;
+            pattern.pistolMuzzle = muzzle;
+            pattern.pistolPickup = gpick;
+            pattern.pistolGem = cell;
+            gunGo.SetActive(false);
+
+            // The sidearm's aim laser and tracer, and the sabre's slash trail.
+            pattern.fxLine = PatternLine(root, "CastFxLine", Glow("CastPatternFx", new Color(1f, 0.55f, 0.35f), 2f), 0.006f);
+            pattern.fxLine.gameObject.SetActive(false);
+            // The lantern's wisp, and the desktop crosshair, on the board.
+            GameObject wispGo = Shape(board, "Wisp", GemMesh(), new Vector3(0, 0, -16f), Vector3.one * 32f, Glow("CastPatternWisp", new Color(0.6f, 1f, 0.9f), 2.6f), false, Quaternion.identity);
+            wispGo.isStatic = false;
+            wispGo.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            wispGo.layer = walk;
+            wispGo.SetActive(false);
+            pattern.wisp = wispGo.transform;
+            GameObject cross = Shape(board, "Crosshair", BlobMesh(), new Vector3(0, 0, -18f), Vector3.one * 12f, Glow("CastPatternCrosshair", new Color(1f, 1f, 1f), 1.6f), false, Quaternion.identity);
+            cross.isStatic = false;
+            cross.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            cross.layer = walk;
+            cross.SetActive(false);
+            pattern.crosshair = cross.transform;
 
             // Sparks off the tip while it's held.
             var sparks = CinePS(root, "WandTipSparks", SparkleMat("CastWandSparks", new Color(1f, 0.9f, 0.6f)), null, 0.25f, 0.5f, 0.05f, 0.3f, 0.02f, 0.05f, 0f, ParticleSystemShapeType.Sphere, 0.01f, 300);
@@ -196,6 +244,10 @@ namespace WizardsVRC.EditorTools
             pattern.missSound = CastClip("Pattern_Miss");
             pattern.doneSound = CastClip("Pattern_Done");
             pattern.failSound = CastClip("Pattern_Fail");
+            pattern.slashSound = CastClip("Pattern_Slash");
+            pattern.shotSound = CastClip("Pattern_Shot");
+            pattern.beatSound = CastClip("Pattern_Beat");
+            pattern.wispSound = CastClip("Pattern_Wisp");
             boardGo.SetActive(false);
             return pattern;
         }
@@ -240,6 +292,116 @@ namespace WizardsVRC.EditorTools
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             r.receiveShadows = false;
             return r;
+        }
+
+        // ---- the casting tools (each faces +Z, held at the origin; "Tip" is the working end)
+
+        private static GameObject ToolPart(Transform parent, string name, Mesh mesh, Vector3 pos, Vector3 scale, Material mat, Quaternion rot)
+        {
+            var go = Shape(parent, name, mesh, pos, scale, mat, false, rot);
+            go.isStatic = false;
+            go.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return go;
+        }
+
+        /// <summary>The ordinary wand: a dark wood shaft with a gold band and a gem tip in the school's colour.</summary>
+        private static GameObject CastWandModel(Transform parent, Material core, out Transform tip, out Renderer gemR)
+        {
+            var m = new GameObject("Model_Wand").transform;
+            m.SetParent(parent, false);
+            Material wood = PMat("CastWandWood", new Color(0.28f, 0.18f, 0.12f), 1f);
+            Material grip = PMat("CastWandGrip", new Color(0.14f, 0.09f, 0.07f), 1f);
+            Material gold = PMat("CastWandGold", new Color(1f, 0.82f, 0.36f), 1f, new Color(0.5f, 0.38f, 0.1f));
+            Quaternion along = Quaternion.Euler(90f, 0, 0);
+            ToolPart(m, "Shaft", CylMesh(), new Vector3(0, 0, 0.11f), new Vector3(0.016f, 0.13f, 0.016f), wood, along);
+            ToolPart(m, "Handle", CylMesh(), new Vector3(0, 0, -0.035f), new Vector3(0.026f, 0.055f, 0.026f), grip, along);
+            ToolPart(m, "Band", CylMesh(), new Vector3(0, 0, 0.025f), new Vector3(0.03f, 0.008f, 0.03f), gold, along);
+            ToolPart(m, "Pommel", GemMesh(), new Vector3(0, 0, -0.095f), new Vector3(0.03f, 0.03f, 0.03f), gold, along);
+            gemR = ToolPart(m, "Gem", GemMesh(), new Vector3(0, 0, 0.255f), new Vector3(0.028f, 0.05f, 0.028f), core, along).GetComponent<Renderer>();
+            tip = Child(m, "Tip", new Vector3(0, 0, 0.28f));
+            return m.gameObject;
+        }
+
+        /// <summary>The Runecutter Saber: a wrapped grip, a gold basket guard and a long steel blade with a glowing rune line.</summary>
+        private static GameObject CastSabreModel(Transform parent, Material core, List<Renderer> gems, out Transform tip, out Transform bladeBase)
+        {
+            var m = new GameObject("Model_Sabre").transform;
+            m.SetParent(parent, false);
+            Material steel = PMat("SabreSteel", new Color(0.78f, 0.82f, 0.88f), 1f, new Color(0.08f, 0.09f, 0.12f));
+            Material grip = PMat("SabreGrip", new Color(0.12f, 0.08f, 0.1f), 1f);
+            Material gold = PMat("CastWandGold", new Color(1f, 0.82f, 0.36f), 1f, new Color(0.5f, 0.38f, 0.1f));
+            Quaternion along = Quaternion.Euler(90f, 0, 0);
+            ToolPart(m, "Grip", CylMesh(), new Vector3(0, 0, -0.04f), new Vector3(0.028f, 0.06f, 0.028f), grip, along);
+            ToolPart(m, "Pommel", GemMesh(), new Vector3(0, 0, -0.11f), new Vector3(0.035f, 0.035f, 0.035f), gold, along);
+            ToolPart(m, "Guard", CylMesh(), new Vector3(0, 0, 0.03f), new Vector3(0.12f, 0.01f, 0.05f), gold, along);
+            ToolPart(m, "Knuckle", CylMesh(), new Vector3(0, -0.035f, -0.02f), new Vector3(0.01f, 0.05f, 0.01f), gold, along);
+            ToolPart(m, "Blade", BoxMesh(), new Vector3(0, 0, 0.43f), new Vector3(0.006f, 0.034f, 0.78f), steel, Quaternion.identity);
+            ToolPart(m, "Point", PyramidMesh(), new Vector3(0, 0, 0.845f), new Vector3(0.006f, 0.05f, 0.034f), steel, Quaternion.Euler(90f, 0, 0));
+            gems.Add(ToolPart(m, "RuneLine", BoxMesh(), new Vector3(0, 0.004f, 0.4f), new Vector3(0.008f, 0.006f, 0.66f), core, Quaternion.identity).GetComponent<Renderer>());
+            bladeBase = Child(m, "BladeBase", new Vector3(0, 0, 0.05f));
+            tip = Child(m, "Tip", new Vector3(0, 0, 0.86f));
+            return m.gameObject;
+        }
+
+        /// <summary>The Conductor's Baton: a cork handle, a slim ebony stick and a silver tip with a spark of the school's colour.</summary>
+        private static GameObject CastBatonModel(Transform parent, Material core, List<Renderer> gems, out Transform tip)
+        {
+            var m = new GameObject("Model_Baton").transform;
+            m.SetParent(parent, false);
+            Material cork = PMat("BatonCork", new Color(0.72f, 0.56f, 0.38f), 1f);
+            Material ebony = PMat("BatonEbony", new Color(0.07f, 0.06f, 0.07f), 1f);
+            Material silver = PMat("BatonSilver", new Color(0.86f, 0.88f, 0.92f), 1f, new Color(0.15f, 0.15f, 0.18f));
+            Quaternion along = Quaternion.Euler(90f, 0, 0);
+            ToolPart(m, "Handle", CylMesh(), new Vector3(0, 0, -0.03f), new Vector3(0.03f, 0.05f, 0.03f), cork, along);
+            ToolPart(m, "Ferrule", CylMesh(), new Vector3(0, 0, 0.025f), new Vector3(0.018f, 0.008f, 0.018f), silver, along);
+            ToolPart(m, "Stick", CylMesh(), new Vector3(0, 0, 0.19f), new Vector3(0.008f, 0.16f, 0.008f), ebony, along);
+            ToolPart(m, "SilverTip", GemMesh(), new Vector3(0, 0, 0.36f), new Vector3(0.012f, 0.03f, 0.012f), silver, along);
+            gems.Add(ToolPart(m, "Spark", GemMesh(), new Vector3(0, 0, 0.385f), new Vector3(0.016f, 0.016f, 0.016f), core, along).GetComponent<Renderer>());
+            tip = Child(m, "Tip", new Vector3(0, 0, 0.39f));
+            return m.gameObject;
+        }
+
+        /// <summary>The Wisp Lantern: a brass rod with a little caged lantern at its end, its flame the school's colour.</summary>
+        private static GameObject CastLanternModel(Transform parent, Material core, List<Renderer> gems, out Transform tip)
+        {
+            var m = new GameObject("Model_Lantern").transform;
+            m.SetParent(parent, false);
+            Material brass = PMat("LanternBrass", new Color(0.85f, 0.65f, 0.28f), 1f, new Color(0.18f, 0.12f, 0.02f));
+            Material grip = PMat("CastWandGrip", new Color(0.14f, 0.09f, 0.07f), 1f);
+            Material glass = PMat("LanternGlass", new Color(0.8f, 0.95f, 0.9f), 1f, new Color(0.2f, 0.3f, 0.28f));
+            Quaternion along = Quaternion.Euler(90f, 0, 0);
+            ToolPart(m, "Handle", CylMesh(), new Vector3(0, 0, -0.03f), new Vector3(0.026f, 0.05f, 0.026f), grip, along);
+            ToolPart(m, "Rod", CylMesh(), new Vector3(0, 0, 0.14f), new Vector3(0.01f, 0.13f, 0.01f), brass, along);
+            ToolPart(m, "Hook", CylMesh(), new Vector3(0, 0.02f, 0.28f), new Vector3(0.008f, 0.025f, 0.008f), brass, Quaternion.identity);
+            ToolPart(m, "Cap", ConeMesh(), new Vector3(0, 0, 0.405f), new Vector3(0.07f, 0.03f, 0.07f), brass, along);
+            ToolPart(m, "Glass", CylMesh(), new Vector3(0, 0, 0.37f), new Vector3(0.06f, 0.035f, 0.06f), glass, along);
+            ToolPart(m, "Base", CylMesh(), new Vector3(0, 0, 0.333f), new Vector3(0.07f, 0.006f, 0.07f), brass, along);
+            gems.Add(ToolPart(m, "Flame", GemMesh(), new Vector3(0, 0, 0.37f), new Vector3(0.03f, 0.04f, 0.03f), core, along).GetComponent<Renderer>());
+            tip = Child(m, "Tip", new Vector3(0, 0, 0.37f));
+            return m.gameObject;
+        }
+
+        /// <summary>The Dominion sidearm: gunmetal frame, a long barrel with brass bands, a glowing cell, angled grip.</summary>
+        private static GameObject CastPistolModel(Transform root, Material core, out Transform muzzle, out Renderer cell)
+        {
+            var go = new GameObject("DominionSidearm");
+            go.transform.SetParent(root, false);
+            var m = go.transform;
+            Material metal = PMat("SidearmMetal", new Color(0.26f, 0.28f, 0.33f), 1f);
+            Material dark = PMat("SidearmDark", new Color(0.1f, 0.1f, 0.12f), 1f);
+            Material brass = PMat("LanternBrass", new Color(0.85f, 0.65f, 0.28f), 1f, new Color(0.18f, 0.12f, 0.02f));
+            Quaternion along = Quaternion.Euler(90f, 0, 0);
+            ToolPart(m, "Frame", BoxMesh(), new Vector3(0, 0.02f, 0.02f), new Vector3(0.034f, 0.05f, 0.16f), metal, Quaternion.identity);
+            ToolPart(m, "Barrel", CylMesh(), new Vector3(0, 0.028f, 0.15f), new Vector3(0.024f, 0.07f, 0.024f), dark, along);
+            foreach (float z in new[] { 0.11f, 0.19f })
+                ToolPart(m, "BarrelBand", CylMesh(), new Vector3(0, 0.028f, z), new Vector3(0.03f, 0.006f, 0.03f), brass, along);
+            ToolPart(m, "GripPart", BoxMesh(), new Vector3(0, -0.045f, -0.03f), new Vector3(0.03f, 0.1f, 0.04f), dark, Quaternion.Euler(-15f, 0, 0));
+            ToolPart(m, "TriggerGuard", BoxMesh(), new Vector3(0, -0.018f, 0.015f), new Vector3(0.008f, 0.03f, 0.04f), metal, Quaternion.identity);
+            ToolPart(m, "Sight", BoxMesh(), new Vector3(0, 0.05f, 0.08f), new Vector3(0.006f, 0.01f, 0.03f), brass, Quaternion.identity);
+            cell = ToolPart(m, "Cell", CylMesh(), new Vector3(0, 0.02f, -0.02f), new Vector3(0.026f, 0.02f, 0.026f), core, Quaternion.Euler(0, 0, 90f)).GetComponent<Renderer>();
+            Child(m, "Grip", new Vector3(0, -0.04f, -0.03f));
+            muzzle = Child(m, "Muzzle", new Vector3(0, 0.028f, 0.225f));
+            return go;
         }
 
         private static LineRenderer PatternLine(Transform parent, string name, Material mat, float width)
