@@ -170,12 +170,17 @@ namespace WizardsVRC.EditorTools
             most = Mathf.Clamp(most, 2, BattleManager.SIDE);
             for (int r = 0; r < rosters.Count; r++)
                 if (rosters[r].Length > most) { var cut = new int[most]; System.Array.Copy(rosters[r], cut, most); rosters[r] = cut; }
+            // What each floor's leader says when you arrive (its cutscene): the first line is also the floating greeting's.
             var lines = new[]
             {
-                "Another little wizard comes knocking at " + towerName + "? Turn back while you still can!",
-                "You got past the guards below? No matter. " + bossName + " will hear of this!",
-                bossName + " waits at the top. You will never reach it!",
-                "So, you climbed my tower. " + z.displayName + " is mine, wizard. Come, let us end this!",
+                new[] { "Another little wizard comes knocking at " + towerName + "? Turn back while you still can!",
+                        "No? Then step up, and we'll throw you back down the stairs ourselves!" },
+                new[] { "You got past the guards below? No matter. " + bossName + " will hear of this!",
+                        "Every floor is harder than the last, wizard. This one is ours." },
+                new[] { bossName + " waits at the top. You will never reach it!",
+                        "We are the last door before the summit. Nobody gets past us." },
+                new[] { "So. You climbed my tower.",
+                        z.displayName + " is mine, wizard. Every street, every stone. Come, let us end this!" },
             };
 
             // ---- the tower, far away, its own area
@@ -295,7 +300,7 @@ namespace WizardsVRC.EditorTools
                 floor.centre = room;
                 floor.radius = TowerRoomR + 1f;
                 floor.speaker = MonsterLabel(rosters[k][0]);
-                floor.line = lines[k];
+                floor.line = lines[k][0];
                 floor.floorTitle = isTop ? "Top floor" : "Floor " + (k + 1);
                 floor.isTop = isTop;
                 floor.towerName = towerName;
@@ -303,6 +308,21 @@ namespace WizardsVRC.EditorTools
                 floor.clearShards = 5;
                 // The leader is the first of the walkers (no stand-in body: the monsters are right there).
                 TowerDialog(room, floor, cardDb.MonsterSchool(rosters[k][0]));
+                // ...and the cutscene that plays as you arrive: a wide shot of the chamber from behind you, then the
+                // leader's side of the ring, the leader speaking (rimmed red, hostile).
+                Vector3 far = path[2].localPosition + new Vector3(0, 1.6f, 0);
+                var shots = new[]
+                {
+                    Shot(room, "Shot_Wide", new Vector3(0, 3.4f, -(TowerRoomR - 3.5f)), new Vector3(0, 1.4f, 4f)),
+                    Shot(room, "Shot_Leader", far * 0.32f + new Vector3(2.2f, 2.1f, -1.5f), far),
+                };
+                var cs = MakeCutscene(wb.cutsceneParent, name + "_Greeting", floor.speaker, lines[k], "tower_" + (isTop ? "boss" : "floor" + k), shots);
+                cs.cutsceneId = name + "_Greeting";
+                cs.stances = new int[lines[k].Length];
+                for (int i = 0; i < cs.stances.Length; i++) cs.stances[i] = Cutscene.STANCE_HOSTILE;
+                floor.cutscene = cs;
+                floor.cutscenePlayer = qm != null ? qm.cutscenePlayer : null;
+                wb.behaviours.Add(cs);
                 client.towerFloor = floor;
                 wb.behaviours.Add(floor);
 

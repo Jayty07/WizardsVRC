@@ -7,8 +7,9 @@ namespace WizardsVRC
 {
     /// <summary>
     /// One floor of a boss tower (Wizard101's Golem Tower): a chamber with a duel ring and the wave that guards it. When
-    /// you arrive, the wave's leader stands across the ring and speaks to you (a line with their portrait, rimmed red);
-    /// step into the ring to fight. Win and you're taken up to the next floor (BattleClient.victoryReturn); the top
+    /// you arrive (entering the tower, or coming up from the floor below), a cutscene plays: the wave's leader across the
+    /// ring speaks to you, their portrait rimmed red (or, without a cutscene, a floating line with their portrait);
+    /// run into one of them to fight. Win and you're taken up to the next floor (BattleClient.victoryReturn); the top
     /// floor's boss is the tower's last fight, and beating it marks the tower cleared on your wizard (titles, Starshards).
     /// Local: each player sees their own greeting.
     /// </summary>
@@ -26,6 +27,9 @@ namespace WizardsVRC
         public string speaker = "";
         [TextArea(1, 4)] public string line = "";
         public float dialogSeconds = 9f;
+        [Tooltip("The leader's cutscene, played when you arrive (falls back to the floating line without one).")]
+        public Cutscene cutscene;
+        public CutscenePlayer cutscenePlayer;
         [Tooltip("The leader standing across the ring until the fight starts (the duel shows its own bodies).")]
         public GameObject idleBody;
         [Tooltip("The floor's number shown to you on arrival.")]
@@ -40,7 +44,12 @@ namespace WizardsVRC
         private bool _here;
 
         /// <summary>True while the leader's greeting is showing to this player (MusicDirector picks a theme by its speaker).</summary>
-        public bool IsTalking() { return dialogRoot != null && dialogRoot.activeSelf; }
+        public bool IsTalking()
+        {
+            if (dialogRoot != null && dialogRoot.activeSelf) return true;
+            return cutscene != null && cutscenePlayer != null && cutscenePlayer.IsPlaying() && _cutsceneOn;
+        }
+        private bool _cutsceneOn;
         private float _shownAt = -100f;
         private float _next;
 
@@ -62,6 +71,7 @@ namespace WizardsVRC
             if (idleBody != null && idleBody.activeSelf != idle) idleBody.SetActive(idle);
             if (here && !_here && idle) Greet();
             _here = here;
+            if (_cutsceneOn && (cutscenePlayer == null || !cutscenePlayer.IsPlaying())) _cutsceneOn = false;
             if (dialogRoot == null || !dialogRoot.activeSelf) return;
             if (!here || !idle || Time.time - _shownAt > dialogSeconds) { dialogRoot.SetActive(false); return; }
             // The greeting turns to face you (upright).
@@ -72,6 +82,14 @@ namespace WizardsVRC
 
         private void Greet()
         {
+            // A cutscene of the leader speaking, unless something else is already playing.
+            if (cutscene != null && cutscenePlayer != null)
+            {
+                if (cutscenePlayer.IsPlaying() || cutscenePlayer.IsFilming()) return;
+                cutscenePlayer.Play(cutscene);
+                _cutsceneOn = true;
+                return;
+            }
             if (dialogRoot == null) return;
             if (dialogName != null) dialogName.text = speaker + (floorTitle.Length > 0 ? "   <color=#C9B48A>" + floorTitle + "</color>" : "");
             if (dialogLine != null) dialogLine.text = "\"" + line + "\"";
