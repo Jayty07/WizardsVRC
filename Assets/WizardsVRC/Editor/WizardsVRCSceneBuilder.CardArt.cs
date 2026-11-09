@@ -244,11 +244,11 @@ namespace WizardsVRC.EditorTools
                 {
                     for (int b = 0; b < 9; b++)
                     {
-                        int bx = R(rng, -4, ArtW), bw = R(rng, 8, 16), top = horizon - R(rng, 10, 34);
-                        for (int y = top; y < horizon; y++)
+                        int bx = R(rng, -4, ArtW), bw = R(rng, 8, 16), roof = horizon - R(rng, 10, 34);
+                        for (int y = roof; y < horizon; y++)
                             for (int x = bx; x < bx + bw; x++)
                             {
-                                bool window = (x - bx) % 3 == 1 && (y - top) % 4 == 2 && rng.NextDouble() < 0.45;
+                                bool window = (x - bx) % 3 == 1 && (y - roof) % 4 == 2 && rng.NextDouble() < 0.45;
                                 Put(px, x, y, window ? new Color(0.5f, 1f, 0.92f) : new Color(0.03f, 0.09f, 0.12f));
                             }
                     }
