@@ -76,13 +76,13 @@ namespace WizardsVRC.EditorTools
                     L.height = 0.8f; L.stand = 0.45f; L.goggles = true; L.highCollar = true; L.gloves = true; L.brows = 6f; L.gem = new Color(0.95f, 0.85f, 1f); L.idle = 1;
                     return L;
                 case 3:
-                    // Briar Meadowsong, a unicorn: warm and motherly. A pearl-white coat, a flowing mane in blossom pink and mint,
+                    // Briar Meadowsong, a unicorn: warm and motherly, with a full hourglass figure. A pearl-white coat, a flowing mane in blossom pink and mint,
                     // big gentle violet eyes, a spiral horn of pearl and gold that glows softly through her crown of blossoms; a
                     // leaf-green dress with a cream gardener's apron, and a living vine staff that flowers at its tip.
                     L = Look(NpcBuild.Stout, true, new Color(0.97f, 0.95f, 0.99f), new Color(1f, 0.68f, 0.82f), NpcHair.Long, NpcBeard.None, NpcOutfit.Dress,
                         new Color(0.26f, 0.55f, 0.26f), new Color(0.55f, 0.78f, 0.35f), new Color(1f, 0.62f, 0.75f), NpcHat.FlowerCrown, new Color(0.3f, 0.6f, 0.25f), NpcItem.VineStaff);
                     L.species = NpcSpecies.Unicorn; L.mane2 = new Color(0.62f, 0.95f, 0.78f); L.belly = new Color(0.95f, 0.84f, 0.88f); L.horn = new Color(1f, 0.9f, 0.62f);
-                    L.eyes = new Color(0.34f, 0.16f, 0.46f); L.height = 1.04f; L.apron = true; L.extra = new Color(0.94f, 0.9f, 0.76f); L.brows = -8f; L.idle = 0;
+                    L.eyes = new Color(0.34f, 0.16f, 0.46f); L.height = 1.04f; L.curvy = true; L.apron = true; L.extra = new Color(0.94f, 0.9f, 0.76f); L.brows = -8f; L.idle = 0;
                     return L;
                 case 4:
                     // Mortimer Gloamsby: tall, thin and courteous as an undertaker. Pale, a pencil moustache, a plum-black top

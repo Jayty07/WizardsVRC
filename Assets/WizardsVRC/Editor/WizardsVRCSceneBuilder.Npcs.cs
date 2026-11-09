@@ -55,6 +55,7 @@ namespace WizardsVRC.EditorTools
             public NpcBuild build = NpcBuild.Average;
             public float height = 1f;
             public bool feminine;
+            public bool curvy;                             // an hourglass figure: a full bust, a cinched waist, round hips
             public Color skin = new Color(0.93f, 0.76f, 0.6f);
             public Color hair = new Color(0.38f, 0.24f, 0.14f);
             public Color beardColor = new Color(-1f, 0f, 0f);   // r < 0 = same as the hair
@@ -271,9 +272,19 @@ namespace WizardsVRC.EditorTools
             var spine = Pivot(hips, "Spine", Vector3.zero, L.build == NpcBuild.Elder ? new Vector3(-11f, 0, 0) : Vector3.zero);
             Material torsoMat = L.outfit == NpcOutfit.Vest || L.outfit == NpcOutfit.Overalls ? second : (L.outfit == NpcOutfit.Armor ? metal : main);
             if (L.outfit == NpcOutfit.Bark) torsoMat = skin;
-            NP(spine, "Torso", CylMesh(), new Vector3(0, 0.34f, 0), new Vector3(w, 0.34f, d), torsoMat);
-            NP(spine, "Chest", BlobMesh(), new Vector3(0, 0.6f, 0), new Vector3(w * 1.05f, 0.24f, d * 1.05f), torsoMat);
-            if (L.build == NpcBuild.Stout || L.build == NpcBuild.Hulking)
+            float waist = L.curvy ? 0.78f : 1f;
+            NP(spine, "Torso", CylMesh(), new Vector3(0, 0.34f, 0), new Vector3(w * waist, 0.34f, d * (L.curvy ? 0.86f : 1f)), torsoMat);
+            NP(spine, "Chest", BlobMesh(), new Vector3(0, 0.6f, 0), new Vector3(w * (L.curvy ? 1.08f : 1.05f), 0.24f, d * 1.05f), torsoMat);
+            if (L.curvy)
+            {
+                // An hourglass: the ribs rounding out under a full bust, the waist cinched in above round, wide hips.
+                NP(spine, "Ribs", BlobMesh(), new Vector3(0, 0.44f, 0), new Vector3(w * 0.96f, 0.36f, d * 0.98f), torsoMat);
+                foreach (float x in new[] { -1f, 1f })
+                    NP(spine, "Bust", BlobMesh(), new Vector3(x * w * 0.22f, 0.5f, -d * 0.36f), new Vector3(w * 0.44f, 0.25f, d * 0.6f), torsoMat);
+                if (skirt || L.outfit == NpcOutfit.Coat || L.outfit == NpcOutfit.Tunic)
+                    NP(hips, "HipCurve", BlobMesh(), new Vector3(0, -0.08f, 0.02f), new Vector3(w * 1.42f, 0.46f, d * 1.32f), main);
+            }
+            else if (L.build == NpcBuild.Stout || L.build == NpcBuild.Hulking)
                 NP(spine, "Belly", BlobMesh(), new Vector3(0, 0.24f, -d * 0.18f), new Vector3(w * 1.08f, 0.55f, d * 1.3f), torsoMat);
             if (L.outfit == NpcOutfit.Vest)
             {
@@ -301,15 +312,18 @@ namespace WizardsVRC.EditorTools
                     NBox(spine, "BarkRidge", new Vector3(-w * 0.3f + k * w * 0.2f, 0.32f, -d * 0.5f), new Vector3(0.05f, 0.55f, 0.04f), NpcMat(L, "BarkDark", Color.Lerp(L.skin, Color.black, 0.35f)));
             if (!L.ghost && L.outfit != NpcOutfit.Bark)
             {
-                NP(spine, "Belt", CylMesh(), new Vector3(0, 0.03f, 0), new Vector3(w * 1.05f, 0.05f, d * 1.07f), leather);
-                NBox(spine, "Buckle", new Vector3(0, 0.03f, -d * 0.55f), new Vector3(0.1f, 0.08f, 0.02f), gold);
+                // (On a curvy figure the belt sits a little higher, at the narrowest of the waist.)
+                float by = L.curvy ? 0.16f : 0.03f, bw = L.curvy ? 0.84f : 1.05f, bd = L.curvy ? 0.92f : 1.07f;
+                NP(spine, "Belt", CylMesh(), new Vector3(0, by, 0), new Vector3(w * bw, 0.05f, d * bd), leather);
+                NBox(spine, "Buckle", new Vector3(0, by, -d * bd * 0.51f), new Vector3(0.1f, 0.08f, 0.02f), gold);
             }
             if (L.sash) NBox(spine, "Sash", new Vector3(0, 0.36f, -d * 0.53f), new Vector3(0.1f, 0.85f, 0.02f), extra, new Vector3(0, 0, 33f));
             if (L.apron)
             {
                 if (skirt) NBox(spine, "Apron", new Vector3(0, -0.47f, -d * 0.92f), new Vector3(w * 0.85f, 0.98f, 0.02f), extra, new Vector3(14f, 0, 0));
                 else NBox(spine, "Apron", new Vector3(0, -0.22f, -d * 0.6f), new Vector3(w * 0.85f, 0.95f, 0.02f), extra);
-                NBox(spine, "ApronBib", new Vector3(0, 0.36f, -d * 0.56f), new Vector3(w * 0.55f, 0.36f, 0.02f), extra);
+                if (L.curvy) NBox(spine, "ApronBib", new Vector3(0, 0.4f, -d * 0.7f), new Vector3(w * 0.6f, 0.34f, 0.02f), extra, new Vector3(-8f, 0, 0));
+                else NBox(spine, "ApronBib", new Vector3(0, 0.36f, -d * 0.56f), new Vector3(w * 0.55f, 0.36f, 0.02f), extra);
             }
             if (L.badge) NP(spine, "Badge", GemMesh(), new Vector3(0.12f, 0.5f, -d * 0.56f), new Vector3(0.09f, 0.1f, 0.03f), gold, new Vector3(90f, 0, 0));
             if (L.satchel)
