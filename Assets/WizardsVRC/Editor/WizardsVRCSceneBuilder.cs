@@ -699,13 +699,7 @@ namespace WizardsVRC.EditorTools
                 AddDistanceCulling(root.Find("Castle"), DefaultDetailDistance);
             }
 
-            var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            pad.name = "SpawnLandingPad";
-            pad.transform.SetParent(root, false);
-            pad.transform.localPosition = hub.spawnPos - new Vector3(0, 0.1f, 0);
-            pad.transform.localScale = new Vector3(3f, 0.05f, 3f);
-            pad.GetComponent<Renderer>().sharedMaterial = Mat("LandingPad", new Color(0.35f, 0.55f, 0.9f));
-
+            // (The old blue spawn disc is gone: you arrive on the square's own paving.)
             Transform spawn = Child(root, "HubSpawn", hub.spawnPos);
             spawn.localRotation = Quaternion.Euler(0, hub.spawnYaw, 0);
             hub.spawn = spawn;
