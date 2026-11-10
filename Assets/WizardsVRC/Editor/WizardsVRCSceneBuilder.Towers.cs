@@ -29,7 +29,7 @@ namespace WizardsVRC.EditorTools
         private static readonly List<string> TowerNames = new List<string>();
 
         /// <summary>Clears what the last build left in the tower statics (called at the start of every build).</summary>
-        private static void ResetTowers() { _towerCount = 0; _secretCount = 0; TowerNames.Clear(); }
+        private static void ResetTowers() { _towerCount = 0; _secretCount = 0; _roofCount = 0; _caveRange.Clear(); TowerNames.Clear(); }
 
         /// <summary>The street's boss (the first boss in its encounters' rosters) and its other monsters, weakest first.</summary>
         private static int TowerMonsters(ZoneDefinition z, List<int> regulars, List<int> elites)

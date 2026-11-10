@@ -356,6 +356,7 @@ namespace WizardsVRC.EditorTools
             StreetLamps(layout, g, z, wood, glow, stairCells);
             _dungeonSystems = systems;
             _dungeonStart = null;
+            _dungeonSigil = null;
             _dungeonCells = null;
             _zoneOrbSeeds.Clear();
             if (z.landmarks != null && z.landmarks.Count > 0)
@@ -488,6 +489,16 @@ namespace WizardsVRC.EditorTools
             }
             // A kobold dig crew from Bigdig, if this street has one (WizardsVRCSceneBuilder.Kobolds.cs).
             KoboldCrew(root, g, z, qm, wb, ringCells, towerSite);
+            // A rooftop fight's ring (the casino vault) is its lift up, not a place for duels (WizardsVRCSceneBuilder.CasinoRoof.cs).
+            foreach (var e in z.encounters)
+            {
+                if (e == null || e.arena != "Rooftop" || !ZoneGrid.IsRingDigit(e.Symbol)) continue;
+                foreach (var lc in g.Find(e.Symbol))
+                {
+                    Vector3 lp = g.Local(lc);
+                    ringCells.RemoveAll(c => { Vector3 d = g.Local(c) - lp; d.y = 0f; return d.magnitude < DuelCircleRadius + 4f; });
+                }
+            }
             var spotsRoot = Child(root, "RingSpots_" + z.zoneKey, Vector3.zero);
             var ringByCell = new Dictionary<Vector2Int, Transform>();
             var outsideSpots = new List<Transform>();
@@ -510,6 +521,11 @@ namespace WizardsVRC.EditorTools
             foreach (var e in z.encounters)
                 if (e != null && ZoneGrid.IsRingDigit(e.Symbol) && !towerSkip.Contains(e))
                 {
+                    if (e.arena == "Rooftop")
+                    {
+                        BuildRooftopFight(root, g, z, e, systems, cardDb, itemDb, playerState, qm, encounters, wb);
+                        continue;
+                    }
                     var home = g.Find(e.Symbol);
                     bool inDungeon = home.Count > 0 && _dungeonCells != null && _dungeonCells.Contains(home[0]);
                     var lanes = BuildZoneEncounter(root, g, z, e, spawn, systems, cardDb, itemDb, playerState, qm, encounters, wb,

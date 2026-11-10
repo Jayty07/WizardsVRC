@@ -429,6 +429,9 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("Optional: a cutscene that plays when you walk up to this fight's ring (bosses). One line each; \"Name|words\" is spoken " +
                  "by Name, \"!Name|words\" by an enemy (red); a line without a name is the first monster's.")]
         [TextArea(1, 3)] public string[] introLines;
+        [Tooltip("Fought somewhere of its own instead of at its ring: Rooftop = on the roof of the building round the ring (World 3's casino), " +
+                 "high over the city. Its ring (inside a dungeon) becomes the lift up; win and you come back down beside it. Blank = at its ring.")]
+        public string arena = "";
 
         public char Symbol { get { return string.IsNullOrEmpty(ringSymbol) ? '\0' : ringSymbol[0]; } }
         public char PatrolSymbol { get { char d = Symbol; return d >= '1' && d <= '9' ? (char)('a' + (d - '1')) : '\0'; } }

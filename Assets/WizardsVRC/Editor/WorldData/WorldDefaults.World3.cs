@@ -9,7 +9,7 @@ namespace WizardsVRC.EditorTools.WorldData
     /// Row (the Bigdig Prospecting Company), the Rustworks (the Rustclaw Diggers' Union), the Fusewick Canals (the
     /// Brassknuckle Syndicate), the Glimmer Mile (the Glimmerfang Gang), the Deep Seams (where the Dominion's siphons
     /// drain the Mother Lode; a dungeon) and Highroller Heights, whose Golden Seam Casino is the last dungeon: the
-    /// Assayer and Marshal Brannoch, the Iron Wall, in the high-roller vault over the Mother Lode. Monsters 60-88,
+    /// Assayer and Marshal Brannoch, the Iron Wall, on the casino roof over the whole city, above the Mother Lode. Monsters 60-88,
     /// storylines and finale 130-166, the world arc. Its arch in the portal room opens with Dustwind's finale (quest 77).
     /// </summary>
     public static partial class WorldDefaults
@@ -902,13 +902,15 @@ namespace WizardsVRC.EditorTools.WorldData
                 new ZoneEncounter
                 {
                     ringSymbol = "5", key = "MarshalBrannoch", roster = new List<int> { 87, 88, 88, 85 }, wanderers = 1, patrolSpeed = 0.6f, respawnSeconds = 30, scaleWithParty = true,
+                    arena = "Rooftop",   // fought on the casino's roof, over the whole city (the lift is in the high-roller vault)
                     introLines = new[]
                     {
+                        "!Marshal Brannoch, the Iron Wall|Look at it, wizard. All of Bigdig, every lamp in it, and every one burning on gold the Reach has already bought.",
                         "!Marshal Brannoch, the Iron Wall|So. The little wizard, and every gang in Bigdig behind you. The Assayer said you were trouble. For once he undersold something.",
                         "Madame Ozza Goldtongue|That's our gold under your boots, Marshal. Every last singing ounce of it.",
                         "!Marshal Brannoch, the Iron Wall|Your gold? It's the Reach's warmth. Its bread. Its children's light. You kobolds bet it on dice.",
                         "Grandmaw Hesk Rustclaw|We dug it. We sang to it. We'll be the ones keeping it.",
-                        "!Marshal Brannoch, the Iron Wall|The Grand General asked me for one thing: hold this vault. I have never lost a position I was told to hold.",
+                        "!Marshal Brannoch, the Iron Wall|The Grand General asked me for one thing: hold this house. I have never lost a position I was told to hold.",
                         "!Marshal Brannoch, the Iron Wall|Shields up! Let them break on the Iron Wall.",
                     },
                 },
@@ -1321,9 +1323,9 @@ namespace WizardsVRC.EditorTools.WorldData
         public static QuestEntry World3FinaleQuest()
         {
             return Q(161, "All In", 160, 34, 4800, 1000, 252,
-                "With every gang in Bigdig behind you, storm the Golden Seam Casino: the Assayer on the gaming floor, Marshal Brannoch in the high-roller vault, and the Mother Lode beneath.",
+                "With every gang in Bigdig behind you, storm the Golden Seam Casino: the Assayer on the gaming floor, Marshal Brannoch on the casino roof over the whole city, and the Mother Lode beneath.",
                 Fight(QuestStepKind.Boss, 86, 1, "Defeat the Assayer on the gaming floor (sigil in the back lot)", "The Assayer"),
-                Fight(QuestStepKind.Boss, 87, 1, "Defeat Marshal Brannoch, the Iron Wall, in the high-roller vault", "Marshal Brannoch, the Iron Wall"),
+                Fight(QuestStepKind.Boss, 87, 1, "Take the lift in the high-roller vault up to the casino roof and defeat Marshal Brannoch, the Iron Wall", "Marshal Brannoch, the Iron Wall"),
                 Point(QuestStepKind.Interact, "VaultLever", 1, "Throw the vault lever and shut the main siphon line", "Vault lever"),
                 Point(QuestStepKind.Interact, "MotherLode", 1, "Put your hand on the Mother Lode", "The Mother Lode"),
                 Talk("Bruma", "Return to the Deepwarden in Bigdig", "Deepwarden Bruma Stonehum",

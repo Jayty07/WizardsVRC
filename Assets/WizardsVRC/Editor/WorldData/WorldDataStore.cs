@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 32;
+        public const int CurrentVersion = 33;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -204,6 +204,7 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 30) UpgradeTo30();
             if (from < 31) UpgradeTo31();
             if (from < 32) UpgradeTo32();
+            if (from < 33) UpgradeTo33();
         }
 
         /// <summary>World 3's town and boroughs (world data v28).</summary>
@@ -257,6 +258,49 @@ namespace WizardsVRC.EditorTools.WorldData
         /// (so the builder skipped them). They're now RunnerPip and SludgeMarla, in Bigdig and the Fusewick Canals and in
         /// World 3's quests (save ids 130-166).
         /// </summary>
+        /// <summary>
+        /// v33: World 3's finale moves up to the casino roof: Marshal Brannoch's encounter in Highroller Heights is fought on the
+        /// roof of the Golden Seam (Arena = Rooftop; its ring in the high-roller vault becomes the lift up), with his new
+        /// opening line about the city below, and quest 161's texts point there (only where they're still the old defaults).
+        /// </summary>
+        private static void UpgradeTo33()
+        {
+            int n = 0;
+            var fresh = ScriptableObject.CreateInstance<ZoneDefinition>();
+            WorldDefaults.FillHighrollerHeights(fresh);
+            ZoneEncounter freshBrannoch = null;
+            foreach (var e in fresh.encounters) if (e != null && e.key == "MarshalBrannoch") freshBrannoch = e;
+            foreach (var z in FindAll<ZoneDefinition>())
+            {
+                if (z == null || z.zoneKey != "HighrollerHeights" || z.encounters == null || freshBrannoch == null) continue;
+                foreach (var e in z.encounters)
+                {
+                    if (e == null || e.key != "MarshalBrannoch" || !string.IsNullOrEmpty(e.arena)) continue;
+                    e.arena = "Rooftop";
+                    if (e.introLines != null && e.introLines.Length == freshBrannoch.introLines.Length - 1) e.introLines = freshBrannoch.introLines;
+                    EditorUtility.SetDirty(z);
+                    n++;
+                }
+            }
+            Object.DestroyImmediate(fresh);
+            var finale = WorldDefaults.World3FinaleQuest();
+            foreach (var ql in FindAll<Questline>())
+            {
+                bool dirty = false;
+                foreach (var q in ql.quests)
+                {
+                    if (q == null || q.saveId != 161 || q.steps == null) continue;
+                    if (q.description == "With every gang in Bigdig behind you, storm the Golden Seam Casino: the Assayer on the gaming floor, Marshal Brannoch in the high-roller vault, and the Mother Lode beneath.")
+                    { q.description = finale.description; dirty = true; }
+                    for (int i = 0; i < q.steps.Count && i < finale.steps.Count; i++)
+                        if (q.steps[i] != null && q.steps[i].objective == "Defeat Marshal Brannoch, the Iron Wall, in the high-roller vault")
+                        { q.steps[i].objective = finale.steps[i].objective; dirty = true; }
+                }
+                if (dirty) { EditorUtility.SetDirty(ql); n++; }
+            }
+            if (n > 0) Debug.Log("[WizardsVRC] Upgraded world data (v33): Marshal Brannoch now fights on the Golden Seam's roof.");
+        }
+
         /// <summary>
         /// v32: every street of Worlds 1-3 rebuilt to the level-design checklist: one long winding road that forks but never
         /// loops or comes back to the entrance, fights on the road with clear verges along the walls, no patrol near the

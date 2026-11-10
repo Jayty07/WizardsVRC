@@ -41,6 +41,9 @@ namespace WizardsVRC
         [Tooltip("World-space box round the dungeon's inside: a party member found outside it has left.")]
         public Vector3 boundsMin;
         public Vector3 boundsMax;
+        [Tooltip("A second box that also counts as inside (the casino's roof, where its finale is fought). Zero size = none.")]
+        public Vector3 extraMin;
+        public Vector3 extraMax;
 
         [Header("Story seal")]
         [Tooltip("Quests (save ids) that open it: sealed for a wizard who hasn't started any of them (a street boss's tower opens " +
@@ -123,7 +126,8 @@ namespace WizardsVRC
 
         private bool Inside(Vector3 p)
         {
-            return p.x >= boundsMin.x && p.x <= boundsMax.x && p.y >= boundsMin.y && p.y <= boundsMax.y && p.z >= boundsMin.z && p.z <= boundsMax.z;
+            if (p.x >= boundsMin.x && p.x <= boundsMax.x && p.y >= boundsMin.y && p.y <= boundsMax.y && p.z >= boundsMin.z && p.z <= boundsMax.z) return true;
+            return extraMax.x > extraMin.x && p.x >= extraMin.x && p.x <= extraMax.x && p.y >= extraMin.y && p.y <= extraMax.y && p.z >= extraMin.z && p.z <= extraMax.z;
         }
 
         private bool InParty(int id)

@@ -40,6 +40,9 @@ namespace WizardsVRC.EditorTools
             /// <summary>Hub only: the mountains over its tunnels, in world layout positions.</summary>
             public readonly List<Vector2> mountains = new List<Vector2>();
             public Material sky;
+            /// <summary>Bigdig: the view from the top of the city (the casino roof), and where it's seen from (world space).</summary>
+            public bool overlook, hasEye;
+            public Vector3 eye;
         }
 
         private static float BearingOf(Vector3 local) { return Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg; }
@@ -142,8 +145,17 @@ namespace WizardsVRC.EditorTools
                 mat.SetColor("_HorizonColor", a.zone.skyHorizonColor);
                 mat.SetColor("_BottomColor", IsDesert(a.zone) ? new Color(0.62f, 0.4f, 0.26f)
                     : a.zone.textureStyle == ZoneTextureStyle.Undercity ? new Color(0.07f, 0.06f, 0.06f) : new Color(0.06f, 0.2f, 0.52f));
-                mat.SetFloat("_Low", SkyLow);
-                mat.SetFloat("_High", SkyHigh);
+                Vector2 range;
+                bool cave = _caveRange.TryGetValue(a.key, out range);
+                mat.SetFloat("_Low", cave ? range.x : SkyLow);
+                mat.SetFloat("_High", cave ? range.y : SkyHigh);
+                if (cave)
+                {
+                    // No sky underground: the cavern roof overhead, the dark of the chasm below.
+                    mat.SetColor("_TopColor", CaveRoofColor(a.zone));
+                    mat.SetColor("_HorizonColor", a.zone.fogColor);
+                    mat.SetColor("_BottomColor", new Color(0.03f, 0.025f, 0.03f));
+                }
                 EditorUtility.SetDirty(mat);
                 a.sky = mat;
             }
@@ -221,7 +233,8 @@ namespace WizardsVRC.EditorTools
 
         private static Texture2D PaintSkyline(SkyArea me, List<SkyArea> all)
         {
-            if (me.zone != null && me.zone.textureStyle == ZoneTextureStyle.Undercity) return PaintCavernSkyline(me);
+            // Bigdig: all underground, the city sprawling away and the casino at its top (WizardsVRCSceneBuilder.CaveSky.cs).
+            if (me.zone != null && me.zone.textureStyle == ZoneTextureStyle.Undercity) return PaintUndergroundSky(me, all);
             bool desert = IsDesert(me.zone);
             var s = new Strip { horizon = me.zone.skyHorizonColor, sea = desert ? Rgb(0.74f, 0.5f, 0.32f) : Rgb(0.12f, 0.36f, 0.78f) };
             var rng = new System.Random(StableSeed(me.key));
@@ -274,54 +287,6 @@ namespace WizardsVRC.EditorTools
             items.Sort((a, b) => b.Key.CompareTo(a.Key));
             foreach (var it in items) it.Value();
 
-            var tex = new Texture2D(SkyW, SkyH, TextureFormat.RGBA32, false);
-            var cols = new Color32[s.px.Length];
-            for (int i = 0; i < cols.Length; i++) cols[i] = s.px[i];
-            tex.SetPixels32(cols);
-            tex.Apply();
-            return tex;
-        }
-
-        /// <summary>
-        /// Bigdig's "sky": inside the cavern there's no horizon, only the far cave walls, jagged and dark, specked with the
-        /// lit windows and neon of the boroughs built up them, over a chasm floor glinting with sludge (no other places,
-        /// no clouds: the cavern hides them).
-        /// </summary>
-        private static Texture2D PaintCavernSkyline(SkyArea me)
-        {
-            var rng = new System.Random(StableSeed(me.key));
-            var s = new Strip { horizon = me.zone.skyHorizonColor, sea = Rgb(0.1f, 0.08f, 0.07f) };
-            Color rock = Color.Lerp(me.zone.fogColor, Rgb(0.12f, 0.1f, 0.1f), 0.55f);
-            Color slime = Rgb(0.4f, 0.9f, 0.3f);
-            Color[] neon = { Rgb(1f, 0.3f, 0.78f), Rgb(0.25f, 1f, 0.88f), Rgb(1f, 0.8f, 0.25f), Rgb(1f, 0.55f, 0.25f) };
-            int top0 = s.Y(0f);
-            for (int y = 0; y < top0; y++)
-                for (int x = 0; x < SkyW; x++)
-                    s.Set(x, y, rng.NextDouble() < 0.006 ? Color.Lerp(s.sea, slime, 0.7f) : s.sea, 1f);
-            // The far walls: a ragged ridge between 9 and 16 degrees, lighter where it meets the haze.
-            float phase = (float)rng.NextDouble() * 100f;
-            for (int x = 0; x < SkyW; x++)
-            {
-                float u = x / (float)SkyW * Mathf.PI * 2f;
-                float ridge = 12.5f + 2.2f * Mathf.Sin(u * 3f + phase) + 1.3f * Mathf.Sin(u * 11f + phase * 2f) + 0.6f * Mathf.Sin(u * 37f);
-                int yTop = Mathf.Min(SkyH, s.Y(ridge));
-                for (int y = top0; y < yTop; y++)
-                {
-                    float e = Strip.Elev(y);
-                    Color c = Color.Lerp(rock, me.zone.fogColor, Mathf.Clamp01(1f - e / 8f) * 0.6f);
-                    s.Set(x, y, c, 1f);
-                }
-            }
-            // Windows and neon up the walls, thickest low down.
-            for (int i = 0; i < 900; i++)
-            {
-                int x = rng.Next(0, SkyW);
-                float e = Mathf.Lerp(0.3f, 9f, Mathf.Pow((float)rng.NextDouble(), 1.8f));
-                int y = s.Y(e);
-                Color c = rng.NextDouble() < 0.7 ? Rgb(1f, 0.75f, 0.4f) : neon[rng.Next(0, neon.Length)];
-                s.Set(x, y, c, 1f);
-                if (rng.NextDouble() < 0.25) s.Set(x + 1, y, c, 1f);
-            }
             var tex = new Texture2D(SkyW, SkyH, TextureFormat.RGBA32, false);
             var cols = new Color32[s.px.Length];
             for (int i = 0; i < cols.Length; i++) cols[i] = s.px[i];

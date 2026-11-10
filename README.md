@@ -440,6 +440,20 @@ Dominion's Tech-school troops; items are 200-263 (`Tools/make_items.py`).
   clinging to them, and the cavern's walls and roof over it all, hung with stalactites, chains and lanterns. Points can
   be neon signs, blasting barrels, heaps of gold, slot machines, card tables and roulette wheels; the casino gets red
   carpet, velvet walls with gold pilasters and chandeliers, the Siphon Works pipe runs and warning lamps.
+- **The sky underground** (`WizardsVRCSceneBuilder.CaveSky.cs`): every World 3 place has no sky at all, only the
+  cavern. Its panorama runs from far below the horizon to high overhead: the cavern roof hung with stalactites, chains,
+  lanterns and glow-worm colonies, lit warm from below by the city; the city sprawling away on every side, tier on tier
+  of lit buildings, neon, smokestacks and catwalks climbing the far walls, and below the horizon the lower city's
+  rooftops, lamplit streets and sludge canals going down into the dark; the other districts where they really lie (the
+  Deep Bell over Bigdig's square, the Rustworks' smokestacks, the Glimmer Mile's neon towers, the Fusewick cranes, the
+  Deep Seams' drill derrick); and, in the direction it really stands, the city climbing to a summit crowned by the
+  Golden Seam Casino, its tower, dome and spire, its neon and its searchlights raking the cavern roof.
+- **The finale on the casino roof:** Marshal Brannoch, the last fight of *All In*, waits on the roof of the Golden Seam,
+  the very top of Bigdig, with the whole city spread out below (an encounter with **Arena** `Rooftop`,
+  `WizardsVRCSceneBuilder.CasinoRoof.cs`). A brass cage lift in the high-roller vault takes the party up: a gold-trimmed
+  deck with a roulette inlay round the duel ring, a parapet of marquee lights, the casino's tower, dome and spire behind
+  him, searchlights, and the building falling away in neon-ringed tiers. He has his say as you arrive; win and the lift
+  brings you back down to the vault, the lever and the Mother Lode. The roof counts as inside the dungeon for the party.
 - **Bigdig's people** are kobolds (named looks for the gang bosses; `WorldThreeKobold` in `WizardsVRCSceneBuilder.NpcLooks.cs`).
 
 The siege of Starfall, when the ward falls, is still to come as World 3's last chapter (see *The Everweave: Main Story

@@ -21,6 +21,8 @@ namespace WizardsVRC.EditorTools
         private static Transform _dungeonSystems;
         private static Transform _dungeonStart;
         private static HashSet<Vector2Int> _dungeonCells;
+        /// <summary>The street's dungeon referee (the rooftop finale stretches its 'inside' up to the roof).</summary>
+        private static DungeonSigil _dungeonSigil;
 
         private static void DungeonLandmark(Transform root, ZoneGrid g, ZoneDefinition z, ZoneLandmark sigilMark, List<UdonSharpBehaviour> behaviours,
             Material stone, Material gold)
@@ -144,6 +146,7 @@ namespace WizardsVRC.EditorTools
             sigil.boundsMin = rootPos + lo;
             sigil.boundsMax = rootPos + hi;
             behaviours.Add(sigil);
+            _dungeonSigil = sigil;
 
             // ---- exits: a glowing doorway; click it to leave
             Material glow = PMat("DungeonExitGlow", purple, 1f, purple * 1.2f);
