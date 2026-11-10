@@ -470,6 +470,7 @@ namespace WizardsVRC.EditorTools
         /// <summary>Plays a looping clip on an object (a one-state controller in Animations/Title).</summary>
         private static void Animate(GameObject go, string name, AnimationClip clip)
         {
+            CompleteTransformCurves(go.transform, clip);
             string path = TitleAnimDir + "/" + name + ".controller";
             if (AssetDatabase.LoadAssetAtPath<Object>(path) != null) AssetDatabase.DeleteAsset(path);
             var ctrl = AnimatorController.CreateAnimatorControllerAtPath(path);
@@ -478,6 +479,43 @@ namespace WizardsVRC.EditorTools
             var anim = go.AddComponent<Animator>();
             anim.runtimeAnimatorController = ctrl;
             anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        }
+
+        /// <summary>
+        /// An Animator writes a transform's position, rotation and scale as whole vectors: a clip that keys only one axis
+        /// (the title's bobbing: position y) leaves the other axes at 0, which pulled the wordmark, the isles and the glyph
+        /// arc onto the stage's middle, right where you stand. So every axis a clip doesn't key gets a flat curve holding the
+        /// object's own value.
+        /// </summary>
+        private static void CompleteTransformCurves(Transform root, AnimationClip clip)
+        {
+            var groups = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>();
+            foreach (var b in AnimationUtility.GetCurveBindings(clip))
+            {
+                if (b.type != typeof(Transform) && b.type != typeof(RectTransform)) continue;
+                int dot = b.propertyName.LastIndexOf('.');
+                if (dot < 0) continue;
+                string key = b.path + "|" + b.propertyName.Substring(0, dot);
+                System.Collections.Generic.HashSet<string> axes;
+                if (!groups.TryGetValue(key, out axes)) groups[key] = axes = new System.Collections.Generic.HashSet<string>();
+                axes.Add(b.propertyName.Substring(dot + 1));
+            }
+            float len = Mathf.Max(clip.length, 0.01f);
+            foreach (var kv in groups)
+            {
+                int bar = kv.Key.IndexOf('|');
+                string path = kv.Key.Substring(0, bar), prop = kv.Key.Substring(bar + 1);
+                Transform t = path.Length == 0 ? root : root.Find(path);
+                if (t == null) continue;
+                Vector3 now = prop == "m_LocalPosition" ? t.localPosition : prop == "m_LocalScale" ? t.localScale : t.localEulerAngles;
+                foreach (string axis in new[] { "x", "y", "z" })
+                {
+                    if (kv.Value.Contains(axis)) continue;
+                    float v = axis == "x" ? now.x : axis == "y" ? now.y : now.z;
+                    AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(path, typeof(Transform), prop + "." + axis),
+                        AnimationCurve.Constant(0f, len, v));
+                }
+            }
         }
     }
 }

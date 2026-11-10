@@ -341,6 +341,8 @@ namespace WizardsVRC.EditorTools
             var bm = burst.main;
             bm.startSpeed = 5f;
             burst.transform.localPosition = new Vector3(0, 1.1f, 0);
+            // Hold the axes the clip doesn't key (the rain bolts' spots across the target and their width).
+            CompleteTransformCurves(area, clip);
             Directory.CreateDirectory(SpellClipDir);
             AssetDatabase.CreateAsset(clip, SpellClipDir + "/Area" + id + ".anim");
             var ctrl = AnimatorController.CreateAnimatorControllerAtPath(SpellClipDir + "/Area" + id + ".controller");
