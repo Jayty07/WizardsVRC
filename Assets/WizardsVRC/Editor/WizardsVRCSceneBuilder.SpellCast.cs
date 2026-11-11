@@ -465,30 +465,30 @@ namespace WizardsVRC.EditorTools
             cine.runeCircle = rune;
             cine.runeRing = runeRing;
             rune.gameObject.SetActive(false);
-            var aura = CinePS(rig, "ChargeAura", spark0, sparks, 0.45f, 0.55f, -4.6f, -3.8f, 0.08f, 0.2f, 0f, ParticleSystemShapeType.Sphere, 2.2f, 600);
+            var aura = CinePS(rig, "ChargeAura", spark0, sparks, 0.45f, 0.55f, -4.6f, -3.8f, 0.08f, 0.2f, 0f, ParticleSystemShapeType.Sphere, 2.2f, 1000);
             cine.chargeAura = aura;
             cine.castPillar = Pillar(rig, "CastPillar", pillar0, pillars, null, null);
             cine.gyroRings = new[] { Ring(rig, "GyroRingA", ring0, rings), Ring(rig, "GyroRingB", ring0, rings) };
-            cine.portalBurst = CinePS(rig, "PortalBurst", spark0, sparks, 0.6f, 1.0f, 1.5f, 4.5f, 0.08f, 0.22f, -0.2f, ParticleSystemShapeType.Sphere, 0.5f, 500);
+            cine.portalBurst = CinePS(rig, "PortalBurst", spark0, sparks, 0.6f, 1.0f, 1.5f, 4.5f, 0.08f, 0.22f, -0.2f, ParticleSystemShapeType.Sphere, 0.5f, 800);
 
             // ---- what a bigger spell's charge adds (tier 2: 3+ pips, tier 3: 5+, tier 4: 7)
             // Grit and motes lifting off the floor: a disc on the floor that emits upward.
-            var debris = CinePS(rig, "ChargeDebris", spark0, sparks, 1.6f, 2.6f, 0.3f, 1.1f, 0.05f, 0.13f, -0.12f, ParticleSystemShapeType.Cone, 2.6f, 500);
+            var debris = CinePS(rig, "ChargeDebris", spark0, sparks, 1.6f, 2.6f, 0.3f, 1.1f, 0.05f, 0.13f, -0.12f, ParticleSystemShapeType.Cone, 2.6f, 900);
             var debrisShape = debris.shape;
             debrisShape.angle = 4f;
             debris.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
             cine.debris = debris;
             // Sparks dropped at points racing round the rune's rim.
-            cine.rimSparks = CinePS(rig, "RimSparks", spark0, sparks, 0.35f, 0.6f, 0.2f, 0.9f, 0.07f, 0.16f, -0.15f, ParticleSystemShapeType.Sphere, 0.1f, 500);
+            cine.rimSparks = CinePS(rig, "RimSparks", spark0, sparks, 0.35f, 0.6f, 0.2f, 0.9f, 0.07f, 0.16f, -0.15f, ParticleSystemShapeType.Sphere, 0.1f, 800);
             // Power crackling out of the caster: fast, short-lived streaks in every direction.
-            var arcs = CinePS(rig, "ChargeArcs", spark0, sparks, 0.12f, 0.24f, 9f, 17f, 0.05f, 0.1f, 0f, ParticleSystemShapeType.Sphere, 0.25f, 300);
+            var arcs = CinePS(rig, "ChargeArcs", spark0, sparks, 0.12f, 0.24f, 9f, 17f, 0.05f, 0.1f, 0f, ParticleSystemShapeType.Sphere, 0.25f, 500);
             var arcRenderer = arcs.GetComponent<ParticleSystemRenderer>();
             arcRenderer.renderMode = ParticleSystemRenderMode.Stretch;
             arcRenderer.lengthScale = 5f;
             arcRenderer.velocityScale = 0.07f;
             cine.arcs = arcs;
             // Sparks spiralling up round the caster: born on a ring on the floor, they climb, circle and close in.
-            var vortex = CinePS(rig, "ChargeVortex", spark0, sparks, 1.4f, 2.2f, 0f, 0f, 0.06f, 0.15f, 0f, ParticleSystemShapeType.Circle, 1.9f, 600);
+            var vortex = CinePS(rig, "ChargeVortex", spark0, sparks, 1.4f, 2.2f, 0f, 0f, 0.06f, 0.15f, 0f, ParticleSystemShapeType.Circle, 1.9f, 1000);
             var vortexShape = vortex.shape;
             vortexShape.radiusThickness = 0.15f;
             vortex.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
@@ -504,7 +504,7 @@ namespace WizardsVRC.EditorTools
             swirl.radial = new ParticleSystem.MinMaxCurve(-0.35f);
             cine.vortex = vortex;
             // Light pouring down from the rune in the sky: a disc overhead that emits downward, in streaks.
-            var skyfall = CinePS(rig, "Skyfall", spark0, sparks, 0.7f, 1.0f, 8f, 12f, 0.07f, 0.16f, 0.4f, ParticleSystemShapeType.Cone, 3.2f, 600);
+            var skyfall = CinePS(rig, "Skyfall", spark0, sparks, 0.7f, 1.0f, 8f, 12f, 0.07f, 0.16f, 0.4f, ParticleSystemShapeType.Cone, 3.2f, 1000);
             var skyfallShape = skyfall.shape;
             skyfallShape.angle = 2f;
             skyfall.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
@@ -532,7 +532,7 @@ namespace WizardsVRC.EditorTools
             sky.gameObject.SetActive(false);
 
             // ---- the unleash: a ring of sparks racing out along the floor, and the power core over the caster
-            var shock = CinePS(rig, "Shockwave", spark0, sparks, 0.6f, 0.9f, 7f, 10f, 0.12f, 0.3f, 0f, ParticleSystemShapeType.Circle, 0.4f, 600);
+            var shock = CinePS(rig, "Shockwave", spark0, sparks, 0.6f, 0.9f, 7f, 10f, 0.12f, 0.3f, 0f, ParticleSystemShapeType.Circle, 0.4f, 1000);
             var shockShape = shock.shape;
             shockShape.radiusThickness = 0f;
             shock.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
@@ -547,7 +547,7 @@ namespace WizardsVRC.EditorTools
             coreHaloEmission.rateOverTime = 30f;
             core.gameObject.SetActive(false);
             cine.powerCore = core;
-            cine.coreMotes = CinePS(rig, "CoreMotes", spark0, sparks, 0.4f, 0.55f, -3.6f, -2.8f, 0.06f, 0.15f, 0f, ParticleSystemShapeType.Sphere, 1.6f, 500);
+            cine.coreMotes = CinePS(rig, "CoreMotes", spark0, sparks, 0.4f, 0.55f, -3.6f, -2.8f, 0.06f, 0.15f, 0f, ParticleSystemShapeType.Sphere, 1.6f, 800);
 
             // ---- release
             var release = CinePS(rig, "ReleaseBurst", glow0, glows, 0.3f, 0.5f, 3.5f, 7f, 0.12f, 0.35f, 0f, ParticleSystemShapeType.Cone, 0.08f, 300);
@@ -587,8 +587,8 @@ namespace WizardsVRC.EditorTools
             cine.portals = new[] { Portal(rig, "PortalIn", ring0, glow0, rings, glows), Portal(rig, "PortalOut", ring0, glow0, rings, glows) };
 
             // ---- impact
-            cine.impactBurst = CinePS(rig, "ImpactBurst", spark0, sparks, 0.4f, 0.8f, 2f, 6f, 0.1f, 0.3f, 0.2f, ParticleSystemShapeType.Sphere, 0.4f, 800);
-            var shards = CinePS(rig, "ShardBurst", spark0, sparks, 0.8f, 1.4f, 4f, 8f, 0.06f, 0.14f, 1.2f, ParticleSystemShapeType.Sphere, 0.3f, 500);
+            cine.impactBurst = CinePS(rig, "ImpactBurst", spark0, sparks, 0.4f, 0.8f, 2f, 6f, 0.1f, 0.3f, 0.2f, ParticleSystemShapeType.Sphere, 0.4f, 1400);
+            var shards = CinePS(rig, "ShardBurst", spark0, sparks, 0.8f, 1.4f, 4f, 8f, 0.06f, 0.14f, 1.2f, ParticleSystemShapeType.Sphere, 0.3f, 800);
             var sr = shards.GetComponent<ParticleSystemRenderer>();
             sr.renderMode = ParticleSystemRenderMode.Stretch;
             sr.lengthScale = 2.5f;
@@ -617,7 +617,7 @@ namespace WizardsVRC.EditorTools
             cine.sigilRenderer = FlatQuad(stamp, "Rune", 1f, GlyphQuadMat("SpellCineSigil"), null);
             cine.sigilStamp = stamp;
             stamp.gameObject.SetActive(false);
-            cine.embers = CinePS(rig, "Embers", spark0, sparks, 1.0f, 1.8f, 0.4f, 1.4f, 0.05f, 0.13f, -0.3f, ParticleSystemShapeType.Sphere, 0.8f, 600);
+            cine.embers = CinePS(rig, "Embers", spark0, sparks, 1.0f, 1.8f, 0.4f, 1.4f, 0.05f, 0.13f, -0.3f, ParticleSystemShapeType.Sphere, 0.8f, 1000);
             var lightGo = Child(rig, "SpellLight", Vector3.zero).gameObject;
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Point;

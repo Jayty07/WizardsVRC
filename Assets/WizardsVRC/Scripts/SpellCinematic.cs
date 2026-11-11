@@ -198,6 +198,9 @@ namespace WizardsVRC
         private float _flip;
         private int _look;
         private int _pips;
+        // The pip cost as the effects see it: it climbs faster than the cost (1, 2, 4, 6, 8, 10, 13 for 1 to 7 pips), and
+        // every size, count and rate below is worked out from it, so a costly spell is far bigger than a cheap one.
+        private int _vis;
         private bool _aoe;
         private float _scale;
         private string _caster;
@@ -220,6 +223,8 @@ namespace WizardsVRC
         private int _arrive, _show, _leave;
         private bool _friendly;
         private int _arrCue, _showCue, _showBeats, _exitCue;
+        // Aftershocks of the finisher's hit that have gone off (a spell of 3 pips or more has some).
+        private int _afterDone;
         private float _arrAcc, _showAcc, _exitAcc;
 
         // Volleys: the waves, then the finisher (the last). Each has a slot: it opens (the core gathers), flies, hits, ends.
@@ -387,8 +392,9 @@ namespace WizardsVRC
             int looks = sparkMats != null && sparkMats.Length > 0 ? sparkMats.Length : 8;
             _look = LookOf(school, looks);
             _pips = Mathf.Clamp(pips, 0, 8);
+            _vis = _cine ? Mathf.RoundToInt(_pips * (1f + 0.15f * Mathf.Max(0, _pips - 1))) : _pips;
             _aoe = aoe;
-            _scale = (0.85f + 0.17f * _pips) * Mathf.Max(1f, _body * 0.8f);
+            _scale = (0.85f + 0.17f * _vis) * Mathf.Max(1f, _body * 0.8f);
             _caster = caster;
             _spell = spell;
             _color = glyphColors != null && _look < glyphColors.Length ? glyphColors[_look] : Color.white;
@@ -420,7 +426,9 @@ namespace WizardsVRC
             // How much power the charge shows.
             _tier = !_cine ? 1 : _pips >= 7 ? 4 : _pips >= 5 ? 3 : _pips >= 3 ? 2 : 1;
             // The core hangs over the caster; a creature arrives beside them (straight ahead if a beam is to pour out of it).
-            _corePos = _from + Vector3.up * (2.45f * _body) + _fwd * (0.45f * _body);
+            // (Higher the bigger it will be, so it never sits on their head.)
+            float coreFull = (0.5f + 0.13f * _vis) * Mathf.Max(1f, _body * 0.8f);
+            _corePos = _from + Vector3.up * (2.1f * _body + 0.2f + 0.55f * coreFull) + _fwd * (0.45f * _body);
             _summonAt = _delivery == CardDatabase.CINE_BEAM ? _from + _fwd * (1.7f * _body)
                                                              : _from + _fwd * (1.5f * _body) + _right * (1.0f * _flip * _body);
             _origin = _cine ? _corePos : _hand;
@@ -451,6 +459,7 @@ namespace WizardsVRC
             _arrAcc = 0f;
             _showAcc = 0f;
             _exitAcc = 0f;
+            _afterDone = 0;
             _arrCue = 0;
             _showCue = 0;
             _showBeats = 0;
@@ -774,7 +783,8 @@ namespace WizardsVRC
                 _kickAt = t;
                 Vector3 chest = _from + Vector3.up * (1.2f * _body);
                 // A ring of sparks races out along the floor, a ring of light after it, and a burst off the caster.
-                Shock(_from + Vector3.up * 0.12f, 40 + 26 * _tier, 0.7f + 0.3f * _tier);
+                Shock(_from + Vector3.up * 0.12f, 40 + 26 * _tier + 6 * _vis, 0.7f + 0.3f * _tier);
+                if (_pips >= 6) Shock(_from + Vector3.up * 0.12f, 30 + 5 * _vis, 1.2f + 0.3f * _tier);
                 Pulse(_from, (4.5f + 1.6f * _tier) * Mathf.Max(1f, _body * 0.8f), 0.75f);
                 Burst(portalBurst, chest, 25 + 20 * _tier);
                 if (_tier >= 2 && embers != null)
@@ -854,7 +864,7 @@ namespace WizardsVRC
                 releaseBurst.transform.position = _origin;
                 if (dir.sqrMagnitude > 0.001f) releaseBurst.transform.rotation = Quaternion.LookRotation(dir);
                 releaseBurst.transform.localScale = Vector3.one * (_scale * (0.5f + 0.5f * _vSize));
-                releaseBurst.Emit(_vFinal ? 25 + 12 * _pips : 10 + 4 * _pips);
+                releaseBurst.Emit(_vFinal ? 25 + 12 * _vis : 10 + 4 * _vis);
             }
             SoundAt(releaseSound, _origin, _vFinal ? 1f : 0.55f + 0.25f * _vSize);
             _headPos = _origin;
@@ -880,7 +890,7 @@ namespace WizardsVRC
                 // The finisher goes with a jolt; anything driven into the floor throws up a ring of sparks.
                 if (_vFinal) _kickAt = t;
                 if (_vd == CardDatabase.CINE_GROUND || _vd == CardDatabase.CINE_WAVE)
-                    Shock(_from + _fwd * (0.8f * _body) + Vector3.up * 0.12f, _vFinal ? 30 + 8 * _pips : 14, 0.5f + 0.4f * _vSize);
+                    Shock(_from + _fwd * (0.8f * _body) + Vector3.up * 0.12f, _vFinal ? 30 + 8 * _vis : 14, 0.5f + 0.4f * _vSize);
                 // A creature roars as each wave goes.
                 if (!_vFinal && _carrier != null && _carrierAnim != null) _carrierAnim.SetTrigger("Cast");
             }
@@ -908,19 +918,19 @@ namespace WizardsVRC
                 {
                     impactBurst.transform.position = at;
                     impactBurst.transform.localScale = Vector3.one * big;
-                    impactBurst.Emit(14 + 6 * _pips);
+                    impactBurst.Emit(14 + 6 * _vis);
                 }
                 // Every other wave breaks into shards as it lands.
                 if ((_v & 1) == 1 && shardBurst != null)
                 {
                     shardBurst.transform.position = at;
                     shardBurst.transform.localScale = Vector3.one * big;
-                    shardBurst.Emit(8 + 3 * _pips);
+                    shardBurst.Emit(8 + 3 * _vis);
                 }
-                Pulse(new Vector3(at.x, _aim.y, at.z), (2.2f + 0.25f * _pips) * _tScale * (0.6f + 0.4f * _vSize), 0.5f);
+                Pulse(new Vector3(at.x, _aim.y, at.z), (2.2f + 0.25f * _vis) * _tScale * (0.6f + 0.4f * _vSize), 0.5f);
             }
             Vector3 first = many ? HitFor(0) : _hit;
-            if (_tier >= 2) Shock(new Vector3(first.x, _aim.y + 0.12f, first.z), 14 + 5 * _pips, 0.35f + 0.25f * _vSize);
+            if (_tier >= 2) Shock(new Vector3(first.x, _aim.y + 0.12f, first.z), 14 + 5 * _vis, 0.35f + 0.25f * _vSize);
             SoundAt(_friendly ? whooshSound : impactSound, first, _friendly ? 0.4f : 0.45f + 0.3f * _vSize);
             if (_owner != null && !_friendly) _owner.CineFlinch();
         }
@@ -1015,12 +1025,12 @@ namespace WizardsVRC
             int n;
             if (_arrive == CardDatabase.ARRIVE_ERUPT)
             {
-                if (_arrCue == 0) { _arrCue = 1; Shock(floor, 24 + 6 * _pips, 0.5f); }
+                if (_arrCue == 0) { _arrCue = 1; Shock(floor, 24 + 6 * _vis, 0.5f); }
                 if (embers != null)
                 {
                     embers.transform.position = floor;
                     embers.transform.localScale = Vector3.one * (_scale * 0.7f);
-                    _arrAcc += dt * (70f + 22f * _pips);
+                    _arrAcc += dt * (70f + 22f * _vis);
                     n = (int)_arrAcc;
                     if (n > 0) { embers.Emit(n); _arrAcc -= n; }
                 }
@@ -1031,14 +1041,14 @@ namespace WizardsVRC
                 {
                     skyfall.transform.position = home + mid + Vector3.up * 7f;
                     skyfall.transform.localScale = Vector3.one * (0.35f * _scale);
-                    _arrAcc += dt * (80f + 22f * _pips);
+                    _arrAcc += dt * (80f + 22f * _vis);
                     n = (int)_arrAcc;
                     if (n > 0) { skyfall.Emit(n); _arrAcc -= n; }
                 }
                 if (_arrCue == 0 && k >= 0.85f)
                 {
                     _arrCue = 1;
-                    Burst(portalBurst, at, 30 + 8 * _pips);
+                    Burst(portalBurst, at, 30 + 8 * _vis);
                     if (_creature) Shock(floor, 26, 0.5f);
                 }
             }
@@ -1047,12 +1057,12 @@ namespace WizardsVRC
                 if (coreMotes != null)
                 {
                     coreMotes.transform.position = at;
-                    coreMotes.transform.localScale = Vector3.one * (1.6f + 0.2f * _pips);
-                    _arrAcc += dt * (100f + 28f * _pips);
+                    coreMotes.transform.localScale = Vector3.one * (1.6f + 0.2f * _vis);
+                    _arrAcc += dt * (100f + 28f * _vis);
                     n = (int)_arrAcc;
                     if (n > 0) { coreMotes.Emit(n); _arrAcc -= n; }
                 }
-                if (_arrCue == 0 && k >= 0.9f) { _arrCue = 1; Burst(portalBurst, at, 24 + 6 * _pips); }
+                if (_arrCue == 0 && k >= 0.9f) { _arrCue = 1; Burst(portalBurst, at, 24 + 6 * _vis); }
             }
             else if (_arrive == CardDatabase.ARRIVE_RIFT)
             {
@@ -1061,13 +1071,13 @@ namespace WizardsVRC
                 {
                     Transform g = portals[0];
                     float open = Mathf.Min(Ease(k / 0.3f), 1f - Ease((k - 0.75f) / 0.25f));
-                    float gs = (1.4f + 0.12f * _pips) * (_creature ? Mathf.Max(1f, _body) * 1.5f : 1f) * open;
+                    float gs = (1.4f + 0.12f * _vis) * (_creature ? Mathf.Max(1f, _body) * 1.5f : 1f) * open;
                     g.SetPositionAndRotation(gate, Quaternion.FromToRotation(Vector3.up, _fwd));
                     g.localScale = new Vector3(Mathf.Max(0.01f, gs), 1f, Mathf.Max(0.01f, gs));
                     if (!g.gameObject.activeSelf) g.gameObject.SetActive(true);
                 }
-                if (_arrCue == 0) { _arrCue = 1; Burst(portalBurst, gate, 20 + 5 * _pips); }
-                _arrAcc += dt * (50f + 14f * _pips);
+                if (_arrCue == 0) { _arrCue = 1; Burst(portalBurst, gate, 20 + 5 * _vis); }
+                _arrAcc += dt * (50f + 14f * _vis);
                 n = (int)_arrAcc;
                 if (n > 0) { Burst(rimSparks, at, n); _arrAcc -= n; }
             }
@@ -1078,7 +1088,7 @@ namespace WizardsVRC
                 {
                     vortex.transform.position = floor;
                     vortex.transform.localScale = Vector3.one * (0.6f * _scale);
-                    _arrAcc += dt * (80f + 22f * _pips);
+                    _arrAcc += dt * (80f + 22f * _vis);
                     n = (int)_arrAcc;
                     if (n > 0) { vortex.Emit(n); _arrAcc -= n; }
                 }
@@ -1094,7 +1104,7 @@ namespace WizardsVRC
                         Burst(rimSparks, p, 1);
                     }
                 }
-                if (_arrCue == 0 && k >= 0.9f) { _arrCue = 1; Burst(portalBurst, at, 20 + 6 * _pips); }
+                if (_arrCue == 0 && k >= 0.9f) { _arrCue = 1; Burst(portalBurst, at, 20 + 6 * _vis); }
             }
         }
 
@@ -1125,20 +1135,20 @@ namespace WizardsVRC
                 {
                     _showBeats++;
                     _kickAt = t;
-                    Shock(at, 20 + 6 * _pips, 0.3f + 0.12f * _showBeats);
-                    Burst(portalBurst, at, 10 + 3 * _pips);
+                    Shock(at, 20 + 6 * _vis, 0.3f + 0.12f * _showBeats);
+                    Burst(portalBurst, at, 10 + 3 * _vis);
                     SoundAt(releaseSound, at, 0.3f);
                 }
             }
             else if (_show == CardDatabase.SHOW_HALO)
             {
-                _showAcc += dt * (40f + 10f * _pips) * (showing ? 1f : 0.4f);
+                _showAcc += dt * (40f + 10f * _vis) * (showing ? 1f : 0.4f);
                 n = (int)_showAcc;
                 _showAcc -= n;
                 for (int w = 0; w < n; w++)
                 {
                     float ang = (t * 420f * _flip + w * 120f) * Mathf.Deg2Rad;
-                    float r = (0.9f + 0.08f * _pips) * Mathf.Max(1f, _body * 0.8f);
+                    float r = (0.9f + 0.08f * _vis) * Mathf.Max(1f, _body * 0.8f);
                     Burst(rimSparks, at + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r, 1);
                 }
             }
@@ -1157,11 +1167,11 @@ namespace WizardsVRC
                     if (!h.gameObject.activeSelf)
                     {
                         h.position = p;
-                        float hs = 0.5f + 0.05f * _pips;
+                        float hs = 0.5f + 0.05f * _vis;
                         h.localScale = new Vector3(hs, hs, hs);
                         ShowShape(i, _shape);
                         h.gameObject.SetActive(true);
-                        Burst(portalBurst, p, 6 + _pips);
+                        Burst(portalBurst, p, 6 + _vis);
                     }
                     h.position = p;
                     h.rotation = Quaternion.LookRotation(off.normalized + _fwd * 0.2f);
@@ -1189,7 +1199,7 @@ namespace WizardsVRC
                 // ASCEND
                 vortex.transform.position = new Vector3(at.x, _ground + 0.1f, at.z);
                 vortex.transform.localScale = Vector3.one * (0.55f * _scale);
-                _showAcc += dt * (70f + 20f * _pips);
+                _showAcc += dt * (70f + 20f * _vis);
                 n = (int)_showAcc;
                 if (n > 0) { vortex.Emit(n); _showAcc -= n; }
             }
@@ -1213,11 +1223,11 @@ namespace WizardsVRC
                 _exitCue = 1;
                 if (_leave == CardDatabase.EXIT_SCATTER)
                 {
-                    Shock(castFloor, 30 + 6 * _pips, 0.6f);
-                    Shock(hitFloor, 30 + 6 * _pips, 0.6f);
+                    Shock(castFloor, 30 + 6 * _vis, 0.6f);
+                    Shock(hitFloor, 30 + 6 * _vis, 0.6f);
                     Burst(portalBurst, _impactAt + Vector3.up, 30);
                 }
-                else if (_leave == CardDatabase.EXIT_ECHO) Shock(hitFloor, 26 + 5 * _pips, 0.5f);
+                else if (_leave == CardDatabase.EXIT_ECHO) Shock(hitFloor, 26 + 5 * _vis, 0.5f);
                 else if (_leave == CardDatabase.EXIT_SINK)
                 {
                     for (int w = 0; w < 14; w++)
@@ -1230,13 +1240,13 @@ namespace WizardsVRC
             if (_leave == CardDatabase.EXIT_ECHO && _exitCue == 1 && k >= 0.45f)
             {
                 _exitCue = 2;
-                Shock(castFloor, 26 + 5 * _pips, 0.5f);
+                Shock(castFloor, 26 + 5 * _vis, 0.5f);
             }
             if (_leave == CardDatabase.EXIT_ASCEND && vortex != null)
             {
                 vortex.transform.position = hitFloor;
                 vortex.transform.localScale = Vector3.one * (0.5f * _scale);
-                _exitAcc += dt * (70f + 18f * _pips) * (1f - k);
+                _exitAcc += dt * (70f + 18f * _vis) * (1f - k);
                 n = (int)_exitAcc;
                 if (n > 0) { vortex.Emit(n); _exitAcc -= n; }
             }
@@ -1244,7 +1254,7 @@ namespace WizardsVRC
             {
                 embers.transform.position = castFloor;
                 embers.transform.localScale = Vector3.one * (_scale * 0.8f);
-                _exitAcc += dt * (26f + 8f * _pips) * (1f - k);
+                _exitAcc += dt * (26f + 8f * _vis) * (1f - k);
                 n = (int)_exitAcc;
                 if (n > 0) { embers.Emit(n); _exitAcc -= n; }
             }
@@ -1265,7 +1275,7 @@ namespace WizardsVRC
             bool show = _cine && !_creature && t >= _tUnl && t < gone;
             if (powerCore.gameObject.activeSelf != show) powerCore.gameObject.SetActive(show);
             if (!show) return;
-            float full = (0.5f + 0.13f * _pips) * Mathf.Max(1f, _body * 0.8f);
+            float full = (0.5f + 0.13f * _vis) * Mathf.Max(1f, _body * 0.8f);
             float fStart = _vStart[last];
             // Over half by the end of its arrival, nearly full by the end of its display, full as the finisher gathers.
             float arr = Mathf.Clamp01((t - _tUnl) / Mathf.Max(0.05f, _tDisp - _tUnl));
@@ -1305,7 +1315,7 @@ namespace WizardsVRC
             {
                 coreMotes.transform.position = pos;
                 coreMotes.transform.localScale = Vector3.one * (0.6f + 0.5f * full * grow);
-                _moteAcc += dt * (10f + 7f * _pips) * (0.5f + grow) * (swell > 1.02f ? 2.5f : 1f);
+                _moteAcc += dt * (10f + 7f * _vis) * (0.5f + grow) * (swell > 1.02f ? 2.5f : 1f);
                 int n = (int)_moteAcc;
                 if (n > 0) { coreMotes.Emit(n); _moteAcc -= n; }
             }
@@ -1316,9 +1326,9 @@ namespace WizardsVRC
         private int DefaultCount(int d)
         {
             if (d == CardDatabase.CINE_HELIX) return 2;
-            if (d == CardDatabase.CINE_VOLLEY) return Mathf.Max(3, _pips);
+            if (d == CardDatabase.CINE_VOLLEY) return Mathf.Max(3, _vis);
             if (d == CardDatabase.CINE_RAIN) return 10;
-            if (d == CardDatabase.CINE_ORBIT) return Mathf.Max(3, _pips);
+            if (d == CardDatabase.CINE_ORBIT) return Mathf.Max(3, _vis);
             if (d == CardDatabase.CINE_WAVE) return 5;
             return 1;
         }
@@ -1484,7 +1494,7 @@ namespace WizardsVRC
                 float size = i == 0 && !(_creature && _vFinal) ? 1f : 0.55f;
                 if (d == CardDatabase.CINE_RAIN) size = i == 0 ? 0.8f : 0.45f;
                 if (d == CardDatabase.CINE_BEAM) size = 0.9f;
-                size *= (0.75f + 0.08f * _pips) * _vSize;
+                size *= (0.75f + 0.08f * _vis) * _vSize;
                 h.localScale = new Vector3(size, size, size);
                 ShowShape(i, _vFinal && i == 0 && (_carrier != null || _creature) ? -1 : _shape);
             }
@@ -1606,7 +1616,7 @@ namespace WizardsVRC
                     // It's there: the head goes out (its trail lingers) and sparks fly off; the main one is the spell's hit.
                     _hLanded[i] = true;
                     ShowShape(i, -1);
-                    if (i > 0) Burst(impactBurst, p, 8 + 2 * _pips);
+                    if (i > 0) Burst(impactBurst, p, 8 + 2 * _vis);
                 }
                 if (_vd == CardDatabase.CINE_BEAM && t >= _hTo[i]) { _hLanded[i] = true; h.gameObject.SetActive(false); }
             }
@@ -1708,7 +1718,7 @@ namespace WizardsVRC
             float len = d.magnitude;
             float k = t - _tRel;
             float grow = Ease(k / 0.35f) * Mathf.Min(1f, Mathf.Max(0.05f, (t - _tRel) / Mathf.Max(0.05f, _tHit - _tRel)));
-            float w = (0.3f + 0.05f * _pips) * (1f + 0.15f * Mathf.Sin(t * 40f)) * (_aoe ? 1.6f : 1f);
+            float w = (0.3f + 0.05f * _vis) * (1f + 0.15f * Mathf.Sin(t * 40f)) * (_aoe ? 1.6f : 1f);
             w *= 1f - Ease((t - (_tRelEnd - 0.3f)) / 0.3f);
             beam.position = start;
             if (len > 0.001f) beam.rotation = Quaternion.FromToRotation(Vector3.up, d / len) * Quaternion.Euler(0f, t * 200f, 0f);
@@ -1740,7 +1750,7 @@ namespace WizardsVRC
                     open = Ease((t - t0) / 0.2f);
                     close = 1f - Ease((t - t1) / 0.25f);
                 }
-                float s = Mathf.Max(0f, Mathf.Min(open, close)) * (_vd == CardDatabase.CINE_RAIN ? (_aoe ? 6f : 3.5f) : 1.6f + 0.1f * _pips);
+                float s = Mathf.Max(0f, Mathf.Min(open, close)) * (_vd == CardDatabase.CINE_RAIN ? (_aoe ? 6f : 3.5f) : 1.6f + 0.1f * _vis);
                 if (s <= 0.01f && t > _tRel + 0.3f && close <= 0f) { p.gameObject.SetActive(false); continue; }
                 p.localScale = new Vector3(Mathf.Max(0.01f, s), 1f, Mathf.Max(0.01f, s));
             }
@@ -1774,13 +1784,13 @@ namespace WizardsVRC
                 {
                     impactBurst.transform.position = bat;
                     impactBurst.transform.localScale = Vector3.one * big;
-                    impactBurst.Emit((int)((35 + 22 * _pips) * burstMul));
+                    impactBurst.Emit((int)((35 + 22 * _vis) * burstMul));
                 }
                 if (shardBurst != null && (im == CardDatabase.IMPACT_SHATTER || im == CardDatabase.IMPACT_SPIKES))
                 {
                     shardBurst.transform.position = bat;
                     shardBurst.transform.localScale = Vector3.one * big;
-                    shardBurst.Emit(im == CardDatabase.IMPACT_SHATTER ? 40 + 25 * _pips : 12 + 6 * _pips);
+                    shardBurst.Emit(im == CardDatabase.IMPACT_SHATTER ? 40 + 25 * _vis : 12 + 6 * _vis);
                 }
             }
             if (many) _impactAt = new Vector3(_targets[0].x, _aim.y, _targets[0].z);
@@ -1853,7 +1863,7 @@ namespace WizardsVRC
         /// <summary>How big the impact is: the spell's pips and the target's size (not the caster's: a huge boss's spell still lands on a wizard-sized target).</summary>
         private float ImpactSize()
         {
-            return (0.85f + 0.17f * _pips) * Mathf.Max(1f, _tScale * 0.8f) * (_aoe ? 1.25f : 1f);
+            return (0.85f + 0.17f * _vis) * Mathf.Max(1f, _tScale * 0.8f) * (_aoe ? 1.25f : 1f);
         }
 
         private float Ease(float x)
@@ -1871,7 +1881,7 @@ namespace WizardsVRC
             {
                 chargeAura.transform.position = _impactAt + Vector3.up * 1.0f;
                 chargeAura.transform.localScale = Vector3.one * big;
-                _auraAcc += dt * (40f + 15f * _pips);
+                _auraAcc += dt * (40f + 15f * _vis);
                 int n = (int)_auraAcc;
                 if (n > 0) { chargeAura.Emit(n); _auraAcc -= n; }
             }
@@ -1896,6 +1906,24 @@ namespace WizardsVRC
             }
             if (t < _tStrike) return;
             float r = t - _tStrike;
+            // A costly spell's hit goes on going off: aftershocks round the target, one after another (one at 3 pips, five at 7).
+            int shocks = _cine && !_friendly ? Mathf.Clamp(_pips - 2, 0, 5) : 0;
+            if (_afterDone < shocks && r >= 0.16f * (_afterDone + 1))
+            {
+                _afterDone++;
+                _kickAt = t;
+                float ang = (_afterDone * 137.5f + 40f * _flip) * Mathf.Deg2Rad;
+                float rad = (0.9f + 0.45f * _afterDone) * _tScale;
+                Vector3 at = _impactAt + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * rad + Vector3.up * (0.6f + 0.25f * _afterDone);
+                if (impactBurst != null)
+                {
+                    impactBurst.transform.position = at;
+                    impactBurst.transform.localScale = Vector3.one * (big * 0.6f);
+                    impactBurst.Emit(20 + 8 * _vis);
+                }
+                Shock(new Vector3(at.x, _aim.y + 0.12f, at.z), 12 + 3 * _vis, 0.3f + 0.05f * _vis);
+                SoundAt(impactSound, at, 0.35f);
+            }
             if (impactFlash != null && impactFlash.gameObject.activeSelf)
             {
                 float peak = im == CardDatabase.IMPACT_NOVA ? 5.2f : im == CardDatabase.IMPACT_IMPLODE ? 3.2f : 2.4f;
@@ -1927,7 +1955,7 @@ namespace WizardsVRC
                     if (rk < 0f) continue;
                     if (rk >= 1f) { ring.gameObject.SetActive(false); continue; }
                     // Sized to the ring: they spread round the target without swamping the whole circle.
-                    float far = (im == CardDatabase.IMPACT_NOVA ? 6f + 0.45f * _pips : im == CardDatabase.IMPACT_RINGS ? 3f + 1.2f * i + 0.35f * _pips : 3.5f + 0.4f * _pips) * _tScale;
+                    float far = (im == CardDatabase.IMPACT_NOVA ? 6f + 0.45f * _vis : im == CardDatabase.IMPACT_RINGS ? 3f + 1.2f * i + 0.35f * _vis : 3.5f + 0.4f * _vis) * _tScale;
                     float sz = Mathf.Lerp(0.6f, far * (_aoe ? 1.4f : 1f), 1f - (1f - rk) * (1f - rk));
                     ring.localScale = new Vector3(sz, Mathf.Max(0.01f, 1f - rk), sz);
                 }
@@ -1937,8 +1965,8 @@ namespace WizardsVRC
                 if (pk >= 1f) impactPillar.gameObject.SetActive(false);
                 else
                 {
-                    float h = Ease(pk / 0.25f) * (6f + 1.2f * _pips);
-                    float w = (1.3f + 0.15f * _pips) * (1f - Ease((pk - 0.3f) / 0.7f)) * (_aoe ? 1.6f : 1f);
+                    float h = Ease(pk / 0.25f) * (6f + 1.2f * _vis);
+                    float w = (1.3f + 0.15f * _vis) * (1f - Ease((pk - 0.3f) / 0.7f)) * (_aoe ? 1.6f : 1f);
                     impactPillar.localScale = new Vector3(Mathf.Max(0.01f, w), Mathf.Max(0.01f, h), Mathf.Max(0.01f, w));
                     impactPillar.rotation = Quaternion.Euler(0f, t * 90f, 0f);
                 }
@@ -1951,7 +1979,7 @@ namespace WizardsVRC
                 {
                     if (spikes[i] == null || !spikes[i].gameObject.activeSelf) continue;
                     float h = _spikeH[i] * rise * sink;
-                    float w = (0.22f + 0.03f * _pips) * (0.6f + 0.4f * rise);
+                    float w = (0.22f + 0.03f * _vis) * (0.6f + 0.4f * rise);
                     spikes[i].localScale = new Vector3(Mathf.Max(0.01f, w), Mathf.Max(0.01f, h), Mathf.Max(0.01f, w));
                     if (sink <= 0.01f) spikes[i].gameObject.SetActive(false);
                 }
@@ -1962,7 +1990,7 @@ namespace WizardsVRC
                 embers.transform.position = _impactAt + Vector3.up * 0.6f;
                 embers.transform.localScale = Vector3.one * big;
                 float fall = 1f - Mathf.Clamp01(r / Mathf.Max(0.5f, _tAfter - _tStrike));
-                float rate = (18f + 8f * _pips) * (im == CardDatabase.IMPACT_NOVA || im == CardDatabase.IMPACT_VORTEX ? 1.7f : 1f);
+                float rate = (18f + 8f * _vis) * (im == CardDatabase.IMPACT_NOVA || im == CardDatabase.IMPACT_VORTEX ? 1.7f : 1f);
                 _emberAcc += dt * rate * fall;
                 int n = (int)_emberAcc;
                 if (n > 0) { embers.Emit(n); _emberAcc -= n; }
@@ -1992,7 +2020,7 @@ namespace WizardsVRC
             float jump = 0.08f * Mathf.Exp(-Mathf.Max(0f, t - _flareAt) * 6f);
             float s = 2.6f * _scale * Mathf.Min(open, close) * (1f + 0.03f * Mathf.Sin(t * 14f) + jump);
             runeCircle.localScale = new Vector3(Mathf.Max(0.01f, s), Mathf.Max(0.01f, s), Mathf.Max(0.01f, s));
-            float spin = (40f + 8f * _pips) * (t < _tUnl ? 0.5f + 1.5f * Build(t) : 1f);
+            float spin = (40f + 8f * _vis) * (t < _tUnl ? 0.5f + 1.5f * Build(t) : 1f);
             _runeAngle += dt * spin * _flip;
             runeCircle.rotation = Quaternion.Euler(0f, _runeAngle, 0f);
             if (runeRing != null) runeRing.localRotation = Quaternion.Euler(0f, -_runeAngle * 2.2f, 0f);
@@ -2023,7 +2051,7 @@ namespace WizardsVRC
             {
                 chargeAura.transform.position = chest;
                 chargeAura.transform.localScale = Vector3.one * _scale;
-                float rate = (25f + 14f * _pips) * (_charge == CardDatabase.CHARGE_STREAM ? 1f : 0.45f);
+                float rate = (25f + 14f * _vis) * (_charge == CardDatabase.CHARGE_STREAM ? 1f : 0.45f);
                 _auraAcc += dt * rate * (0.4f + build) * (1f + 3f * crush);
                 int n = (int)_auraAcc;
                 if (n > 0) { chargeAura.Emit(n); _auraAcc -= n; }
@@ -2039,14 +2067,14 @@ namespace WizardsVRC
                     if (g.gameObject.activeSelf != (on || halo)) g.gameObject.SetActive(on || halo);
                     if (halo)
                     {
-                        float hs = (1.3f + 0.1f * _pips) * Mathf.Max(1f, _body * 0.8f) * Ease((t - _tDisp) / 0.35f) * (1f - Ease((t - _tBar) / 0.25f));
+                        float hs = (1.3f + 0.1f * _vis) * Mathf.Max(1f, _body * 0.8f) * Ease((t - _tDisp) / 0.35f) * (1f - Ease((t - _tBar) / 0.25f));
                         g.position = Focus();
                         g.rotation = i == 0 ? Quaternion.Euler(70f, t * 420f * _flip, 0f) : Quaternion.Euler(-55f, -t * 340f * _flip, 35f);
                         g.localScale = new Vector3(Mathf.Max(0.01f, hs), 1f, Mathf.Max(0.01f, hs));
                         continue;
                     }
                     if (!on) continue;
-                    float s = (1.5f + 0.12f * _pips) * _body * Ease((t - _tCast) / 0.4f) * (1f - Ease((t - _tUnl) / 0.3f)) * (1f - 0.25f * crush);
+                    float s = (1.5f + 0.12f * _vis) * _body * Ease((t - _tCast) / 0.4f) * (1f - Ease((t - _tUnl) / 0.3f)) * (1f - 0.25f * crush);
                     float turn = 0.6f + 1.2f * build;
                     g.position = chest;
                     g.rotation = i == 0 ? Quaternion.Euler(70f, t * 200f * turn * _flip, 0f) : Quaternion.Euler(-55f, -t * 160f * turn * _flip, 35f);
@@ -2057,7 +2085,7 @@ namespace WizardsVRC
             {
                 embers.transform.position = _from + Vector3.up * 0.1f;
                 embers.transform.localScale = Vector3.one * _scale;
-                _emberAcc += dt * (30f + 10f * _pips) * (0.5f + build) * (fountain ? 1f : 0.4f);
+                _emberAcc += dt * (30f + 10f * _vis) * (0.5f + build) * (fountain ? 1f : 0.4f);
                 int n = (int)_emberAcc;
                 if (n > 0) { embers.Emit(n); _emberAcc -= n; }
             }
@@ -2090,18 +2118,18 @@ namespace WizardsVRC
                     Vector3 under = Focus();
                     float rise = Ease((t - _tDisp) / 0.3f);
                     float thin = 1f - Ease((t - _tExp) / 0.3f);
-                    float aw = (0.8f + 0.1f * _pips) * thin * (1f + 0.08f * Mathf.Sin(t * 22f));
+                    float aw = (0.8f + 0.1f * _vis) * thin * (1f + 0.08f * Mathf.Sin(t * 22f));
                     castPillar.position = new Vector3(under.x, _ground, under.z);
-                    castPillar.localScale = new Vector3(Mathf.Max(0.01f, aw), Mathf.Max(0.01f, rise * (5f + 0.8f * _pips)), Mathf.Max(0.01f, aw));
+                    castPillar.localScale = new Vector3(Mathf.Max(0.01f, aw), Mathf.Max(0.01f, rise * (5f + 0.8f * _vis)), Mathf.Max(0.01f, aw));
                     castPillar.rotation = Quaternion.Euler(0f, t * 90f, 0f);
                 }
                 else if (on)
                 {
                     float grow = Ease((t - t0) / 0.5f);
                     float fade = 1f - Ease((t - _tUnl) / 0.45f);
-                    float w = (1.1f + 0.12f * _pips) * _body * fade * (1f + 0.08f * Mathf.Sin(t * 22f)) * (column ? 1f : 0.6f);
+                    float w = (1.1f + 0.12f * _vis) * _body * fade * (1f + 0.08f * Mathf.Sin(t * 22f)) * (column ? 1f : 0.6f);
                     castPillar.position = _from;
-                    castPillar.localScale = new Vector3(Mathf.Max(0.01f, w), Mathf.Max(0.01f, grow * (4f + 0.8f * _pips)), Mathf.Max(0.01f, w));
+                    castPillar.localScale = new Vector3(Mathf.Max(0.01f, w), Mathf.Max(0.01f, grow * (4f + 0.8f * _vis)), Mathf.Max(0.01f, w));
                     castPillar.rotation = Quaternion.Euler(0f, t * 60f, 0f);
                 }
             }
@@ -2119,7 +2147,7 @@ namespace WizardsVRC
             {
                 debris.transform.position = _from + Vector3.up * 0.05f;
                 debris.transform.localScale = Vector3.one * (_scale * (0.8f + 0.2f * _tier));
-                _debrisAcc += dt * (8f + 5f * _pips) * (0.3f + build);
+                _debrisAcc += dt * (8f + 5f * _vis) * (0.3f + build);
                 int n = (int)_debrisAcc;
                 if (n > 0) { debris.Emit(n); _debrisAcc -= n; }
             }
@@ -2143,13 +2171,15 @@ namespace WizardsVRC
             {
                 _nextBeat = t + Mathf.Lerp(0.95f, 0.32f, build);
                 Pulse(_from, (2.4f + 0.5f * _tier) * _scale * (0.7f + 0.5f * build), 0.6f);
+                // From 4 pips each beat throws a ring of sparks along the floor too.
+                if (_pips >= 4) Shock(_from + Vector3.up * 0.12f, (int)((8 + 2 * _vis) * (0.4f + build)), 0.4f + 0.15f * _tier);
             }
             if (_tier < 3) return;
             if (vortex != null)
             {
                 vortex.transform.position = _from + Vector3.up * 0.1f;
                 vortex.transform.localScale = Vector3.one * _scale;
-                _vortexAcc += dt * (18f + 6f * _pips) * (0.3f + build);
+                _vortexAcc += dt * (18f + 6f * _vis) * (0.3f + build);
                 int n = (int)_vortexAcc;
                 if (n > 0) { vortex.Emit(n); _vortexAcc -= n; }
             }
@@ -2223,7 +2253,7 @@ namespace WizardsVRC
         private void AnimateLight(float t)
         {
             if (fxLight == null || !fxLight.gameObject.activeSelf) return;
-            float peak = 1.4f + 0.35f * _pips;
+            float peak = 1.4f + 0.35f * _vis;
             if (t < _tUnl)
             {
                 float flick = 0.5f * Mathf.Exp(-Mathf.Max(0f, t - _arcFlash) * 9f);
@@ -2243,7 +2273,7 @@ namespace WizardsVRC
                 float flare = _impact == CardDatabase.IMPACT_NOVA ? 4f : 2.2f;
                 fxLight.transform.position = _impactAt + Vector3.up * 1.4f;
                 fxLight.intensity = (peak * flare) * Mathf.Exp(-k * 2.5f);
-                fxLight.range = (6f + 1.2f * _pips) * (_aoe ? 1.4f : 1f);
+                fxLight.range = (6f + 1.2f * _vis) * (_aoe ? 1.4f : 1f);
             }
         }
 
@@ -2287,6 +2317,12 @@ namespace WizardsVRC
             cutscenePlayer.SetFilmShot(pos, Quaternion.LookRotation(d, Vector3.up));
         }
 
+        /// <summary>How far back the film stands: further for a big caster, and for a big spell.</summary>
+        private float CamK()
+        {
+            return Mathf.Max(1f, _body * 0.9f) * (0.85f + 0.15f * _scale / Mathf.Max(1f, _body * 0.8f));
+        }
+
         /// <summary>What the film looks at over the caster: the core, or the creature beside them.</summary>
         private Vector3 Focus()
         {
@@ -2301,7 +2337,7 @@ namespace WizardsVRC
         private void ChargeShot(float t)
         {
             Vector3 up = Vector3.up;
-            float bodyK = Mathf.Max(1f, _body * 0.9f);
+            float bodyK = CamK();
             float w = Build(t);
             if (_tier >= 3 && w < 0.3f)
             {
@@ -2332,7 +2368,7 @@ namespace WizardsVRC
         private void ArrivalShot(float t)
         {
             Vector3 up = Vector3.up;
-            float bodyK = Mathf.Max(1f, _body * 0.9f);
+            float bodyK = CamK();
             float k = Mathf.Clamp01((t - _tUnl) / Mathf.Max(0.05f, _tDisp - _tUnl));
             float e = 1f - (1f - k) * (1f - k);
             _camPos = _from + _fwd * ((2.0f + 2.4f * e) * bodyK) + _right * (0.9f * _flip * bodyK) + up * ((0.7f + 0.7f * e) * _body);
@@ -2344,7 +2380,7 @@ namespace WizardsVRC
         private void DisplayShot(float t)
         {
             Vector3 up = Vector3.up;
-            float bodyK = Mathf.Max(1f, _body * 0.9f);
+            float bodyK = CamK();
             float k = Mathf.Clamp01((t - _tDisp) / Mathf.Max(0.05f, _tExp - _tDisp));
             Vector3 round = Quaternion.Euler(0f, (120f - 75f * Ease(k)) * _flip, 0f) * (_fwd * (3.8f * bodyK));
             _camPos = _from + round + up * ((1.0f + 1.4f * k) * _body);
@@ -2379,7 +2415,7 @@ namespace WizardsVRC
             // Waves are shot from one side then the other, each with the next kind of travelling shot; the finisher the spell's way.
             float side = final ? _flip : ((k & 1) == 0 ? -_flip : _flip);
             int cam = final ? _cam : (_cam + 1 + k) % 5;
-            float bodyK = Mathf.Max(1f, _body * 0.9f);
+            float bodyK = CamK();
             Vector3 focus = Focus();
             if (t < fly)
             {
@@ -2464,6 +2500,8 @@ namespace WizardsVRC
                 _camPos = pos;
                 _camLook = look;
                 _camShake = 0.035f * (1f + 0.6f * _pips) * Mathf.Exp(-r * 6f) * (final ? (_impact == CardDatabase.IMPACT_NOVA ? 1.6f : 1f) : 0.4f);
+                // Each aftershock jolts it again.
+                if (final) _camShake += 0.03f * Mathf.Exp(-Mathf.Max(0f, t - _kickAt) * 8f);
                 return;
             }
             // Wide, turning slowly round the ring as it settles (low, high or at eye height to match the shots).

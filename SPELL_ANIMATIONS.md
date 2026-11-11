@@ -99,7 +99,32 @@ a column of light). The cast sound ends on the release. Each tier keeps everythi
 | 1 | 1-2 | The rune, the flourish, the light building. |
 | 2 | 3-4 | Grit and motes lift off the floor. Sparks race round the rune's rim. A heartbeat of rings spreads from the caster, from one a second to three. The hum of the charge. |
 | 3 | 5-6 | Everything but the magic goes dark. Sparks spiral up round the caster. Power crackles out of them, more and more often, and the light flickers with it. They stand in a column of light for the back half. In the last half second it is all drawn in. |
-| 4 | 7 | The school's rune opens in the sky over the ring, 15 m across, and light pours down from it on to the caster. Both sets of rings turn round them. |
+| 4 | 7 | The school's rune opens in the sky over the ring, 23 m across, and light pours down from it on to the caster. Both sets of rings turn round them. |
+
+## How big
+
+Everything a spell shows is sized from its pip cost, and the size climbs faster than the cost: the effects treat 1 to 7
+pips as 1, 2, 4, 6, 8, 10 and 13 (`SpellCinematic._vis`). That one number drives every size, count and rate.
+
+| | 1 pip | 4 pips | 7 pips |
+| --- | ---: | ---: | ---: |
+| Rune on the floor | 2.7 m | 4.9 m | 8.0 m |
+| Power core | 0.6 m | 1.3 m | 2.2 m |
+| Sparks in the hit | about 60 | about 170 | about 320 |
+| Column of light (a pillar impact) | 7 m | 13 m | 22 m |
+| Light it throws | 6 m | 14 m | 32 m |
+
+On top of the sizes, cost unlocks more:
+
+| From | Adds |
+| --- | --- |
+| 3 pips | Aftershocks: the hit goes on going off round the target, one burst and ring of sparks after another (one at 3 pips, five at 7), each jolting the film. |
+| 4 pips | Every beat of the charge's heartbeat throws a ring of sparks along the floor. The big impact sound. |
+| 5 pips | A second strike (the wave before the spell itself), and everything in tier 3. |
+| 6 pips | A second, wider ring of sparks on the release. |
+| 7 pips | Tier 4: the rune in the sky, 23 m across, and the light pouring from it. |
+
+The film stands further back for a bigger spell so it stays in the shot.
 
 ## Each spell's own beats
 

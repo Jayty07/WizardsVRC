@@ -537,6 +537,11 @@ effects it uses go.
 - **Exit.** The power leaves the spell's own way (embers, blown apart, a column of sparks into the sky, sinking into
   the floor, a last pair of rings) and the caster goes back to their seat.
 
+**Cost is size.** Everything a spell shows is sized from its pip cost on a curve that climbs faster than the cost (the
+effects treat 1 to 7 pips as 1, 2, 4, 6, 8, 10, 13): at 7 pips the rune on the floor is 8 m across, the core over the
+caster 2.2 m, the rune in the sky 23 m, and a column impact 22 m tall. From 3 pips the hit throws aftershocks round the
+target (one, up to five at 7), from 4 each beat of the charge throws a ring of sparks, from 6 the release throws two.
+
 **Charm, shield and trap spells have no animation.** The effect just appears round its target with a chime (pitched
 high for a blade, lower for a trap, lowest for a shield) and the next caster goes about a second later
 (`BattleManager.charmSeconds`). A heal is staged like an attack but lands gently on whoever it heals. A summoned minion
