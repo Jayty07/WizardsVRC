@@ -22,6 +22,8 @@ bells, choir and reverb as the quest sounds (make_quest_sounds.py).
                          BattleClient pitches it: blades high, traps middling, shields low)
     Charm_Shatter.wav    one being used up: a quick rising ring as it flashes white, then the crack and a spray of
                          glass (0.8 s; pitched the same way)
+    Spell_Ignite.wav     the battle aura catching alight round a caster as they charge: a rush of air, a thump and
+                         its fluttering roar (1.3 s)
 
     python3 Tools/make_spell_cast_sounds.py Assets/WizardsVRC/Audio/Cast      (needs numpy and scipy)
 """
@@ -255,6 +257,16 @@ def main(folder):
     out += q.sparkles(t, 0.15, 0.45, 22, 0.07, lo=3500, hi=10000, rise=-1.2)
     out += sweep_noise(t, 0.14, 0.4, 9000, 2500, 0.16, shape=0.7)
     q.write(os.path.join(folder, 'Charm_Shatter.wav'), out, T, wet=0.2, size=0.6, gain=0.8)
+
+    # The battle aura catching alight round a caster: air rushing in and up, a thump as it catches, then its roar
+    # fluttering as it settles.
+    T = 1.3
+    t = q.timeline(T)
+    out = sweep_noise(t, 0.0, 0.22, 300, 5200, 0.5, shape=1.2)
+    out += boom(t, 0.18, 0.8, 130, 48, 0.8, decay=4.0) + crack(t, 0.18, 0.3, dur=0.2, hp=1500)
+    out += sweep_noise(t, 0.18, 1.0, 3800, 700, 0.45, shape=0.6) + rumble(t, 0.2, 1.0, 0.3)
+    out = out * np.where(t > 0.2, 0.75 + 0.25 * np.sin(2 * np.pi * 23 * t), 1.0)
+    q.write(os.path.join(folder, 'Spell_Ignite.wav'), out, T, wet=0.25, size=0.9, gain=0.85)
 
 
 if __name__ == '__main__':

@@ -436,6 +436,7 @@ namespace WizardsVRC.EditorTools
             int looks = GlyphPenData.Labels.Length;
             cine.sparkMats = new Material[looks];
             cine.glowMats = new Material[looks];
+            cine.flameMats = new Material[looks];
             cine.ringMats = new Material[looks];
             cine.pillarMats = new Material[looks];
             cine.coreMats = cores;
@@ -446,6 +447,7 @@ namespace WizardsVRC.EditorTools
                 Color c = GlyphColors[k];
                 cine.sparkMats[k] = AuraMat("SpellCineSpark" + label, Color.Lerp(c, Color.white, 0.25f), AuraSparkTex);
                 cine.glowMats[k] = AuraMat("SpellCineGlow" + label, c, AuraGlowTex);
+                cine.flameMats[k] = AuraMat("SpellCineFlame" + label, Color.Lerp(c, Color.white, 0.15f), AuraFlameTex);
                 cine.ringMats[k] = AuraMat("SpellCineRing" + label, Color.Lerp(c, Color.white, 0.2f), SpellRingTex);
                 cine.pillarMats[k] = ShaftMat("SpellCinePillar" + label, c * 0.8f);
             }
@@ -467,6 +469,45 @@ namespace WizardsVRC.EditorTools
             rune.gameObject.SetActive(false);
             var aura = CinePS(rig, "ChargeAura", spark0, sparks, 0.45f, 0.55f, -4.6f, -3.8f, 0.08f, 0.2f, 0f, ParticleSystemShapeType.Sphere, 2.2f, 1000);
             cine.chargeAura = aura;
+
+            // The battle aura (SpellCinematic.AnimateAura): two flame-shaped shells of light round the caster (the
+            // WizardsVRC/AuraFlame shader makes them lick and flicker), tongues of flame racing up inside them from a
+            // ring at the caster's feet (shrinking as they climb, so they taper as the shells do), and streaks of
+            // wind rushing up round them. Sized for a wizard and a 1-pip spell; the script scales them up.
+            var flameList = new List<Renderer>();
+            cine.auraShell = AuraShell(rig, "AuraShell", 0f, out cine.auraShellRenderer);
+            cine.auraShellOuter = AuraShell(rig, "AuraShellOuter", 2.6f, out cine.auraShellOuterRenderer);
+            var auraFlames = CinePS(rig, "AuraFlames", cine.flameMats[0], flameList, 0.45f, 0.75f, 0f, 0f, 0.5f, 0.9f, 0f, ParticleSystemShapeType.Circle, 0.42f, 1000);
+            var auraFlameShape = auraFlames.shape;
+            auraFlameShape.radiusThickness = 0.5f;
+            auraFlames.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            var flameRise = auraFlames.velocityOverLifetime;
+            flameRise.enabled = true;
+            flameRise.space = ParticleSystemSimulationSpace.World;
+            flameRise.x = new ParticleSystem.MinMaxCurve(0f, 0f);
+            flameRise.y = new ParticleSystem.MinMaxCurve(2.6f, 3.9f);
+            flameRise.z = new ParticleSystem.MinMaxCurve(0f, 0f);
+            var auraFlameRenderer = auraFlames.GetComponent<ParticleSystemRenderer>();
+            auraFlameRenderer.renderMode = ParticleSystemRenderMode.Stretch;
+            auraFlameRenderer.lengthScale = 1.35f;
+            auraFlameRenderer.velocityScale = 0.06f;
+            cine.auraFlames = auraFlames;
+            var auraStreaks = CinePS(rig, "AuraStreaks", spark0, sparks, 0.22f, 0.4f, 0f, 0f, 0.04f, 0.09f, 0f, ParticleSystemShapeType.Circle, 1.5f, 600);
+            var auraStreakShape = auraStreaks.shape;
+            auraStreakShape.radiusThickness = 0.6f;
+            auraStreaks.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            var streakRise = auraStreaks.velocityOverLifetime;
+            streakRise.enabled = true;
+            streakRise.space = ParticleSystemSimulationSpace.World;
+            streakRise.x = new ParticleSystem.MinMaxCurve(0f, 0f);
+            streakRise.y = new ParticleSystem.MinMaxCurve(8f, 13f);
+            streakRise.z = new ParticleSystem.MinMaxCurve(0f, 0f);
+            var auraStreakRenderer = auraStreaks.GetComponent<ParticleSystemRenderer>();
+            auraStreakRenderer.renderMode = ParticleSystemRenderMode.Stretch;
+            auraStreakRenderer.lengthScale = 6f;
+            auraStreakRenderer.velocityScale = 0.08f;
+            cine.auraStreaks = auraStreaks;
+            cine.flameRenderers = flameList.ToArray();
             cine.castPillar = Pillar(rig, "CastPillar", pillar0, pillars, null, null);
             cine.gyroRings = new[] { Ring(rig, "GyroRingA", ring0, rings), Ring(rig, "GyroRingB", ring0, rings) };
             cine.portalBurst = CinePS(rig, "PortalBurst", spark0, sparks, 0.6f, 1.0f, 1.5f, 4.5f, 0.08f, 0.22f, -0.2f, ParticleSystemShapeType.Sphere, 0.5f, 800);
@@ -663,6 +704,7 @@ namespace WizardsVRC.EditorTools
             cine.impactSound = CastClip("Spell_Impact");
             cine.impactBigSound = CastClip("Spell_ImpactBig");
             cine.surgeSound = CastClip("Spell_Surge");
+            cine.igniteSound = CastClip("Spell_Ignite");
             // The hum of the charge has a source of its own (it's started part-way in, and cut off on the release).
             var hum = Child(rig, "ChargeHum", Vector3.zero).gameObject.AddComponent<AudioSource>();
             hum.playOnAwake = false;
@@ -680,6 +722,48 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>The dark for a big spell's charge (WizardsVRC/DuskVeil): clear until SpellCinematic drives its colour's alpha.</summary>
+        /// <summary>
+        /// One shell of the battle aura: a smooth teardrop standing on its origin, 1 tall and 1 across, wearing the
+        /// WizardsVRC/AuraFlame shader (which makes it flicker). 'seed' keeps two shells from moving together.
+        /// </summary>
+        private static Transform AuraShell(Transform rig, string name, float seed, out Renderer renderer)
+        {
+            Mesh mesh = DressMesh("PSX_AuraShell", () => DressLathe(new[]
+            {
+                new Vector2(0f, 0f), new Vector2(0.3f, 0.02f), new Vector2(0.46f, 0.16f), new Vector2(0.5f, 0.34f), new Vector2(0.44f, 0.52f),
+                new Vector2(0.32f, 0.68f), new Vector2(0.2f, 0.82f), new Vector2(0.09f, 0.93f), new Vector2(0f, 1f),
+            }, 16));
+            // The shader throws its tongues well outside the mesh: tell the culling so (or they'd vanish at the screen's edge).
+            mesh.bounds = new Bounds(new Vector3(0f, 0.75f, 0f), new Vector3(1.8f, 1.6f, 1.8f));
+            EditorUtility.SetDirty(mesh);
+            Directory.CreateDirectory(MaterialsDir);
+            string path = MaterialsDir + "/Spell" + name + ".mat";
+            var shader = Shader.Find("WizardsVRC/AuraFlame");
+            if (shader == null) Debug.LogError("[WizardsVRC] Shader WizardsVRC/AuraFlame is missing; the charge's aura will have no shell (just its flames).");
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader ?? Shader.Find("Legacy Shaders/Particles/Additive"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            if (shader != null)
+            {
+                mat.shader = shader;
+                mat.SetFloat("_Power", 0f);
+                mat.SetFloat("_Seed", seed);
+            }
+            EditorUtility.SetDirty(mat);
+            var go = Child(rig, name, Vector3.zero).gameObject;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            renderer = r;
+            go.SetActive(false);
+            return go.transform;
+        }
+
         private static Material DuskVeilMat()
         {
             Directory.CreateDirectory(MaterialsDir);

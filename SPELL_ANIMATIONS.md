@@ -2,7 +2,8 @@
 
 How every spell in WizardsVRC is staged, and why. One formula turns a spell's pip cost into the whole show: the six
 beats Wizard101 uses (cast, arrival, display, attack, result, exit), how long each lasts, and what the cast is made of.
-No spell lasts more than 14 seconds. The code is `Scripts/SpellCinematic.cs` (and `BattleClient` for blades, traps and
+The cast is a battle aura bursting alight round the caster; the display is the long beat, 5 seconds whatever the spell.
+A spell lasts from 13 to 17 seconds (19 at the very most). The code is `Scripts/SpellCinematic.cs` (and `BattleClient` for blades, traps and
 shields); the numbers are `CardDatabase.Plan*` and the fields under *Spell cinematics* on `BattleManager`.
 
 ## What Wizard101 does
@@ -32,7 +33,7 @@ What players say about it, from the game's own forums (links under *Sources*):
 | Repeats wear thin: the first cast "looks nice, but its getting very boring". | Waves differ from each other, and no two spells share a recipe. |
 | Quick casts for shields and blades (which had taken 5 to 8 seconds each) were welcomed. | A spell that only places a charm, a shield or a trap has no animation: it just appears. |
 
-None of those threads gives measured timings, so the lengths below are ours: no spell lasts more than 14 seconds.
+None of those threads gives measured timings, so the lengths below are ours.
 
 ## What we change
 
@@ -41,9 +42,9 @@ standing in the middle of the ring. The six beats stay, each with our own conten
 
 | Beat | In WizardsVRC |
 | --- | --- |
-| **Cast** | The caster vanishes from their seat, appears in the middle of the ring and charges: the school's rune draws itself under them, the symbol is drawn in the air, and the more the spell costs the more the charge is made of. |
+| **Cast** | The caster vanishes from their seat, appears in the middle of the ring and charges: power streams in to them, a battle aura bursts alight round them and burns higher and wilder until the release, the school's rune draws itself under them, and the more the spell costs the bigger the aura and the more the charge is made of. |
 | **Arrival** | The release. A shock goes off the caster and the spell's subject arrives: a core of power over the caster, or a creature spell's creature beside them. |
-| **Display** | The subject shows off. |
+| **Display** | The subject shows off, for 5 seconds: it opens, builds through about ten quickening beats, and peaks. The long beat. |
 | *(Expend)* | Every blade, trap and shield the cast uses goes, one at a time. Only when there are some. |
 | **Attack** | The spell's own delivery flies to the target. A spell of 5 pips or more strikes twice: a lighter wave first, then the spell itself. |
 | **Result** | The hit: the spell's own kind of impact, the numbers, the target reeling. It lands on every target at once for an area spell. |
@@ -57,28 +58,35 @@ and leaves (see *Each spell's own beats*).
 `P` is the spell's pip cost, from 1 to 7.
 
 ```
-whole turn  T = 9 + 0.5 x (P - 1) seconds            9 s at 1 pip, 12 s at 7
-expending   E = 0.4 s for each blade, trap and shield used, 2 s at most
-            so no spell ever lasts more than 12 + 2 = 14 s
+cast        = 0.9 s to reach the middle  +  0.1 s x (P - 1) gathering  +  the school's cast sound (2.9 to 3.8 s)
+display     = 5 s, whatever the spell
+the rest    R = 3.6 + 0.35 x (P - 1) seconds          3.6 s at 1 pip, 5.7 s at 7, shared out:
+              arrival 19%    attack 48%    result 20%    exit 13%
+expending   E = 0.4 s for each blade, trap and shield used, 2 s at most (between the display and the attack)
+back        = 0.8 s to the seat
 
-cast        = 0.9 s to reach the middle  +  0.1 s x (P - 1) gathering  +  the school's cast sound
-what is left of T after the cast and the 0.8 s back to the seat is shared out:
-  arrival 16%    display 16%    attack 40%    result 17%    exit 11%
+whole turn  = cast + arrival + display + E + attack + result + exit + back
 ```
 
 | Pips | Tier | Cast | Arrival | Display | Attack | Strikes | Result | Exit | Whole turn | With 5 effects used |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1 | 3.9 | 0.69 | 0.69 | 1.72 | 1 | 0.73 | 1.27 | 9.0 | 11.0 |
-| 2 | 1 | 4.0 | 0.75 | 0.75 | 1.88 | 1 | 0.80 | 1.32 | 9.5 | 11.5 |
-| 3 | 2 | 4.1 | 0.82 | 0.82 | 2.04 | 1 | 0.87 | 1.36 | 10.0 | 12.0 |
-| 4 | 2 | 4.2 | 0.88 | 0.88 | 2.20 | 1 | 0.93 | 1.40 | 10.5 | 12.5 |
-| 5 | 3 | 4.3 | 0.94 | 0.94 | 2.36 | 2 | 1.00 | 1.45 | 11.0 | 13.0 |
-| 6 | 3 | 4.4 | 1.01 | 1.01 | 2.52 | 2 | 1.07 | 1.49 | 11.5 | 13.5 |
-| 7 | 4 | 4.5 | 1.07 | 1.07 | 2.68 | 2 | 1.14 | 1.54 | 12.0 | 14.0 |
+| 1 | 1 | 3.9 | 0.68 | 5.00 | 1.73 | 1 | 0.72 | 1.27 | 13.3 | 15.3 |
+| 2 | 1 | 4.0 | 0.75 | 5.00 | 1.90 | 1 | 0.79 | 1.31 | 13.8 | 15.8 |
+| 3 | 2 | 4.1 | 0.82 | 5.00 | 2.06 | 1 | 0.86 | 1.36 | 14.2 | 16.2 |
+| 4 | 2 | 4.2 | 0.88 | 5.00 | 2.23 | 1 | 0.93 | 1.40 | 14.7 | 16.7 |
+| 5 | 3 | 4.3 | 0.95 | 5.00 | 2.40 | 2 | 1.00 | 1.45 | 15.1 | 17.1 |
+| 6 | 3 | 4.4 | 1.02 | 5.00 | 2.57 | 2 | 1.07 | 1.50 | 15.6 | 17.6 |
+| 7 | 4 | 4.5 | 1.08 | 5.00 | 2.74 | 2 | 1.14 | 1.54 | 16.0 | 18.0 |
 
-Seconds throughout, with a 3-second cast sound (they run from 2.9 to 3.8: a longer one leaves a little less for the
-beats after it, so the whole turn is the same for every school). Cast includes reaching the middle; exit includes going
-back. Everything after the cast is worked out from one number, so every client lays a spell out the same.
+Seconds throughout, with a 3-second cast sound (they run from 2.9 to 3.8: a longer one makes the cast, and so the whole
+turn, that much longer). Cast includes reaching the middle; exit includes going back. The shortest a spell can be is
+13.2 s (1 pip, Fire, nothing used up); the longest is 18.8 s (7 pips, Ice, five blades, traps and shields used).
+Everything after the cast is worked out from one number, so every client lays a spell out the same.
+
+**The 14-second ceiling is gone.** It could not stand with a 5-second display: the cast, the display and five effects
+going already come to 12 s before anything is thrown. To bring spells back under it, shorten the display
+(`CardDatabase.cineDisplaySeconds`) or the rest (`BattleManager.spellRestSecondsMin` / `Max`); `Tools/spell_staging_table.py`
+prints what any numbers give.
 
 **Who gets it.** Every wizard, every monster and every boss: the same formula, the same lengths. Only a summoned minion
 casts from its seat with no staging.
@@ -90,16 +98,52 @@ own short ones.
 
 ## Cast
 
-The school's rune draws itself on the floor under the caster, turning faster as the power builds, with the spell's own
-flourish round them (energy streaming in, two rings on tilted axes, a fountain of embers, a double spiral of sparks, or
-a column of light). The cast sound ends on the release. Each tier keeps everything below it and adds:
+**A battle aura.** Every staged cast is the caster powering up in the middle of the ring:
+
+1. **Gathering** (the first half second). Sparks stream in to the caster from all round; the school's rune opens on the
+   floor under them.
+2. **Ignition.** The aura catches with a thump: a flame-shaped shell of light in the school's colour bursts up round
+   the caster, white-hot at its root, its outline licking and flickering; a ring and a spray of sparks blast out along
+   the floor and the light jumps.
+3. **Burning.** Tongues of flame race up inside the shell. It grows taller and wilder as the charge builds, and swells
+   with every beat of the charge (the beats come quicker and quicker). Grit lifts off the floor. The film sinks to look
+   up at the caster through the flames, and shakes harder as it goes on.
+4. **The flare.** In the last fifth of the charge the aura flares to half as big again, brighter and faster.
+5. **The release.** It bursts outward as the spell goes. A thin glow of it stays on the caster until their spell lands,
+   and jumps once more at the display's peak.
+
+The shell is a mesh that the `WizardsVRC/AuraFlame` shader sets burning (`SpellCinematic.AnimateAura`); the spell's own
+flourish still plays round it (energy streaming in, two rings on tilted axes, a fountain of embers, a double spiral of
+sparks, or a column of light). The cast sound ends on the release. The aura is sized by the pip cost, about 2.6 m tall
+round a wizard at 1 pip and nearly 6 m at 7, and each tier keeps everything below it and adds:
 
 | Tier | Pips | Adds |
 | ---: | --- | --- |
-| 1 | 1-2 | The rune, the flourish, the light building. |
-| 2 | 3-4 | Grit and motes lift off the floor. Sparks race round the rune's rim. A heartbeat of rings spreads from the caster, from one a second to three. The hum of the charge. |
-| 3 | 5-6 | Everything but the magic goes dark. Sparks spiral up round the caster. Power crackles out of them, more and more often, and the light flickers with it. They stand in a column of light for the back half. In the last half second it is all drawn in. |
-| 4 | 7 | The school's rune opens in the sky over the ring, 23 m across, and light pours down from it on to the caster. Both sets of rings turn round them. |
+| 1 | 1-2 | The aura, its flames, a soft beat of rings, a little grit lifting, the hum of the charge, the rune and the flourish. |
+| 2 | 3-4 | Streaks of wind rush up round the aura. More grit and motes lift off the floor. Sparks race round the rune's rim. The beat of rings spreads from the caster from one a second to three, each swelling the aura. |
+| 3 | 5-6 | A second, paler shell burns outside the first. Everything but the magic goes dark. Sparks spiral up round the caster. Power crackles out of them, more and more often, and the light flickers with it. They stand in a column of light for the back half. In the last half second it is all drawn in. |
+| 4 | 7 | The school's rune opens in the sky over the ring, 23 m across, and light pours down from it into the aura. Both sets of rings turn round them. |
+
+## Display
+
+The long beat: 5 seconds for every spell, in three parts.
+
+1. **It opens.** The subject has just arrived (a creature rears), and the hum starts to climb again.
+2. **It builds.** Beats come slowly at first and then quicker and quicker, about ten in all. Each one swells the
+   spell's subject, jolts the film, and does the spell's own thing (below).
+3. **It peaks** (the last seventh): a ring of light and a spray of sparks from the subject, a boom, a flash, and the
+   caster's aura jumps. Then the blades, traps and shields go, and the attack.
+
+| The spell's display | Every beat | Throughout |
+| --- | --- | --- |
+| Flare | A ring of sparks and a ring of light from the subject, bigger each time. | |
+| Halo | A ring of light spreads from it. | Rings spin round it and sparks circle it, faster and in more strands as it builds, their circle breathing in and out. |
+| Crown | The next bolt along the crown flares; at the peak they all do. | A crown of bolts fans out behind the caster over the first third and hangs there, swaying. |
+| Storm | A bolt strikes round it. | It crackles, thinly at first and then without a pause, sparks jumping from the floor further and further out. |
+| Ascend | A ring of light climbs the column. | A column of light through it, and sparks spiralling up ever thicker. |
+
+The film gives it three shots: round the caster and up to what has arrived; close under the subject, turning slowly
+round it; then back and high behind the caster, the subject over them and the target beyond, closing in as it peaks.
 
 ## How big
 
@@ -173,7 +217,9 @@ own eyes and the film from the release.
 
 | To change | Where |
 | --- | --- |
-| How long a spell lasts | `BattleManager.spellSecondsMin`, `spellSecondsMax` |
+| How long the display lasts | `CardDatabase.cineDisplaySeconds` (5 s) |
+| How long the arrival, attack, result and exit get | `BattleManager.spellRestSecondsMin`, `spellRestSecondsMax` |
+| The aura's size, flames and brightness | `SpellCinematic.AnimateAura`; its flicker in `Shaders/AuraFlame.shader` |
 | How long each used effect takes, and the most they take together | `BattleManager.expendSeconds`, `expendMaxSeconds` |
 | The gather | `BattleManager.gatherPerPip` |
 | How long a charm, shield or trap spell holds before the next caster | `BattleManager.charmSeconds` |

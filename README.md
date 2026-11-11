@@ -106,7 +106,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Round.cs` | The round hub's curtain wall and towers, the **duelling circle** (PvP encounter + countdown zone) and the health / mana orbs |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Tavern.cs` | The round **Tavern** landmark (the hub's Crystal Tap, 45 m across): a tall stone drum with pilasters, a string course and cornice, the grand arched entrance on the south with steps, lanterns and the sign, school banners round the outside, a low roof ring up to a clerestory drum and a cone roof with an oculus over the Starfall Crystal, sit-able seats (`Seat`: VRCStation), synced mug pickups and the bell that resets them (`MugReset`) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.SpellStyles.cs` | Each attack spell's recipe (how it travels, how it lands, its wind-up, film style, bolt count, shape, handedness and arc), checked so no two travel and land alike |
-| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.SpellCast.cs` | Builds the rune board and casting wand, the choreography rig (rune, rings, column, bolts, beam, portals, bursts, spikes, stamp, light) re-coloured per school at runtime, and the fade sphere; ring art by `Tools/make_spell_ring.py`, sounds by `Tools/make_spell_cast_sounds.py` |
+| `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.SpellCast.cs` | Builds the rune board and casting wand, the choreography rig (rune, rings, column, bolts, beam, portals, bursts, spikes, stamp, light) re-coloured per school at runtime, the battle aura (two flame-shaped shells wearing `Shaders/AuraFlame.shader`, its flames and wind streaks), and the fade sphere; ring art by `Tools/make_spell_ring.py`, sounds by `Tools/make_spell_cast_sounds.py` |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.TavernHall.cs` | The Crystal Tap's hall (after the Aureion Collegium concept), a radial tower round the crystal: the **core** (a round bar ring round the fountain with stools, taps, bottles and kegs; a lounge ring of couches, armchairs and tables on a round velvet rug; the **theatre**, a four-sided screen hung under the crystal with the tavern's `TavernJukebox` and its controls on a lectern in the entrance hall), open up to the oculus; **seven school wedges** behind stone arches with lanterns (Ice's crystal study, Fire's hearth lounge, Balance's concord with the mirror toggle `LocalToggle`, Myth's archive, Death's reliquary, Life's garden, Storm's arcane lounge), each with couches by its arch, and the entrance hall in the eighth; a **gallery** over the wedges reached by a **double stair** to a landing at the Balance arch, with a railing and the school banners on the wall over the rooms; **ten rooms** off it, each with a bed, a desk and chair, a window with sunlight streaming in and its **own screen and video player** (loads only while you're near, heard only in the room, Stop button); a ring chandelier, and **sunbeams** through the roof and windows (`Tools/make_light_shaft.py`) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Terrain.cs` | Zone ground from the map + **height map**, as merged per-chunk meshes: every cell a column to its height with stone walls down to lower neighbours, cobbles / lawns / pond beds, optional **rounded corners** (outer corners cut, inner corners filled, path-lawn corners curved), kerbs, copings, iron **railings** (drops, ponds, stair handrails, optional path edges), stairs with stringers, water, waterfalls |
 | `Assets/WizardsVRC/Shaders/PSXSkyline.shader` | Skybox: gradient sky plus a pixel-art skyline strip round the horizon (the other areas where they lie, far isles, sea, clouds), 15-bit dithered |
@@ -515,20 +515,33 @@ simply appears round its target with a sound. A prefab in
 
 **Spells are staged by one formula** (`SPELL_ANIMATIONS.md`, which also sets out the Wizard101 research behind it).
 Every attack spell, heal and dispel goes through the same six beats, whoever casts it (a wizard, a monster or a boss),
-and **no spell lasts more than 14 seconds**: the whole turn is 9 s at 1 pip up to 12 s at 7, plus up to 2 s while the
-effects it uses go.
+and the **display is the long beat: 5 seconds for every spell**. A whole turn runs from about 13 s at 1 pip to 17 s at
+7, plus up to 2 s while the effects it uses go (the old 14-second ceiling could not stand with a 5-second display; the
+numbers to bring it back down are in `SPELL_ANIMATIONS.md`).
 
-- **Cast.** The caster appears in the middle of the ring and charges. What the charge is made of changes with the
-  spell's power. Tier 1 (1-2 pips): the rune on the floor, the spell's flourish, the light building. Tier 2 (3-4):
-  grit lifts off the floor, sparks race round the rune's rim, a quickening heartbeat of rings, a rising hum. Tier 3
-  (5-6): everything but the magic goes dark (`Shaders/DuskVeil.shader`), sparks spiral up round the caster, power
-  crackles out of them, a column of light, and it's all drawn in just before it goes. Tier 4 (7): the school's rune
-  opens in the sky and pours light down on them.
+- **Cast.** The caster appears in the middle of the ring and powers up in a **battle aura**. Sparks stream in to
+  them, then the aura catches with a thump: a flame-shaped shell of light in the school's colour (white-hot at its
+  root, its outline licking and flickering: `Shaders/AuraFlame.shader`), tongues of flame racing up inside it, a ring
+  and a spray of sparks blasting out along the floor. It burns taller and wilder as the charge builds, swells with
+  every beat, flares to half as big again in the last fifth, and bursts outward on the release; a thin glow of it
+  stays on the caster until their spell lands. It is sized by the pip cost (about 2.6 m round a wizard at 1 pip,
+  nearly 6 m at 7) and the tiers add to it. Tier 1 (1-2 pips): the aura, a soft beat of rings, a little grit lifting,
+  the rune on the floor, the spell's flourish, a rising hum. Tier 2 (3-4): streaks of wind rush up round it, more
+  grit, sparks race round the rune's rim, a quickening heartbeat of rings. Tier 3 (5-6): a second, paler shell
+  outside the first, everything but the magic goes dark (`Shaders/DuskVeil.shader`), sparks spiral up round the
+  caster, power crackles out of them, a column of light, and it's all drawn in just before it goes. Tier 4 (7): the
+  school's rune opens in the sky and pours light down into it.
 - **Arrival.** The release: a shock off the caster, and the spell's subject arrives (a core of power over the caster, or
   a creature spell's creature beside them) the spell's own way: up out of the rune, down out of the sky, drawn in from
   all round, through a gate, or wound up out of a spiral of sparks.
-- **Display.** It shows off, the spell's own way: pulses throwing rings of sparks, rings spinning up round it, a crown
-  of bolts behind the caster, crackling with sparks jumping off the floor, or a column of light through it.
+- **Display.** The long beat: 5 seconds for every spell (`CardDatabase.cineDisplaySeconds`), in three parts. It opens
+  (a creature rears, the hum starts to climb again); it builds through about ten beats that come quicker and quicker,
+  each one swelling the spell's subject and jolting the film; and it peaks with a ring of light, a spray of sparks, a
+  boom and a flash as the caster's aura jumps. Each beat does the spell's own thing: a ring of sparks and light bigger
+  each time, a ring spreading while sparks circle it faster in more strands, the next bolt of a crown flaring (a crown
+  of bolts fans out behind the caster and hangs there swaying), a bolt striking round it as it crackles ever more
+  thickly, or a ring of light climbing a column of light with sparks spiralling up it. The film gives it three shots:
+  round the caster, close under the subject, then back and high behind the caster with the target beyond.
 - **Expend.** Every blade, trap and shield the cast uses goes now, one at a time (blades, then traps, then shields): it
   lifts out of its orbit flickering white, holds white, then shatters into shards with its sound and its bonus floating
   up. 0.4 s each, 2 s at most.
@@ -713,9 +726,10 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   well:** the monster walks to the middle of the ring, casts from there and goes back to its seat, filmed for everyone
   in the fight. Every spell flies **from the middle of the ring to its target's seat** and lands on the target's front
   (a creature pulls up just short of it), its path and impact scaled to that distance, so nothing overshoots. Timings
-  follow the staging formula (`SPELL_ANIMATIONS.md`): the whole turn is `spellSecondsMin` to `spellSecondsMax` by pip
-  cost (`cineInSeconds`, `gatherPerPip`, the cast sound, the beats, `cineOutSeconds`), plus `expendSeconds` for each
-  blade, trap and shield used (`expendMaxSeconds` at most); the beats' shares are `CardDatabase.Plan*`. Sounds:
+  follow the staging formula (`SPELL_ANIMATIONS.md`): `cineInSeconds`, `gatherPerPip`, the cast sound, the display
+  (`CardDatabase.cineDisplaySeconds`), `spellRestSecondsMin` to `spellRestSecondsMax` by pip cost for the arrival,
+  attack, result and exit, `cineOutSeconds`, plus `expendSeconds` for each blade, trap and shield used
+  (`expendMaxSeconds` at most); the beats' shares are `CardDatabase.Plan*`. Sounds:
   `Audio/Cast/Spell_*.wav`.
 - **A fizzle** plays the cast as normal for its first 2 seconds (`BattleManager.fizzleCutSeconds`), then the cast sound
   cuts off, the fizzle sound plays (`Audio/Cast/FX_Fizzle.wav`, `Tools/make_fizzle_sound.py`), and the symbol sputters,

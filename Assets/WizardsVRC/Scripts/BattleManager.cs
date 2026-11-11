@@ -106,18 +106,16 @@ namespace WizardsVRC
         public float cineInSeconds = 0.9f;
         [Tooltip("Fading out, back to the seat and fading in again, after the spell has landed.")]
         public float cineOutSeconds = 0.8f;
-        [Tooltip("A staged spell's whole turn (going to the middle, its six beats, going back) lasts this long at 1 pip...")]
-        public float spellSecondsMin = 9f;
+        [Tooltip("A staged spell's arrival, attack, result and exit share this long at 1 pip (its display is CardDatabase.cineDisplaySeconds on top)...")]
+        public float spellRestSecondsMin = 3.6f;
         [Tooltip("...and this long at 7 pips (evenly in between), whoever casts it: a wizard, a monster or a boss.")]
-        public float spellSecondsMax = 12f;
+        public float spellRestSecondsMax = 5.7f;
         [Tooltip("The caster gathers power this much longer per pip over the first, before the cast sound begins.")]
         public float gatherPerPip = 0.1f;
         [Tooltip("Each blade, trap and shield a cast uses takes this long to go (flash white, sound, shatter), before the attack...")]
         public float expendSeconds = 0.4f;
-        [Tooltip("...and all of them together never more than this (more of them go quicker), so no spell lasts over 14 s.")]
+        [Tooltip("...and all of them together never more than this (more of them go quicker).")]
         public float expendMaxSeconds = 2f;
-        [Tooltip("The least a spell's six beats get after its cast, however long its cast sound.")]
-        public float unleashFloorSeconds = 3f;
         [Tooltip("A charm, shield or trap spell: the effect just appears round its target with a sound, then this long before the next caster.")]
         public float charmSeconds = 1.1f;
         [Tooltip("A summoned minion's attack spell (cast from its seat, no cinematic): how long it settles after its release.")]
@@ -351,13 +349,12 @@ namespace WizardsVRC
 
         /// <summary>
         /// Seconds its beats after the cast get (arrival, display, attack, result, exit: CardDatabase.Plan* shares it
-        /// out): what's left of the spell's whole turn after going to the middle, the cast and going back.
+        /// out): the display (5 s, whatever the spell) and what the other four share by pip cost.
         /// </summary>
         public float CineUnleash(int i)
         {
-            int card = actCard[i];
-            float whole = Mathf.Lerp(spellSecondsMin, spellSecondsMax, (cardDatabase.CinePower(card) - 1) / 6f);
-            return Mathf.Max(unleashFloorSeconds, whole - cineInSeconds - cineOutSeconds - CineGather(i) - CastSeconds(cardDatabase.GetSchool(card)));
+            float rest = Mathf.Lerp(spellRestSecondsMin, spellRestSecondsMax, (cardDatabase.CinePower(actCard[i]) - 1) / 6f);
+            return cardDatabase.cineDisplaySeconds + Mathf.Max(1.5f, rest);
         }
 
         /// <summary>How many blades, traps and shields the cast starting at act index i uses up (they're logged against its acts).</summary>

@@ -459,21 +459,26 @@ namespace WizardsVRC
         //   attack    the spell's own delivery flies; a spell of 5 pips or more strikes twice
         //   result    the hit lands, the spell's own kind of impact, and the numbers
         //   exit      the power leaves, the spell's own way, and the caster goes back to their seat
-        // The whole turn lasts 9 s at 1 pip up to 12 s at 7 (BattleManager), plus the expending (2 s at most): never more
-        // than 14 s. What's left after going to the middle, the cast and going back is the 'unleash', shared out below, so
-        // every client lays a spell out the same from that one number.
+        // The display is the long beat: cineDisplaySeconds (5 s), whatever the spell. The other four beats share what
+        // BattleManager gives them by pip cost (3.6 s at 1 pip up to 5.7 s at 7). The two together are the 'unleash', the
+        // one number every client lays a spell out from with the functions below.
+
+        [Tooltip("How long a staged spell's display lasts: the spell showing off round its subject, between the arrival and the attack.")]
+        public float cineDisplaySeconds = 5f;
 
         /// <summary>A staged spell's power: its pip cost, 1 to 7.</summary>
         public int CinePower(int cardId) { return Mathf.Clamp(GetPipCost(cardId), 1, 7); }
 
-        /// <summary>The arrival's share of the unleash.</summary>
-        public float PlanArrival(float unleash) { return unleash * 0.16f; }
-        /// <summary>The display's share.</summary>
-        public float PlanDisplay(float unleash) { return unleash * 0.16f; }
+        /// <summary>The display: its own length (never more than three quarters of the unleash).</summary>
+        public float PlanDisplay(float unleash) { return Mathf.Min(Mathf.Max(0.5f, cineDisplaySeconds), unleash * 0.75f); }
+        /// <summary>What the other four beats share: the unleash less the display.</summary>
+        public float PlanRest(float unleash) { return unleash - PlanDisplay(unleash); }
+        /// <summary>The arrival's share of the rest.</summary>
+        public float PlanArrival(float unleash) { return PlanRest(unleash) * 0.19f; }
         /// <summary>The attack's share: from the first bolt leaving to the hit.</summary>
-        public float PlanAttack(float unleash) { return unleash * 0.40f; }
-        /// <summary>The result's share: the hit and the hold on it. The exit gets the rest (11%).</summary>
-        public float PlanResult(float unleash) { return unleash * 0.17f; }
+        public float PlanAttack(float unleash) { return PlanRest(unleash) * 0.48f; }
+        /// <summary>The result's share: the hit and the hold on it. The exit gets what's left (13%).</summary>
+        public float PlanResult(float unleash) { return PlanRest(unleash) * 0.20f; }
         /// <summary>Waves before the finisher: one for a spell of 5 pips or more.</summary>
         public int PlanWaves(int pips) { return pips >= 5 ? 1 : 0; }
         /// <summary>Seconds from the release to the hit, when the spell's results land ('expend' = how long its blades, traps and shields take to go).</summary>

@@ -153,6 +153,21 @@ namespace WizardsVRC
         [Tooltip("The boom of the surge (tier 2 and up; smaller spells use the release sound).")]
         public AudioClip surgeSound;
 
+        [Header("The battle aura (the charge: see AnimateAura)")]
+        [Tooltip("The flame-shaped shell of light round the caster (WizardsVRC/AuraFlame), and a second, paler one for spells of 5 pips or more.")]
+        public Transform auraShell;
+        public Renderer auraShellRenderer;
+        public Transform auraShellOuter;
+        public Renderer auraShellOuterRenderer;
+        [Tooltip("Tongues of flame racing up inside the shell, and streaks of wind rushing up round it (3 pips or more).")]
+        public ParticleSystem auraFlames;
+        public ParticleSystem auraStreaks;
+        [Tooltip("The flames' material for each school (as sparkMats), and the renderers that wear it.")]
+        public Material[] flameMats;
+        public Renderer[] flameRenderers;
+        [Tooltip("The aura catching alight.")]
+        public AudioClip igniteSound;
+
         // ------------------------------------------------------------------ state
         private bool _on;
         private bool _me;
@@ -264,7 +279,12 @@ namespace WizardsVRC
             1, 2, 3, 11,     // a boomerang:  a lance, a helix, a volley, a wave
         };
 
-        private Material _fadeMat, _runeMat, _sigilMat, _skyMat, _duskMat;
+        private Material _fadeMat, _runeMat, _sigilMat, _skyMat, _duskMat, _auraMat, _auraOuterMat;
+        // The battle aura: whether it has caught, when it last swelled (its ignition, each beat), and its emitters' fractions.
+        private bool _auraLit;
+        private float _auraKick, _flameAcc, _streakAcc;
+        // The display: when its next beat is due, when the last one was, and how far its circling sparks have turned.
+        private float _showNext, _showKick, _showTurn;
         private float _auraAcc, _emberAcc, _spiralAcc, _trailAcc, _debrisAcc, _rimAcc, _vortexAcc, _skyAcc, _moteAcc;
         private float _runeAngle, _rimAngle;
         private float _nextBeat, _nextArc;
@@ -471,6 +491,13 @@ namespace WizardsVRC
             _flareAt = -100f;
             _arcFlash = -100f;
             _kickAt = -100f;
+            _auraLit = false;
+            _auraKick = -100f;
+            _flameAcc = 0f;
+            _streakAcc = 0f;
+            _showNext = 0f;
+            _showKick = -100f;
+            _showTurn = 0f;
             _pulseNext = 0;
             _headCount = 0;
             _carrier = null;
@@ -624,6 +651,7 @@ namespace WizardsVRC
             float dt = Time.deltaTime;
             AnimateRune(t, dt);
             AnimateCharge(t, dt);
+            AnimateAura(t, dt);
             AnimateStage(t);
             AnimatePulses(t);
             AnimateArrival(t, dt);
@@ -1110,11 +1138,20 @@ namespace WizardsVRC
 
         /// <summary>
         /// The display (after the arrival; what it leaves stays up while the blades, traps and shields go, until the
-        /// attack): the spell's own way of showing off, round its subject. A creature rears as it begins. FLARE: three
-        /// pulses, each throwing a ring of sparks. HALO: rings spin up round it with sparks circling it (the rings are
-        /// AnimateCharge's). CROWN: a crown of bolts fans out behind the caster, one after another, and hangs there.
-        /// STORM: it crackles, and sparks jump from the floor all round. ASCEND: a column of light through it
-        /// (AnimateCharge's) and sparks spiralling up.
+        /// attack): the long beat, where the spell shows off round its subject (CardDatabase.cineDisplaySeconds, 5 s).
+        /// It runs in three parts whatever the spell. It opens (a creature rears, the hum starts to climb again). It
+        /// builds: beats come slowly at first and then quicker and quicker (about ten in all), each one swelling the
+        /// spell's subject and doing the spell's own thing. And near the end it peaks: a ring and a spray of sparks
+        /// from the subject, a boom, a flash, and the caster's aura jumps. The spell's own thing:
+        ///   FLARE   every beat throws a ring of sparks and a ring of light, bigger each time;
+        ///   HALO    rings spin round it (AnimateCharge's) with sparks circling it, faster and in more strands as it
+        ///           builds, their circle breathing in and out; every beat a ring of light spreads from it;
+        ///   CROWN   a crown of bolts fans out behind the caster over the first third and hangs there swaying; every
+        ///           beat the next bolt along flares, and at the peak they all do;
+        ///   STORM   it crackles, thinly at first and then without a pause, sparks jumping from the floor further and
+        ///           further out; every beat a bolt strikes round it;
+        ///   ASCEND  a column of light through it (AnimateCharge's), sparks spiralling up ever thicker, and every beat
+        ///           a ring of light climbing the column.
         /// </summary>
         private void AnimateDisplay(float t, float dt)
         {
@@ -1125,63 +1162,108 @@ namespace WizardsVRC
             if (_showCue == 0)
             {
                 _showCue = 1;
+                _showNext = t + 0.15f;
                 if (_carrier != null && _carrierAnim != null) _carrierAnim.SetTrigger("Cast");
+                // The hum climbs again under it, timed to top out as the display ends.
+                if (chargeAudio != null && chargeSound != null)
+                {
+                    float len = chargeSound.length;
+                    float show = _tExp - _tDisp;
+                    chargeAudio.Stop();
+                    chargeAudio.transform.position = at;
+                    chargeAudio.clip = chargeSound;
+                    chargeAudio.volume = 0.16f + 0.08f * _tier;
+                    chargeAudio.Play();
+                    if (len > show + 0.05f) chargeAudio.time = len - show;
+                }
             }
+            // Its beats, and its one peak.
+            bool beat = false, peak = false;
+            if (showing && t >= _showNext)
+            {
+                _showNext = t + Mathf.Lerp(0.85f, 0.26f, k);
+                _showBeats++;
+                _showKick = t;
+                beat = true;
+            }
+            if (showing && _showCue == 1 && k >= 0.86f)
+            {
+                _showCue = 2;
+                _showKick = t;
+                _kickAt = t;
+                _arcFlash = t;
+                _auraKick = t;
+                peak = true;
+                Pulse(at, (3f + 0.6f * _tier) * _scale, 0.7f);
+                Shock(at, 30 + 10 * _vis, 0.8f + 0.2f * _tier);
+                Burst(portalBurst, at, 20 + 6 * _vis);
+                SoundAt(_tier >= 2 && surgeSound != null ? surgeSound : releaseSound, at, 0.65f);
+            }
+            // How far the beats have built (they stop growing after eight).
+            float rise = Mathf.Min(8, _showBeats);
             int n;
             if (_show == CardDatabase.SHOW_FLARE)
             {
-                int due = Mathf.Min(3, 1 + (int)(k * 3f));
-                if (showing && _showBeats < due)
+                if (beat)
                 {
-                    _showBeats++;
                     _kickAt = t;
-                    Shock(at, 20 + 6 * _vis, 0.3f + 0.12f * _showBeats);
-                    Burst(portalBurst, at, 10 + 3 * _vis);
-                    SoundAt(releaseSound, at, 0.3f);
+                    Shock(at, 14 + 5 * _vis, 0.3f + 0.06f * rise);
+                    Pulse(at, (1.4f + 0.2f * rise) * _scale, 0.5f);
+                    Burst(portalBurst, at, 8 + 3 * _vis);
+                    SoundAt(releaseSound, at, Mathf.Min(0.5f, 0.18f + 0.04f * rise));
                 }
             }
             else if (_show == CardDatabase.SHOW_HALO)
             {
-                _showAcc += dt * (40f + 10f * _vis) * (showing ? 1f : 0.4f);
+                int arms = k < 0.4f ? 2 : 3;
+                _showTurn += dt * 420f * (1f + 1.2f * k) * _flip;
+                _showAcc += dt * (40f + 10f * _vis) * (showing ? 0.7f + 0.8f * k : 0.4f);
                 n = (int)_showAcc;
                 _showAcc -= n;
                 for (int w = 0; w < n; w++)
                 {
-                    float ang = (t * 420f * _flip + w * 120f) * Mathf.Deg2Rad;
-                    float r = (0.9f + 0.08f * _vis) * Mathf.Max(1f, _body * 0.8f);
-                    Burst(rimSparks, at + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r, 1);
+                    float ang = (_showTurn + w * (360f / arms)) * Mathf.Deg2Rad;
+                    float r = (0.9f + 0.08f * _vis) * Mathf.Max(1f, _body * 0.8f) * (1f + 0.22f * Mathf.Sin(t * 3.1f));
+                    Burst(rimSparks, at + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r + Vector3.up * (0.25f * Mathf.Sin(ang * 2f + t)), 1);
                 }
+                if (beat) Pulse(at, (1.6f + 0.2f * rise) * _scale, 0.55f);
             }
             else if (_show == CardDatabase.SHOW_CROWN)
             {
                 if (heads == null) return;
                 int crown = Mathf.Min(5, heads.Length);
-                int up = showing ? Mathf.Min(crown, 1 + (int)(k * crown)) : crown;
+                int up = showing ? Mathf.Min(crown, 1 + (int)(k / 0.34f * crown)) : crown;
+                float sway = Mathf.Sin(t * 1.3f) * 7f;
+                float throb = 0.35f * Mathf.Exp(-Mathf.Max(0f, t - _showKick) * 6f);
                 for (int i = 0; i < up; i++)
                 {
                     Transform h = heads[i];
                     if (h == null) continue;
-                    float a = (i - (crown - 1) * 0.5f) * 26f * Mathf.Deg2Rad;
+                    float a = ((i - (crown - 1) * 0.5f) * 26f + sway) * Mathf.Deg2Rad;
                     Vector3 off = _right * (Mathf.Sin(a) * 1.7f * _body) + Vector3.up * (Mathf.Cos(a) * 1.1f * _body);
-                    Vector3 p = _from + Vector3.up * (1.7f * _body) - _fwd * (0.5f * _body) + off + Vector3.up * (0.05f * Mathf.Sin(t * 4f + i));
+                    Vector3 p = _from + Vector3.up * (1.7f * _body) - _fwd * (0.5f * _body) + off + Vector3.up * (0.08f * Mathf.Sin(t * 4f + i));
                     if (!h.gameObject.activeSelf)
                     {
                         h.position = p;
-                        float hs = 0.5f + 0.05f * _vis;
-                        h.localScale = new Vector3(hs, hs, hs);
                         ShowShape(i, _shape);
                         h.gameObject.SetActive(true);
                         Burst(portalBurst, p, 6 + _vis);
                     }
+                    // The bolt whose beat it is swells and flares; at the peak they all do.
+                    bool mine = peak || i == _showBeats % up;
+                    float hs = (0.5f + 0.05f * _vis) * (1f + (mine ? throb : 0f));
                     h.position = p;
                     h.rotation = Quaternion.LookRotation(off.normalized + _fwd * 0.2f);
+                    h.localScale = new Vector3(hs, hs, hs);
+                    if (mine && (beat || peak)) Burst(portalBurst, p, 5 + _vis);
                 }
+                if (beat) Shock(_from + Vector3.up * 0.12f, 6 + 2 * _vis, 0.3f + 0.04f * rise);
             }
             else if (_show == CardDatabase.SHOW_STORM)
             {
                 if (showing && t >= _nextArc)
                 {
-                    _nextArc = t + 0.09f;
+                    _nextArc = t + Mathf.Lerp(0.22f, 0.06f, k);
                     _arcFlash = t;
                     if (arcs != null)
                     {
@@ -1190,18 +1272,44 @@ namespace WizardsVRC
                         arcs.Emit(5 + _tier);
                     }
                     float ang = Random.value * 6.283f;
-                    float r = 1.2f + Random.value * 1.8f;
+                    float r = 1.2f + Random.value * (1.2f + 2.2f * k);
                     Burst(impactBurst, _from + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r + Vector3.up * 0.1f, 4);
                 }
+                if (beat)
+                {
+                    _kickAt = t;
+                    if (arcs != null)
+                    {
+                        arcs.transform.position = at;
+                        arcs.transform.localScale = Vector3.one * (_scale * 1.5f);
+                        arcs.Emit(12 + 3 * _tier);
+                    }
+                    for (int b = 0; b < 2 + _tier; b++)
+                    {
+                        float strikeAng = Random.value * 6.283f;
+                        float strikeR = 1.5f + Random.value * 2.5f;
+                        Burst(impactBurst, _from + (_right * Mathf.Cos(strikeAng) + _fwd * Mathf.Sin(strikeAng)) * strikeR + Vector3.up * 0.1f, 6 + _vis);
+                    }
+                    SoundAt(impactSound, at, Mathf.Min(0.4f, 0.15f + 0.03f * rise));
+                }
             }
-            else if (showing && vortex != null)
+            else
             {
                 // ASCEND
-                vortex.transform.position = new Vector3(at.x, _ground + 0.1f, at.z);
-                vortex.transform.localScale = Vector3.one * (0.55f * _scale);
-                _showAcc += dt * (70f + 20f * _vis);
-                n = (int)_showAcc;
-                if (n > 0) { vortex.Emit(n); _showAcc -= n; }
+                if (showing && vortex != null)
+                {
+                    vortex.transform.position = new Vector3(at.x, _ground + 0.1f, at.z);
+                    vortex.transform.localScale = Vector3.one * (0.55f * _scale);
+                    _showAcc += dt * (70f + 20f * _vis) * (0.5f + 1.1f * k);
+                    n = (int)_showAcc;
+                    if (n > 0) { vortex.Emit(n); _showAcc -= n; }
+                }
+                if (beat)
+                {
+                    Vector3 ring = new Vector3(at.x, _ground + 0.3f + 0.9f * (_showBeats % 5), at.z);
+                    Pulse(ring, (1.2f + 0.15f * rise) * _scale, 0.5f);
+                    Burst(portalBurst, ring, 6 + 2 * _vis);
+                }
             }
         }
 
@@ -1287,12 +1395,12 @@ namespace WizardsVRC
             if (_v >= 0 && _v < last && _vFlown) knock = 1f - 0.28f * Mathf.Exp(-(t - _vFly[_v]) * 5f);
             float swell = 1f, fade = 1f;
             Vector3 pos = ArrivePos(_corePos, arr);
-            // A FLARE display pulses it; an ASCEND one lifts it and sets it down again.
+            // Every beat of the display swells it (a FLARE's most); an ASCEND lifts it and sets it down again.
             if (t >= _tDisp && t < _tExp)
             {
                 float sk = (t - _tDisp) / Mathf.Max(0.05f, _tExp - _tDisp);
-                if (_show == CardDatabase.SHOW_FLARE) swell = 1f + 0.22f * Mathf.Abs(Mathf.Sin(sk * Mathf.PI * 3f));
-                else if (_show == CardDatabase.SHOW_ASCEND) pos += Vector3.up * (0.7f * Mathf.Sin(sk * Mathf.PI));
+                swell = 1f + (_show == CardDatabase.SHOW_FLARE ? 0.3f : 0.16f) * Mathf.Exp(-Mathf.Max(0f, t - _showKick) * 6f);
+                if (_show == CardDatabase.SHOW_ASCEND) pos += Vector3.up * (0.7f * Mathf.Sin(sk * Mathf.PI));
             }
             if (t >= fStart)
             {
@@ -2035,8 +2143,133 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// The charge round the caster: the spell's own flourish (energy streaming in, rings turning round them, a fountain
-        /// of embers, a spiral of sparks, or a column of light), and on top of it whatever the spell's power adds (ChargeTiers).
+        /// The heart of every charge: a battle aura. Power streams in to the caster from all round, then the aura catches
+        /// with a blast along the floor: a flame-shaped shell of light in the school's colour, white-hot at its root, its
+        /// outline licking and flickering (the WizardsVRC/AuraFlame shader), tongues of flame racing up inside it and wind
+        /// rushing up round it. It burns taller and wilder as the charge builds, swells with every beat, flares to half as
+        /// big again just before the release, and bursts outward as the spell goes; a thin glow of it stays on the caster
+        /// until their spell lands (and jumps again at the display's peak).
+        /// How big it is comes from the pip cost: about 2.6 m tall round a wizard for a 1-pip spell, nearly 6 m for a 7-pip
+        /// one. From 3 pips the wind streaks join in and grit lifts off the floor; from 5 a second, paler shell burns
+        /// outside the first and power crackles out of it (ChargeTiers); at 7 the sky's rune pours light down into it.
+        /// </summary>
+        private void AnimateAura(float t, float dt)
+        {
+            if (auraShell == null || !_cine) return;
+            float charge = Mathf.Max(0.1f, _tUnl - _tCast);
+            float ignite = _tCast + Mathf.Min(0.5f, charge * 0.18f);
+            float build = Build(t);
+            // Before it catches, power streams in to the caster.
+            if (t >= _tCast && t < ignite && chargeAura != null)
+            {
+                chargeAura.transform.position = _from + Vector3.up * (1.2f * _body);
+                chargeAura.transform.localScale = Vector3.one * _scale;
+                _auraAcc += dt * (50f + 16f * _vis);
+                int g = (int)_auraAcc;
+                if (g > 0) { chargeAura.Emit(g); _auraAcc -= g; }
+            }
+            // How brightly it burns: full through the charge, then a glow that lasts until the strike.
+            float lit = 0f;
+            if (t >= ignite && t < _tUnl) lit = Mathf.Clamp01((t - ignite) / 0.1f);
+            else if (t >= _tUnl && t < _tStrike + 0.3f)
+                lit = Mathf.Lerp(1f, 0.3f, Mathf.Clamp01((t - _tUnl) / 0.4f)) * (1f - Mathf.Clamp01((t - _tStrike) / 0.3f));
+            bool on = lit > 0.001f;
+            if (auraShell.gameObject.activeSelf != on) auraShell.gameObject.SetActive(on);
+            bool outer = on && _tier >= 3 && auraShellOuter != null;
+            if (auraShellOuter != null && auraShellOuter.gameObject.activeSelf != outer) auraShellOuter.gameObject.SetActive(outer);
+
+            // It catches: a ring and a spray of sparks along the floor, a jolt of light, its sound.
+            if (!_auraLit && t >= ignite && t < _tUnl)
+            {
+                _auraLit = true;
+                _auraKick = t;
+                _arcFlash = t;
+                _kickAt = t;
+                Pulse(_from, (3f + 0.6f * _tier) * _scale, 0.5f);
+                Shock(_from + Vector3.up * 0.12f, 10 + 3 * _vis, 0.5f + 0.2f * _tier);
+                SoundAt(igniteSound != null ? igniteSound : releaseSound, _from + Vector3.up * (1.2f * _body), 0.45f + 0.12f * _tier);
+            }
+            if (!on) return;
+
+            float tall = 2.1f * _body + 0.2f + 0.27f * _vis;
+            float wide = tall * 0.6f + 0.3f * _body;
+            float flare = t < _tUnl ? Mathf.Clamp01((build - 0.82f) / 0.18f) : 1f;
+            float beat = Mathf.Exp(-Mathf.Max(0f, t - _auraKick) * 7f);
+            float size = Mathf.Lerp(0.82f, 1.12f, build) * (1f + 0.5f * flare * flare);
+            if (t >= _tUnl)
+            {
+                // The release: it bursts outward as the spell goes, then settles close round the caster.
+                float after = t - _tUnl;
+                size *= after < 0.3f ? 1f + 0.6f * (after / 0.3f) : Mathf.Lerp(1.6f, 0.55f, Mathf.Clamp01((after - 0.3f) / 0.35f));
+            }
+            size *= 1f + 0.16f * beat;
+            float shimmer = 1f + 0.05f * Mathf.Sin(t * 23f);
+            Vector3 foot = _from - Vector3.up * 0.05f;
+            float power = lit * (0.75f + 0.55f * build + (t < _tUnl ? 0.9f * flare : 0f) + 0.5f * beat) * (0.85f + 0.15f * _tier);
+            auraShell.position = foot;
+            auraShell.rotation = Quaternion.Euler(0f, t * 140f * _flip, 0f);
+            auraShell.localScale = new Vector3(wide * size * shimmer, tall * size, wide * size * shimmer);
+            if (_auraMat != null)
+            {
+                _auraMat.SetFloat("_Power", power);
+                _auraMat.SetFloat("_Flicker", 8f + 8f * build + 6f * flare);
+                _auraMat.SetFloat("_Wobble", 0.12f + 0.08f * build + 0.08f * flare);
+            }
+            if (outer)
+            {
+                auraShellOuter.position = foot;
+                auraShellOuter.rotation = Quaternion.Euler(0f, -t * 95f * _flip, 0f);
+                auraShellOuter.localScale = new Vector3(wide * size * 1.3f, tall * size * 1.18f, wide * size * 1.3f);
+                if (_auraOuterMat != null)
+                {
+                    _auraOuterMat.SetFloat("_Power", power * 0.5f);
+                    _auraOuterMat.SetFloat("_Flicker", 6f + 6f * build);
+                    _auraOuterMat.SetFloat("_Wobble", 0.18f + 0.1f * build);
+                }
+            }
+
+            // The flames inside it (built for a wizard's 1-pip aura, scaled up with it): thick through the charge, a
+            // rush at the flare, a trickle while the glow lasts.
+            float fit = tall / 2.57f * size;
+            if (auraFlames != null)
+            {
+                auraFlames.transform.position = _from + Vector3.up * 0.05f;
+                auraFlames.transform.localScale = Vector3.one * fit;
+                float rate = t < _tUnl ? (38f + 9f * _vis) * (0.55f + 0.6f * build + 1.2f * flare) : (10f + 3f * _vis) * lit;
+                _flameAcc += dt * rate;
+                int f = (int)_flameAcc;
+                if (f > 0) { auraFlames.Emit(f); _flameAcc -= f; }
+            }
+            if (t >= _tUnl) return;
+            if (auraStreaks != null && _tier >= 2)
+            {
+                auraStreaks.transform.position = _from + Vector3.up * 0.05f;
+                auraStreaks.transform.localScale = Vector3.one * fit;
+                _streakAcc += dt * (10f + 5f * _vis) * (0.3f + build + flare);
+                int w = (int)_streakAcc;
+                if (w > 0) { auraStreaks.Emit(w); _streakAcc -= w; }
+            }
+            // A small spell has no tier to beat for it or lift the grit (ChargeTiers): the aura does both, gently.
+            if (_tier >= 2) return;
+            if (t >= _nextBeat)
+            {
+                _nextBeat = t + Mathf.Lerp(0.9f, 0.4f, build);
+                _auraKick = t;
+                Pulse(_from, 2.2f * _scale * (0.7f + 0.5f * build), 0.5f);
+            }
+            if (debris != null)
+            {
+                debris.transform.position = _from + Vector3.up * 0.05f;
+                debris.transform.localScale = Vector3.one * (_scale * 0.8f);
+                _debrisAcc += dt * 7f * (0.3f + build);
+                int b = (int)_debrisAcc;
+                if (b > 0) { debris.Emit(b); _debrisAcc -= b; }
+            }
+        }
+
+        /// <summary>
+        /// Round the aura: the spell's own flourish (energy streaming in, rings turning round the caster, a fountain of
+        /// embers, a spiral of sparks, or a column of light), and whatever the spell's power adds (ChargeTiers).
         /// </summary>
         private void AnimateCharge(float t, float dt)
         {
@@ -2170,6 +2403,7 @@ namespace WizardsVRC
             if (t >= _nextBeat)
             {
                 _nextBeat = t + Mathf.Lerp(0.95f, 0.32f, build);
+                _auraKick = t;
                 Pulse(_from, (2.4f + 0.5f * _tier) * _scale * (0.7f + 0.5f * build), 0.6f);
                 // From 4 pips each beat throws a ring of sparks along the floor too.
                 if (_pips >= 4) Shock(_from + Vector3.up * 0.12f, (int)((8 + 2 * _vis) * (0.4f + build)), 0.4f + 0.15f * _tier);
@@ -2280,13 +2514,13 @@ namespace WizardsVRC
         /// <summary>The hum of the charge (tier 2 and up): played so that it ends on the release, louder for bigger spells.</summary>
         private void StartHum()
         {
-            if (chargeAudio == null || chargeSound == null || !_cine || _tier < 2) return;
+            if (chargeAudio == null || chargeSound == null || !_cine) return;
             float len = chargeSound.length;
             float charge = _tUnl - _tCast;
             chargeAudio.Stop();
             chargeAudio.transform.position = _from + Vector3.up * 1.2f;
             chargeAudio.clip = chargeSound;
-            chargeAudio.volume = 0.3f + 0.2f * _tier;
+            chargeAudio.volume = 0.2f + 0.2f * _tier;
             chargeAudio.Play();
             // Only its last 'charge' seconds are heard.
             if (len > charge + 0.05f) chargeAudio.time = len - charge;
@@ -2358,10 +2592,13 @@ namespace WizardsVRC
                 float w0 = _tier >= 4 ? 0.5f : _tier >= 3 ? 0.3f : 0f;
                 float k = Mathf.Clamp01((w - w0) / (1f - w0));
                 Vector3 round = Quaternion.Euler(0f, (35f + 70f * k) * _flip, 0f) * (_fwd * (4.2f - 1.4f * k) * bodyK);
-                _camPos = _from + round + up * ((1.1f + 0.9f * (1f - k)) * _body);
-                _camLook = _from + up * (1.25f * _body);
+                // It sinks as it closes in, to look up at the caster through the flames.
+                _camPos = _from + round + up * ((0.55f + 1.1f * (1f - k)) * _body);
+                _camLook = _from + up * ((1.25f + 0.3f * k) * _body);
             }
-            if (_tier >= 3) _camShake = 0.012f * (_tier - 2) * w * w;
+            // The picture shakes more as the aura builds, and jumps with each of its beats.
+            _camShake = (0.003f * _tier + (_tier >= 3 ? 0.012f * (_tier - 2) : 0f)) * w * w
+                        + 0.02f * (0.4f + 0.2f * _tier) * Mathf.Exp(-Mathf.Max(0f, t - _auraKick) * 8f);
         }
 
         /// <summary>The arrival: close on the caster as it bursts out of them, thrown back by it and turning up to what arrives.</summary>
@@ -2376,15 +2613,42 @@ namespace WizardsVRC
             _camShake = 0.03f * (1f + 0.5f * _tier) * Mathf.Exp(-(t - _tUnl) * 5f);
         }
 
-        /// <summary>The display: round the caster and up to the spell's subject as it shows off.</summary>
+        /// <summary>
+        /// The display, in three shots: round the caster and up to what has arrived; then close under the spell's subject,
+        /// turning slowly round it as it shows off; then back and high behind the caster, the subject over them and the
+        /// target beyond, closing in as it peaks. Each of its beats jolts the picture.
+        /// </summary>
         private void DisplayShot(float t)
         {
             Vector3 up = Vector3.up;
             float bodyK = CamK();
             float k = Mathf.Clamp01((t - _tDisp) / Mathf.Max(0.05f, _tExp - _tDisp));
-            Vector3 round = Quaternion.Euler(0f, (120f - 75f * Ease(k)) * _flip, 0f) * (_fwd * (3.8f * bodyK));
-            _camPos = _from + round + up * ((1.0f + 1.4f * k) * _body);
-            _camLook = Vector3.Lerp(_from + up * (1.3f * _body), Focus(), 0.4f + 0.6f * k);
+            Vector3 focus = Focus();
+            if (k < 0.3f)
+            {
+                float e = Ease(k / 0.3f);
+                Vector3 round = Quaternion.Euler(0f, (120f - 55f * e) * _flip, 0f) * (_fwd * (3.8f * bodyK));
+                _camPos = _from + round + up * ((1.0f + 1.0f * e) * _body);
+                _camLook = Vector3.Lerp(_from + up * (1.3f * _body), focus, 0.4f + 0.5f * e);
+            }
+            else if (k < 0.68f)
+            {
+                float e = (k - 0.3f) / 0.38f;
+                Vector3 round = Quaternion.Euler(0f, (-35f + 80f * e) * _flip, 0f) * (_fwd * ((2.3f + 0.25f * _tier) * bodyK));
+                _camPos = new Vector3(focus.x, Mathf.Max(_ground + 0.4f, focus.y - 0.9f * _body), focus.z) + round;
+                _camLook = focus + up * (0.15f * _body);
+            }
+            else
+            {
+                float e = Ease((k - 0.68f) / 0.32f);
+                Vector3 to = _aim - _from;
+                to.y = 0f;
+                Vector3 dir = to.sqrMagnitude > 0.01f ? to.normalized : _fwd;
+                Vector3 side = Vector3.Cross(up, dir) * _flip;
+                _camPos = _from - dir * ((5.6f - 1.2f * e) * bodyK) + side * (1.6f * bodyK) + up * ((2.9f - 0.5f * e) * _body);
+                _camLook = Vector3.Lerp(focus, _aim + up * 1.2f, 0.3f + 0.15f * e);
+            }
+            _camShake = 0.02f * (0.5f + 0.25f * _tier) * Mathf.Exp(-Mathf.Max(0f, t - _showKick) * 6f);
         }
 
         /// <summary>
@@ -2551,6 +2815,7 @@ namespace WizardsVRC
         {
             Swap(sparkRenderers, sparkMats);
             Swap(glowRenderers, glowMats);
+            Swap(flameRenderers, flameMats);
             Swap(ringRenderers, ringMats);
             Swap(pillarRenderers, pillarMats);
             Swap(coreRenderers, coreMats);
@@ -2571,6 +2836,21 @@ namespace WizardsVRC
                 StyleGlyph(_skyMat);
             }
             if (duskRenderer != null && _duskMat == null) _duskMat = duskRenderer.material;
+            // The aura: the school's colour, white-hot at its root; the outer shell paler and plainer.
+            if (auraShellRenderer != null)
+            {
+                if (_auraMat == null) _auraMat = auraShellRenderer.material;
+                _auraMat.SetColor("_Color", _color);
+                _auraMat.SetColor("_Core", Color.Lerp(_color, Color.white, 0.8f));
+                _auraMat.SetFloat("_Power", 0f);
+            }
+            if (auraShellOuterRenderer != null)
+            {
+                if (_auraOuterMat == null) _auraOuterMat = auraShellOuterRenderer.material;
+                _auraOuterMat.SetColor("_Color", Color.Lerp(_color, Color.white, 0.3f));
+                _auraOuterMat.SetColor("_Core", _color);
+                _auraOuterMat.SetFloat("_Power", 0f);
+            }
         }
 
         private void StyleGlyph(Material m)
@@ -2605,6 +2885,8 @@ namespace WizardsVRC
             if (powerCore != null) powerCore.gameObject.SetActive(false);
             if (duskDome != null) duskDome.gameObject.SetActive(false);
             if (skySigil != null) skySigil.gameObject.SetActive(false);
+            if (auraShell != null) auraShell.gameObject.SetActive(false);
+            if (auraShellOuter != null) auraShellOuter.gameObject.SetActive(false);
             if (chargeAudio != null && chargeAudio.isPlaying) chargeAudio.Stop();
             HideAll(shockRings);
             HideAll(heads);
