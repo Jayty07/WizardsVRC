@@ -186,6 +186,44 @@ A spell's recipe (`Editor/WizardsVRCSceneBuilder.SpellStyles.cs`) picks one of e
 No two spells travel and land the same way (the build checks). A creature spell's creature is the subject in place of
 the core: it arrives and shows off the same ways, rears for its display, and rides the attack.
 
+## Spells with staging of their own
+
+A spell can keep the formula's six beats and their times, its charge, how its hit lands and how it leaves, and play
+its arrival, display and attack on a rig of its own, filmed with its own shots (`CardDatabase.cineSpecials`, set in
+`SpellSpecialTable` in `WizardsVRCSceneBuilder.SpellStyles.cs`; `SpellCinematic.SetSpecial`). Only a cinematic cast
+plays it; a minion's unstaged cast falls back on the spell's recipe.
+
+### Sunfire Wyrm
+
+The caster summons an eastern dragon out of themselves (`Scripts/SunfireWyrm.cs`; the stage's part is
+`SpellCinematic.AnimateWyrm` and `WyrmShot`). It is about ten metres long, in fire colours, and from the moment it is
+out until it is gone it sheds fire: flames off its back the whole way along, embers with them, more from its mane.
+
+| Beat | What it does | The film |
+| --- | --- | --- |
+| Arrival | It bursts out of the caster's chest, jaws wide, in a gout of flame, and swings round into its first coil. | Before the caster, off to the side it swings away from, so it comes out at the lens. |
+| Display | It twirls round the caster three times, climbing; a ring of light spreads under them each time it comes round. It sweeps out and down to the floor behind them, rears up over their shoulder, and comes to rest there four fifths of the way through the display. Then it roars: the display's peak. | Wide, drifting round against the twirls; then low and to one side as it comes down behind and rears; then low before the caster, looking up at them both, pushing in on the roar. |
+| (Expend) | It waits behind them, swaying, while the blades, traps and shields go. | The usual side shot. |
+| Attack | It draws its head back and goes: at its target and through it, jaws open (through every target in turn round the rim of the ring for a cast that hits them all; each bursts as its head goes through, and the first makes them flinch). It loops round (one target: up over them and back; several: spiralling in over the caster) and pulls up before them. For the last quarter of the attack it breathes fire on them, swept along them and back. | Wide (one target: side on, caster at one end of the picture and target at the other; several: from high behind the caster, the whole far side in view), following its head a little; then, for the fire, from beyond whoever it burns, looking back past them at it and the caster under it. |
+| Result | The spell's hit lands in the middle of the fire (a nova on every target, as its recipe says) and the fire goes on pouring over them. | Wide again, shaken. |
+| Exit | It burns away from the tail up, its head lifting to the sky. | Wide, turning slowly round the ring. |
+
+How it flies: every place it goes is a waypoint; the waypoints are joined by a smooth curve and walked into points
+15 cm apart, each with an "up" carried along the curve so the body never flips (it rolls upright at a steady rate and
+leans into its turns); the head's distance along the curve is a function of time, and each of its 24 body segments
+sits a fixed distance behind the head on the same curve, swaying, facing the one ahead. The curve is laid out for
+whoever is cast at (their number, where they stand, how big the caster is: a boss's dragon goes wider round it) and
+worked out a little each frame through the charge.
+
+`Tools/sunfire_wyrm_flight.py` is the same flight in Python: it prints each case's path lengths, speeds and how level
+the dragon flies. `Tools/preview_sunfire_wyrm.py` draws the whole cast from the film camera without Unity (a GIF, a
+contact sheet or one frame) from that flight, the game's own meshes and skin, and SpellCinematic's numbers; the
+wizard, the monsters and the scenery in it are stand-ins. It also paints the spell's card the way the builder does.
+`Tools/make_sunfire_wyrm.py` makes the dragon itself: its skin (`Textures/Spell/WyrmSkin.png`, one 64 x 64 sheet of
+pixel art), its five meshes and its pose on its card (`Editor/WyrmMeshData.cs`), which
+`WizardsVRCSceneBuilder.Wyrm.cs` turns into the rig. Its card's picture is rendered from that posed dragon, like every
+creature spell's.
+
 ## Blades, traps and shields
 
 **Used.** After the display and right before the attack, every blade, trap and shield the cast uses goes, one at a time:

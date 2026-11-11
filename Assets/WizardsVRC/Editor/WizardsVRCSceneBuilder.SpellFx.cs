@@ -14,7 +14,8 @@ namespace WizardsVRC.EditorTools
     /// own choreography (SpellCinematic, WizardsVRCSceneBuilder.SpellStyles.cs); creature spells (Pyre Hawk, Frost
     /// Wyvern, Grove Stag, Bone Dragon, Stone Basilisk, Sand Djinn...) send their creature along it, a rig of the same
     /// kinds as the monsters (WizardsVRCSceneBuilder.Rigs.cs) in the school's colours, sized by the spell's pips. Each
-    /// school's starting spell is cast from the wand as a bolt, not a creature.
+    /// school's starting spell is cast from the wand as a bolt, not a creature. Sunfire Wyrm's creature is its own
+    /// dragon, posed as on its card (WizardsVRCSceneBuilder.Wyrm.cs); in a staged cast SunfireWyrm flies it.
     ///
     /// Each card's art is a painted picture filling the card's window, its subject a render of that same animation at its
     /// most dramatic moment (the creature mid-cast, the bolt, the rain, the bloom) over a backdrop for the school, or the
@@ -192,15 +193,25 @@ namespace WizardsVRC.EditorTools
             if (look.mode == FxCreature)
             {
                 var summon = Child(root, "Summon", Vector3.zero);
-                var body = PMat("SpellBody_" + ColorUtility.ToHtmlStringRGB(col), Color.Lerp(col, Color.white, 0.15f), 1f, col * 0.35f);
                 var rigRoot = Child(summon, "Rig", Vector3.zero);
-                Transform bob = Child(rigRoot, "Bob", Vector3.zero);
-                BuildRigShapes(bob, look.creature, body, col);
+                if (id == SunfireWyrmCard)
+                {
+                    // Sunfire Wyrm's own dragon, posed as on its card (WizardsVRCSceneBuilder.Wyrm.cs). Its cast is
+                    // SunfireWyrm's; this is what its card's picture is rendered from, and what a minion's unstaged
+                    // cast of it sends along the spell's path.
+                    BuildWyrmPose(rigRoot);
+                }
+                else
+                {
+                    var body = PMat("SpellBody_" + ColorUtility.ToHtmlStringRGB(col), Color.Lerp(col, Color.white, 0.15f), 1f, col * 0.35f);
+                    Transform bob = Child(rigRoot, "Bob", Vector3.zero);
+                    BuildRigShapes(bob, look.creature, body, col);
+                    rigRoot.localScale = Vector3.one * look.creatureScale;
+                    var anim = rigRoot.gameObject.AddComponent<Animator>();
+                    anim.runtimeAnimatorController = SpellRigController(look.creature.kind, look.creature.heavy);
+                    anim.applyRootMotion = false;
+                }
                 foreach (var r in rigRoot.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                rigRoot.localScale = Vector3.one * look.creatureScale;
-                var anim = rigRoot.gameObject.AddComponent<Animator>();
-                anim.runtimeAnimatorController = SpellRigController(look.creature.kind, look.creature.heavy);
-                anim.applyRootMotion = false;
                 // A sparkle trail behind it as it moves.
                 var trail = SpellParticles(summon, "Trail", col, 25f, 0.6f, 0.3f, true);
                 trail.transform.localPosition = new Vector3(0, 1f * look.creatureScale, 0);

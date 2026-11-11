@@ -9,7 +9,7 @@ namespace WizardsVRC
     /// (SPELL_ANIMATIONS.md; its numbers are BattleManager's and CardDatabase.Plan*). The caster, a wizard, a monster or a
     /// boss, is the subject: the power comes out of them in the middle of the ring. Local, one rig shared by every duel
     /// circle; BattleClient starts it for each such spell's turn, so every client plays the same beats at the same times
-    /// from the synced round. The whole turn is 9 s at 1 pip to 12 s at 7, plus the expending: never more than 14 s.
+    /// from the synced round. The whole turn is about 13 s at 1 pip to 17 s at 7 (5 s of it the display), plus the expending.
     ///
     ///   cast      the caster vanishes from their seat in a burst and appears in the middle of the ring facing their target
     ///             (a wizard's own client teleports them, their view irising shut and open in their school's colour; a
@@ -37,6 +37,10 @@ namespace WizardsVRC
     /// whole thing on the film screen; the caster sees the cast with their own eyes and the film from the release. A spell
     /// that helps its target (a heal) lands gently. A summoned minion casts from its seat with no staging at all (one
     /// volley, as the delivery times it).
+    ///
+    /// A spell can have staging all its own (CardDatabase.SPECIAL_*, SetSpecial): it keeps the six beats and their
+    /// times, the charge, how its hit lands and how it leaves, but its arrival, display and attack are played by a rig
+    /// of its own and filmed with shots of its own. Sunfire Wyrm is one (SunfireWyrm, AnimateWyrm, WyrmShot).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SpellCinematic : UdonSharpBehaviour
@@ -167,6 +171,10 @@ namespace WizardsVRC
         public Renderer[] flameRenderers;
         [Tooltip("The aura catching alight.")]
         public AudioClip igniteSound;
+
+        [Header("Spells with staging of their own (CardDatabase.SPECIAL_*)")]
+        [Tooltip("Sunfire Wyrm's dragon: it flies the spell's arrival, display and attack (AnimateWyrm).")]
+        public SunfireWyrm wyrm;
 
         // ------------------------------------------------------------------ state
         private bool _on;
@@ -324,6 +332,16 @@ namespace WizardsVRC
         private Vector3 _camPos, _camLook;
         private float _camShake;
 
+        // Staging all the spell's own (CardDatabase.SPECIAL_*; 0 = the formula's), and how far the wyrm's has got:
+        // times it has been round the caster, targets it has gone through, its cues, and when it rests, roars and hovers.
+        private int _special;
+        private int _wyrmLaps, _wyrmPassed, _wyrmCue;
+        private float _wyrmRest, _wyrmRoar, _wyrmHover;
+        // Where it rests and where it hovers; the middle of whoever it burns: the way there, that turned a quarter (the
+        // way it twirls), how far, and how far they spread to either side.
+        private Vector3 _wyrmRestAt, _wyrmHoverAt, _wyrmToward, _wyrmSide;
+        private float _wyrmDist, _wyrmSpread;
+
         public bool IsPlaying() { return _on; }
 
         /// <summary>True while the local player is the caster being shown (BattleClient doesn't pull them back to their seat).</summary>
@@ -354,6 +372,7 @@ namespace WizardsVRC
             _creature = creature;
             _tScale = Mathf.Clamp(targetScale, 0.5f, 3f);
             _targetCount = 0;
+            _special = 0;
             _casterBody = cinematic ? body : null;
             _bodyMoved = false;
             if (seat != null)
@@ -361,6 +380,15 @@ namespace WizardsVRC
                 _seatPos = seat.position;
                 _seatRot = seat.rotation;
             }
+        }
+
+        /// <summary>
+        /// Staging all the spell's own (after Prepare, before Begin): CardDatabase.CineSpecial. Only a cinematic cast
+        /// plays it (and only if its rig is in the scene); anything else falls back on the spell's recipe.
+        /// </summary>
+        public void SetSpecial(int special)
+        {
+            _special = special;
         }
 
         /// <summary>An area spell's targets (after Prepare, before Begin): up to four seats it hits.</summary>
@@ -506,6 +534,25 @@ namespace WizardsVRC
             _headDir = _fwd;
             HideRig();
             Recolor();
+            // Staging of its own: its rig lays its part out now (the times are the formula's).
+            if (!_cine || (_special == CardDatabase.SPECIAL_WYRM && wyrm == null)) _special = 0;
+            _wyrmLaps = 0;
+            _wyrmPassed = 0;
+            _wyrmCue = 0;
+            if (_special == CardDatabase.SPECIAL_WYRM)
+            {
+                wyrm.Plan(_from, _fwd, _flip, _body, _aoe ? 1f : _tScale, _aim, _targets, _aoe ? _targetCount : 0);
+                wyrm.Schedule(_tUnl, _tDisp, _tExp, _tBar, _tStrike, _tExit, _tAfter);
+                _wyrmRest = wyrm.RestTime();
+                _wyrmRoar = wyrm.RoarTime();
+                _wyrmHover = wyrm.HoverTime();
+                _wyrmRestAt = wyrm.Rest();
+                _wyrmHoverAt = wyrm.Hover();
+                _wyrmToward = wyrm.Toward();
+                _wyrmSide = wyrm.Side();
+                _wyrmDist = wyrm.Distance();
+                _wyrmSpread = wyrm.Spread();
+            }
             _on = true;
         }
 
@@ -654,14 +701,18 @@ namespace WizardsVRC
             AnimateAura(t, dt);
             AnimateStage(t);
             AnimatePulses(t);
-            AnimateArrival(t, dt);
-            AnimateDisplay(t, dt);
+            if (_special == CardDatabase.SPECIAL_WYRM) AnimateWyrm(t, dt);
+            else
+            {
+                AnimateArrival(t, dt);
+                AnimateDisplay(t, dt);
+                AnimateCore(t, dt);
+                AnimateHeads(t, dt);
+                AnimateCarrier(t);
+                AnimateBeam(t);
+                AnimatePortals(t);
+            }
             AnimateExit(t, dt);
-            AnimateCore(t, dt);
-            AnimateHeads(t, dt);
-            AnimateCarrier(t);
-            AnimateBeam(t);
-            AnimatePortals(t);
             AnimateImpact(t, dt);
             AnimateLight(t);
             if (_me || _watch) Film(t);
@@ -750,7 +801,8 @@ namespace WizardsVRC
             }
             if (_cue == 4)
             {
-                StepVolleys(t);
+                // (A spell with staging of its own has no volleys: its rig is the attack. Its hit still lands here.)
+                if (_special == 0) StepVolleys(t);
                 if (t >= _tStrike)
                 {
                     _cue = 5;
@@ -1164,18 +1216,7 @@ namespace WizardsVRC
                 _showCue = 1;
                 _showNext = t + 0.15f;
                 if (_carrier != null && _carrierAnim != null) _carrierAnim.SetTrigger("Cast");
-                // The hum climbs again under it, timed to top out as the display ends.
-                if (chargeAudio != null && chargeSound != null)
-                {
-                    float len = chargeSound.length;
-                    float show = _tExp - _tDisp;
-                    chargeAudio.Stop();
-                    chargeAudio.transform.position = at;
-                    chargeAudio.clip = chargeSound;
-                    chargeAudio.volume = 0.16f + 0.08f * _tier;
-                    chargeAudio.Play();
-                    if (len > show + 0.05f) chargeAudio.time = len - show;
-                }
+                ShowHum(at);
             }
             // Its beats, and its one peak.
             bool beat = false, peak = false;
@@ -1311,6 +1352,20 @@ namespace WizardsVRC
                     Burst(portalBurst, ring, 6 + 2 * _vis);
                 }
             }
+        }
+
+        /// <summary>The hum climbs again under the display, timed to top out as it ends.</summary>
+        private void ShowHum(Vector3 at)
+        {
+            if (chargeAudio == null || chargeSound == null) return;
+            float len = chargeSound.length;
+            float show = _tExp - _tDisp;
+            chargeAudio.Stop();
+            chargeAudio.transform.position = at;
+            chargeAudio.clip = chargeSound;
+            chargeAudio.volume = 0.16f + 0.08f * _tier;
+            chargeAudio.Play();
+            if (len > show + 0.05f) chargeAudio.time = len - show;
         }
 
         /// <summary>
@@ -1814,6 +1869,119 @@ namespace WizardsVRC
             if (face.sqrMagnitude > 0.0001f) _carrier.rotation = Quaternion.LookRotation(face);
             _carrier.localScale = Vector3.one * Mathf.Max(0.01f, scale);
             _carrierLast = _headPos;
+        }
+
+        // ------------------------------------------------------------------ Sunfire Wyrm (CardDatabase.SPECIAL_WYRM)
+
+        /// <summary>
+        /// Sunfire Wyrm's own arrival, display and attack, round its dragon. SunfireWyrm flies it, sheds its fire and
+        /// gives it its voice; this is the stage's part. It comes out of the caster on the release. Each time it comes
+        /// round them a ring of light spreads under them. It settles behind them (a blast along the floor) and roars at
+        /// the display's peak: a ring, sparks along the floor, the aura jumping, the dark lifting for a flash. As the
+        /// attack starts it goes, with another blast. Each target bursts as its head goes through them (sparks, shards,
+        /// its flames, a ring under them; the first makes them flinch). Then it pulls up and breathes fire on them
+        /// until the exit, and the spell's hit lands in the middle of that (Strike, as for any spell).
+        /// </summary>
+        private void AnimateWyrm(float t, float dt)
+        {
+            if (wyrm == null) return;
+            wyrm.Animate(t, dt);
+            if (t < _tUnl || t >= _tAfter) return;
+            Vector3 up = Vector3.up;
+            Vector3 floor = _from + up * 0.12f;
+            _headPos = wyrm.Head();
+            // The hum climbs again under its display, as under any spell's.
+            if (_showCue == 0 && t >= _tDisp)
+            {
+                _showCue = 1;
+                ShowHum(_from + up * (1.6f * _body));
+            }
+            if (t < _tBar)
+            {
+                // A ring of light under the caster each time it comes round them.
+                int laps = wyrm.Laps();
+                if (laps > _wyrmLaps)
+                {
+                    _wyrmLaps = laps;
+                    _showKick = t;
+                    _auraKick = t;
+                    Pulse(_from, (1.6f + 0.5f * laps) * _scale, 0.55f);
+                    Shock(floor, 10 + 3 * _vis, 0.3f + 0.1f * laps);
+                    SoundAt(whooshSound, _from + up * (1.2f * _body), 0.3f);
+                }
+            }
+            if (_wyrmCue == 0 && t >= _wyrmRest)
+            {
+                // It settles behind them.
+                _wyrmCue = 1;
+                _kickAt = t;
+                Shock(floor, 30 + 4 * _vis, 0.7f);
+            }
+            if (_wyrmCue == 1 && t >= _wyrmRoar)
+            {
+                // The display's peak: it roars.
+                _wyrmCue = 2;
+                _showKick = t;
+                _kickAt = t;
+                _arcFlash = t;
+                _auraKick = t;
+                Pulse(_from, (3f + 0.6f * _tier) * _scale, 0.7f);
+                Shock(floor, 30 + 10 * _vis, 0.8f + 0.2f * _tier);
+                Burst(portalBurst, _headPos, 20 + 6 * _vis);
+            }
+            if (_wyrmCue == 2 && t >= _tBar)
+            {
+                // It goes.
+                _wyrmCue = 3;
+                _kickAt = t;
+                Shock(floor, 40, 0.8f);
+                SoundAt(whooshSound, _headPos, 0.8f);
+            }
+            if (_wyrmCue != 3) return;
+            // Through each of them in turn: a burst on each as its head goes through.
+            int passed = wyrm.Passed();
+            while (_wyrmPassed < passed)
+            {
+                int k = _wyrmPassed;
+                _wyrmPassed++;
+                _kickAt = t;
+                Vector3 at = WyrmHit(k);
+                float big = ImpactSize() * 0.7f;
+                if (impactBurst != null)
+                {
+                    impactBurst.transform.position = at;
+                    impactBurst.transform.localScale = Vector3.one * big;
+                    impactBurst.Emit(14 + 6 * _vis);
+                }
+                if (shardBurst != null)
+                {
+                    shardBurst.transform.position = at;
+                    shardBurst.transform.localScale = Vector3.one * big;
+                    shardBurst.Emit(8 + 3 * _vis);
+                }
+                wyrm.Scorch(at);
+                Pulse(new Vector3(at.x, _aim.y, at.z), 2.2f + 0.25f * _vis, 0.5f);
+                Shock(new Vector3(at.x, _aim.y + 0.12f, at.z), 14 + 5 * _vis, 0.5f);
+                SoundAt(impactSound, at, k == 0 ? 0.7f : 0.45f);
+                if (k == 0 && _owner != null && !_friendly) _owner.CineFlinch();
+            }
+            if (t >= _wyrmHover)
+            {
+                // It pulls up before them and breathes.
+                _wyrmCue = 4;
+                _kickAt = t;
+            }
+        }
+
+        /// <summary>Where the wyrm's head meets the k-th target it goes through (HitFor, in its order, not the seats').</summary>
+        private Vector3 WyrmHit(int k)
+        {
+            if (!_aoe || _targetCount == 0) return _hit;
+            Vector3 target = wyrm.TargetAt(k);
+            Vector3 d = target - _from;
+            d.y = 0f;
+            Vector3 toward = d.sqrMagnitude > 0.001f ? d.normalized : _fwd;
+            return target - toward * 0.35f + Vector3.up * 1.0f;
         }
 
         private void AnimateBeam(float t)
@@ -2497,7 +2665,7 @@ namespace WizardsVRC
             }
             else if (t < _tStrike)
             {
-                bool flying = _v >= 0 && _vFlown && t < _tHit;
+                bool flying = _special != 0 || (_v >= 0 && _vFlown && t < _tHit);
                 fxLight.transform.position = flying ? _headPos : _origin;
                 fxLight.intensity = peak * (1f + 1.2f * Mathf.Exp(-Mathf.Max(0f, t - _kickAt) * 4f));
             }
@@ -2539,9 +2707,10 @@ namespace WizardsVRC
             if (!cutscenePlayer.IsFilming()) { _filmOn = false; return; }
             _camShake = 0f;
             if (t < _tUnl) ChargeShot(t);
+            else if (t >= _tExp && t < _tBar) ExpendShot(t);
+            else if (_special == CardDatabase.SPECIAL_WYRM) WyrmShot(t);
             else if (t < _tDisp) ArrivalShot(t);
             else if (t < _tExp) DisplayShot(t);
-            else if (t < _tBar) ExpendShot(t);
             else VolleyShot(t);
             if (_friendly) _camShake *= 0.15f;
             Vector3 pos = _camPos;
@@ -2778,6 +2947,126 @@ namespace WizardsVRC
             _camLook = mid + up * 0.8f;
         }
 
+        /// <summary>
+        /// Sunfire Wyrm's own shots (Tools/preview_sunfire_wyrm.py draws the film from these). The arrival: before the
+        /// caster, off to the side the dragon swings away from, so it comes out at the lens. The display: wide, drifting
+        /// round against its twirls as they climb; then low and to one side as it sweeps down behind the caster and
+        /// rears up; then low before the caster, looking up at them both, pushing in on its roar. The attack: wide
+        /// (one target: side on, the caster at one end of the picture and the target at the other, its loop over them
+        /// in full; several: from high behind the caster, the whole far side in the picture), following its head a
+        /// little; then its fire, from beyond whoever it burns, looking back past them at it and the caster under it.
+        /// The hit: wide again, shaken; then the wide turn round the ring as it burns away.
+        /// </summary>
+        private void WyrmShot(float t)
+        {
+            Vector3 up = Vector3.up;
+            float bodyK = CamK();
+            Vector3 side0 = _right * _flip;      // the side it first turns towards
+            Vector3 head = _headPos;
+            if (t < _tDisp)
+            {
+                // Out of the caster.
+                float k = Mathf.Clamp01((t - _tUnl) / Mathf.Max(0.05f, _tDisp - _tUnl));
+                float e = 1f - (1f - k) * (1f - k);
+                _camPos = _from + _fwd * ((2.4f + 2.0f * e) * bodyK) - side0 * (1.5f * bodyK) + up * ((1.15f + 0.35f * e) * _body);
+                _camLook = Vector3.Lerp(_from + up * (1.3f * _body), head, 0.35f + 0.3f * e);
+                _camShake = 0.03f * (1f + 0.5f * _tier) * Mathf.Exp(-(t - _tUnl) * 5f);
+                return;
+            }
+            if (t < _tExp)
+            {
+                float k = Mathf.Clamp01((t - _tDisp) / Mathf.Max(0.05f, _tExp - _tDisp));
+                if (k < 0.5f)
+                {
+                    // The twirls: wide, drifting round against them, so its coils cross the picture as they climb.
+                    float e = k / 0.5f;
+                    float a = (-20f + 60f * e) * Mathf.Deg2Rad;
+                    _camPos = _from + (_fwd * Mathf.Cos(a) - side0 * Mathf.Sin(a)) * ((5.2f - 0.4f * e) * bodyK) + up * ((1.2f + 0.7f * e) * _body + 0.3f * e);
+                    _camLook = _from + up * (1.45f * _body + 0.6f * e);
+                }
+                else if (k < 0.8f)
+                {
+                    // Down behind them and up: from in front and to one side, low, the caster before it.
+                    float e = Ease((k - 0.5f) / 0.3f);
+                    _camPos = _from + _fwd * ((5.2f - 0.8f * e) * bodyK) - side0 * ((2.6f - 0.6f * e) * bodyK) + up * ((1.3f - 0.3f * e) * _body);
+                    _camLook = Vector3.Lerp(_from + up * (1.7f * _body), Vector3.Lerp(_from + up * (1.5f * _body), _wyrmRestAt, 0.6f), e);
+                }
+                else
+                {
+                    // At rest over their shoulder, and the roar: from low before the caster, looking up at them both.
+                    float roar = Mathf.Clamp01((t - _wyrmRoar) / 0.3f);
+                    _camPos = _from + _fwd * ((3.4f - 0.5f * roar) * bodyK) - side0 * (1.1f * bodyK) + up * (0.75f * _body);
+                    _camLook = Vector3.Lerp(_from + up * (1.5f * _body), _wyrmRestAt, 0.6f);
+                    if (t >= _wyrmRoar) _camShake = 0.012f;
+                }
+                _camShake += 0.02f * (0.5f + 0.25f * _tier) * Mathf.Exp(-Mathf.Max(0f, t - _showKick) * 6f);
+                return;
+            }
+            Vector3 toward = _wyrmToward;
+            Vector3 side = _wyrmSide;
+            float dist = _wyrmDist;
+            float spread = _wyrmSpread;
+            Vector3 widePos, wideLook;
+            if (spread < 0.5f)
+            {
+                // One target: side on, the caster at one end of the picture and the target at the other.
+                Vector3 mid = _from + toward * (0.5f * dist);
+                widePos = mid - side * (0.75f * dist + 2.2f) - toward * 0.8f + up * 2.6f;
+                wideLook = mid + up * 1.9f;
+            }
+            else
+            {
+                // Several: from high behind the caster, the whole of the far side in the picture.
+                widePos = _from - toward * (4.6f + 0.43f * spread) + up * (3.2f + 0.5f * spread);
+                wideLook = _from + toward * (0.5f * dist + 1.1f) + up * 0.6f;
+            }
+            if (t < _wyrmHover - 0.1f)
+            {
+                // It goes, through them and round: the wide shot, following it a little.
+                float follow = 0.2f + 0.25f * Ease((t - _tBar) / Mathf.Max(0.2f, _wyrmHover - _tBar));
+                _camPos = widePos;
+                _camLook = Vector3.Lerp(wideLook, head, follow);
+                _camShake = 0.02f * Mathf.Exp(-Mathf.Max(0f, t - _kickAt) * 6f);
+                return;
+            }
+            if (t < _tStrike)
+            {
+                // The fire: from beyond whoever it burns, looking back past them at it and the caster under it.
+                Vector3 aim = wyrm.BreathAim(t);
+                if (spread < 0.5f)
+                {
+                    float big = Mathf.Max(1f, _tScale * 0.8f);
+                    _camPos = wyrm.TargetAt(0) + (toward * 1.6f - side * 2.6f) * big + up * 0.6f;
+                    _camLook = Vector3.Lerp(_wyrmHoverAt, aim, 0.35f);
+                }
+                else
+                {
+                    _camPos = _from + toward * (0.55f * dist) + side * (0.9f * spread + 3f) + up * 3.4f;
+                    _camLook = Vector3.Lerp(_wyrmHoverAt, aim, 0.3f);
+                }
+                _camShake = 0.01f + 0.02f * Mathf.Exp(-Mathf.Max(0f, t - _kickAt) * 6f);
+                return;
+            }
+            float r = t - _tStrike;
+            float hold = Mathf.Max(0.3f, _tExit - _tStrike);
+            if (r < hold)
+            {
+                // It lands: wide again, every one of them burning, shaken.
+                _camPos = widePos + up * 0.4f - toward * 0.6f;
+                _camLook = wideLook;
+                _camShake = 0.035f * (1f + 0.6f * _pips) * Mathf.Exp(-r * 6f) * 1.6f + 0.03f * Mathf.Exp(-Mathf.Max(0f, t - _kickAt) * 8f);
+                return;
+            }
+            // Wide, turning slowly round the ring as it burns away (VolleyShot's last shot).
+            float w = r - hold;
+            Vector3 centre = (_from + _aim) * 0.5f;
+            float radius = Mathf.Max(6f, Vector3.Distance(_from, _aim) * 0.9f);
+            float height = _cam == CardDatabase.CAM_LOW ? 1.2f : _cam == CardDatabase.CAM_CRANE ? 7f : 3.8f;
+            Quaternion turn = Quaternion.Euler(0f, wideTurnDegrees * w * _flip, 0f);
+            _camPos = centre + turn * (_right * (radius * _flip) - _fwd * 1.5f) + up * height;
+            _camLook = centre + up * 0.8f;
+        }
+
         // ------------------------------------------------------------------ helpers
 
         private void SetFade(float f)
@@ -2888,6 +3177,7 @@ namespace WizardsVRC
             if (auraShell != null) auraShell.gameObject.SetActive(false);
             if (auraShellOuter != null) auraShellOuter.gameObject.SetActive(false);
             if (chargeAudio != null && chargeAudio.isPlaying) chargeAudio.Stop();
+            if (wyrm != null) wyrm.Hide();
             HideAll(shockRings);
             HideAll(heads);
             HideAll(portals);

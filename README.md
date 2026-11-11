@@ -73,7 +73,8 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
 | `Assets/WizardsVRC/Scripts/CastPattern.cs`, `PatternWand.cs` | Drawing a spell's rune before it's sent (spells under 100% accuracy): the board of points along the school's symbol, the hip wand in VR (a local pickup; `PatternWand` relays its grab, drop and the sidearm's trigger), numbered points on desktop, the four casting styles (sabre, baton, lantern, sidearm), the quality that cuts the fizzle chance |
-| `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell, heal and dispel, staged by the formula in `SPELL_ANIMATIONS.md` on one shared rig, in six beats (cast, arrival, display, attack, result, exit; 14 s at most): the caster is taken to the middle of the ring and charges (four tiers by pip cost), then the spell plays its own recipe (flourish, arrival, display, delivery, impact, exit, film style, bolts), a creature riding the attack; filmed on the cutscene screen |
+| `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell, heal and dispel, staged by the formula in `SPELL_ANIMATIONS.md` on one shared rig, in six beats (cast, arrival, display, attack, result, exit): the caster is taken to the middle of the ring and charges (four tiers by pip cost), then the spell plays its own recipe (flourish, arrival, display, delivery, impact, exit, film style, bolts), a creature riding the attack; filmed on the cutscene screen. It also stages and films Sunfire Wyrm's own dragon (`SunfireWyrm.cs`) |
+| `Assets/WizardsVRC/Scripts/SunfireWyrm.cs` | Sunfire Wyrm's dragon and the whole of its flight (a spell with staging of its own): out of the caster, three twirls round them, at rest behind them, through its targets, round, and its fire; it lays its curve out for each cast and places its head and 24 body segments along it every frame, shedding flames all the while |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
 | `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb that drifts round the area on a wandering loop (server-clock timed, so everyone sees it in the same place): walk into it to restore health / mana (local; respawns after 30 s) |
 | `Assets/WizardsVRC/Scripts/MusicDirector.cs` | Local background music: picks the combat, character creation or hub track from what you're doing and where you are, crossfades between them, scales by the Music setting, and credits what's playing ("WildStar OST - Character Creation") over the HUD, on the map and on the title stage |
@@ -591,6 +592,16 @@ casts from its seat with no staging; minions being summoned and the duel-wide bu
 
 `Tools/spell_staging_table.py` prints what each pip cost gets. Sounds: `Spell_Charge`, `Spell_Surge`, `Charm_Appear`
 and `Charm_Shatter` (`Tools/make_spell_cast_sounds.py`).
+
+**Sunfire Wyrm has staging of its own** (`SPELL_ANIMATIONS.md`, "Spells with staging of their own"). The caster
+summons an eastern dragon out of themselves: it twirls round them three times, comes to rest reared up behind them and
+roars (the end of its display); then it flies at its target and through it (through every target in turn for a cast
+that hits them all), loops round, and breathes fire on them as the hit lands; then it burns away. It sheds fire the
+whole time it is out. `Scripts/SunfireWyrm.cs` flies it; `SpellCinematic` stages and films it (`AnimateWyrm`,
+`WyrmShot`); the dragon is built by `WizardsVRCSceneBuilder.Wyrm.cs` from `Tools/make_sunfire_wyrm.py`'s meshes and
+skin, and the spell's card shows the same dragon. `Tools/preview_sunfire_wyrm.py gif out.gif` draws the whole cast
+from the film camera without Unity (`card out.png` paints its card); `Tools/sunfire_wyrm_flight.py` checks the
+flight's numbers. Sounds: `Spell_WyrmRoar`, `Spell_WyrmBreath`.
 
 **Every attack spell moves its own way** (`SpellCinematic`, recipes in `Editor/WizardsVRCSceneBuilder.SpellStyles.cs`,
 packed into `CardDatabase.cineStyles`). Each recipe picks:

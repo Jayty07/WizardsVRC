@@ -23,7 +23,8 @@ namespace WizardsVRC.EditorTools
     ///                   the sky and the light pouring from it); the power core; the bolts in three shapes with their
     ///                   trails, the beam, two portals, a ring of sparks along the floor, bursts, shards, a flash, shock
     ///                   rings, a column on the target, spikes, the rune stamp, embers and a light, all re-coloured for
-    ///                   the school at runtime; and the fade sphere for the caster
+    ///                   the school at runtime; the fade sphere for the caster; and the rigs of spells with staging of
+    ///                   their own (Sunfire Wyrm's dragon: WizardsVRCSceneBuilder.Wyrm.cs)
     ///
     /// The rune and stamp use the drawn-symbol shader and data maps (Tools/make_glyph_draw.py); rings use
     /// Textures/SpellRing.png (Tools/make_spell_ring.py); the sounds are Audio/Cast/Pattern_*.wav and Spell_*.wav
@@ -57,6 +58,7 @@ namespace WizardsVRC.EditorTools
             if (book != null) book.castPattern = pattern;
             ExtraBehaviours.Add(pattern);
             ExtraBehaviours.Add(cine);
+            if (cine.wyrm != null) ExtraBehaviours.Add(cine.wyrm);
         }
 
         // ================================================================== the rune board and the wand
@@ -715,6 +717,9 @@ namespace WizardsVRC.EditorTools
             hum.rolloffMode = AudioRolloffMode.Linear;
             cine.chargeAudio = hum;
             cine.chargeSound = CastClip("Spell_Charge");
+
+            // ---- spells with staging of their own: Sunfire Wyrm's dragon (WizardsVRCSceneBuilder.Wyrm.cs)
+            cine.wyrm = BuildSunfireWyrm(rig);
 
             // Nothing in the rig is static or casts shadows.
             foreach (Transform t in rig.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = false;

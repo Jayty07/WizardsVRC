@@ -501,6 +501,17 @@ namespace WizardsVRC
         public int CineBeats(int cardId) { int i = IndexOf(cardId); return i < 0 || cineBeats == null || i >= cineBeats.Length ? 0 : cineBeats[i]; }
 
         /// <summary>
+        /// Spells with staging all their own (same index as <see cref="ids"/>; 0 = the formula's, from the recipe above).
+        /// Such a spell keeps the six beats and their times, the charge, the film and how its hit lands, but its arrival,
+        /// display and attack are played by a rig of its own. Filled by WizardsVRCSceneBuilder.SpellStyles.cs.
+        /// </summary>
+        [HideInInspector] public int[] cineSpecials;
+        // Sunfire Wyrm: an eastern dragon out of the caster, round them three times, through its targets and back to breathe fire on them (SunfireWyrm).
+        public const int SPECIAL_NONE = 0, SPECIAL_WYRM = 1;
+
+        public int CineSpecial(int cardId) { int i = IndexOf(cardId); return i < 0 || cineSpecials == null || i >= cineSpecials.Length ? 0 : cineSpecials[i]; }
+
+        /// <summary>
         /// A spell that only places a charm (a blade), a shield or a trap: it has no animation at all. The effect just
         /// appears round its target with a sound (BattleClient).
         /// </summary>

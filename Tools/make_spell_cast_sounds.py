@@ -24,6 +24,10 @@ bells, choir and reverb as the quest sounds (make_quest_sounds.py).
                          glass (0.8 s; pitched the same way)
     Spell_Ignite.wav     the battle aura catching alight round a caster as they charge: a rush of air, a thump and
                          its fluttering roar (1.3 s)
+    Spell_WyrmRoar.wav   the Sunfire Wyrm's roar: a rasping growl that climbs, opens out and falls away, over a rumble
+                         (1.6 s; SunfireWyrm plays it quietly as the dragon bursts out and in full when it rears up)
+    Spell_WyrmBreath.wav its breath: a thump as it catches, then a torrent of fire, fluttering and crackling, dying
+                         away (2.2 s; it lasts from when it pulls up before its targets until it burns away)
 
     python3 Tools/make_spell_cast_sounds.py Assets/WizardsVRC/Audio/Cast      (needs numpy and scipy)
 """
@@ -267,6 +271,36 @@ def main(folder):
     out += sweep_noise(t, 0.18, 1.0, 3800, 700, 0.45, shape=0.6) + rumble(t, 0.2, 1.0, 0.3)
     out = out * np.where(t > 0.2, 0.75 + 0.25 * np.sin(2 * np.pi * 23 * t), 1.0)
     q.write(os.path.join(folder, 'Spell_Ignite.wav'), out, T, wet=0.25, size=0.9, gain=0.85)
+
+    # The Sunfire Wyrm's roar: a rasp of low, slightly sour harmonics whose pitch climbs and falls, shaken by a fast
+    # flutter, with a throat of noise opening over it and a rumble under it.
+    T = 1.7
+    t = q.timeline(T)
+    m, tt = q.window(t, 0.0, 1.5)
+    k = np.clip(tt / 1.5, 0, 1)
+    f = 62 + 58 * np.sin(np.pi * k ** 0.7) ** 1.5
+    phase = 2 * np.pi * np.cumsum(f) / SR
+    rasp = np.zeros_like(tt)
+    for h, a in ((1, 1.0), (2, 0.7), (3, 0.55), (4.03, 0.4), (5, 0.3), (6.02, 0.2), (7, 0.14)):
+        rasp += a * np.sin(phase * h + 0.7 * h)
+    rasp = np.tanh(rasp * 1.4) * (0.55 + 0.45 * np.sin(2 * np.pi * 31 * tt + 2.5 * np.sin(2 * np.pi * 7 * tt)))
+    out = np.zeros_like(t)
+    out[m] = rasp * np.sin(np.pi * k) ** 0.6 * 0.6
+    out += sweep_noise(t, 0.0, 1.45, 320, 1300, 0.6, shape=0.7, q_width=0.5) + sweep_noise(t, 0.15, 1.3, 1700, 600, 0.3, shape=0.8)
+    out += rumble(t, 0.0, 1.5, 0.35) + boom(t, 0.02, 0.9, 90, 40, 0.35, decay=2.4)
+    q.write(os.path.join(folder, 'Spell_WyrmRoar.wav'), out, T, wet=0.3, size=1.1, gain=0.95)
+
+    # Its breath: a thump as it catches, then a torrent: a wide roar of noise held open, a lower one under it, both
+    # fluttering, crackles all through it, dying away at the end.
+    T = 2.3
+    t = q.timeline(T)
+    out = boom(t, 0.0, 0.7, 120, 46, 0.6, decay=3.5) + crack(t, 0.0, 0.3, dur=0.2, hp=1200)
+    out += sweep_noise(t, 0.0, 2.2, 700, 2300, 0.7, shape=0.35, q_width=0.6) + sweep_noise(t, 0.0, 2.2, 190, 430, 0.55, shape=0.4, q_width=0.5)
+    out += sweep_noise(t, 0.05, 2.0, 4200, 3000, 0.22, shape=0.5) + rumble(t, 0.0, 2.1, 0.3)
+    out = out * (0.72 + 0.2 * np.sin(2 * np.pi * 19 * t) + 0.08 * np.sin(2 * np.pi * 43 * t + 1.0))
+    for at in np.sort(rng.uniform(0.15, 1.9, 16)):
+        out += crack(t, float(at), float(rng.uniform(0.07, 0.16)), dur=0.06, hp=2600)
+    q.write(os.path.join(folder, 'Spell_WyrmBreath.wav'), out, T, wet=0.22, size=0.9, gain=0.9)
 
 
 if __name__ == '__main__':

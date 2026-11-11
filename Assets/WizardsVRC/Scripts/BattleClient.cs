@@ -515,6 +515,8 @@ namespace WizardsVRC
         // This step is an attack spell played by SpellCinematic; a cinematic one is cast from the middle of the ring.
         private bool _stepStyled;
         private bool _stepCine;
+        // The step's spell has staging all its own (CardDatabase.SPECIAL_*; 0 = none): no summoned creature rides it.
+        private int _stepSpecial;
         private int _stepActor;
         private int _stepTarget;
         private int _stepSchool;
@@ -2065,6 +2067,7 @@ namespace WizardsVRC
             _stepStart = _playIndex;
             _stepStyled = false;
             _stepCine = false;
+            _stepSpecial = 0;
             _castAtOn = false;
             _expended = false;
             int group = manager.actGroup[_playIndex];
@@ -2226,7 +2229,10 @@ namespace WizardsVRC
             // A monster steps into the middle of the ring to cast too.
             Transform body = !manager.IsPlayerSeat(actor) && manager.MonsterAt(actor) > 0 ? BodyOf(actor) : null;
             if (body != null && !body.gameObject.activeInHierarchy) body = null;
-            bool creature = cardDatabase.AnimMode(card) == 1 && _stepAnim != null;
+            // A spell with staging all its own (Sunfire Wyrm's dragon) plays it in place of its summoned creature: only as
+            // a cinematic, and only if the rig for it is in the scene.
+            _stepSpecial = _stepCine && spellCinematic.wyrm != null ? cardDatabase.CineSpecial(card) : 0;
+            bool creature = _stepSpecial == 0 && cardDatabase.AnimMode(card) == 1 && _stepAnim != null;
             float targetScale = target >= 0 && target < BattleManager.SLOTS && (target != actor || friendly) ? SeatScale(target) : 1f;
             // The staging formula (SPELL_ANIMATIONS.md): in, the cast (a gather, then the cast sound), then the unleash:
             // arrival, display, the blades, traps and shields it uses going one at a time, attack, result (the hit), exit; out.
@@ -2237,6 +2243,7 @@ namespace WizardsVRC
             _stepExpend = _stepCine ? manager.CineExpend(_stepStart) : 0f;
             _stepStrike = _stepCine ? cardDatabase.PlanStrike(_stepUnleash, _stepExpend) : cardDatabase.CineStrike(card);
             spellCinematic.Prepare(this, me, watch, _stepCine, seats[actor], body, creature, targetScale);
+            spellCinematic.SetSpecial(_stepSpecial);
             // An area spell: everyone still standing on the side it hits as it's cast (health as shown: the round's
             // results are already in, and this spell may be what fells them), so its bolts and bursts land on each of them.
             if (cardDatabase.IsAoe(card) && target >= 0 && target < BattleManager.SLOTS && (target != actor || friendly))
@@ -2306,7 +2313,8 @@ namespace WizardsVRC
             StartImpact();
             _animImpact = true;   // no plain orb: the rig carries it
             int mode = cardDatabase.AnimMode(_stepCard);
-            if (_stepAnim != null && (mode == 1 || mode == 4))
+            // (A spell with staging of its own brings its own subject: SpellCinematic's rig for it.)
+            if (_stepAnim != null && _stepSpecial == 0 && (mode == 1 || mode == 4))
             {
                 PlaySpellAnimation(_stepAnim, _castFrom, _castTo);
                 if (mode == 1)

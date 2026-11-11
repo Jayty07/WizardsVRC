@@ -39,7 +39,7 @@ namespace WizardsVRC.EditorTools
             { 108, new[] { CardDatabase.CINE_WAVE, CardDatabase.IMPACT_IMPLODE, CardDatabase.CHARGE_STREAM, CardDatabase.CAM_REVERSE, 5, Orb, 1, 0, ArConverge, ShStorm, ExEcho, 0 } },    // Stoke the Embers: a gust that draws the burn in and bursts it
             { 109, new[] { CardDatabase.CINE_HELIX, CardDatabase.IMPACT_VORTEX, CardDatabase.CHARGE_COLUMN, CardDatabase.CAM_STANDARD, 3, Disc, 0, 1, ArKindle, ShHalo, ExAscend, 0 } },  // Wildfire Oath: three discs corkscrew into a fire whirl
             { 110, new[] { CardDatabase.CINE_GROUND, CardDatabase.IMPACT_SPIKES, CardDatabase.CHARGE_COLUMN, CardDatabase.CAM_LOW, 3, Shard, 0, 0, ArErupt, ShStorm, ExSink, 0 } },     // Molten Behemoth: tramps in through the floor, magma spikes
-            { 111, new[] { CardDatabase.CINE_PORTAL, CardDatabase.IMPACT_NOVA, CardDatabase.CHARGE_GYRO, CardDatabase.CAM_CRANE, 1, Orb, 1, 2, ArRift, ShFlare, ExScatter, 0 } },         // Sunfire Wyrm: through a sun gate, a nova
+            { 111, new[] { CardDatabase.CINE_PORTAL, CardDatabase.IMPACT_NOVA, CardDatabase.CHARGE_GYRO, CardDatabase.CAM_CRANE, 1, Orb, 1, 2, ArRift, ShFlare, ExScatter, 0 } },         // Sunfire Wyrm: its own staging (SpellSpecialTable); this is its charge, its nova, and a minion's cast of it
             // ---- Ice
             { 112, new[] { CardDatabase.CINE_VOLLEY, CardDatabase.IMPACT_SHATTER, CardDatabase.CHARGE_SPIRAL, CardDatabase.CAM_STANDARD, 3, Shard, 1, 0, ArConverge, ShCrown, ExFade, 0 } }, // Frost Shard: three shards fan out and shatter
             { 116, new[] { CardDatabase.CINE_WAVE, CardDatabase.IMPACT_SHATTER, CardDatabase.CHARGE_FOUNTAIN, CardDatabase.CAM_CRANE, 7, Shard, 0, 0, ArDescend, ShStorm, ExScatter, 0 } },   // Hoarfrost Gale: a wall of sleet
@@ -108,6 +108,15 @@ namespace WizardsVRC.EditorTools
             { 313, new[] { CardDatabase.CINE_RAIN, CardDatabase.IMPACT_PILLAR, CardDatabase.CHARGE_COLUMN, CardDatabase.CAM_CRANE, 15, Shard, 0, 3, ArDescend, ShAscend, ExEcho, 0 } },     // Orbital Strike: fire from orbit
         };
 
+        /// <summary>
+        /// Spells with staging all their own (CardDatabase.SPECIAL_*): the recipe above still gives them their charge's
+        /// flourish, how their hit lands, how they leave and which way they turn; the rest is their own rig's.
+        /// </summary>
+        private static readonly Dictionary<int, int> SpellSpecialTable = new Dictionary<int, int>
+        {
+            { SunfireWyrmCard, CardDatabase.SPECIAL_WYRM },   // an eastern dragon out of the caster: round them three times, through its targets, fire
+        };
+
         private static int PackStyle(int[] s)
         {
             return (s[0] & 15) | ((s[1] & 15) << 4) | ((s[2] & 15) << 8) | ((s[3] & 15) << 12) | ((s[4] & 15) << 16) | ((s[5] & 3) << 20) |
@@ -139,6 +148,12 @@ namespace WizardsVRC.EditorTools
             int n = db.ids.Length;
             db.cineStyles = new int[n];
             db.cineBeats = new int[n];
+            db.cineSpecials = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                int special;
+                if (SpellSpecialTable.TryGetValue(db.ids[i], out special)) db.cineSpecials[i] = special;
+            }
             var pairs = new Dictionary<int, string>();
             var missing = new List<int>();
             for (int i = 0; i < n; i++)
