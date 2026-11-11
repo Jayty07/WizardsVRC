@@ -38,7 +38,7 @@ namespace WizardsVRC
         public TeleportHelper teleporter;
         public CharacterSelectUI selectUI;
         public CharacterCreator creator;
-        [Tooltip("The select screen in the study: hidden while this plays.")]
+        [Tooltip("The character select panel (on the title stage): hidden while this plays.")]
         public Canvas selectCanvas;
         public PlayerHUD hud;
 

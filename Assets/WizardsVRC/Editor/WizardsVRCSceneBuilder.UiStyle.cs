@@ -203,8 +203,11 @@ namespace WizardsVRC.EditorTools
             hud.questLabel.color = new Color(1f, 0.95f, 0.7f);
             hud.questLabel.gameObject.AddComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.8f);
 
-            // LEVEL UP banner above the plate.
-            Image banner = UiImage(rt, "LevelUpBanner", new Vector2(0, 236), new Vector2(360, 96), "Tooltip", Color.white, 2f);
+            // What's playing, just over the plate (MusicDirector fills it: the game and the track).
+            NowPlayingLabel(rt, new Vector2(0, 192), new Vector2(420, 22), 15, TextAnchor.MiddleCenter, new Color(1f, 0.9f, 0.62f));
+
+            // LEVEL UP banner above that.
+            Image banner = UiImage(rt, "LevelUpBanner", new Vector2(0, 254), new Vector2(360, 96), "Tooltip", Color.white, 2f);
             hud.levelUpText = Label(banner.transform, "Text", Vector2.zero, new Vector2(340, 90), "", 30, TextAnchor.MiddleCenter);
             hud.levelUpText.color = new Color(1f, 0.88f, 0.4f);
             hud.levelUpText.gameObject.AddComponent<Outline>().effectColor = Color.black;

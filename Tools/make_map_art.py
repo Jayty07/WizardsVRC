@@ -1,5 +1,5 @@
 """Art for the world and zone maps (Textures/Maps), all original: parchment, the world maps' skies, the frame, the label
-tag, the title scroll, the you-are-here marker, and a set of marker doodles for the margins (little wizards, ghosts,
+tag, the title scroll, the you-are-here marker, the marked-location pin, and a set of marker doodles for the margins (little wizards, ghosts,
 rats, bats, a troll, a plant monster, a crab, a fire imp, an owl, a cactus, a lantern ghost...), drawn with wobbly
 black outlines and flat colours like a child's sketches on the edge of a map.
 
@@ -524,6 +524,31 @@ def here_marker(size=64):
     return img.resize((size, size), Image.LANCZOS)
 
 
+def mark_marker(size=64):
+    """Your marked location: a blue crystal in a ring of light with a gold rim (the same blue as the ring on the ground)."""
+    s = 4
+    n = size * s
+    img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    c = n / 2
+    # the ring: a soft shadow, gold rim, blue band
+    d.ellipse([c - 104 + 6, c - 104 + 8, c + 104 + 6, c + 104 + 8], outline=(30, 20, 10, 110), width=22)
+    d.ellipse([c - 108, c - 108, c + 108, c + 108], outline=(255, 214, 90, 255), width=30)
+    d.ellipse([c - 100, c - 100, c + 100, c + 100], outline=(70, 150, 240, 255), width=16)
+    d.ellipse([c - 110, c - 110, c + 110, c + 110], outline=(40, 30, 60, 255), width=4)
+    # the crystal: a tall diamond, lit on the left
+    top, bot, lft, rgt = (c, c - 86), (c, c + 86), (c - 50, c), (c + 50, c)
+    d.polygon([top, rgt, bot, lft], fill=(60, 130, 230, 255))
+    d.polygon([top, (c, c), lft], fill=(150, 215, 255, 255))
+    d.polygon([lft, (c, c), bot], fill=(95, 170, 245, 255))
+    d.polygon([top, rgt, (c, c)], fill=(80, 150, 240, 255))
+    d.line([top, rgt, bot, lft, top], fill=(255, 214, 90, 255), width=12, joint="curve")
+    d.line([top, rgt, bot, lft, top], fill=(30, 40, 90, 255), width=4, joint="curve")
+    d.line([top, bot], fill=(30, 40, 90, 160), width=3)
+    d.line([lft, rgt], fill=(30, 40, 90, 160), width=3)
+    return img.resize((size, size), Image.LANCZOS)
+
+
 def main(out):
     os.makedirs(out, exist_ok=True)
     os.makedirs(os.path.join(out, "Doodles"), exist_ok=True)
@@ -535,6 +560,7 @@ def main(out):
     tag().save(os.path.join(out, "MapTag.png"))
     title_scroll().save(os.path.join(out, "MapTitle.png"))
     here_marker().save(os.path.join(out, "MapHere.png"))
+    mark_marker().save(os.path.join(out, "MapMark.png"))
     for name, im in doodles().items():
         im.save(os.path.join(out, "Doodles", "Doodle" + name + ".png"))
     print("wrote map art to", out)

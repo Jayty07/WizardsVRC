@@ -55,12 +55,14 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | --- | --- |
 | `Assets/WizardsVRC/Scripts/School.cs` | `School` enum (Fire/Ice/Storm/Life/Death/Myth/Balance) |
 | `Assets/WizardsVRC/Scripts/CharacterData.cs` | Character fields + binary codec (version header, Adler-32 checksum, base64) |
-| `Assets/WizardsVRC/Scripts/SaveManager.cs` | PlayerData persistence: `char_0`–`char_3`, `char_N_bak`, `meta` |
+| `Assets/WizardsVRC/Scripts/SaveManager.cs` | PlayerData persistence: `char_0`–`char_3`, `char_N_bak`, `meta`, and each character's last place and mark (`place_N`, `mark_N`) |
 | `Assets/WizardsVRC/Scripts/PlayerState.cs` | Live character (source of truth) + autosave, current health/mana helpers, out-of-combat regeneration |
 | `Assets/WizardsVRC/Scripts/TeleportHelper.cs` | `TeleportTo(Transform)` via `VRCPlayerApi.TeleportTo` |
 | `Assets/WizardsVRC/Scripts/TunnelPassage.cs`, `TunnelGate.cs` | Walk-through tunnels between areas (no portals): the hand-over between two identical Z-shaped tunnels out of sight, and the castle end's quest-locked portcullis |
-| `Assets/WizardsVRC/Scripts/CharacterSelectUI.cs` | Slot panels, delete confirm, teleport to hub; New Character plays the opening, and `CreateFromCreator` makes the character the creator describes |
-| `Assets/WizardsVRC/Scripts/IntroFlow.cs` | First join: once saves load, a player with no characters gets the opening; returning players stay at character select |
+| `Assets/WizardsVRC/Scripts/CharacterSelectUI.cs` | The character select panel on the title stage: slot panels, delete confirm; Select hands over to the title screen (the scene fades out and back in where the character last logged off), New Character plays the opening, and `CreateFromCreator` makes the character the creator describes |
+| `Assets/WizardsVRC/Scripts/LocationKeeper.cs` | Where each character last stood (so choosing them brings you back there), and **Mark Location** / **Teleport to Mark** |
+| `Assets/WizardsVRC/Scripts/SceneFade.cs` | Fades the whole scene for the local player: the picture (a veil round your head, `Shaders/ScreenFade.shader`), the music and every ambient sound |
+| `Assets/WizardsVRC/Scripts/IntroFlow.cs` | First join: once saves load, a player with no characters gets the opening; returning players get the character select on the title stage |
 | `Assets/WizardsVRC/Scripts/AwakeningSequence.cs` | The opening, played round the player (not on a screen): whispers in the dark, eyes flickering open on five visions in a dream space (the Starfall Crystal, a rift in the sky, an iron legion, a figure in grey iron over a broken crystal, the title), then waking in the Headmaster's study to hear his visions, the creator, and his send-off. A beat table (subtitle, speaker, seconds, eyelid openness, vision, place, sounds) filled by `WizardsVRCSceneBuilder.Awakening.cs`; Skip jumps to the creator. Voice lines: `Audio/Voice/awaken_00.wav`... one per beat |
 | `Assets/WizardsVRC/Scripts/CharacterCreator.cs` | The creator panel beside you in the study: a name from lists (first name + two-part surname, nothing typed), school (with each professor's pitch), signature colour and pip aura colour (12 each, the first = your school's colour), then a last look and Begin |
 | `Assets/WizardsVRC/Scripts/ItemDatabase.cs`, `Tools/make_items.py` | World 1's 74 items (gear for every slot and school, potions, decks), generated from one level budget per stat; quest rewards and boss drops are unique. See *Items (World 1)* in [WORLD_BUILDING.md](WORLD_BUILDING.md) |
@@ -74,7 +76,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell's own choreography (delivery, impact, wind-up, film style, bolts) on one shared rig, a creature riding the path; a wizard's attack spell as a cinematic (iris fade, taken to the middle of the ring, first-person wind-up, filmed release and hit on the cutscene screen, back to the seat) |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
 | `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb that drifts round the area on a wandering loop (server-clock timed, so everyone sees it in the same place): walk into it to restore health / mana (local; respawns after 30 s) |
-| `Assets/WizardsVRC/Scripts/MusicDirector.cs` | Local background music: picks the combat, character creation or hub track from what you're doing and where you are, crossfades between them, and scales by the Music setting |
+| `Assets/WizardsVRC/Scripts/MusicDirector.cs` | Local background music: picks the combat, character creation or hub track from what you're doing and where you are, crossfades between them, scales by the Music setting, and credits what's playing ("WildStar OST - Character Creation") over the HUD, on the map and on the title stage |
 | `Assets/WizardsVRC/Scripts/TavernJukebox.cs` | The tavern's synced video player: link, start time and pause are synced (anyone can change the song), everyone seeks to the same point, retries when VRChat rate-limits loads, and fades the speaker so it's only heard inside the tavern; mute and volume are per player. **Big screen** (synced) brings the screen down in front of the curtains at 2.2x the size for watching videos |
 | `Assets/WizardsVRC/Scripts/FireFlicker.cs` | The tavern hearth's stylised fire: layered flame tongues stretch and sway, embers rise and the light flickers (local; only while you're near) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Magic.cs` | Hub atmosphere: crystals, gems, wisps and curios that hover and turn (native looping clips, a halo of shards round the Starfall Crystal), each classroom's motes and floating curios (embers, snow, sparks, pollen, wisps, glitter, sand), the tavern stage's finished front (nosing, velvet fascia, footlights, proscenium pillars, header and valance, backdrop), the hearth fire, and the hub's occlusion culling setup and bake |
@@ -118,11 +120,12 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 
 ## Scene
 
-- `VRCWorld` — `VRCSceneDescriptor`: spawn = `SelectRoom/SelectSpawn`, respawn height **-600** (must be below the
-  select room at y = -500), reference camera = `VRCWorld/ReferenceCamera`.
+- `VRCWorld` — `VRCSceneDescriptor`: spawn = the Headmaster's study (`OfficeSpawn`; the title screen moves you to its
+  stage a moment after you join), reference camera = `VRCWorld/ReferenceCamera`.
   (There is no `VRC_SceneLightmapSettings` component in the current SDK; lighting uses normal Unity Lighting settings.)
-- `SelectRoom` (y = -500) — closed room, light, spawn point, world-space canvas (`VRCUiShape`) with 4 slot panels,
-  school picker, delete confirmation.
+- `TitleStage` (far off at 2600, 1400, 2600) — the title screen's dais, sky, wordmark and menu, and `SelectCanvas`: the
+  character select's world-space canvas (`VRCUiShape`) with 4 slot panels and the delete confirmation. Its script
+  (`CharacterSelectUI`) sits on `Systems/CharacterSelect`, which is always on; the stage is switched off when you leave it.
 - `Hub` (origin) — **Starfall Castle**, built from the hub zone map and height map (`WorldData/Zone_StarfallCastle.asset`),
   laid out in rings like Ravenwood on a round island inside a round curtain wall with towers, in a PSX sea. In the middle
   the Starfall fountain stands inside the Crystal Tap (a round walk-in tavern to hang out in; under its open roof the crystal floats high over the theatre, with a beam of light shooting from it into the sky) in a sunken round plaza
@@ -170,6 +173,11 @@ backup and rewrites `char_N` from it. PlayerData has no delete API, so Delete wr
 Saves happen on create, on select/swap (the previous character is saved first), on "Change Character", and every
 120 s (`PlayerState.autosaveInterval`).
 
+**Places** are kept beside the character rather than in it (so the format above is unchanged): `place_N` is where slot
+N's character last stood and `mark_N` their marked location, each `x|y|z|yaw` in whole centimetres and degrees. The last
+place is written every 5 s while you stand somewhere you could come back to (`LocationKeeper`); both are cleared when a
+slot is deleted or a new character is made in it.
+
 ## Maps
 
 The book's **Map** bookmark has a map of every zone and every world, drawn on every build from the zones' own text maps
@@ -198,7 +206,7 @@ ignores), so they always match the world data. The look is a hand-made storybook
 
 **B** (desktop), the hub button or the backpack pedestal opens it. Bookmarks: **Pack** (equipment and items),
 **Deck** (decks and spells, shown as the same spell cards as in battle), **Quests**, **Map** (see *Maps* below), and **Settings** (HUD and quest-arrow toggles, **VR HUD** (in view or over your left hand), Save Now, Return to Starfall
-Castle, music volume, **Wand hand** (which hip the casting wand waits at in VR, remembered), and Change Character, which saves and takes you back to the select room). All of the book's text uses the pixel
+Castle, music volume, **Wand hand** (which hip the casting wand waits at in VR, remembered), and Change Character, which saves, remembers where you stand and takes you back to the character select on the title stage). All of the book's text uses the pixel
 font, like the signs and the duel ring. The book opens 1.2x bigger in VR (`InventoryBook.vrScale`; 1.08x on a screen,
 `desktopScale`), and the pop-up details grow with it.
 
@@ -265,10 +273,21 @@ winking round it, over the line "Seven schools. One spellbook. Your story." The 
 around it and draw themselves stroke by stroke, each in its own style, flare, hold and fade before drawing again. Beyond,
 Starfall Isle's castle rides its floating island with the crystal turning on top, between two smaller isles; a rune
 circle turns under your feet, shooting stars streak across the sky and golden motes drift past. The menu below reads
-"Opening your spellbook..." until your saves have loaded, then **Begin** lights up: your eyes close, you're taken to the
-Headmaster's study and the game carries on as before (the opening for a new player, the character select for a returning
-one). The title stage then switches itself off. It all animates itself (Animators, the GlyphDraw shader, particles). Art:
-`Tools/make_title_art.py` (Textures/Title: the wordmark and the sky panorama); music: the character creation theme.
+"Opening your spellbook..." until your saves have loaded, then **Begin** lights up. For a new player, your eyes close,
+you're taken to the Headmaster's study and the opening plays. For a returning player the **character select** opens right
+there on the stage in the menu's place (the panel that used to hang in the study): **Select** fades the whole scene out
+slowly, picture, music and ambience together (`SceneFade`), and fades it back in **where that character last logged
+off**; **New Character** closes your eyes and plays the opening for that slot; Delete works in place. Change Character (the
+book's settings) brings you back to the same panel. The title stage switches itself off whenever you're not on it. It
+all animates itself (Animators, the GlyphDraw shader, particles). Art: `Tools/make_title_art.py` (Textures/Title: the
+wordmark and the sky panorama); music: the character creation theme, credited under the menu.
+
+**Where you last logged off** (`LocationKeeper`): every 5 seconds, while you stand on the ground somewhere you could
+come back to (the castle grounds, the keep, any street or town; not in a duel, the opening, a dungeon, a boss's tower, a
+secret boss's place or the arena), your spot is remembered for that character. Choosing the character puts you back on
+it, facing the same way. Before you land, the spot is checked (there's ground under it and nothing solid where you'd
+stand), so if a street has been rebuilt since and the spot is now inside a wall, you arrive in the castle instead; a new
+character, or one saved before this existed, arrives in the castle too.
 
 Like Wizard101, new wizards don't meet a real monster until they know the basics. After choosing a school in the
 Headmaster's office you find your professor at their school hall, report back, then take the castle tour: Gatekeeper
@@ -306,6 +325,15 @@ Travel **between worlds** goes through the **portal room**, through the door on 
 a round chamber with five arches. Starfall Isle's always glows; World 2's lights up once you finish quest 16 and takes
 you through to **Archrock**, Dustwind's town (the sandstone arch at its south end brings you back); World 3's lights up
 after quest 77 and takes you down to **Bigdig**; the other two stay dark.
+
+**Mark Location and Teleport to Mark** (`LocationKeeper`; the two blue buttons along the bottom of the book's **Map**
+page, or **Page Down** and **End** on a keyboard): marking remembers the spot you stand on, for **10% of your maximum
+mana** (`markCostPercent`; you're told if you haven't enough), anywhere your place can be remembered. A ring of blue runes
+with a small crystal turning over it glows there (only you see yours) and a blue pin shows it on that zone's map, or on
+the zone's island on the world map. Teleporting to it is free and works from anywhere outside a duel: a quick fade out
+and in. You have one mark per character; it stays where it is until you mark somewhere else, and it's saved with the
+character. A mark whose spot no longer exists (the street was rebuilt) is dropped when you try to go to it, and you stay
+where you are.
 
 ## The Starfall Ward
 
@@ -697,7 +725,7 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   and click / hover sounds on every button (OK, Cancel, Delete, Next / Prev, tabs...). The book opening, potions and
   dialogue pop-ups have their own (`Audio/UI`).
 - **Music** (`MusicDirector`, built by `WizardsVRCSceneBuilder.Music.cs`, local to each player): the combat theme in
-  every duel (from the top each fight), the character creation theme on the select screen and in the creator, and the
+  every duel (from the top each fight), the character creation theme on the title stage and in the creator, and the
   hub theme in the castle grounds and the keep (not in the tavern, where the jukebox plays; nothing during the opening
   dream). Tracks crossfade; the hub and creation tracks carry on where they left off. The book's Settings page has
   **Music: Full / Medium / Quiet / Off** (remembered). Tracks are `Audio/Music/Music_Hub_Temp.mp3` (a placeholder),
@@ -714,6 +742,11 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   music for zones that were left blank (Sunpetal Gardens, Lantern Row and the rest of World 1 and 2) without touching
   tracks you've set; the build log lists any music area still without a track. A track that stops (or never started)
   is started again within a second while you're in its area.
+  **Now playing:** while a track plays, the game it's from and its name are shown in a small line over the HUD, in the
+  top-left corner of the book's map and under the title stage's menu and character select ("♪ WildStar OST - Character
+  Creation"). The words come from `Audio/Music/MusicCredits.txt`, one `Music_FileName = Game OST - Track Name` line per
+  file; a track with no line plays uncredited and the build log names it (`Music_Hub_Temp` and `Music_Combat_World1` have
+  none yet). The line clears when nothing is playing or the music is switched off.
 - **Monster AI:** monsters heal an ally under 45% health (a monster that heals itself waits 2 rounds before healing
   again). **Bosses are never sure to heal:** below `BattleManager.bossHealBelowPct` (60%) a boss only heals on a chance,
   `bossHealChance` (25%) at the threshold rising to `bossHealChanceLow` (55%) near 0, and after any heal it waits
@@ -733,7 +766,8 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   falling data streaks off the pen, a teal card frame with gold circuit traces (`Tools/make_card_frames.py`), Tech
   shield / blade / trap icons (`Tools/make_fx_icons.py`), a cog icon in card text (U+E007 in the pixel font) and a night
   skyline over a glowing grid on its card art. Looks are indexed by `CardDatabase.LookIndex` (0-6 the schools, 7 General,
-  8 Tech); Tech casts with the General cast sound. Spells (id, level, pips):
+  8 Tech); Tech casts with its own sound, machinery rather than magic (`Audio/Cast/FX_CastingSound_Tech.mp3`, made by
+  `Tools/make_tech_cast_sound.py`). Spells (id, level, pips):
   - Professor: 300 **Sidearm Burst** (L1, 1: 3 x 22-34), 301 **Taser Dart** (L5, 2: 80-120 and stun), 302 **Kevlar Plating**
     (L10, 0: 45% shield against any school), 303 **Proximity Mine** (L16, 0: +35% Tech trap), 304 **Firewall Breach**
     (L22, 2: 60-90, steals blades and shields), 305 **Overclock** (L26, 0: +40% Tech blade), 306 **Railgun** (L33, 4:

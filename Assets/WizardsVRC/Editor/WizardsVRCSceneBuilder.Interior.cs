@@ -180,6 +180,7 @@ namespace WizardsVRC.EditorTools
             info.headmaster = NpcModel(office, "Headmaster", new Vector3(0, 0, -3.6f), 180f, HeadmasterLook(), "Headmaster Greymantle", "(click to talk)", out hmTop, out hmFace);
             info.officeSpawn = Child(office, "OfficeSpawn", new Vector3(0, 0.05f, 2.5f));
             info.officeSpawn.rotation = Quaternion.Euler(0, 180f, 0);
+            // The character select panel: made here, then moved onto the title stage (TitleSelect, WizardsVRCSceneBuilder.Title.cs).
             var canvasGo = new GameObject("SelectCanvas", typeof(RectTransform));
             canvasGo.transform.SetParent(office, false);
             info.selectCanvas = MakeWorldCanvas(canvasGo, new Vector2(1600, 900), new Vector3(6.75f, 3.2f, 0), 0.0055f);

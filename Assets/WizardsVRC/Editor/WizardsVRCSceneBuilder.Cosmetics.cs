@@ -51,6 +51,7 @@ namespace WizardsVRC.EditorTools
             ResetRigs();
             ResetNpcModels();
             ResetSpellFx();
+            ResetArrival();
             _monsterRigs.Clear();
         }
 

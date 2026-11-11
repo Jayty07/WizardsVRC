@@ -5,10 +5,10 @@ namespace WizardsVRC
 {
     /// <summary>
     /// First join: once the saves have loaded, a player with no characters gets the opening (the awakening, the
-    /// Headmaster's visions and the character creator: <see cref="AwakeningSequence"/>). Returning players stay at the
-    /// character select in the Headmaster's study; New Character there plays the opening too. Without an awakening
-    /// sequence the old school picker is used. With a title screen, nothing happens until its Begin is pressed (it calls
-    /// <see cref="Decide"/> once you're back in the study).
+    /// Headmaster's visions and the character creator: <see cref="AwakeningSequence"/>). Without an awakening sequence
+    /// the old school picker is used. With a title screen, nothing happens until its Begin is pressed: a new player is
+    /// taken to the study and it calls <see cref="Decide"/>; a returning player gets the character select on the title
+    /// stage itself (New Character there plays the opening too) and never comes through here.
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class IntroFlow : UdonSharpBehaviour

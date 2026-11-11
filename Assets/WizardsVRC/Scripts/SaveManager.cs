@@ -141,7 +141,58 @@ namespace WizardsVRC
             _slotLevel[slot] = 0;
             _slotName[slot] = "";
             WriteMeta();
+            ClearPlace(slot, PLACE_LAST);
+            ClearPlace(slot, PLACE_MARK);
         }
+
+        // ------------------------------------------------------------------ places (LocationKeeper)
+
+        /// <summary>Where the character in a slot last stood (PLACE_LAST) and their marked location (PLACE_MARK).</summary>
+        public const int PLACE_LAST = 0, PLACE_MARK = 1;
+
+        private Vector3 _placePos;
+        private float _placeYaw;
+
+        public string PlaceKey(int slot, int kind)
+        {
+            return (kind == PLACE_MARK ? "mark_" : "place_") + slot.ToString();
+        }
+
+        /// <summary>
+        /// Remembers a place for a slot's character, on its own small key (so it can be written often without saving the
+        /// whole character): whole centimetres and degrees, "x|y|z|yaw".
+        /// </summary>
+        public void SetPlace(int slot, int kind, Vector3 pos, float yaw)
+        {
+            if (!isReady || !IsSlotIndex(slot)) return;
+            int deg = Mathf.RoundToInt(Mathf.Repeat(yaw, 360f));
+            PlayerData.SetString(PlaceKey(slot, kind), Mathf.RoundToInt(pos.x * 100f).ToString() + "|" + Mathf.RoundToInt(pos.y * 100f).ToString() + "|" +
+                                                        Mathf.RoundToInt(pos.z * 100f).ToString() + "|" + deg.ToString());
+        }
+
+        public void ClearPlace(int slot, int kind)
+        {
+            if (!isReady || !IsSlotIndex(slot)) return;
+            PlayerData.SetString(PlaceKey(slot, kind), "");
+        }
+
+        /// <summary>True if the slot has that place saved; then PlacePosition() and PlaceYaw() hold it.</summary>
+        public bool LoadPlace(int slot, int kind)
+        {
+            if (!isReady || !IsSlotIndex(slot)) return false;
+            string text;
+            if (!PlayerData.TryGetString(Networking.LocalPlayer, PlaceKey(slot, kind), out text) || string.IsNullOrEmpty(text)) return false;
+            string[] parts = text.Split('|');
+            if (parts.Length != 4) return false;
+            int x, y, z, yaw;
+            if (!int.TryParse(parts[0], out x) || !int.TryParse(parts[1], out y) || !int.TryParse(parts[2], out z) || !int.TryParse(parts[3], out yaw)) return false;
+            _placePos = new Vector3(x * 0.01f, y * 0.01f, z * 0.01f);
+            _placeYaw = yaw;
+            return true;
+        }
+
+        public Vector3 PlacePosition() { return _placePos; }
+        public float PlaceYaw() { return _placeYaw; }
 
         // ------------------------------------------------------------------ meta
 

@@ -307,6 +307,16 @@ cutscene line, or a tower leader's greeting), then the area's music comes back; 
 (`Music_Dialogue_Dominion`). Combat beats dialogue, dialogue beats the area. The rebuild log says how many tracks it
 found; a missing file is a yellow warning naming it.
 
+**Crediting a track.** While a track plays, a small line over the HUD, on the book's map and on the title stage says
+which game it's from and what it's called. Add a line for each new file to `Assets/WizardsVRC/Audio/Music/MusicCredits.txt`:
+
+```
+Music_Zone_LanternRow = WildStar OST - The Weave
+```
+
+(the file's name without its extension, `=`, then the words to show). A track with no line plays uncredited, and the
+rebuild log lists those.
+
 Defaults as shipped: Sunpetal Gardens, Lantern Row, Tidewatch Docks, Kiln Street, Thornhollow Grove and Copperbottom Mine
 each have a `Music_Zone_<Key>` track, World 1's towers share `Music_Tower_World1`, and the Dominion has its theme. Existing
 world data folders get these on the v24 upgrade wherever the field is still blank.

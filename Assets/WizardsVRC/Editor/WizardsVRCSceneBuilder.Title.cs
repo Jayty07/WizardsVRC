@@ -16,6 +16,8 @@ namespace WizardsVRC.EditorTools
     /// arc drawing themselves stroke by stroke (each in its own style, the GlyphDraw shader) then fading and drawing again,
     /// Starfall Isle's castle on its floating island beyond with its crystal turning, two smaller isles, a rune circle
     /// turning under your feet, shooting stars and golden motes, and the menu: Begin, and the spellbook loading line.
+    /// The character select panel stands here too, in the menu's place once a returning player presses Begin (its
+    /// script, CharacterSelectUI, lives on an always-on object under Systems). What's playing is credited under both.
     /// Everything moves by itself (Animators and particles), so it costs no script time.
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
@@ -24,7 +26,8 @@ namespace WizardsVRC.EditorTools
         private const string TitleTexDir = TexturesDir + "/Title";
         private const string TitleAnimDir = "Assets/WizardsVRC/Animations/Title";
 
-        private static TitleScreen BuildTitleScreen(Transform systems, IntroFlow flow, SaveManager saveManager, TeleportHelper teleporter, Transform studySpot)
+        private static TitleScreen BuildTitleScreen(Transform systems, IntroFlow flow, SaveManager saveManager, TeleportHelper teleporter, Transform studySpot,
+            CharacterSelectUI selectUI, Canvas selectCanvas, LocationKeeper locations, SceneFade fade)
         {
             var title = UdonSharpUndo.AddComponent<TitleScreen>(Child(systems, "TitleScreen", Vector3.zero).gameObject);
             title.introFlow = flow;
@@ -49,6 +52,7 @@ namespace WizardsVRC.EditorTools
             TitleLogo(stage);
             TitleParticles(stage);
             TitleMenu(stage, title, target);
+            TitleSelect(stage, title, selectUI, selectCanvas, locations, fade);
             // A night breeze, quiet, and two lights for the stage (the PSX shaders light by the nearest few).
             AmbientBed(stage, "Amb_NightDusk", 0.25f);
             PointLight(stage, new Vector3(0, 4.5f, 6f), new Color(0.65f, 0.5f, 1f), 26f, 1.6f);
@@ -458,11 +462,43 @@ namespace WizardsVRC.EditorTools
             Text credit = Label(rt, "Credit", new Vector2(0, -200), new Vector2(1150, 50), "WizardsVRC  -  a world of spells for VRChat", 26, TextAnchor.MiddleCenter);
             credit.color = new Color(0.6f, 0.56f, 0.75f);
             foreach (var t in new[] { title.statusLabel, hint, credit }) t.gameObject.AddComponent<Outline>().effectColor = new Color(0.08f, 0.04f, 0.15f, 0.9f);
+            // What's playing (MusicDirector fills it), under the credit.
+            NowPlayingLabel(rt, new Vector2(0, -250), new Vector2(1150, 44), 26, TextAnchor.MiddleCenter, new Color(1f, 0.86f, 0.55f));
+            title.menuRoot = go;
             group.gameObject.SetActive(false);
             // Clickable, but never in your way.
             int layer = LayerMask.NameToLayer("Walkthrough");
             if (layer < 0) layer = 17;
             foreach (Transform t in go.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
+        }
+
+        // ------------------------------------------------------------------ the character select
+
+        /// <summary>
+        /// The character select panel (built in the keep's study, where it used to hang) moved onto the stage: ahead of you
+        /// and a little below eye level, leaning back, so the wordmark still shows over it. It's off until a returning
+        /// player presses Begin (TitleScreen), and comes back for Change Character.
+        /// </summary>
+        private static void TitleSelect(Transform stage, TitleScreen title, CharacterSelectUI selectUI, Canvas selectCanvas, LocationKeeper locations, SceneFade fade)
+        {
+            title.selectUI = selectUI;
+            title.locations = locations;
+            title.fade = fade;
+            if (selectUI != null) selectUI.titleScreen = title;
+            if (locations != null) locations.titleScreen = title;
+            if (selectCanvas == null) return;
+            Transform panel = selectCanvas.transform;
+            panel.SetParent(stage, false);
+            panel.localPosition = new Vector3(0, 1.12f, 2.9f);
+            panel.localRotation = Quaternion.Euler(15f, 0, 0);
+            panel.localScale = Vector3.one * 0.00125f;
+            // What's playing, along the panel's foot (under the status line).
+            NowPlayingLabel(panel, new Vector2(0, -436), new Vector2(1500, 30), 22, TextAnchor.MiddleCenter, new Color(1f, 0.86f, 0.55f));
+            int layer = LayerMask.NameToLayer("Walkthrough");
+            if (layer < 0) layer = 17;
+            foreach (Transform t in panel.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
+            title.selectRoot = panel.gameObject;
+            panel.gameObject.SetActive(false);
         }
 
         // ------------------------------------------------------------------ helpers

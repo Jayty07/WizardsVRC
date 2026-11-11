@@ -6,8 +6,11 @@ using VRC.SDKBase;
 namespace WizardsVRC
 {
     /// <summary>
-    /// Drives the select-room canvas: 4 slot panels, school picker and delete confirmation.
-    /// uGUI buttons call the public no-argument events below via UdonBehaviour.SendCustomEvent.
+    /// Drives the character select panel (on the title stage): 4 slot panels, school picker and delete confirmation.
+    /// uGUI buttons call the public no-argument events below via UdonBehaviour.SendCustomEvent. With a title screen,
+    /// Select hands over to it (the scene fades out and back in where the character last logged off) and New Character
+    /// leaves through it to the opening; Change Character comes back to it. This behaviour lives on an always-active
+    /// object (the panel itself is switched off with the stage).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class CharacterSelectUI : UdonSharpBehaviour
@@ -24,6 +27,10 @@ namespace WizardsVRC
         public UdonSharpBehaviour questManager;
         [Tooltip("The opening for new characters (awakening, the Headmaster, the creator). Without it New Character opens the old school picker.")]
         public AwakeningSequence awakening;
+        [Tooltip("The title stage, where the select panel stands: leaving it and coming back to it go through this.")]
+        public TitleScreen titleScreen;
+        [Tooltip("Remembers where the character stands when you change character.")]
+        public LocationKeeper locations;
 
         [Header("Slot panels (index = slot)")]
         public Text[] slotNameLabels;
@@ -117,8 +124,25 @@ namespace WizardsVRC
         public override void OnPlayerRespawn(VRCPlayerApi player)
         {
             if (!Utilities.IsValid(player) || !player.isLocal) return;
-            if (playerState != null && playerState.HasCharacter() && teleporter != null)
-                teleporter.TeleportTo(hubSpawn);
+            if (playerState != null && playerState.HasCharacter())
+            {
+                if (teleporter != null) teleporter.TeleportTo(hubSpawn);
+                return;
+            }
+            // No character (and not in the opening): back to the title stage's character select.
+            if (titleScreen != null && !titleScreen.IsShowing() && (awakening == null || !awakening.IsRunning()) && saveManager != null && saveManager.isReady)
+                titleScreen.ShowSelect();
+        }
+
+        /// <summary>On the title stage and already on the way out: the buttons do nothing.</summary>
+        private bool Leaving()
+        {
+            return titleScreen != null && titleScreen.IsShowing() && titleScreen.IsLeaving();
+        }
+
+        private bool OnTitleStage()
+        {
+            return titleScreen != null && titleScreen.IsShowing();
         }
 
         // ------------------------------------------------------------------ select
@@ -130,7 +154,7 @@ namespace WizardsVRC
 
         private void Select(int slot)
         {
-            if (!CanAct() || !saveManager.HasSlot(slot)) return;
+            if (!CanAct() || Leaving() || !saveManager.HasSlot(slot)) return;
             playerState.Deactivate();
             if (!saveManager.LoadSlot(slot, playerState.current))
             {
@@ -139,6 +163,13 @@ namespace WizardsVRC
             }
             playerState.Activate(slot);
             NotifyActivated();
+            if (OnTitleStage())
+            {
+                // The scene fades out and back in where this character last logged off.
+                SetStatus("Welcome back, " + playerState.current.characterName);
+                titleScreen.LeaveWithCharacter(hubSpawn);
+                return;
+            }
             EnterHub();
         }
 
@@ -151,13 +182,14 @@ namespace WizardsVRC
 
         private void OpenPicker(int slot)
         {
-            if (!CanAct() || saveManager.HasSlot(slot)) return;
+            if (!CanAct() || Leaving() || saveManager.HasSlot(slot)) return;
             if (awakening != null)
             {
                 if (awakening.IsRunning()) return;
                 SetPopup(confirmPanel, false);
                 SetStatus("");
-                awakening.Begin(slot);
+                if (OnTitleStage()) titleScreen.LeaveForOpening(slot);
+                else awakening.Begin(slot);
                 return;
             }
             _pendingSlot = slot;
@@ -195,10 +227,17 @@ namespace WizardsVRC
                 SetStatus("Could not save the new character.");
                 return;
             }
+            saveManager.ClearPlace(slot, SaveManager.PLACE_LAST);
+            saveManager.ClearPlace(slot, SaveManager.PLACE_MARK);
             playerState.Activate(slot);
             RefreshSlots();
             NotifyActivated();
-            if (newCharacterSpawn != null)
+            if (OnTitleStage())
+            {
+                SetStatus("Welcome, " + playerState.current.characterName);
+                titleScreen.LeaveWithCharacter(newCharacterSpawn != null ? newCharacterSpawn : hubSpawn);
+            }
+            else if (newCharacterSpawn != null)
             {
                 SetStatus("Welcome, " + playerState.current.characterName);
                 if (teleporter != null) teleporter.TeleportTo(newCharacterSpawn);
@@ -223,6 +262,8 @@ namespace WizardsVRC
                 SetStatus("Could not save the new character.");
                 return false;
             }
+            saveManager.ClearPlace(slot, SaveManager.PLACE_LAST);
+            saveManager.ClearPlace(slot, SaveManager.PLACE_MARK);
             playerState.Activate(slot);
             RefreshSlots();
             NotifyActivated();
@@ -257,7 +298,7 @@ namespace WizardsVRC
 
         private void AskDelete(int slot)
         {
-            if (!CanAct() || !saveManager.HasSlot(slot)) return;
+            if (!CanAct() || Leaving() || !saveManager.HasSlot(slot)) return;
             _pendingSlot = slot;
             SetPopup(schoolPickerPanel, false);
             if (confirmLabel != null)
@@ -285,13 +326,20 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ return to select room
 
-        /// <summary>Hook for a hub-side "Change Character" button: saves, detaches and returns to the select room.</summary>
+        /// <summary>
+        /// Change Character (the book's settings): remembers where the character stands, saves and detaches it, and goes
+        /// back to the character select on the title stage (or, without one, to the select room).
+        /// </summary>
         public void ReturnToSelect()
         {
+            if (locations != null) locations.Remember();
             if (playerState != null) playerState.Deactivate();
             RefreshSlots();
             SetStatus("Choose a character");
-            if (teleporter != null) teleporter.TeleportTo(selectSpawn);
+            SetPopup(confirmPanel, false);
+            SetPopup(schoolPickerPanel, false);
+            if (titleScreen != null) titleScreen.ShowSelect();
+            else if (teleporter != null) teleporter.TeleportTo(selectSpawn);
         }
 
         // ------------------------------------------------------------------ helpers

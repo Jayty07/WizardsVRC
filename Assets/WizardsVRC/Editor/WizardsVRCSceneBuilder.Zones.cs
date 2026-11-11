@@ -63,6 +63,9 @@ namespace WizardsVRC.EditorTools
             /// <summary>Places to discover (AreaDiscovery): every zone, boss tower and secret place, with its name.</summary>
             public readonly List<Bounds> discoverBounds = new List<Bounds>();
             public readonly List<string> discoverNames = new List<string>();
+            /// <summary>Places a character can be remembered in and mark (LocationKeeper): every street and town, with its name.</summary>
+            public readonly List<Bounds> safeBounds = new List<Bounds>();
+            public readonly List<string> safeNames = new List<string>();
 
             /// <summary>
             /// Plays the zone's music (or its world's) inside the box, if it has any; a tower box plays the tower track.
@@ -562,6 +565,8 @@ namespace WizardsVRC.EditorTools
             wb.cullBounds.Add(ZoneCullBounds(root.position, W, H));
             if (InOpenWorld(z)) wb.cullMargin[root.gameObject] = OpenWorldViewMargin;
             wb.MusicArea(z, ZoneCullBounds(root.position, W, H), z.displayName);
+            wb.safeBounds.Add(ZoneCullBounds(root.position, W, H));
+            wb.safeNames.Add(z.displayName);
             root.gameObject.SetActive(false);
         }
 

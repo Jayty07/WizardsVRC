@@ -1,5 +1,6 @@
 using UdonSharp;
 using UnityEngine;
+using UnityEngine.UI;
 using VRC.SDKBase;
 
 namespace WizardsVRC
@@ -13,6 +14,9 @@ namespace WizardsVRC
     ///     Walking into its box fades its track in and the old one out, with the same crossfade as the rest.
     ///   - Dialogue: while a cutscene line or a tower leader's greeting is spoken by someone on the list (the Dominion),
     ///     their theme plays instead of the area's, then the area's comes back.
+    /// What's playing is credited wherever a label is given (over the HUD, on the map, on the title stage): the track's
+    /// line from Audio/Music/MusicCredits.txt, e.g. "WildStar OST - Character Creation". SceneFade can duck everything
+    /// (a scene fading out holds the current track while it goes quiet; the new place's track comes in as it fades back).
     /// The awakening dream has its own sounds, so nothing plays until its creator opens. Tracks pause when faded out and
     /// carry on where they left off, unless marked to restart. The player's music volume (book settings) scales it all.
     /// </summary>
@@ -63,6 +67,14 @@ namespace WizardsVRC
         public float fadeInSeconds = 2f;
         public float fadeOutSeconds = 1.2f;
 
+        [Header("Now playing")]
+        [Tooltip("Each track's credit (same order as Sources), e.g. WildStar OST - Character Creation. Blank = not credited.")]
+        public string[] trackCredits;
+        [Tooltip("Labels that show what's playing (the HUD's, the map's, the title stage's).")]
+        public Text[] nowPlayingLabels;
+        [Tooltip("Put before the credit.")]
+        public string nowPlayingPrefix = "\u266A ";
+
         private float[] _level;
         private bool[] _started;
         // A streamed track can take a moment to start: Play / UnPause is asked at most once a second, and if an UnPause
@@ -72,6 +84,11 @@ namespace WizardsVRC
         private int _want = NONE;
         private float _next;
         private float _master = 1f;
+        // SceneFade's duck: everything scaled by it; while a scene is fading out the track choice is held.
+        private float _duck = 1f;
+        private bool _hold;
+        private bool _snap;
+        private string _credited = null;
 
         private void Start()
         {
@@ -90,13 +107,54 @@ namespace WizardsVRC
             _master = Mathf.Clamp01(v);
         }
 
+        /// <summary>
+        /// SceneFade: scales all music (0 silent .. 1 normal). While 'hold' is set (the scene is fading out or dark) the
+        /// track playing now is kept, so it fades with the picture instead of being swapped; when the hold ends in silence
+        /// the tracks are re-chosen at once, so only the new place's music comes back.
+        /// </summary>
+        public void SetDuck(float level, bool hold)
+        {
+            _duck = Mathf.Clamp01(level);
+            if (_hold && !hold && _duck <= 0.05f) _snap = true;
+            _hold = hold;
+        }
+
+        /// <summary>The credit of the track playing now ("" when nothing is, or it has none).</summary>
+        public string NowPlaying()
+        {
+            if (_want < 0 || _master <= 0.001f || trackCredits == null || _want >= trackCredits.Length) return "";
+            string c = trackCredits[_want];
+            return c == null ? "" : c;
+        }
+
+        private void ShowCredit()
+        {
+            string c = NowPlaying();
+            if (c == _credited) return;
+            _credited = c;
+            if (nowPlayingLabels == null) return;
+            string text = c.Length > 0 ? nowPlayingPrefix + c : "";
+            for (int i = 0; i < nowPlayingLabels.Length; i++)
+                if (nowPlayingLabels[i] != null) nowPlayingLabels[i].text = text;
+        }
+
         private void Update()
         {
             if (sources == null || _level == null) return;
-            if (Time.time >= _next)
+            if (_snap)
+            {
+                // Back from a dark scene: whatever was playing before is dropped outright.
+                _snap = false;
+                _want = Choose();
+                for (int i = 0; i < _level.Length; i++) if (i != _want) _level[i] = 0f;
+                _next = Time.time + 0.25f;
+                ShowCredit();
+            }
+            else if (Time.time >= _next)
             {
                 _next = Time.time + 0.25f;
-                _want = Choose();
+                if (!_hold) _want = Choose();
+                ShowCredit();
             }
             float dt = Time.deltaTime;
             for (int i = 0; i < sources.Length; i++)
@@ -116,7 +174,7 @@ namespace WizardsVRC
                     _retry[i] = Time.time + 1f;
                 }
                 float tv = trackVolume != null && i < trackVolume.Length ? trackVolume[i] : 0.3f;
-                s.volume = _level[i] * tv * _master;
+                s.volume = _level[i] * tv * _master * _duck;
                 if (!on && _level[i] <= 0f && s.isPlaying)
                 {
                     if (Restarts(i)) { s.Stop(); _started[i] = false; }

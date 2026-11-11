@@ -10,7 +10,8 @@ namespace WizardsVRC.EditorTools
     /// <summary>
     /// The book's Map bookmark (MapPages): the map across both pages in a carved wooden frame with a red lip, the title on
     /// a scroll over it, its level range in the corner, a pool of parchment tags (buttons, sized to their words), the
-    /// you-are-here marker, and World Map / Where am I? / Close along the bottom. The maps themselves are drawn after the
+    /// you-are-here marker and the blue pin at your marked location, what's playing in the top corner, and World Map /
+    /// Where am I? / Mark Location / Teleport to Mark / Close along the bottom. The maps themselves are drawn after the
     /// zones are built (BuildMaps).
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
@@ -86,6 +87,15 @@ namespace WizardsVRC.EditorTools
                 pages.labelTexts[i] = t;
                 b.SetActive(false);
             }
+            // Your marked location (LocationKeeper), under the you-are-here arrow.
+            var mark = Panel(map, "MarkMarker", Vector2.zero, new Vector2(54, 54), Color.white);
+            var markImg = mark.GetComponent<Image>();
+            markImg.sprite = MapSprite("MapMark.png", Vector4.zero);
+            markImg.preserveAspect = true;
+            markImg.raycastTarget = false;
+            mark.gameObject.SetActive(false);
+            pages.markMarker = mark;
+            pages.locations = BookLocations;
             var here = Panel(map, "HereMarker", Vector2.zero, new Vector2(58, 58), Color.white);
             var hereImg = here.GetComponent<Image>();
             hereImg.sprite = MapSprite("MapHere.png", Vector4.zero);
@@ -115,6 +125,8 @@ namespace WizardsVRC.EditorTools
             pages.titleLabel.verticalOverflow = VerticalWrapMode.Truncate;
             pages.subtitleLabel = Label(view, "Subtitle", new Vector2(600, 442), new Vector2(240, 40), "", 26, TextAnchor.MiddleRight);
             pages.subtitleLabel.color = Ink;
+            // What's playing, in the other top corner (two lines if it's a long one, clear of the title scroll).
+            NowPlayingLabel(view, new Vector2(-528, 446), new Vector2(400, 52), 20, TextAnchor.MiddleLeft, Ink, false, true);
 
             // Along the bottom: World Map (Next World), Where am I?, Close.
             Color wood = new Color(0.45f, 0.3f, 0.18f);
@@ -122,6 +134,12 @@ namespace WizardsVRC.EditorTools
             pages.worldButtonLabel = worldBtn.GetComponentInChildren<Text>();
             pages.worldButtonLabel.fontSize = 26;
             Button(view, "MapHere", new Vector2(-366, -458), new Vector2(240, 62), "Where am I?", wood, target, nameof(MapPages.ShowHere))
+                .GetComponentInChildren<Text>().fontSize = 26;
+            // Mark Location (costs a little mana) and Teleport to Mark (free): LocationKeeper.
+            Color blue = new Color(0.2f, 0.36f, 0.58f);
+            Button(view, "MapMark", new Vector2(-109, -458), new Vector2(250, 62), "Mark Location", blue, target, nameof(MapPages.MarkHere))
+                .GetComponentInChildren<Text>().fontSize = 26;
+            Button(view, "MapTeleport", new Vector2(178, -458), new Vector2(300, 62), "Teleport to Mark", blue, target, nameof(MapPages.GoToMark))
                 .GetComponentInChildren<Text>().fontSize = 26;
             Button(view, "MapClose", new Vector2(632, -458), new Vector2(200, 62), "Close", new Color(0.45f, 0.25f, 0.15f), bookTarget, nameof(InventoryBook.CloseBook))
                 .GetComponentInChildren<Text>().fontSize = 26;

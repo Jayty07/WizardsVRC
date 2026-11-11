@@ -10,6 +10,8 @@ namespace WizardsVRC.EditorTools
     /// theme on the select screen and in the creator, and each zone's own track (Zone > Music, or its World's) inside the
     /// zone and its secret boss place, with a tower track (or the zone's) in its boss tower. Tracks live in Audio/Music; swap a file (same name) to change a
     /// track. Music_Hub_Temp is a placeholder until the real hub theme is in (the hub zone's Music Track replaces it).
+    /// Each track's credit (the game it's from and its name, shown over the HUD, on the map and on the title stage while
+    /// it plays) is its line in Audio/Music/MusicCredits.txt; a track with no line there plays uncredited.
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
@@ -150,6 +152,20 @@ namespace WizardsVRC.EditorTools
             }
             if (found < names.Count) Debug.LogWarning("[WizardsVRC] Music: " + found + " of " + names.Count + " tracks found in " + MusicDir + ".");
 
+            // Now playing: each track's credit, and the labels that show it (the HUD's, the map's, the title stage's).
+            var credits = MusicCredits();
+            var uncredited = new System.Collections.Generic.List<string>();
+            music.trackCredits = new string[names.Count];
+            for (int i = 0; i < names.Count; i++)
+            {
+                string credit;
+                music.trackCredits[i] = credits.TryGetValue(names[i], out credit) ? credit : "";
+                if (music.trackCredits[i].Length == 0 && music.sources[i].clip != null) uncredited.Add(names[i]);
+            }
+            music.nowPlayingLabels = NowPlayingLabels.ToArray();
+            if (uncredited.Count > 0)
+                Debug.Log("[WizardsVRC] Music: no credit for " + string.Join(", ", uncredited) + " (add a line to " + MusicCreditsPath + "); nothing is shown while they play.");
+
             music.playerState = playerState;
             music.creator = systems.GetComponentInChildren<CharacterCreator>(true);
             music.awakening = systems.GetComponentInChildren<AwakeningSequence>(true);
@@ -185,6 +201,33 @@ namespace WizardsVRC.EditorTools
             Debug.Log("[WizardsVRC] Music: hub, combat and character creation themes, " + (names.Count - MusicTracks.Length) +
                       " more track(s) in " + areaMin.Count + " area(s) and for " + speakers.Count + " speaker(s) (quiet in " + centers.Count + " jukebox room(s)).");
             return music;
+        }
+
+        private const string MusicCreditsPath = MusicDir + "/MusicCredits.txt";
+
+        /// <summary>
+        /// Audio/Music/MusicCredits.txt: one line per track, "Music_FileName = Game OST - Track Name" (the file's name
+        /// without its extension; lines starting with # are notes). Looked up by file name, whatever its case.
+        /// </summary>
+        private static System.Collections.Generic.Dictionary<string, string> MusicCredits()
+        {
+            var credits = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+            if (!System.IO.File.Exists(MusicCreditsPath))
+            {
+                Debug.LogWarning("[WizardsVRC] Music: " + MusicCreditsPath + " is missing; no track is credited.");
+                return credits;
+            }
+            foreach (string raw in System.IO.File.ReadAllLines(MusicCreditsPath))
+            {
+                string line = raw.Trim();
+                if (line.Length == 0 || line[0] == '#') continue;
+                int eq = line.IndexOf('=');
+                if (eq <= 0) continue;
+                string file = System.IO.Path.GetFileNameWithoutExtension(line.Substring(0, eq).Trim());
+                string credit = line.Substring(eq + 1).Trim();
+                if (file.Length > 0 && credit.Length > 0) credits[file] = credit;
+            }
+            return credits;
         }
 
         /// <summary>The hub zone's own Music Track (Zone > Music), or "" to keep the castle theme file.</summary>

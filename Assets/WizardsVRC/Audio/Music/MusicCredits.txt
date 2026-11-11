@@ -1,0 +1,17 @@
+# What's shown while each track plays (over the HUD, on the map, on the title stage): the game it's from and its name.
+# One line per track:  Music_FileName = Game OST - Track Name   (the file's name without .mp3 / .ogg / .wav)
+# A track with no line here (or nothing after the =) plays without a credit. Rebuild the world after editing.
+
+Music_CharacterCreation = WildStar OST - Character Creation
+Music_Dialogue_Dominion = WildStar OST - Cassian Theme
+Music_Zone_SunpetalGardens = WildStar OST - A Story of Hope and Healing
+Music_Zone_LanternRow = WildStar OST - The Weave
+Music_Zone_KilnStreet = WildStar OST - Solemn Shadows
+Music_Zone_ThornhollowGrove = WildStar OST - Blades of the Torine
+Music_Zone_TidewatchDocks = WildStar OST - Bandits, Thieves, and Epic Loot
+Music_Zone_CopperbottomMine = WildStar OST - Thick as Stone
+Music_Tower_World1 = Wizard101 OST - Golem Tower Theme
+
+# Not known yet (these files carry no title): fill in the game and track to have them credited.
+# Music_Hub_Temp =
+# Music_Combat_World1 =

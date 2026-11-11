@@ -10,7 +10,9 @@ namespace WizardsVRC
     /// (WizardsVRCSceneBuilder.Maps.cs). Opens on the zone you're in, with a red marker where you stand, turned to your
     /// heading. The parchment tags on a zone map name its exits and landmarks; an exit's tag ("Kiln Street >") opens that
     /// zone's map. World Map shows the zones of this zone's world as floating islands (click one to open it), Next World
-    /// steps through the worlds, and Where am I? comes back to the zone you're in.
+    /// steps through the worlds, and Where am I? comes back to the zone you're in. Mark Location and Teleport to Mark
+    /// (LocationKeeper) are along the bottom too, and a blue pin shows where your mark is. What's playing is credited in
+    /// the top corner (MusicDirector fills the label).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class MapPages : UdonSharpBehaviour
@@ -28,6 +30,11 @@ namespace WizardsVRC
         public RectTransform hereMarker;
         public Text worldButtonLabel;
         public UiAudio uiAudio;
+
+        [Header("Mark Location / Teleport to Mark")]
+        public LocationKeeper locations;
+        [Tooltip("The pin shown where your mark is (on its zone's map, and on that zone's island on the world map).")]
+        public RectTransform markMarker;
 
         [Header("Maps (filled by the builder): the zones', then the worlds'")]
         public Texture[] maps;
@@ -93,6 +100,19 @@ namespace WizardsVRC
             ShowMap(here >= 0 ? here : homeMap);
         }
 
+        /// <summary>The Mark Location button.</summary>
+        public void MarkHere()
+        {
+            if (locations != null) locations.Mark();
+            PlaceMarker();
+        }
+
+        /// <summary>The Teleport to Mark button.</summary>
+        public void GoToMark()
+        {
+            if (locations != null) locations.TeleportToMark();
+        }
+
         public void Label0() { ClickLabel(0); }
         public void Label1() { ClickLabel(1); }
         public void Label2() { ClickLabel(2); }
@@ -143,8 +163,14 @@ namespace WizardsVRC
         private int CurrentZone()
         {
             VRCPlayerApi me = Networking.LocalPlayer;
-            if (!Utilities.IsValid(me) || mapMinY == null || mapMaxY == null) return -1;
-            Vector3 p = me.GetPosition();
+            if (!Utilities.IsValid(me)) return -1;
+            return ZoneAt(me.GetPosition());
+        }
+
+        /// <summary>The zone whose height band (and ground rectangle) holds a position, or -1.</summary>
+        private int ZoneAt(Vector3 p)
+        {
+            if (mapMinY == null || mapMaxY == null) return -1;
             float y = p.y;
             int best = -1;
             float bestSpan = float.MaxValue;
@@ -200,6 +226,7 @@ namespace WizardsVRC
         /// <summary>You are here: on your zone's map where you stand, turned your way; on its world map, on its island.</summary>
         private void PlaceMarker()
         {
+            PlaceMark();
             if (hereMarker == null) return;
             bool show = false;
             Vector2 uv = Vector2.zero;
@@ -235,6 +262,37 @@ namespace WizardsVRC
             if (!show) return;
             hereMarker.anchoredPosition = new Vector2((uv.x - 0.5f) * w, (uv.y - 0.5f) * h);
             hereMarker.localRotation = Quaternion.Euler(0f, 0f, angle);
+        }
+
+        /// <summary>The pin at your marked location, on the map of the zone it's in (or on that zone's island).</summary>
+        private void PlaceMark()
+        {
+            if (markMarker == null) return;
+            bool show = false;
+            Vector2 uv = Vector2.zero;
+            if (locations != null && _shown >= 0 && locations.HasMark())
+            {
+                Vector3 p = locations.MarkPosition();
+                int zone = ZoneAt(p);
+                // Marked indoors (the keep): no spot on a zone's map, only the castle's island on the world map.
+                bool indoors = zone < 0;
+                if (indoors) zone = homeMap;
+                if (!indoors && zone == _shown && mapProjU != null && mapProjV != null && zone < mapProjU.Length && zone < mapProjV.Length)
+                {
+                    uv = Project(zone, p);
+                    show = true;
+                }
+                else if (zone >= 0 && IsWorld(_shown) && mapWorld != null && zone < mapWorld.Length && mapWorld[zone] == _shown && mapOnWorld != null && zone < mapOnWorld.Length)
+                {
+                    uv = mapOnWorld[zone] + new Vector2(0.018f, 0.03f);   // beside the island's own marker
+                    show = true;
+                }
+            }
+            if (show && (uv.x < 0f || uv.x > 1f || uv.y < 0f || uv.y > 1f)) show = false;
+            if (markMarker.gameObject.activeSelf != show) markMarker.gameObject.SetActive(show);
+            if (!show) return;
+            float w = mapRect != null ? mapRect.rect.width : 1500f, h = mapRect != null ? mapRect.rect.height : 1000f;
+            markMarker.anchoredPosition = new Vector2((uv.x - 0.5f) * w, (uv.y - 0.5f) * h);
         }
 
         private void Update()
