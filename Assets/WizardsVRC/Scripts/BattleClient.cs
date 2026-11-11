@@ -100,6 +100,8 @@ namespace WizardsVRC
         public AudioClip[] castSounds;
         [Tooltip("Cast sound for General (school-less) spells.")]
         public AudioClip generalCastSound;
+        [Tooltip("The Tech school's cast sound (the Dominion's spells): machinery, not chimes.")]
+        public AudioClip techCastSound;
         public Transform[] stagingSpots;
         public Transform arenaCenter;
         public float engageRadius = 14f;
@@ -2862,8 +2864,8 @@ namespace WizardsVRC
         {
             if (castAudio == null) return;
             castAudio.Stop();
-            // A school without its own cast sound (Tech) uses the General one.
-            AudioClip clip = school < 0 || castSounds == null || school >= castSounds.Length || castSounds[school] == null ? generalCastSound : castSounds[school];
+            // The Tech school has its own; anything else without one uses the General sound.
+            AudioClip clip = school == CardDatabase.TECH && techCastSound != null ? techCastSound : school < 0 || castSounds == null || school >= castSounds.Length || castSounds[school] == null ? generalCastSound : castSounds[school];
             if (clip == null) return;
             castAudio.transform.position = CasterPos(from) + Vector3.up * 1.2f;
             castAudio.clip = clip;

@@ -91,6 +91,9 @@ namespace WizardsVRC
         public float generalCastSeconds = 1.2f;
         [Tooltip("When General spells' cast sound peaks (the particle burst), seconds.")]
         public float generalCastPeakSeconds = 0.72f;
+        [Tooltip("Wind-up for Tech spells (the Tech cast sound's length), and when it peaks (the particle burst).")]
+        public float techCastSeconds = 3f;
+        public float techCastPeakSeconds = 2f;
         [Tooltip("Orb flight + impact after the wind-up, before the next caster.")]
         public float impactSeconds = 1.0f;
         [Tooltip("A fizzle plays the cast's wind-up this long, then cuts off (the fizzle sound and puff of smoke).")]
@@ -291,13 +294,15 @@ namespace WizardsVRC
 
         public float CastSeconds(int school)
         {
+            if (school == CardDatabase.TECH) return techCastSeconds;
             return school >= 0 && castSeconds != null && school < castSeconds.Length ? castSeconds[school] : generalCastSeconds;
         }
 
         public float CastPeakSeconds(int school)
         {
             float len = CastSeconds(school);
-            // A school without its own cast sound (Tech) times like a General spell.
+            if (school == CardDatabase.TECH) return Mathf.Clamp(techCastPeakSeconds, 0f, len);
+            // Anything else without its own cast sound times like a General spell.
             bool general = school < 0 || castSeconds == null || school >= castSeconds.Length;
             float p = general ? generalCastPeakSeconds : castPeakSeconds != null && school < castPeakSeconds.Length ? castPeakSeconds[school] : len * 0.6f;
             return Mathf.Clamp(p, 0f, len);

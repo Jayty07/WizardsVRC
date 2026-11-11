@@ -1868,6 +1868,17 @@ namespace WizardsVRC.EditorTools
                 client.manager.generalCastPeakSeconds = 2f;
             }
 
+            // The Tech school (Tools/make_tech_cast_sound.py): released at 2 s like the rest; without the file it falls back
+            // to the General sound and its timing.
+            client.techCastSound = AssetDatabase.LoadAssetAtPath<AudioClip>(CastSoundDir + "/FX_CastingSound_Tech.mp3")
+                                   ?? AssetDatabase.LoadAssetAtPath<AudioClip>(CastSoundDir + "/FX_CastingSound_Tech.wav");
+            if (client.techCastSound == null) Debug.LogWarning("[WizardsVRC] Missing cast sound for Tech spells in " + CastSoundDir + " (run Tools/make_tech_cast_sound.py).");
+            if (client.manager != null)
+            {
+                client.manager.techCastSeconds = client.techCastSound != null ? client.techCastSound.length : client.manager.generalCastSeconds;
+                client.manager.techCastPeakSeconds = client.techCastSound != null ? 2f : client.manager.generalCastPeakSeconds;
+            }
+
             // School-coloured particle burst that explodes off the caster at the cast sound's peak.
             client.castBursts = new ParticleSystem[CardDatabase.LOOKS];
             for (int k = 0; k < CardDatabase.LOOKS; k++)
