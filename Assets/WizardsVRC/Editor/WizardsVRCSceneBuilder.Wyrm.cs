@@ -239,6 +239,45 @@ namespace WizardsVRC.EditorTools
         }
 
         /// <summary>
+        /// The dragon as a prefab to use anywhere in Unity (another spell, a scene of its own, another project by way of
+        /// Assets > Export Package): a head with its jaw, and the 24 lengths of body as a chain behind it, laid out
+        /// straight, with nothing driving it. Each length is a bare pivot (Body_00...) with its mesh on a child of its own
+        /// (Size_00...), so a length's girth never skews the lengths behind it. Pose it by hand, or from a script the way
+        /// SunfireWyrm does. The same rig for other programs, with animations, is Exports/SunfireWyrm/SunfireWyrm.glb
+        /// (Tools/export_sunfire_wyrm.py).
+        /// </summary>
+        [MenuItem("WizardsVRC/Export/Sunfire Wyrm Rig (prefab)")]
+        private static void ExportWyrmPrefab()
+        {
+            Material skin = WyrmSkinMat();
+            Mesh[] meshes = WyrmMeshes();
+            var root = new GameObject("SunfireWyrmRig");
+            Transform head = WyrmPart(root.transform, "Head", meshes[0], skin).transform;
+            Transform jaw = WyrmPart(head, "Jaw", meshes[1], skin).transform;
+            jaw.localPosition = WyrmVec(WyrmMeshData.JawHinge, 0);
+            Child(head, "MouthPoint", WyrmVec(WyrmMeshData.Mouth, 0));
+            Child(head, "ManePoint", WyrmVec(WyrmMeshData.Mane, 0));
+            // (SunfireWyrm's own measures: the first length 0.34 m behind the head's pivot, the rest 0.38 m apart.)
+            Transform link = root.transform;
+            for (int i = 0; i < WyrmMeshData.Segments; i++)
+            {
+                link = Child(link, "Body_" + i.ToString("00"), new Vector3(0f, 0f, i == 0 ? -0.34f : -0.38f));
+                Transform size = WyrmPart(link, "Size_" + i.ToString("00"), WyrmSegmentMesh(meshes, i), skin).transform;
+                size.localScale = new Vector3(WyrmMeshData.SegmentAcross[i], WyrmMeshData.SegmentAcross[i], WyrmMeshData.SegmentAlong[i]);
+            }
+            string dir = "Assets/WizardsVRC/Generated/Wyrm";
+            Directory.CreateDirectory(dir);
+            AssetDatabase.Refresh();
+            string path = dir + "/SunfireWyrmRig.prefab";
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            Object.DestroyImmediate(root);
+            AssetDatabase.SaveAssets();
+            Selection.activeObject = prefab;
+            EditorGUIUtility.PingObject(prefab);
+            Debug.Log("[WizardsVRC] Sunfire Wyrm rig saved as " + path + " (its meshes, material and skin are in the project already).");
+        }
+
+        /// <summary>
         /// The dragon as it is on its card (WyrmMeshData.Pose*, laid out by Tools/make_sunfire_wyrm.py): reared up out of
         /// a coil, its head lunging forward with its jaws open. Facing +Z, standing on 'parent'.
         /// </summary>
