@@ -1,70 +1,67 @@
-"""Prints the spell staging table (SPELL_ANIMATIONS.md) from the same formula the game uses: CardDatabase.Plan* and
-SpellCinematic.PlanVolleys. Run it after changing either to see what every pip cost now gets.
+"""Prints the spell staging table (SPELL_ANIMATIONS.md) from the same formula the game uses: BattleManager.CineUnleash,
+CardDatabase.Plan* and SpellCinematic.PlanBeats. Run it after changing any of them to see what every pip cost now gets.
 
     python3 Tools/spell_staging_table.py
 """
 # Per delivery (index = CardDatabase.CINE_*): seconds from leaving the caster to hitting, and how long the release lasts.
 FLIGHT = [1.4, 0.8, 1.3, 1.4, 2.2, 1.9, 1.5, 0.7, 2.0, 0.85, 1.7, 1.6, 1.75]
-RELEASE = [2.0, 1.4, 1.9, 2.0, 2.8, 2.7, 2.1, 2.1, 2.6, 1.4, 2.3, 2.2, 2.35]
-CAST_SOUND = 3.0          # the school's cast sound (2.9 to 3.8 s)
-IN, OUT = 0.9, 0.8        # BattleManager.cineInSeconds, cineOutSeconds
+IN, OUT = 0.9, 0.8                      # BattleManager.cineInSeconds, cineOutSeconds
+WHOLE_MIN, WHOLE_MAX = 9.0, 12.0        # spellSecondsMin, spellSecondsMax
+GATHER = 0.1                            # gatherPerPip
+EXPEND, EXPEND_MAX = 0.4, 2.0           # expendSeconds, expendMaxSeconds
+FLOOR = 3.0                             # unleashFloorSeconds
+CAST_SOUNDS = {'Fire': 2.9, 'Ice': 3.77, 'Storm': 3.46, 'Life': 3.17, 'Death': 3.0, 'Myth': 3.67, 'Balance': 3.06, 'Tech': 3.0}
 
 
-def unleash(pips, lo=5.0, hi=20.0):
-    return lo + (hi - lo) * (max(1, min(7, pips)) - 1) / 6.0
-
-
-def steps(u): return (u - 5.0) / 2.5
-def surge(u): return max(0.3, 0.5 + 0.15 * steps(u))
-def form(u): return max(0.3, 0.6 + 0.3 * steps(u))
-def afterglow(u): return max(0.7, 1.0 + 0.2 * steps(u))
-def waves(u): return max(0, min(4, int(round(max(0.0, steps(u)) * 0.8))))
-def gather(pips, per=0.5): return per * (max(1, min(7, pips)) - 1)
-
-
-def volleys(u, delivery=1):
-    """Each volley's (slot start, flies, hits, ends), seconds from the release: the waves, then the finisher."""
-    bar, strike, w = surge(u) + form(u), u - afterglow(u), waves(u)
-    unit = (strike - bar) / (w + 1.5)
-    out = []
-    for k in range(w):
-        start, end = bar + k * unit, bar + (k + 1) * unit
-        hit = end - min(0.45, unit * 0.2)
-        flight = min(FLIGHT[3] * 0.9, (hit - start) * 0.75)
-        out.append((start, hit - flight, hit, end))
-    start = bar + w * unit
-    flight = min(FLIGHT[delivery], (strike - start) * 0.75)
-    out.append((start, strike - flight, strike, min(u - 0.05, strike + RELEASE[delivery] - FLIGHT[delivery])))
-    return out
-
-
+def power(pips): return max(1, min(7, pips))
+def whole(pips): return WHOLE_MIN + (WHOLE_MAX - WHOLE_MIN) * (power(pips) - 1) / 6.0
+def gather(pips): return GATHER * (power(pips) - 1)
+def unleash(pips, cast): return max(FLOOR, whole(pips) - IN - OUT - gather(pips) - cast)
+def waves(pips): return 1 if pips >= 5 else 0
+def expend(n): return min(EXPEND_MAX, n * EXPEND)
 def tier(pips): return 4 if pips >= 7 else 3 if pips >= 5 else 2 if pips >= 3 else 1
 
 
-def table(lo, hi, with_gather):
-    print('| Pips | Tier | Charge | Unleash | Surge | Form | Waves | Each wave | Finisher | Hit lands at | Afterglow | Whole turn |')
-    print('| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |')
-    for p in range(1, 8):
-        u = unleash(p, lo, hi)
-        v = volleys(u)
-        g = gather(p) if with_gather else 0.0
-        wave = '%.2f' % (v[0][3] - v[0][0]) if len(v) > 1 else '-'
-        print('| %d | %d | %.1f | %.1f | %.2f | %.2f | %d | %s | %.2f | %.2f | %.2f | %.1f |' % (
-            p, tier(p), g + CAST_SOUND, u, surge(u), form(u), waves(u), wave, v[-1][2] - v[-1][0], u - afterglow(u), afterglow(u),
-            IN + g + CAST_SOUND + u + OUT))
+def beats(u):
+    """Arrival, display, attack, result, exit: their shares of the unleash."""
+    return u * 0.16, u * 0.16, u * 0.40, u * 0.17, u * 0.11
+
+
+def volleys(pips, attack, delivery=1):
+    """Each volley's (slot start, flies, hits), seconds from the start of the attack: the wave (if any), then the finisher."""
+    w = waves(pips)
+    unit = attack / (w + 1.6)
+    out = []
+    for k in range(w):
+        start, end = k * unit, (k + 1) * unit
+        hit = end - min(0.3, unit * 0.2)
+        out.append((start, hit - min(FLIGHT[3] * 0.8, (hit - start) * 0.8), hit))
+    start = w * unit
+    out.append((start, attack - min(FLIGHT[delivery], (attack - start) * 0.8), attack))
+    return out
 
 
 if __name__ == '__main__':
-    print('Wizards and bosses\n')
-    table(5.0, 20.0, True)
-    print('\nOther monsters\n')
-    table(3.5, 10.0, False)
-    # Nothing overlaps or runs backwards, whatever the delivery.
-    for lo, hi in ((5.0, 20.0), (3.5, 10.0)):
+    cast = 3.0
+    print('With a 3.0 s cast sound (they run from 2.9 to 3.8; a longer one leaves less for the beats after it)\n')
+    print('| Pips | Tier | Cast | Arrival | Display | Attack | Strikes | Result | Exit | Whole turn | With 5 effects used |')
+    print('| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |')
+    for p in range(1, 8):
+        u = unleash(p, cast)
+        a, d, k, r, e = beats(u)
+        print('| %d | %d | %.1f | %.2f | %.2f | %.2f | %d | %.2f | %.2f | %.1f | %.1f |' % (
+            p, tier(p), IN + gather(p) + cast, a, d, k, waves(p) + 1, r, e + OUT, whole(p), whole(p) + expend(5)))
+    print('\nThe longest any spell can last: %.1f s' % (WHOLE_MAX + EXPEND_MAX))
+    print('\nUnleash (the beats after the cast) by school, 1 pip and 7 pips:')
+    for name, c in CAST_SOUNDS.items():
+        print('  %-8s %.2f  %.2f' % (name, unleash(1, c), unleash(7, c)))
+    for c in CAST_SOUNDS.values():
         for p in range(1, 8):
-            u = unleash(p, lo, hi)
+            u = unleash(p, c)
+            assert abs(sum(beats(u)) - u) < 1e-6
+            assert IN + gather(p) + c + u + OUT + EXPEND_MAX <= 14.0 + 1e-6, (p, c)
             for d in range(1, 13):
-                last = surge(u) + form(u)
-                for (start, fly, hit, end) in volleys(u, d):
-                    assert start >= last - 1e-6 and start < fly < hit <= end + 1e-6 and hit - fly >= 0.3, (p, d)
-                    last = end if hit < u - afterglow(u) - 1e-6 else last
+                last = 0.0
+                for (start, fly, hit) in volleys(p, beats(u)[2], d):
+                    assert start >= last - 1e-6 and start < fly < hit and hit - fly >= 0.25, (p, d, start, fly, hit)
+                    last = hit

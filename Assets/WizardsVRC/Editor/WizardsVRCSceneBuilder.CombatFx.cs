@@ -456,6 +456,52 @@ namespace WizardsVRC.EditorTools
             client.wizardHitSounds = new[] { UiClip("combat_playerfemale_gethit_01"), UiClip("combat_playermale_gethit_01") };
             client.healSound = UiClip("ui_health_powerup_01");
             client.defeatSound = UiClip("ui_healthball_crack");
+
+            // A shield, blade or trap being used up: it flashes white, sounds and shatters into shards (BattleClient's
+            // expending); one appearing round its owner has a sound too. Audio/Cast/Charm_*.wav (Tools/make_spell_cast_sounds.py).
+            client.fxWhiteMat = Glow("FxFlashWhite", Color.white, 2.6f);
+            var shardGo = Child(ring, "FxShatter", Vector3.zero).gameObject;
+            var shards = shardGo.AddComponent<ParticleSystem>();
+            shards.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var sm = shards.main;
+            sm.loop = true;
+            sm.playOnAwake = true;
+            sm.duration = 1f;
+            sm.startLifetime = new ParticleSystem.MinMaxCurve(0.45f, 0.9f);
+            sm.startSpeed = new ParticleSystem.MinMaxCurve(1.8f, 4.6f);
+            sm.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.13f);
+            sm.startColor = Color.white;
+            sm.gravityModifier = 1.1f;
+            sm.simulationSpace = ParticleSystemSimulationSpace.World;
+            sm.maxParticles = 200;
+            var se = shards.emission;
+            se.rateOverTime = 0f;
+            var ss = shards.shape;
+            ss.shapeType = ParticleSystemShapeType.Sphere;
+            ss.radius = 0.12f;
+            var sc = shards.colorOverLifetime;
+            sc.enabled = true;
+            var sg = new Gradient();
+            sg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.9f, 0.6f), new GradientAlphaKey(0f, 1f) });
+            sc.color = sg;
+            var sr = shardGo.GetComponent<ParticleSystemRenderer>();
+            sr.sharedMaterial = client.fxWhiteMat;
+            sr.renderMode = ParticleSystemRenderMode.Stretch;
+            sr.lengthScale = 2.2f;
+            sr.velocityScale = 0.05f;
+            sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            sr.receiveShadows = false;
+            client.shatterBurst = shards;
+            var fxa = Child(ring, "FxAudio", Vector3.zero).gameObject.AddComponent<AudioSource>();
+            fxa.playOnAwake = false;
+            fxa.spatialBlend = 0.8f;
+            fxa.minDistance = 4f;
+            fxa.maxDistance = 35f;
+            fxa.rolloffMode = AudioRolloffMode.Linear;
+            client.fxAudio = fxa;
+            client.fxAppearSound = CastClip("Charm_Appear");
+            client.fxShatterSound = CastClip("Charm_Shatter");
         }
 
         // ================================================================== interface sounds

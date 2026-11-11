@@ -73,7 +73,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
 | `Assets/WizardsVRC/Scripts/CastPattern.cs`, `PatternWand.cs` | Drawing a spell's rune before it's sent (spells under 100% accuracy): the board of points along the school's symbol, the hip wand in VR (a local pickup; `PatternWand` relays its grab, drop and the sidearm's trigger), numbered points on desktop, the four casting styles (sabre, baton, lantern, sidearm), the quality that cuts the fizzle chance |
-| `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell, staged by the formula in `SPELL_ANIMATIONS.md` on one shared rig: the caster is taken to the middle of the ring, charges (four tiers by pip cost), and unleashes the spell for 5 to 20 seconds (surge, form, waves, finisher, afterglow) with its own recipe (delivery, impact, flourish, film style, bolts), a creature riding the finisher; filmed on the cutscene screen |
+| `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell, heal and dispel, staged by the formula in `SPELL_ANIMATIONS.md` on one shared rig, in six beats (cast, arrival, display, attack, result, exit; 14 s at most): the caster is taken to the middle of the ring and charges (four tiers by pip cost), then the spell plays its own recipe (flourish, arrival, display, delivery, impact, exit, film style, bolts), a creature riding the attack; filmed on the cutscene screen |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
 | `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb that drifts round the area on a wandering loop (server-clock timed, so everyone sees it in the same place): walk into it to restore health / mana (local; respawns after 30 s) |
 | `Assets/WizardsVRC/Scripts/MusicDirector.cs` | Local background music: picks the combat, character creation or hub track from what you're doing and where you are, crossfades between them, scales by the Music setting, and credits what's playing ("WildStar OST - Character Creation") over the HUD, on the map and on the title stage |
@@ -508,30 +508,42 @@ or raises its arms as it casts, flinches when hit and falls when beaten, with a 
 biped, beast, spirit, plant, construct, machine and deep voices, pitched by size). The rigs, clips and controllers are
 generated into `Assets/WizardsVRC/Generated/Rigs` on every rebuild (one prefab per monster).
 
-**Spell animations** play after the wind-up (the glyph drawn in the air): heals bloom with petals and sparkles;
-shields, blades, traps and charms spiral up round the target. The effect lands on the strike. A prefab in
+**Spell animations.** Attack spells, heals and the dispel are staged in six beats (below); a charm, shield or trap
+simply appears round its target with a sound. A prefab in
 `SpellAnimations/<id>.prefab` or `<Spell Name>.prefab` still replaces a spell's animation.
 
-**Attack spells are staged by one formula** (`SPELL_ANIMATIONS.md`, which also sets out the Wizard101 research behind
-it). The caster stands in the middle of the ring and **charges**, then **unleashes** the spell, and both grow with its
-pip cost:
+**Spells are staged by one formula** (`SPELL_ANIMATIONS.md`, which also sets out the Wizard101 research behind it).
+Every attack spell, heal and dispel goes through the same six beats, whoever casts it (a wizard, a monster or a boss),
+and **no spell lasts more than 14 seconds**: the whole turn is 9 s at 1 pip up to 12 s at 7, plus up to 2 s while the
+effects it uses go.
 
-- **The charge** lasts the school's cast sound plus half a second per pip over the first (3 s at 1 pip, 6 s at 7), and
-  what it's made of changes with the spell's power. Tier 1 (1-2 pips): the rune on the floor, the spell's flourish, the
-  light building. Tier 2 (3-4): grit lifts off the floor, sparks race round the rune's rim, a quickening heartbeat of
-  rings, a rising hum. Tier 3 (5-6): everything but the magic goes dark (`Shaders/DuskVeil.shader`), sparks spiral up
-  round the caster, power crackles out of them, a column of light, and it's all drawn in just before it goes. Tier 4
-  (7): the school's rune opens in the sky and pours light down on them.
-- **The unleash** lasts 5 s at 1 pip and 2.5 s more per pip, 20 s at 7, in five acts: the **surge** (a shock off the
-  caster along the floor), the **form** (a glowing core gathers over the caster, or a creature spell's creature arrives
-  and rears), the **barrage** (0 to 4 waves shed from the core, lighter cousins of the spell's own delivery, each
-  heavier than the last, each making the target flinch), the **finisher** (the core goes into the spell's own delivery
-  at full size; its hit is where the damage lands, on every target at once for an area spell) and a short **afterglow**.
-- Wizards and bosses get the full length. Other monsters unleash for 3.5 to 10 s with no gather, so their turns stay
-  brisk; a summoned minion casts from its seat with no staging.
+- **Cast.** The caster appears in the middle of the ring and charges. What the charge is made of changes with the
+  spell's power. Tier 1 (1-2 pips): the rune on the floor, the spell's flourish, the light building. Tier 2 (3-4):
+  grit lifts off the floor, sparks race round the rune's rim, a quickening heartbeat of rings, a rising hum. Tier 3
+  (5-6): everything but the magic goes dark (`Shaders/DuskVeil.shader`), sparks spiral up round the caster, power
+  crackles out of them, a column of light, and it's all drawn in just before it goes. Tier 4 (7): the school's rune
+  opens in the sky and pours light down on them.
+- **Arrival.** The release: a shock off the caster, and the spell's subject arrives (a core of power over the caster, or
+  a creature spell's creature beside them) the spell's own way: up out of the rune, down out of the sky, drawn in from
+  all round, through a gate, or wound up out of a spiral of sparks.
+- **Display.** It shows off, the spell's own way: pulses throwing rings of sparks, rings spinning up round it, a crown
+  of bolts behind the caster, crackling with sparks jumping off the floor, or a column of light through it.
+- **Expend.** Every blade, trap and shield the cast uses goes now, one at a time (blades, then traps, then shields): it
+  lifts out of its orbit flickering white, holds white, then shatters into shards with its sound and its bonus floating
+  up. 0.4 s each, 2 s at most.
+- **Attack.** The spell's own delivery. A spell of 5 pips or more strikes twice: a lighter wave shed from the core
+  (the target flinches), then the spell itself.
+- **Result.** The hit: the spell's own impact and its numbers, on every target at once for an area spell.
+- **Exit.** The power leaves the spell's own way (embers, blown apart, a column of sparks into the sky, sinking into
+  the floor, a last pair of rings) and the caster goes back to their seat.
 
-`Tools/spell_staging_table.py` prints what each pip cost gets. Sounds: `Spell_Charge` and `Spell_Surge`
-(`Tools/make_spell_cast_sounds.py`).
+**Charm, shield and trap spells have no animation.** The effect just appears round its target with a chime (pitched
+high for a blade, lower for a trap, lowest for a shield) and the next caster goes about a second later
+(`BattleManager.charmSeconds`). A heal is staged like an attack but lands gently on whoever it heals. A summoned minion
+casts from its seat with no staging; minions being summoned and the duel-wide bubbles keep their own short animations.
+
+`Tools/spell_staging_table.py` prints what each pip cost gets. Sounds: `Spell_Charge`, `Spell_Surge`, `Charm_Appear`
+and `Charm_Shatter` (`Tools/make_spell_cast_sounds.py`).
 
 **Every attack spell moves its own way** (`SpellCinematic`, recipes in `Editor/WizardsVRCSceneBuilder.SpellStyles.cs`,
 packed into `CardDatabase.cineStyles`). Each recipe picks:
@@ -662,9 +674,10 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   well:** the monster walks to the middle of the ring, casts from there and goes back to its seat, filmed for everyone
   in the fight. Every spell flies **from the middle of the ring to its target's seat** and lands on the target's front
   (a creature pulls up just short of it), its path and impact scaled to that distance, so nothing overshoots. Timings
-  follow the staging formula (`SPELL_ANIMATIONS.md`): `cineInSeconds`, `gatherPerPip`, the cast sound,
-  `unleashMinSeconds` to `unleashMaxSeconds` (`monsterUnleashMinSeconds` to `monsterUnleashMaxSeconds` for monsters that
-  aren't bosses) and `cineOutSeconds`; the acts inside the unleash are `CardDatabase.Plan*`. Sounds: `Audio/Cast/Spell_*.wav`.
+  follow the staging formula (`SPELL_ANIMATIONS.md`): the whole turn is `spellSecondsMin` to `spellSecondsMax` by pip
+  cost (`cineInSeconds`, `gatherPerPip`, the cast sound, the beats, `cineOutSeconds`), plus `expendSeconds` for each
+  blade, trap and shield used (`expendMaxSeconds` at most); the beats' shares are `CardDatabase.Plan*`. Sounds:
+  `Audio/Cast/Spell_*.wav`.
 - **A fizzle** plays the cast as normal for its first 2 seconds (`BattleManager.fizzleCutSeconds`), then the cast sound
   cuts off, the fizzle sound plays (`Audio/Cast/FX_Fizzle.wav`, `Tools/make_fizzle_sound.py`), and the symbol sputters,
   greys and sags away in a puff of smoke.
@@ -859,10 +872,12 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   Lonesome Bend, L48 Lonesome Bend's fortress after Dustwind's finale. The L28 and L48 quests use the toughest street so
   far; point them at later worlds' streets as those are built (the questline is editable like any other).
 - **Shields, blades and traps** circle each combatant as small 3D models in their school's colour (shields at the chest
-  facing out, swords twirling over the head, spiked traps turning at the feet). When one is used it springs into action
-  first (a sword lunges at the target, a shield swings in front of its owner facing the attacker, a trap leaps up and
-  snaps) and the hit lands half a second later (`BattleClient.fxUseSeconds`). School shields block 80%; General Empower
-  is +15% to any attack.
+  facing out, swords twirling over the head, spiked traps turning at the feet). When a cast uses some they go one at a
+  time, blades first, then traps, then shields: each lifts out of its orbit flickering white, holds white, then
+  shatters into shards with its sound and its bonus floating up. For a staged spell that happens after the display,
+  right before the attack (0.4 s each, 2 s at most); for a cast with no staging (a minion's) they go in the half second
+  before the hit (`BattleClient.fxUseSeconds`). One being placed just appears with a chime. School shields block 80%;
+  General Empower is +15% to any attack.
 - **Stuns** (Myth's Stone Basilisk, Riddle of Iron and Fabled Hydra): a stunned combatant loses its next turn and gains
   a **stun shield** that blocks the next stun, so stuns can't chain.
 - **Special spells:** Ice's Permafrost Bulwark (two any-school shields on one wizard) and Winter's Bastion (Ice damage

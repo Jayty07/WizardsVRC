@@ -1,9 +1,9 @@
 # Spell animations: the staging formula
 
-How every attack spell in WizardsVRC is staged, and why. One formula turns a spell's pip cost into the whole show: how
-long its caster charges, what the charge is made of, how long the spell takes to unleash, and what happens in each
-second of it. The code is `Scripts/SpellCinematic.cs`; the numbers are `CardDatabase.Plan*` and the fields under
-*Spell cinematics* on `BattleManager`.
+How every spell in WizardsVRC is staged, and why. One formula turns a spell's pip cost into the whole show: the six
+beats Wizard101 uses (cast, arrival, display, attack, result, exit), how long each lasts, and what the cast is made of.
+No spell lasts more than 14 seconds. The code is `Scripts/SpellCinematic.cs` (and `BattleClient` for blades, traps and
+shields); the numbers are `CardDatabase.Plan*` and the fields under *Spell cinematics* on `BattleManager`.
 
 ## What Wizard101 does
 
@@ -30,124 +30,132 @@ What players say about it, from the game's own forums (links under *Sources*):
 | Hitting enemies one at a time is the main complaint; spells changed to hit them all together are praised for it. | An area spell's hit lands on every target at once. |
 | With the camera too close, the damage on the third and fourth enemy can't be seen. | The shot of the hit pulls back by the number of targets. |
 | Repeats wear thin: the first cast "looks nice, but its getting very boring". | Waves differ from each other, and no two spells share a recipe. |
-| Quick casts for shields and blades (which had taken 5 to 8 seconds each) were welcomed. | Only attack spells get the long treatment. |
+| Quick casts for shields and blades (which had taken 5 to 8 seconds each) were welcomed. | A spell that only places a charm, a shield or a trap has no animation: it just appears. |
 
-None of those threads gives measured timings, so the lengths below are ours, set to the 5 to 20 seconds we wanted.
+None of those threads gives measured timings, so the lengths below are ours: no spell lasts more than 14 seconds.
 
 ## What we change
 
-Wizard101's subject is the summoned creature. **Ours is the caster.** The power comes out of the wizard standing in the
-middle of the ring, so its six beats become two of ours:
+Wizard101's subject is the summoned creature. **Ours is the caster.** The power comes out of the wizard (or monster)
+standing in the middle of the ring. The six beats stay, each with our own content:
 
-| Wizard101 | WizardsVRC |
+| Beat | In WizardsVRC |
 | --- | --- |
-| The cast (fixed length) | **The charge**: the caster gathers power in the middle of the ring. Longer and made of more things the more the spell costs. |
-| Arrival, display, attack, result, exit | **The unleash**: 5 to 20 seconds, in five acts. |
+| **Cast** | The caster vanishes from their seat, appears in the middle of the ring and charges: the school's rune draws itself under them, the symbol is drawn in the air, and the more the spell costs the more the charge is made of. |
+| **Arrival** | The release. A shock goes off the caster and the spell's subject arrives: a core of power over the caster, or a creature spell's creature beside them. |
+| **Display** | The subject shows off. |
+| *(Expend)* | Every blade, trap and shield the cast uses goes, one at a time. Only when there are some. |
+| **Attack** | The spell's own delivery flies to the target. A spell of 5 pips or more strikes twice: a lighter wave first, then the spell itself. |
+| **Result** | The hit: the spell's own kind of impact, the numbers, the target reeling. It lands on every target at once for an area spell. |
+| **Exit** | The power leaves and the caster goes back to their seat. |
+
+Every beat but the expending is the spell's own: each spell picks how it charges, arrives, shows off, travels, lands
+and leaves (see *Each spell's own beats*).
 
 ## The formula
 
 `P` is the spell's pip cost, from 1 to 7.
 
 ```
-charge   C = 0.5 x (P - 1)  +  the school's cast sound (about 3 s)
-unleash  U = 5 + 2.5 x (P - 1)
+whole turn  T = 9 + 0.5 x (P - 1) seconds            9 s at 1 pip, 12 s at 7
+expending   E = 0.4 s for each blade, trap and shield used, 2 s at most
+            so no spell ever lasts more than 12 + 2 = 14 s
 
-inside the unleash, with x = P - 1:
-  surge      0.5 + 0.15x      the release
-  form       0.6 + 0.3x       the power takes shape
-  barrage    W waves          W = 0.8x rounded: 0, 1, 2, 2, 3, 4, 4
-  finisher   one slot         1.5 times as long as a wave's
-  afterglow  1.0 + 0.2x       after the hit
-
-the waves and the finisher share what is left between the form and the hit;
-the hit lands at U minus the afterglow
+cast        = 0.9 s to reach the middle  +  0.1 s x (P - 1) gathering  +  the school's cast sound
+what is left of T after the cast and the 0.8 s back to the seat is shared out:
+  arrival 16%    display 16%    attack 40%    result 17%    exit 11%
 ```
 
-| Pips | Tier | Charge | Unleash | Surge | Form | Waves | Each wave | Finisher | Hit lands at | Afterglow | Whole turn |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1 | 3.0 | 5.0 | 0.50 | 0.60 | 0 | - | 2.90 | 4.00 | 1.00 | 9.7 |
-| 2 | 1 | 3.5 | 7.5 | 0.65 | 0.90 | 1 | 1.90 | 2.85 | 6.30 | 1.20 | 12.7 |
-| 3 | 2 | 4.0 | 10.0 | 0.80 | 1.20 | 2 | 1.89 | 2.83 | 8.60 | 1.40 | 15.7 |
-| 4 | 2 | 4.5 | 12.5 | 0.95 | 1.50 | 2 | 2.41 | 3.62 | 10.90 | 1.60 | 18.7 |
-| 5 | 3 | 5.0 | 15.0 | 1.10 | 1.80 | 3 | 2.29 | 3.43 | 13.20 | 1.80 | 21.7 |
-| 6 | 3 | 5.5 | 17.5 | 1.25 | 2.10 | 4 | 2.21 | 3.31 | 15.50 | 2.00 | 24.7 |
-| 7 | 4 | 6.0 | 20.0 | 1.40 | 2.40 | 4 | 2.55 | 3.82 | 17.80 | 2.20 | 27.7 |
+| Pips | Tier | Cast | Arrival | Display | Attack | Strikes | Result | Exit | Whole turn | With 5 effects used |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1 | 3.9 | 0.69 | 0.69 | 1.72 | 1 | 0.73 | 1.27 | 9.0 | 11.0 |
+| 2 | 1 | 4.0 | 0.75 | 0.75 | 1.88 | 1 | 0.80 | 1.32 | 9.5 | 11.5 |
+| 3 | 2 | 4.1 | 0.82 | 0.82 | 2.04 | 1 | 0.87 | 1.36 | 10.0 | 12.0 |
+| 4 | 2 | 4.2 | 0.88 | 0.88 | 2.20 | 1 | 0.93 | 1.40 | 10.5 | 12.5 |
+| 5 | 3 | 4.3 | 0.94 | 0.94 | 2.36 | 2 | 1.00 | 1.45 | 11.0 | 13.0 |
+| 6 | 3 | 4.4 | 1.01 | 1.01 | 2.52 | 2 | 1.07 | 1.49 | 11.5 | 13.5 |
+| 7 | 4 | 4.5 | 1.07 | 1.07 | 2.68 | 2 | 1.14 | 1.54 | 12.0 | 14.0 |
 
-Seconds throughout. The charge column uses a 3-second cast sound (they run from 2.9 to 3.8). The whole turn adds 0.9 s
-to reach the middle of the ring and 0.8 s to go back.
+Seconds throughout, with a 3-second cast sound (they run from 2.9 to 3.8: a longer one leaves a little less for the
+beats after it, so the whole turn is the same for every school). Cast includes reaching the middle; exit includes going
+back. Everything after the cast is worked out from one number, so every client lays a spell out the same.
 
-Everything inside the unleash is worked out from its length alone, so every client lays it out the same from one number.
+**Who gets it.** Every wizard, every monster and every boss: the same formula, the same lengths. Only a summoned minion
+casts from its seat with no staging.
 
-## The charge
+**Which spells.** Every attack spell, the heals and the dispel. A heal goes to whoever it heals (an ally, or the caster
+standing in the middle) and lands gently: no flinch, no shake, a rush of air where an attack has a boom. Spells that
+only place a charm, a shield or a trap have no animation at all (below). Minions and the duel-wide bubbles keep their
+own short ones.
 
-The caster vanishes from their seat and appears in the middle of the ring, facing their target. The school's rune draws
-itself on the floor under them, turning faster as the power builds, with the spell's own flourish round them (energy
-streaming in, two rings on tilted axes, a fountain of embers, a double spiral of sparks, or a column of light). The
-symbol is drawn in the air and the cast sound plays over the last three seconds, ending on the release.
+## Cast
 
-Each tier keeps everything below it and adds:
+The school's rune draws itself on the floor under the caster, turning faster as the power builds, with the spell's own
+flourish round them (energy streaming in, two rings on tilted axes, a fountain of embers, a double spiral of sparks, or
+a column of light). The cast sound ends on the release. Each tier keeps everything below it and adds:
 
 | Tier | Pips | Adds |
 | ---: | --- | --- |
 | 1 | 1-2 | The rune, the flourish, the light building. |
 | 2 | 3-4 | Grit and motes lift off the floor. Sparks race round the rune's rim. A heartbeat of rings spreads from the caster, from one a second to three. The hum of the charge. |
 | 3 | 5-6 | Everything but the magic goes dark. Sparks spiral up round the caster. Power crackles out of them, more and more often, and the light flickers with it. They stand in a column of light for the back half. In the last half second it is all drawn in. |
-| 4 | 7 | The school's rune opens in the sky over the ring, 15 m across, drawing itself as the one on the floor does, and light pours down from it on to the caster. Both sets of rings turn round them. |
+| 4 | 7 | The school's rune opens in the sky over the ring, 15 m across, and light pours down from it on to the caster. Both sets of rings turn round them. |
 
-## The unleash
+## Each spell's own beats
 
-1. **Surge.** The release. A ring of sparks races out along the floor from the caster with a ring of light behind it,
-   and a burst goes off them. Bigger spells throw up embers and crackle, and the dark flashes the school's colour.
-2. **Form.** The power takes shape: a glowing **core** forms over the caster with sparks drawn into it. A creature
-   spell's creature arrives beside the caster instead, out of a burst, and rears. This is the display beat.
-3. **Barrage.** Waves are shed from the core, each knocking it back before it swells again. A wave is a lighter cousin
-   of the spell's own delivery (a lance spell's waves are a volley, a zigzag, a helix, a wave abreast; which comes first
-   is the spell's own), with one more bolt and more weight each time, leaning left then right. Each lands on the target:
-   sparks, a ring under it, and the target flinches. No damage yet. A creature roars as each wave goes.
-4. **Finisher.** The core swells and shudders, then goes into the spell's own delivery at full size: thrown, driven into
-   the floor, flung into the sky, or held as the mouth of a beam. A creature rides it. Its hit is the spell's: the
-   blades, traps and shields go off and the damage lands, on every target at once for an area spell, with the spell's
-   own kind of impact. Bigger spells add a ring of sparks along the floor and crackle off the hit, and at seven pips
-   the rune in the sky comes apart in a rain of light.
-5. **Afterglow.** Embers rise, the rune closes, the dark lifts. It's never more than 2.2 seconds.
+A spell's recipe (`Editor/WizardsVRCSceneBuilder.SpellStyles.cs`) picks one of each:
+
+| Beat | The choices |
+| --- | --- |
+| Cast | The flourish: stream, rings, fountain, spiral, column. |
+| Arrival | **Erupt**: up out of the rune in a geyser of sparks. **Descend**: down out of the sky behind streaks of light. **Converge**: sparks streak in from all round and knot together. **Rift**: through a gate that opens behind it. **Kindle**: wound up out of a tightening spiral of sparks. |
+| Display | **Flare**: three pulses, each throwing a ring of sparks. **Halo**: rings spin up round it with sparks circling. **Crown**: a crown of bolts fans out behind the caster and hangs there. **Storm**: it crackles and sparks jump off the floor all round. **Ascend**: a column of light through it, sparks spiralling up. |
+| Attack | The delivery: lance, helix, volley, meteor, rain, runner, beam, orbit, zigzag, portals, wave, boomerang; and the bolts' number, shape, lean and arc. |
+| Result | The impact: burst, implosion, column, rings, spikes, vortex, nova, shatter, rune stamp. |
+| Exit | **Fade**: embers drift up as the rune closes. **Scatter**: what is left is blown apart. **Ascend**: a column of sparks winds up into the sky from the hit. **Sink**: sparks all round the rune's rim as it shuts. **Echo**: a ring of sparks from the hit, then one from the caster. |
+
+No two spells travel and land the same way (the build checks). A creature spell's creature is the subject in place of
+the core: it arrives and shows off the same ways, rears for its display, and rides the attack.
+
+## Blades, traps and shields
+
+**Used.** After the display and right before the attack, every blade, trap and shield the cast uses goes, one at a time:
+the caster's blades first, then the target's traps, then its shields. Each lifts out of its orbit flickering white,
+holds white, then shatters into shards with its sound (pitched high for a blade, lower for a trap, lowest for a shield)
+and its bonus floating up. Each takes 0.4 s; if there are more than five they go quicker, so the lot never takes over
+2 s. The film pulls back to a side shot that holds the caster's seat and the target while they go. (A dispel is the
+exception: what it strips goes as it lands.)
+
+**Placed.** A spell that only places a charm, a shield or a trap has no cast and no animation. The effect appears round
+its target with a chime (pitched the same way), its words float up, and the next caster goes about a second later.
 
 ## The film
 
-Everyone else in the fight watches on the film screen from the start of the charge. The caster sees the charge with
-their own eyes and the film from the release.
+Everyone else in the fight watches on the film screen from the start of the cast. The caster sees the cast with their
+own eyes and the film from the release.
 
-| Act | Shot |
+| Beat | Shot |
 | --- | --- |
-| Charge | Circling the caster, drawing in. Tier 3 and up open wide and high first; tier 4 then looks up from the floor at the rune in the sky. The shot shakes as a big one nears its release. |
-| Surge | Close on the caster, thrown back as it goes off. |
-| Form | Round the caster and up to the core (or the creature). |
-| A wave | Over the caster's shoulder as it gathers (one shoulder, then the other), a travelling shot as it flies (a different kind for each wave), then the target as it lands. |
-| Finisher | The spell's own shots: its hero shot of the caster pushing in, its way of following the flight, then the target, shaken. For an area spell the shot pulls back for each extra target. |
-| Afterglow | Wide, turning slowly round the ring. |
-
-## Who gets what
-
-| Caster | Unleash | Gather |
-| --- | --- | --- |
-| A wizard, or a boss | 5 to 20 s | 0.5 s per pip over the first |
-| Any other monster | 3.5 to 10 s | none |
-| A summoned minion | no staging: one volley from its seat | none |
-
-Lesser monsters get the short version so that their turns don't drag: three of them casting two-pip spells take about
-28 seconds this way, against 38 at full length. The same formula lays their unleash out; at those lengths it's mostly
-surge, form and finisher, with a wave or two for their biggest spells.
+| Cast | Circling the caster, drawing in. Tier 3 and up open wide and high first; tier 4 then looks up from the floor at the rune in the sky. The shot shakes as a big one nears its release. |
+| Arrival | Close on the caster, thrown back as it goes off and turning up to what arrives. |
+| Display | Round the caster and up to the core or the creature. |
+| Expend | From the side, wide enough for the caster's seat and the target. |
+| Attack | A wave: over the caster's shoulder as it gathers, a travelling shot as it flies. The finisher: the spell's own hero shot of the caster pushing in, then its own way of following the flight. |
+| Result | The target, shaken, held until the exit. For an area spell the shot pulls back for each extra target. |
+| Exit | Wide, turning slowly round the ring. |
 
 ## Changing it
 
 | To change | Where |
 | --- | --- |
-| How long wizards and bosses unleash for | `BattleManager.unleashMinSeconds`, `unleashMaxSeconds` |
-| How long other monsters unleash for | `BattleManager.monsterUnleashMinSeconds`, `monsterUnleashMaxSeconds` |
+| How long a spell lasts | `BattleManager.spellSecondsMin`, `spellSecondsMax` |
+| How long each used effect takes, and the most they take together | `BattleManager.expendSeconds`, `expendMaxSeconds` |
 | The gather | `BattleManager.gatherPerPip` |
-| The acts' shares, the number of waves | `CardDatabase.PlanSurge`, `PlanForm`, `PlanAfterglow`, `PlanWaves` |
+| How long a charm, shield or trap spell holds before the next caster | `BattleManager.charmSeconds` |
+| Each beat's share, and when a spell strikes twice | `CardDatabase.PlanArrival`, `PlanDisplay`, `PlanAttack`, `PlanResult`, `PlanWaves` |
 | Which pips are which tier | `SpellCinematic.Begin` (`_tier`) |
-| What each delivery's waves are | `SpellCinematic._preludes` |
-| A spell's own recipe (delivery, impact, flourish, film, bolts) | `Editor/WizardsVRCSceneBuilder.SpellStyles.cs` |
+| What each delivery's wave is | `SpellCinematic._preludes` |
+| A spell's own beats | `Editor/WizardsVRCSceneBuilder.SpellStyles.cs` |
 | The table above | `Tools/spell_staging_table.py` prints it from the same formula |
 
 Adding an attack spell needs nothing here: give it a pip cost and (if you want to choose them) a recipe, and the formula

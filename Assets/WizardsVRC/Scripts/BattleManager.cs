@@ -106,15 +106,20 @@ namespace WizardsVRC
         public float cineInSeconds = 0.9f;
         [Tooltip("Fading out, back to the seat and fading in again, after the spell has landed.")]
         public float cineOutSeconds = 0.8f;
-        [Tooltip("A wizard's or a boss's attack spell unleashes for this long at 1 pip...")]
-        public float unleashMinSeconds = 5f;
-        [Tooltip("...and this long at 7 pips (evenly in between).")]
-        public float unleashMaxSeconds = 20f;
-        [Tooltip("Any other monster's attack spell: shorter, so their turns don't drag (1 pip, 7 pips).")]
-        public float monsterUnleashMinSeconds = 3.5f;
-        public float monsterUnleashMaxSeconds = 10f;
-        [Tooltip("A wizard or a boss gathers power this much longer per pip over the first, before the cast sound begins.")]
-        public float gatherPerPip = 0.5f;
+        [Tooltip("A staged spell's whole turn (going to the middle, its six beats, going back) lasts this long at 1 pip...")]
+        public float spellSecondsMin = 9f;
+        [Tooltip("...and this long at 7 pips (evenly in between), whoever casts it: a wizard, a monster or a boss.")]
+        public float spellSecondsMax = 12f;
+        [Tooltip("The caster gathers power this much longer per pip over the first, before the cast sound begins.")]
+        public float gatherPerPip = 0.1f;
+        [Tooltip("Each blade, trap and shield a cast uses takes this long to go (flash white, sound, shatter), before the attack...")]
+        public float expendSeconds = 0.4f;
+        [Tooltip("...and all of them together never more than this (more of them go quicker), so no spell lasts over 14 s.")]
+        public float expendMaxSeconds = 2f;
+        [Tooltip("The least a spell's six beats get after its cast, however long its cast sound.")]
+        public float unleashFloorSeconds = 3f;
+        [Tooltip("A charm, shield or trap spell: the effect just appears round its target with a sound, then this long before the next caster.")]
+        public float charmSeconds = 1.1f;
         [Tooltip("A summoned minion's attack spell (cast from its seat, no cinematic): how long it settles after its release.")]
         public float plainAfterSeconds = 0.4f;
 
@@ -321,12 +326,14 @@ namespace WizardsVRC
             if (!IsCastAct(i)) return actionSeconds;
             // A spell with an animation plays it out instead of the plain orb (CardDatabase.AnimSeconds).
             int card = actCard[i];
+            // A charm, a shield or a trap just appears.
+            if (cardDatabase.IsCharmSpell(card)) return charmSeconds;
             float wind = CastSeconds(cardDatabase.GetSchool(card));
             // An attack spell plays its own choreography (SpellCinematic): a wizard's as a cinematic, a monster's from its seat.
             if (cardDatabase.CineStyle(card) != 0)
             {
-                // The staging formula: in, the charge (gather + the cast sound), the unleash, out.
-                if (IsCineAct(i)) return cineInSeconds + CineGather(i) + wind + CineUnleash(i) + cineOutSeconds;
+                // The staging formula: in, the cast (gather + the cast sound), the unleash and the expending, out.
+                if (IsCineAct(i)) return cineInSeconds + CineGather(i) + wind + CineUnleash(i) + CineExpend(i) + cineOutSeconds;
                 return wind + cardDatabase.CineRelease(card) + plainAfterSeconds;
             }
             float anim = cardDatabase.AnimSeconds(card);
@@ -336,20 +343,44 @@ namespace WizardsVRC
         /// <summary>An attack spell that plays as a cinematic (see FLAG_CINE).</summary>
         public bool IsCineAct(int i) { return i >= 0 && i < actCount && (actFlags[i] & FLAG_CINE) != 0 && IsCastAct(i); }
 
-        /// <summary>Who gets the full show (5 to 20 seconds of unleash, and the gather): wizards and bosses.</summary>
-        public bool FullShow(int s) { return IsPlayerSeat(s) || cardDatabase.IsBossMonster(MonsterAt(s)); }
-
-        /// <summary>Seconds the cinematic attack spell at act index i unleashes for (the same on every client).</summary>
-        public float CineUnleash(int i)
-        {
-            bool full = FullShow(actActor[i]);
-            return cardDatabase.CineUnleash(actCard[i], full ? unleashMinSeconds : monsterUnleashMinSeconds, full ? unleashMaxSeconds : monsterUnleashMaxSeconds);
-        }
-
-        /// <summary>Seconds its caster gathers power in the middle of the ring before the cast sound begins.</summary>
+        /// <summary>Seconds the staged spell at act index i gathers power before its cast sound begins.</summary>
         public float CineGather(int i)
         {
-            return FullShow(actActor[i]) ? gatherPerPip * (cardDatabase.CinePower(actCard[i]) - 1) : 0f;
+            return gatherPerPip * (cardDatabase.CinePower(actCard[i]) - 1);
+        }
+
+        /// <summary>
+        /// Seconds its beats after the cast get (arrival, display, attack, result, exit: CardDatabase.Plan* shares it
+        /// out): what's left of the spell's whole turn after going to the middle, the cast and going back.
+        /// </summary>
+        public float CineUnleash(int i)
+        {
+            int card = actCard[i];
+            float whole = Mathf.Lerp(spellSecondsMin, spellSecondsMax, (cardDatabase.CinePower(card) - 1) / 6f);
+            return Mathf.Max(unleashFloorSeconds, whole - cineInSeconds - cineOutSeconds - CineGather(i) - CastSeconds(cardDatabase.GetSchool(card)));
+        }
+
+        /// <summary>How many blades, traps and shields the cast starting at act index i uses up (they're logged against its acts).</summary>
+        public int FxUsed(int i)
+        {
+            int group = actGroup[i];
+            int n = 0;
+            for (int j = 0; j < fxLogCount && j < MAX_FX_LOG; j++)
+            {
+                int a = fxLogAct[j];
+                if (a >= i && a < actCount && actGroup[a] == group) n++;
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// Seconds they take to go, one at a time, between the display and the attack. (Not for a dispel: the shields and
+        /// blades it strips are its result, and go as it lands.)
+        /// </summary>
+        public float CineExpend(int i)
+        {
+            if (cardDatabase.GetEffect(actCard[i]) == CardDatabase.EFFECT_DISPEL) return 0f;
+            return Mathf.Min(expendMaxSeconds, FxUsed(i) * expendSeconds);
         }
 
         /// <summary>

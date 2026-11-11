@@ -252,18 +252,35 @@ namespace WizardsVRC
         [Header("Shields, blades and traps")]
         [Tooltip("They're 3D models (shield, sword, spiked trap) in their school's colour, not flat icons.")]
         public bool fx3D = true;
-        [Tooltip("When a shield, blade or trap is used, it springs into action for this long before the hit lands.")]
+        [Tooltip("A cast with no staging (a minion's, a plain spell's): the shields, blades and traps it uses go, one at a time, within this long before the hit lands.")]
         public float fxUseSeconds = 0.5f;
-        // Effects springing into action before a hit (index into fxIcons; one entry per piece).
+        [Tooltip("What a 3D shield, blade or trap turns as it flashes white before it shatters.")]
+        public Material fxWhiteMat;
+        [Tooltip("Shards flying off one as it shatters.")]
+        public ParticleSystem shatterBurst;
+        [Tooltip("The sounds of one appearing round its owner and of one shattering (pitched by kind: blades high, traps middling, shields low).")]
+        public AudioSource fxAudio;
+        public AudioClip fxAppearSound;
+        public AudioClip fxShatterSound;
+        // The effects a cast uses up, going one at a time (index into fxIcons; one entry per piece): each waits its turn,
+        // lifts out of its orbit flashing white, then sounds and shatters.
         private const int MAX_FX_USE = 16;
         private int[] _useIdx = new int[MAX_FX_USE];
         private int[] _useKind = new int[MAX_FX_USE];
+        private int[] _useSlot = new int[MAX_FX_USE];
+        private int[] _useK = new int[MAX_FX_USE];
+        private int[] _useVal = new int[MAX_FX_USE];
+        private int[] _useState = new int[MAX_FX_USE];
         private Vector3[] _useFrom = new Vector3[MAX_FX_USE];
-        private Vector3[] _useTo = new Vector3[MAX_FX_USE];
-        private Vector3[] _useAim = new Vector3[MAX_FX_USE];
         private int _useCount;
         private float _useStart = -100f;
+        private float _usePer = 0.4f;
         private bool[] _fxUsing;
+        private bool[] _useTaken;
+        // Pieces that have shattered but are still in the shown lists until the whole cast's have gone.
+        private bool[] _fxGone;
+        // This step's used effects have already gone (so they don't break again as its results land).
+        private bool _expended;
 
         private float[] _fxRadius = { 0.75f, 0.45f, 0.9f };
         /// <summary>Each kind's model scale as built (read from the first piece of each kind at start).</summary>
@@ -466,8 +483,9 @@ namespace WizardsVRC
         private bool _animImpact;
         private int _fxMode;
         private float _fxStart, _fxStrike, _fxSeconds;
-        // The styled step's unleash length and when its hit lands (seconds from the release): the staging formula.
-        private float _stepUnleash, _stepStrike;
+        // The styled step's unleash, how long its blades, traps and shields take to go, and when its hit lands (seconds
+        // from the release): the staging formula.
+        private float _stepUnleash, _stepExpend, _stepStrike;
         private Vector3 _fxFrom, _fxTo, _fxAreaPos;
         private Transform _fxSummon, _fxBolt, _fxArea;
         // The creature's beats (PlaySpellAnimation / AnimateCreature): the circle it rises from, its pillar of light, the
@@ -2048,6 +2066,7 @@ namespace WizardsVRC
             _stepStyled = false;
             _stepCine = false;
             _castAtOn = false;
+            _expended = false;
             int group = manager.actGroup[_playIndex];
             int actor = manager.actActor[_playIndex];
             _clockActor = actor;
@@ -2061,8 +2080,8 @@ namespace WizardsVRC
                 UpdatePips();
             }
             string text = manager.SlotName(actor);
-            // A monster acting rears up / raises its arms and calls out.
-            if (manager.IsCastAct(_playIndex))
+            // A monster acting rears up / raises its arms and calls out (not for a charm, a shield or a trap: those just appear).
+            if (manager.IsCastAct(_playIndex) && !cardDatabase.IsCharmSpell(card))
             {
                 MonsterRig caster = RigOf(actor);
                 if (caster != null) caster.Cast();
@@ -2103,6 +2122,19 @@ namespace WizardsVRC
                 if (kind == BattleManager.KIND_SUMMON && firstTargetSlot >= 0) StartSummon(firstTargetSlot);
                 ApplyStep();
                 SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.actionSeconds);
+                return;
+            }
+
+            // A charm, a shield or a trap has no animation: it appears round its target with a sound, and that's all.
+            if (cardDatabase.IsCharmSpell(card))
+            {
+                ApplyStep();
+                int who = firstTargetSlot >= 0 && firstTargetSlot < seats.Length ? firstTargetSlot : actor;
+                int ce = cardDatabase.GetEffect(card);
+                float pitch = ce == CardDatabase.EFFECT_WARD || ce == CardDatabase.EFFECT_TAUNT || ce == CardDatabase.EFFECT_TRISHIELD || ce == CardDatabase.EFFECT_MULTIWARD ? 0.8f :
+                              ce == CardDatabase.EFFECT_TRAP || ce == CardDatabase.EFFECT_TRITRAP || ce == CardDatabase.EFFECT_CURSE ? 0.94f : 1.12f;
+                if (who >= 0 && who < seats.Length) FxSound(fxAppearSound, seats[who].position + Vector3.up * (1.2f * SeatScale(who)), pitch);
+                SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.charmSeconds);
                 return;
             }
 
@@ -2148,7 +2180,8 @@ namespace WizardsVRC
             }
             StartImpact();
             // Blades, traps and shields this hit uses spring into action first; the hit lands a moment later.
-            if (StartFxUse()) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), Mathf.Min(fxUseSeconds, manager.impactSeconds * 0.8f));
+            float window = Mathf.Min(fxUseSeconds, manager.impactSeconds * 0.8f);
+            if (StartExpend(window)) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), window);
             else ApplyStep();
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.impactSeconds);
         }
@@ -2165,14 +2198,17 @@ namespace WizardsVRC
             int school = cardDatabase.GetSchool(card);
             _stepStyled = true;
             _stepCine = manager.IsCineAct(_stepStart) && arenaCenter != null;
+            // A spell that helps (a heal) goes to whoever it heals: an ally, or the caster themselves.
+            bool friendly = (cardDatabase.CineBeats(card) & CardDatabase.BEATS_FRIENDLY) != 0;
+            if (friendly) target = HealTarget(actor);
             _stepActor = actor;
             _stepTarget = target;
             _stepSchool = school;
-            Vector3 aim = StepAim(actor, target, card);
             Vector3 from = seats[actor].position;
+            if (_stepCine) from = new Vector3(arenaCenter.position.x, seats[actor].position.y, arenaCenter.position.z);
+            Vector3 aim = friendly && target == actor ? from : StepAim(actor, target, card);
             if (_stepCine)
             {
-                from = new Vector3(arenaCenter.position.x, seats[actor].position.y, arenaCenter.position.z);
                 Vector3 f = aim - from;
                 f.y = 0f;
                 _castAt = from;
@@ -2181,6 +2217,8 @@ namespace WizardsVRC
                 _castAtOn = true;
             }
             Vector3 fwd = aim - from;
+            fwd.y = 0f;
+            if (fwd.sqrMagnitude < 0.001f) fwd = seats[actor].forward;
             VRCPlayerApi local = Networking.LocalPlayer;
             // The caster (a wizard on this client) gets the fade and the move; everyone else in the fight watches the film.
             bool me = _stepCine && Utilities.IsValid(local) && manager.IsPlayerSeat(actor) && manager.slotIds[actor] == local.playerId;
@@ -2189,28 +2227,29 @@ namespace WizardsVRC
             Transform body = !manager.IsPlayerSeat(actor) && manager.MonsterAt(actor) > 0 ? BodyOf(actor) : null;
             if (body != null && !body.gameObject.activeInHierarchy) body = null;
             bool creature = cardDatabase.AnimMode(card) == 1 && _stepAnim != null;
-            float targetScale = target >= 0 && target < BattleManager.SLOTS && target != actor ? SeatScale(target) : 1f;
-            // The staging formula (SPELL_ANIMATIONS.md): in, the charge (a gather for wizards and bosses, then the cast
-            // sound), the unleash (its length from the spell's pips; the hit lands before its afterglow), out.
+            float targetScale = target >= 0 && target < BattleManager.SLOTS && (target != actor || friendly) ? SeatScale(target) : 1f;
+            // The staging formula (SPELL_ANIMATIONS.md): in, the cast (a gather, then the cast sound), then the unleash:
+            // arrival, display, the blades, traps and shields it uses going one at a time, attack, result (the hit), exit; out.
             float inSec = _stepCine ? manager.cineInSeconds : 0f;
             float outSec = _stepCine ? manager.cineOutSeconds : 0f;
             float gather = _stepCine ? manager.CineGather(_stepStart) : 0f;
             _stepUnleash = _stepCine ? manager.CineUnleash(_stepStart) : cardDatabase.CineRelease(card) + manager.plainAfterSeconds;
-            _stepStrike = _stepCine ? cardDatabase.PlanStrike(_stepUnleash) : cardDatabase.CineStrike(card);
+            _stepExpend = _stepCine ? manager.CineExpend(_stepStart) : 0f;
+            _stepStrike = _stepCine ? cardDatabase.PlanStrike(_stepUnleash, _stepExpend) : cardDatabase.CineStrike(card);
             spellCinematic.Prepare(this, me, watch, _stepCine, seats[actor], body, creature, targetScale);
             // An area spell: everyone still standing on the side it hits as it's cast (health as shown: the round's
             // results are already in, and this spell may be what fells them), so its bolts and bursts land on each of them.
-            if (cardDatabase.IsAoe(card) && target >= 0 && target < BattleManager.SLOTS && target != actor)
+            if (cardDatabase.IsAoe(card) && target >= 0 && target < BattleManager.SLOTS && (target != actor || friendly))
             {
                 int side = manager.SideOf(target) * BattleManager.SIDE;
                 int n = 0;
                 for (int s = side; s < side + BattleManager.SIDE && n < _aoeTargets.Length; s++)
-                    if (manager.Occupied(s) && _shownHp[s] > 0 && s < seats.Length) _aoeTargets[n++] = TargetPoint(s);
+                    if (manager.Occupied(s) && _shownHp[s] > 0 && s < seats.Length) _aoeTargets[n++] = s == actor && _stepCine ? from : TargetPoint(s);
                 spellCinematic.SetTargets(_aoeTargets, n);
             }
-            spellCinematic.Begin(from, fwd, aim, school, cardDatabase.CineStyle(card), cardDatabase.GetPipCost(card),
+            spellCinematic.Begin(from, fwd, aim, school, cardDatabase.CineStyle(card), cardDatabase.CineBeats(card), cardDatabase.GetPipCost(card),
                 cardDatabase.IsAoe(card), SeatScale(actor), manager.SlotName(actor), cardDatabase.GetName(card),
-                inSec, gather, manager.CastSeconds(school), _stepUnleash, _stepStrike, outSec);
+                inSec, gather, manager.CastSeconds(school), _stepUnleash, _stepExpend, outSec);
             // The symbol and the cast sound start once the gather is done, so they end on the release.
             if (inSec + gather > 0f) SendCustomEventDelayedSeconds(nameof(_StyledWindUp), inSec + gather);
             else _StyledWindUp();
@@ -2280,7 +2319,24 @@ namespace WizardsVRC
                     spellCinematic.Carry(_fxSummon, _fxRigAnim, _fxKind == RIG_FLYER);
                 }
             }
+            // After the display, right before the attack: the blades, traps and shields this cast uses go, one at a time.
+            if (_stepCine && _stepExpend > 0f)
+                SendCustomEventDelayedSeconds(nameof(_StyledExpend), cardDatabase.PlanArrival(_stepUnleash) + cardDatabase.PlanDisplay(_stepUnleash));
             SendCustomEventDelayedSeconds(nameof(_StyledStrike), Mathf.Max(0.05f, _stepStrike));
+        }
+
+        public void _StyledExpend()
+        {
+            if (!_playing || !_stepStyled || manager.phase != BattleManager.PHASE_PLAYBACK) return;
+            StartExpend(_stepExpend);
+        }
+
+        /// <summary>Who a healing spell goes to: the first combatant it heals (maybe its caster).</summary>
+        private int HealTarget(int actor)
+        {
+            for (int i = _stepStart; i < _stepEnd && i < manager.actCount; i++)
+                if (manager.actKind[i] == BattleManager.KIND_HEAL) return manager.actTarget[i];
+            return actor;
         }
 
         /// <summary>
@@ -2290,6 +2346,7 @@ namespace WizardsVRC
         public void CineFlinch()
         {
             if (!_playing || !_stepStyled || manager.phase != BattleManager.PHASE_PLAYBACK) return;
+            if ((cardDatabase.CineBeats(_stepCard) & CardDatabase.BEATS_FRIENDLY) != 0) return;
             int target = _stepTarget;
             if (target < 0 || target >= BattleManager.SLOTS || target == _stepActor) return;
             if (cardDatabase.IsAoe(_stepCard))
@@ -2307,11 +2364,21 @@ namespace WizardsVRC
             if (rig != null && _shownHp[target] > 0) rig.Flinch();
         }
 
-        /// <summary>The attack spell hits: its shields / blades / traps move in, then the results land.</summary>
+        /// <summary>
+        /// The staged spell hits and its results land. Its blades, traps and shields went before the attack (_StyledExpend);
+        /// a cast with no staging (a minion's, from its seat) has them go now, just ahead of the results.
+        /// </summary>
         public void _StyledStrike()
         {
             if (!_stepStyled || manager.phase != BattleManager.PHASE_PLAYBACK) return;
-            if (StartFxUse()) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), fxUseSeconds * 0.5f);
+            if (_stepCine)
+            {
+                EndExpend(false);
+                ApplyStep();
+                return;
+            }
+            float window = fxUseSeconds * 0.5f;
+            if (StartExpend(window)) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), window);
             else ApplyStep();
         }
 
@@ -2330,110 +2397,155 @@ namespace WizardsVRC
                 _fxArea.gameObject.SetActive(true);
             }
             if (_fxBolt != null) _fxBolt.gameObject.SetActive(false);
-            if (StartFxUse()) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), fxUseSeconds * 0.5f);
+            float window = fxUseSeconds * 0.5f;
+            if (StartExpend(window)) SendCustomEventDelayedSeconds(nameof(_ApplyLanded), window);
             else ApplyStep();
         }
 
-        /// <summary>The hit lands after its shields / blades / traps have moved in (they break as it lands).</summary>
+        /// <summary>The hit lands once its shields / blades / traps have gone.</summary>
         public void _ApplyLanded()
         {
-            EndFxUse();
+            EndExpend(false);
             if (manager.phase == BattleManager.PHASE_PLAYBACK) ApplyStep();
         }
 
         /// <summary>
-        /// Every shield, blade and trap logged against this step's hits moves into place: a blade lunges from its owner
-        /// toward the target, a shield swings in front of its owner facing the attacker, a trap leaps up over its owner's
-        /// head. Returns false when the step uses none.
+        /// The blades, traps and shields this step's hits use up go one at a time over 'window' seconds: blades first, then
+        /// traps, then shields. Each waits its turn in its orbit, lifts out of it flashing white, then sounds and
+        /// shatters, its bonus floating up (AnimateExpend). Returns false when the step uses none. Whatever hasn't gone
+        /// when the results land goes at once (EndExpend).
         /// </summary>
-        private bool StartFxUse()
+        private bool StartExpend(float window)
         {
-            _useCount = 0;
-            if (!fx3D || fxIcons == null || seats == null) return false;
+            EndExpend(true);
+            if (fxIcons == null || seats == null) return false;
             if (_fxUsing == null || _fxUsing.Length != fxIcons.Length) _fxUsing = new bool[fxIcons.Length];
+            if (_fxGone == null || _fxGone.Length != fxIcons.Length) _fxGone = new bool[fxIcons.Length];
+            if (_useTaken == null || _useTaken.Length != fxIcons.Length) _useTaken = new bool[fxIcons.Length];
+            for (int q = 0; q < _useTaken.Length; q++) _useTaken[q] = false;
             int max = BattleManager.FX_MAX;
-            for (int j = 0; j < manager.fxLogCount && j < BattleManager.MAX_FX_LOG && _useCount < MAX_FX_USE; j++)
+            for (int pass = 0; pass < 3; pass++)
             {
-                int act = manager.fxLogAct[j];
-                if (act < _stepStart || act >= _stepEnd) continue;
-                int slot = manager.fxLogSlot[j], kind = manager.fxLogKind[j], v = manager.fxLogValue[j];
-                if (slot < 0 || slot >= BattleManager.SLOTS || kind < 0 || kind > 2) continue;
-                int[] arr = kind == BattleManager.FX_SHIELD ? _fxSh : (kind == BattleManager.FX_BLADE ? _fxBl : _fxTr);
-                int k = -1;
-                for (int q = 0; q < max; q++)
+                int want = pass == 0 ? BattleManager.FX_BLADE : pass == 1 ? BattleManager.FX_TRAP : BattleManager.FX_SHIELD;
+                for (int j = 0; j < manager.fxLogCount && j < BattleManager.MAX_FX_LOG && _useCount < MAX_FX_USE; j++)
                 {
-                    int ix = (slot * 3 + kind) * max + q;
-                    if (arr[slot * max + q] == v && ix < _fxUsing.Length && !_fxUsing[ix]) { k = q; break; }
+                    int act = manager.fxLogAct[j];
+                    if (act < _stepStart || act >= _stepEnd) continue;
+                    int slot = manager.fxLogSlot[j], kind = manager.fxLogKind[j], v = manager.fxLogValue[j];
+                    if (kind != want || slot < 0 || slot >= BattleManager.SLOTS) continue;
+                    int[] arr = kind == BattleManager.FX_SHIELD ? _fxSh : (kind == BattleManager.FX_BLADE ? _fxBl : _fxTr);
+                    // The piece showing it (two alike are two pieces: each is taken once).
+                    int k = -1;
+                    for (int q = 0; q < max; q++)
+                    {
+                        int ix = (slot * 3 + kind) * max + q;
+                        if (arr[slot * max + q] == v && ix < _useTaken.Length && !_useTaken[ix]) { k = q; break; }
+                    }
+                    if (k < 0) continue;
+                    int idx = (slot * 3 + kind) * max + k;
+                    if (idx >= fxIcons.Length || fxIcons[idx] == null) continue;
+                    _useTaken[idx] = true;
+                    _useIdx[_useCount] = idx;
+                    _useKind[_useCount] = kind;
+                    _useSlot[_useCount] = slot;
+                    _useK[_useCount] = k;
+                    _useVal[_useCount] = v;
+                    _useState[_useCount] = 0;
+                    _useCount++;
                 }
-                if (k < 0) continue;
-                int idx = (slot * 3 + kind) * max + k;
-                if (idx >= fxIcons.Length || fxIcons[idx] == null || !fxIcons[idx].gameObject.activeInHierarchy) continue;
-                int caster = manager.actActor[act], target = manager.actTarget[act];
-                int other = kind == BattleManager.FX_BLADE ? target : caster;
-                if (other < 0 || other >= seats.Length || other == slot) other = -1;
-                Vector3 home = seats[slot].position;
-                Vector3 dir = other >= 0 ? seats[other].position - home : seats[slot].forward;
-                dir.y = 0f;
-                dir = dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.forward;
-                float sc = SeatScale(slot);
-                Vector3 to;
-                if (kind == BattleManager.FX_BLADE) to = home + Vector3.up * (1.4f * sc) + dir * (0.9f * sc);
-                else if (kind == BattleManager.FX_SHIELD) to = home + Vector3.up * (1.2f * sc) + dir * (0.8f * sc);
-                else to = home + Vector3.up * (2.4f * sc);
-                _fxUsing[idx] = true;
-                _useIdx[_useCount] = idx;
-                _useKind[_useCount] = kind;
-                _useFrom[_useCount] = fxIcons[idx].transform.position;
-                _useTo[_useCount] = to;
-                _useAim[_useCount] = dir;
-                _useCount++;
             }
+            if (_useCount == 0) return false;
             _useStart = Time.time;
-            return _useCount > 0;
+            _usePer = Mathf.Clamp(window / _useCount, 0.06f, 0.6f);
+            _expended = true;
+            return true;
         }
 
-        private void EndFxUse()
-        {
-            if (_fxUsing != null)
-                for (int u = 0; u < _useCount; u++)
-                    if (_useIdx[u] < _fxUsing.Length) _fxUsing[_useIdx[u]] = false;
-            _useCount = 0;
-        }
-
-        private void AnimateFxUse()
+        /// <summary>Each in its turn: out of its orbit, lifting and swelling as it flickers and then holds white, then it shatters.</summary>
+        private void AnimateExpend()
         {
             if (_useCount == 0 || fxIcons == null) return;
-            float t = Mathf.Clamp01((Time.time - _useStart) / Mathf.Max(0.1f, fxUseSeconds));
-            float e = 1f - (1f - t) * (1f - t);
+            float now = Time.time - _useStart;
             for (int u = 0; u < _useCount; u++)
             {
+                if (_useState[u] >= 2) continue;
+                float t = (now - u * _usePer) / _usePer;
+                if (t < 0f) break;   // not its turn yet, nor anything's after it
                 Renderer r = fxIcons[_useIdx[u]];
+                int kind = _useKind[u];
+                if (_useState[u] == 0)
+                {
+                    _useState[u] = 1;
+                    _fxUsing[_useIdx[u]] = true;
+                    _useFrom[u] = r != null ? r.transform.position : seats[_useSlot[u]].position + Vector3.up * 1.2f;
+                }
+                if (t >= 0.6f) { ShatterFx(u, false); continue; }
                 if (r == null) continue;
+                float e = t / 0.6f;
                 Transform tr = r.transform;
-                Vector3 aim = _useAim[u];
-                if (_useKind[u] == BattleManager.FX_BLADE)
-                {
-                    // The sword swings round to point at its target and lunges.
-                    tr.position = Vector3.Lerp(_useFrom[u], _useTo[u], e);
-                    tr.rotation = Quaternion.FromToRotation(Vector3.up, Vector3.Lerp(Vector3.up, aim, e));
-                }
-                else if (_useKind[u] == BattleManager.FX_SHIELD)
-                {
-                    // The shield swings in front of its owner, facing the attacker, and flares up.
-                    tr.position = Vector3.Lerp(_useFrom[u], _useTo[u], e);
-                    tr.rotation = Quaternion.LookRotation(aim, Vector3.up);
-                }
-                else
-                {
-                    // The trap leaps up over its owner, spinning, and snaps shut.
-                    Vector3 p = Vector3.Lerp(_useFrom[u], _useTo[u], e);
-                    tr.position = p + Vector3.up * Mathf.Sin(t * Mathf.PI) * 0.3f;
-                    tr.rotation = Quaternion.Euler(0f, Time.time * 720f, 0f);
-                }
-                float grow = 1f + 0.5f * Mathf.Sin(t * Mathf.PI * 0.5f);
-                if (_useKind[u] == BattleManager.FX_TRAP && t > 0.8f) grow *= 1f - (t - 0.8f) * 2.5f;
-                tr.localScale = Vector3.one * (_fxBaseScale[_useKind[u]] * grow);
+                tr.position = _useFrom[u] + Vector3.up * (0.35f * (1f - (1f - e) * (1f - e)));
+                tr.localScale = Vector3.one * (_fxBaseScale[kind] * (1f + 0.7f * e));
+                bool white = e > 0.55f || (((int)(e * 9f)) & 1) == 1;
+                int school = manager.FxSchool(_useVal[u]);
+                Material m;
+                if (fx3D) m = white && fxWhiteMat != null ? fxWhiteMat : FxMat(school);
+                else m = IconMat(white ? fxIconFlashMats : fxIconMats, kind, school);
+                if (m != null && r.sharedMaterial != m) r.sharedMaterial = m;
             }
+        }
+
+        /// <summary>One of them goes: its sound, its shards, its bonus floating up, and it's gone from round its owner.</summary>
+        private void ShatterFx(int u, bool quiet)
+        {
+            if (_useState[u] >= 2) return;
+            _useState[u] = 2;
+            int idx = _useIdx[u], kind = _useKind[u], slot = _useSlot[u], v = _useVal[u];
+            Renderer r = fxIcons[idx];
+            Vector3 at = r != null && r.gameObject.activeInHierarchy ? r.transform.position : seats[slot].position + Vector3.up * (1.2f * SeatScale(slot));
+            if (r != null) r.gameObject.SetActive(false);
+            if (_fxGone != null && idx < _fxGone.Length) _fxGone[idx] = true;
+            if (quiet) return;
+            if (shatterBurst != null && shatterBurst.gameObject.activeInHierarchy)
+            {
+                shatterBurst.transform.position = at;
+                shatterBurst.Emit(22);
+            }
+            FxSound(fxShatterSound, at, kind == BattleManager.FX_BLADE ? 1.12f : kind == BattleManager.FX_TRAP ? 0.94f : 0.8f);
+            int school = manager.FxSchool(v);
+            FloatTex(slot, (kind == BattleManager.FX_SHIELD ? "-" : "+") + manager.FxPct(v).ToString() + "%", SchoolTextColor(school), FxTexture(kind, school));
+        }
+
+        /// <summary>
+        /// The cast's effects are done with: any that hasn't gone yet goes at once (silently if 'quiet': the fight moved
+        /// on), they come out of the shown lists, and what's left closes up round its owners.
+        /// </summary>
+        private void EndExpend(bool quiet)
+        {
+            if (_useCount == 0) return;
+            int max = BattleManager.FX_MAX;
+            for (int u = 0; u < _useCount; u++)
+            {
+                if (_useState[u] < 2) ShatterFx(u, quiet);
+                int idx = _useIdx[u], kind = _useKind[u];
+                int[] arr = kind == BattleManager.FX_SHIELD ? _fxSh : (kind == BattleManager.FX_BLADE ? _fxBl : _fxTr);
+                arr[_useSlot[u] * max + _useK[u]] = 0;
+                if (_fxUsing != null && idx < _fxUsing.Length) _fxUsing[idx] = false;
+                if (_fxGone != null && idx < _fxGone.Length) _fxGone[idx] = false;
+            }
+            _useCount = 0;
+            CompactShown(_fxSh);
+            CompactShown(_fxBl);
+            CompactShown(_fxTr);
+            UpdateFx();
+        }
+
+        /// <summary>A shield / blade / trap sound where it happens: appearing, or shattering.</summary>
+        private void FxSound(AudioClip clip, Vector3 at, float pitch)
+        {
+            if (fxAudio == null || clip == null || !fxAudio.gameObject.activeInHierarchy) return;
+            fxAudio.transform.position = at;
+            fxAudio.pitch = pitch;
+            fxAudio.PlayOneShot(clip);
         }
 
         /// <summary>The fizzle: the cast sound cuts off, the fizzle sound plays, the symbol sputters out in a puff of smoke.</summary>
@@ -2470,7 +2582,7 @@ namespace WizardsVRC
             _stepStyled = false;
             _castAtOn = false;
             if (spellCinematic != null && spellCinematic.IsFor(this)) spellCinematic.Abort(_inBattle);
-            EndFxUse();
+            EndExpend(true);
             for (int s = 0; s < BattleManager.SLOTS; s++) _shownHp[s] = manager.hp[s];
             SyncShownState();
             UpdateFx();
@@ -2495,8 +2607,9 @@ namespace WizardsVRC
                 if (k == BattleManager.KIND_DAMAGE) text += "\n" + manager.SlotName(t) + " takes " + v.ToString() + " damage" + FlagText(f);
                 else if (k == BattleManager.KIND_HEAL) text += "\n" + manager.SlotName(t) + " heals " + v.ToString() + FlagText(f);
                 else if (k == BattleManager.KIND_BUFF) text += "\n" + manager.SlotName(t) + BuffText(manager.actCard[i], v);
-                // Shields / blades / traps this hit used up break first, then the result floats up.
-                BreakLoggedFx(i);
+                // Shields / blades / traps this hit used up break first, then the result floats up (unless they've
+                // already gone, one at a time, before the attack).
+                if (!_expended) BreakLoggedFx(i);
                 FloatAct(i);
                 AddShownFx(i);
                 int before = t >= 0 && t < BattleManager.SLOTS ? _shownHp[t] : 0;
@@ -3078,7 +3191,8 @@ namespace WizardsVRC
                         int idx = (s * 3 + kind) * max + k;
                         if (idx >= fxIcons.Length || fxIcons[idx] == null) continue;
                         Renderer r = fxIcons[idx];
-                        bool on = k < n;
+                        // (One that has just shattered stays in the list, hidden, until the rest of its cast's have gone.)
+                        bool on = k < n && !(_fxGone != null && idx < _fxGone.Length && _fxGone[idx]);
                         if (r.gameObject.activeSelf != on) r.gameObject.SetActive(on);
                         if (!on) continue;
                         if (_fxUsing != null && idx < _fxUsing.Length && _fxUsing[idx]) continue;
@@ -3102,7 +3216,7 @@ namespace WizardsVRC
             for (int i = 0; i < fxOrbits.Length; i++)
                 if (fxOrbits[i] != null) fxOrbits[i].localRotation = Quaternion.Euler(0f, Time.time * _fxSpin[i % 3], 0f);
             if (fxIcons == null) return;
-            AnimateFxUse();
+            AnimateExpend();
             if (fx3D)
             {
                 // 3D: shields face outward as they circle, swords stand point-up and twirl, traps lie flat and turn.

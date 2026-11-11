@@ -451,30 +451,60 @@ namespace WizardsVRC
 
         // ------------------------------------------------------------------ the staging formula (SPELL_ANIMATIONS.md)
         //
-        // An attack spell's power is its pip cost, 1 to 7. Its caster charges in the middle of the ring, then unleashes it:
-        //   charge   = gather (0.5 s per pip over the first) + the school's cast sound
-        //   unleash  = 5 s at 1 pip, 2.5 s more per pip, 20 s at 7 (other lengths for lesser monsters: BattleManager)
-        // and everything inside the unleash follows from its length alone, so every client lays it out the same:
-        //   surge (the release) -> form (the power takes shape) -> waves (the barrage) -> the finisher (the hit) -> afterglow
+        // Every staged spell (attacks, heals, the dispel) goes through six beats, like Wizard101's:
+        //   cast      the caster goes to the middle of the ring and charges (a short gather, then the school's cast sound)
+        //   arrival   the release: the power arrives, the spell's own way (a core over the caster, or its creature)
+        //   display   it shows off, the spell's own way
+        //   (expend   each blade, trap and shield the cast uses goes, one at a time: BattleClient)
+        //   attack    the spell's own delivery flies; a spell of 5 pips or more strikes twice
+        //   result    the hit lands, the spell's own kind of impact, and the numbers
+        //   exit      the power leaves, the spell's own way, and the caster goes back to their seat
+        // The whole turn lasts 9 s at 1 pip up to 12 s at 7 (BattleManager), plus the expending (2 s at most): never more
+        // than 14 s. What's left after going to the middle, the cast and going back is the 'unleash', shared out below, so
+        // every client lays a spell out the same from that one number.
 
-        /// <summary>An attack spell's power: its pip cost, 1 to 7.</summary>
+        /// <summary>A staged spell's power: its pip cost, 1 to 7.</summary>
         public int CinePower(int cardId) { return Mathf.Clamp(GetPipCost(cardId), 1, 7); }
 
-        /// <summary>Seconds the spell takes to unleash, from 'min' at 1 pip to 'max' at 7.</summary>
-        public float CineUnleash(int cardId, float min, float max) { return Mathf.Lerp(min, max, (CinePower(cardId) - 1) / 6f); }
+        /// <summary>The arrival's share of the unleash.</summary>
+        public float PlanArrival(float unleash) { return unleash * 0.16f; }
+        /// <summary>The display's share.</summary>
+        public float PlanDisplay(float unleash) { return unleash * 0.16f; }
+        /// <summary>The attack's share: from the first bolt leaving to the hit.</summary>
+        public float PlanAttack(float unleash) { return unleash * 0.40f; }
+        /// <summary>The result's share: the hit and the hold on it. The exit gets the rest (11%).</summary>
+        public float PlanResult(float unleash) { return unleash * 0.17f; }
+        /// <summary>Waves before the finisher: one for a spell of 5 pips or more.</summary>
+        public int PlanWaves(int pips) { return pips >= 5 ? 1 : 0; }
+        /// <summary>Seconds from the release to the hit, when the spell's results land ('expend' = how long its blades, traps and shields take to go).</summary>
+        public float PlanStrike(float unleash, float expend) { return PlanArrival(unleash) + PlanDisplay(unleash) + Mathf.Max(0f, expend) + PlanAttack(unleash); }
 
-        /// <summary>Power steps of an unleash: 0 at 5 s, 6 at 20 s (under 0 for a lesser monster's quick one).</summary>
-        public float PlanSteps(float unleash) { return (unleash - 5f) / 2.5f; }
-        /// <summary>The release: the shock off the caster.</summary>
-        public float PlanSurge(float unleash) { return Mathf.Max(0.3f, 0.5f + 0.15f * PlanSteps(unleash)); }
-        /// <summary>The power takes its shape over the caster (a creature spell's creature arrives).</summary>
-        public float PlanForm(float unleash) { return Mathf.Max(0.3f, 0.6f + 0.3f * PlanSteps(unleash)); }
-        /// <summary>After the hit: it settles, briefly.</summary>
-        public float PlanAfterglow(float unleash) { return Mathf.Max(0.7f, 1f + 0.2f * PlanSteps(unleash)); }
-        /// <summary>Waves before the finisher: four for every five pips over the first (0, 1, 2, 2, 3, 4, 4).</summary>
-        public int PlanWaves(float unleash) { return Mathf.Clamp(Mathf.RoundToInt(Mathf.Max(0f, PlanSteps(unleash)) * 0.8f), 0, 4); }
-        /// <summary>Seconds from the release to the finisher's hit, when the spell's results land.</summary>
-        public float PlanStrike(float unleash) { return unleash - PlanAfterglow(unleash); }
+        /// <summary>
+        /// Each staged spell's other beats, packed (same index as <see cref="ids"/>): how its power arrives (bits 0-3,
+        /// ARRIVE_*), how it shows off (4-7, SHOW_*), how it leaves (8-11, EXIT_*), and bit 12 set for a spell that
+        /// helps its target (a heal): no flinch, no shake, a gentle landing. Filled by WizardsVRCSceneBuilder.SpellStyles.cs.
+        /// </summary>
+        [HideInInspector] public int[] cineBeats;
+        // How the power arrives: up out of the rune, down out of the sky, drawn in from all round, through a gate, wound up out of sparks.
+        public const int ARRIVE_ERUPT = 0, ARRIVE_DESCEND = 1, ARRIVE_CONVERGE = 2, ARRIVE_RIFT = 3, ARRIVE_KINDLE = 4;
+        // How it shows off: pulses throwing rings, rings spinning up round it, a crown of bolts, crackling at the floor, a column through it.
+        public const int SHOW_FLARE = 0, SHOW_HALO = 1, SHOW_CROWN = 2, SHOW_STORM = 3, SHOW_ASCEND = 4;
+        // How it leaves: embers drifting up, blown apart, a column of sparks into the sky, sinking into the floor, a last pair of rings.
+        public const int EXIT_FADE = 0, EXIT_SCATTER = 1, EXIT_ASCEND = 2, EXIT_SINK = 3, EXIT_ECHO = 4;
+        public const int BEATS_FRIENDLY = 4096;
+
+        public int CineBeats(int cardId) { int i = IndexOf(cardId); return i < 0 || cineBeats == null || i >= cineBeats.Length ? 0 : cineBeats[i]; }
+
+        /// <summary>
+        /// A spell that only places a charm (a blade), a shield or a trap: it has no animation at all. The effect just
+        /// appears round its target with a sound (BattleClient).
+        /// </summary>
+        public bool IsCharmSpell(int cardId)
+        {
+            int e = GetEffect(cardId);
+            return e == EFFECT_WARD || e == EFFECT_EMPOWER || e == EFFECT_TRAP || e == EFFECT_TRIBLADE || e == EFFECT_TAUNT || e == EFFECT_TRISHIELD ||
+                   e == EFFECT_TRITRAP || e == EFFECT_MULTIWARD || e == EFFECT_CURSE || e == EFFECT_HEALBLADE || e == EFFECT_FOCUS;
+        }
 
         public GameObject GetAnimation(int cardId)
         {

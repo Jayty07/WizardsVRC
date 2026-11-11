@@ -18,6 +18,10 @@ bells, choir and reverb as the quest sounds (make_quest_sounds.py).
                          rush of air and a gathering shimmer, cut off at its height (SpellCinematic plays its last few
                          seconds so that it ends on the release)
     Spell_Surge.wav      the release of a big spell: a double boom and a rush of air blown outward, a low bell (1.9 s)
+    Charm_Appear.wav     a charm, shield or trap appearing round its owner: a bright chime with a breath of shimmer (0.7 s;
+                         BattleClient pitches it: blades high, traps middling, shields low)
+    Charm_Shatter.wav    one being used up: a quick rising ring as it flashes white, then the crack and a spray of
+                         glass (0.8 s; pitched the same way)
 
     python3 Tools/make_spell_cast_sounds.py Assets/WizardsVRC/Audio/Cast      (needs numpy and scipy)
 """
@@ -234,6 +238,23 @@ def main(folder):
     out += sweep_noise(t, 0.0, 1.0, 7500, 260, 0.5, shape=0.7) + sweep_noise(t, 0.05, 1.3, 2400, 180, 0.25, shape=0.9)
     out += q.bell(t, n('D3'), 0.03, 1.7, 0.22, decay=1.6) + q.sparkles(t, 0.05, 0.9, 18, 0.04, lo=2500, hi=8000, rise=-0.8)
     q.write(os.path.join(folder, 'Spell_Surge.wav'), out, T, wet=0.32, size=1.1, gain=0.95)
+
+    # A charm, shield or trap appears: a bright two-note chime and a breath of shimmer.
+    T = 0.75
+    t = q.timeline(T)
+    out = q.celesta(t, n('E6'), 0.0, 0.6, 0.5, decay=5) + q.celesta(t, n('B6'), 0.05, 0.55, 0.35, decay=6)
+    out += q.bell(t, n('E5'), 0.0, 0.6, 0.12, decay=4) + q.shimmer_swell(t, 0.0, 0.3, 0.06, 3000, 9000)
+    out += q.sparkles(t, 0.03, 0.25, 6, 0.04, lo=4000, hi=9000, rise=0.5)
+    q.write(os.path.join(folder, 'Charm_Appear.wav'), out, T, wet=0.22, size=0.7, gain=0.7)
+
+    # One is used up: a ring that climbs as it flashes white, then the crack and the glass flying.
+    T = 0.85
+    t = q.timeline(T)
+    out = sweep_noise(t, 0.0, 0.16, 2500, 9500, 0.25, shape=1.4) + q.celesta(t, n('A6'), 0.0, 0.2, 0.25, decay=10)
+    out += crack(t, 0.14, 0.7, dur=0.16, hp=2200) + boom(t, 0.14, 0.25, 420, 160, 0.3, decay=16)
+    out += q.sparkles(t, 0.15, 0.45, 22, 0.07, lo=3500, hi=10000, rise=-1.2)
+    out += sweep_noise(t, 0.14, 0.4, 9000, 2500, 0.16, shape=0.7)
+    q.write(os.path.join(folder, 'Charm_Shatter.wav'), out, T, wet=0.2, size=0.6, gain=0.8)
 
 
 if __name__ == '__main__':

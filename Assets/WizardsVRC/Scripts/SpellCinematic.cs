@@ -5,36 +5,38 @@ using VRC.SDKBase;
 namespace WizardsVRC
 {
     /// <summary>
-    /// Every attack spell, staged by one formula (SPELL_ANIMATIONS.md; its numbers are CardDatabase.Plan*): the caster
-    /// stands in the middle of the ring and CHARGES, harder the more pips the spell costs, then UNLEASHES it for 5 to 20
-    /// seconds. Local, one rig shared by every duel circle; BattleClient starts it for each attack spell's turn, so every
-    /// client plays the same beats at the same times from the synced round.
+    /// Every staged spell (the attacks, the heals, the dispel), played through six beats by one formula
+    /// (SPELL_ANIMATIONS.md; its numbers are BattleManager's and CardDatabase.Plan*). The caster, a wizard, a monster or a
+    /// boss, is the subject: the power comes out of them in the middle of the ring. Local, one rig shared by every duel
+    /// circle; BattleClient starts it for each such spell's turn, so every client plays the same beats at the same times
+    /// from the synced round. The whole turn is 9 s at 1 pip to 12 s at 7, plus the expending: never more than 14 s.
     ///
-    ///   in        the caster vanishes from their seat in a burst and appears in the middle of the ring facing their target
+    ///   cast      the caster vanishes from their seat in a burst and appears in the middle of the ring facing their target
     ///             (a wizard's own client teleports them, their view irising shut and open in their school's colour; a
-    ///             monster's body is moved there on every client)
-    ///   charge    a gather (half a second per pip over the first), then the school's cast sound, ending on the release.
-    ///             The school's rune draws itself on the floor under them with the spell's own flourish, and each tier of
-    ///             power adds to it:
+    ///             monster's body is moved there on every client). They charge: a short gather, then the school's cast
+    ///             sound, ending on the release. The school's rune draws itself on the floor under them with the spell's
+    ///             own flourish, and each tier of power adds to it:
     ///               tier 1 (1-2 pips)  the rune, the flourish, the light building
     ///               tier 2 (3-4 pips)  + grit lifting off the floor, sparks racing round the rune's rim, a quickening
     ///                                    heartbeat of rings, the hum of the charge
     ///               tier 3 (5-6 pips)  + everything but the magic goes dark, sparks spiral up round them, power crackles
     ///                                    out of them, a column of light, and it's all drawn in just before it goes
     ///               tier 4 (7 pips)    + the school's rune opens in the sky and pours light down on them
-    ///   unleash   surge      the release: a shock off the caster along the floor
-    ///             form       the power takes shape: a core over the caster (a creature spell's creature arrives)
-    ///             barrage    waves shed from the core: lighter cousins of the spell's own delivery, each a little
-    ///                        heavier than the last, each landing on the target (no damage yet: it flinches)
-    ///             finisher   the core swells and goes into the spell's own delivery at full size; its hit is the spell's
-    ///                        (the results land here), with its own kind of impact
-    ///             afterglow  it settles, briefly
-    ///   out       the caster vanishes back to their seat
+    ///   arrival   the release: a shock off the caster, and the spell's subject arrives the spell's own way (a core of
+    ///             power over the caster, or a creature spell's creature beside them)
+    ///   display   it shows off, the spell's own way
+    ///   (expend   the blades, traps and shields the cast uses go, one at a time: BattleClient; the film holds them)
+    ///   attack    the spell's own delivery; a spell of 5 pips or more strikes twice (a lighter wave shed from the core,
+    ///             which makes the target flinch, then the spell itself)
+    ///   result    the finisher's hit: the spell's own kind of impact, and its results land (BattleClient), on every
+    ///             target at once for an area spell
+    ///   exit      the power leaves the spell's own way, and the caster vanishes back to their seat
     ///
-    /// Each attack spell still has its own recipe (CardDatabase.cineStyles, WizardsVRCSceneBuilder.SpellStyles.cs: how it
-    /// travels, how it lands, the flourish, the film, the bolts), so no two unleash alike. Everyone else in the fight
-    /// watches the whole thing on the film screen; the caster sees the charge with their own eyes and the film from the
-    /// release. A summoned minion casts from its seat with no staging at all (one volley, as the delivery times it).
+    /// Each spell's recipe picks its flourish, arrival, display, delivery, impact, exit and film (CardDatabase.cineStyles
+    /// and cineBeats, WizardsVRCSceneBuilder.SpellStyles.cs), so no two play alike. Everyone else in the fight watches the
+    /// whole thing on the film screen; the caster sees the cast with their own eyes and the film from the release. A spell
+    /// that helps its target (a heal) lands gently. A summoned minion casts from its seat with no staging at all (one
+    /// volley, as the delivery times it).
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SpellCinematic : UdonSharpBehaviour
@@ -208,11 +210,17 @@ namespace WizardsVRC
         private Vector3 _summonAt;
         private Vector3 _origin;
 
-        // The staging formula's beats, in seconds from the start:
-        //   _tHalf  dark: moved to the middle      _tCast  there: the gather begins     _tSound  the cast sound begins
-        //   _tUnl   the release: the surge         _tForm  the power takes shape        _tBar    the first volley's slot
-        //   _tStrike the finisher's hit            _tAfter the unleash is over          _tBack   dark: back to the seat
-        private float _tHalf, _tCast, _tSound, _tUnl, _tForm, _tBar, _tStrike, _tAfter, _tBack, _tEnd;
+        // The six beats, in seconds from the start:
+        //   cast     _tHalf (dark: moved to the middle), _tCast (there: the gather begins), _tSound (the cast sound begins)
+        //   arrival  _tUnl (the release)        display  _tDisp        (expend  _tExp: blades, traps and shields go)
+        //   attack   _tBar (the first volley's slot)     result  _tStrike (the hit)     exit  _tExit
+        //   then _tAfter (the unleash is over), _tBack (dark: back to the seat), _tEnd
+        private float _tHalf, _tCast, _tSound, _tUnl, _tDisp, _tExp, _tBar, _tStrike, _tExit, _tAfter, _tBack, _tEnd;
+        // The spell's own arrival, display and exit (CardDatabase.ARRIVE_*, SHOW_*, EXIT_*), and whether it helps its target.
+        private int _arrive, _show, _leave;
+        private bool _friendly;
+        private int _arrCue, _showCue, _showBeats, _exitCue;
+        private float _arrAcc, _showAcc, _exitAcc;
 
         // Volleys: the waves, then the finisher (the last). Each has a slot: it opens (the core gathers), flies, hits, ends.
         private const int MAX_VOLLEYS = 5;
@@ -361,13 +369,13 @@ namespace WizardsVRC
         /// <summary>
         /// Starts the attack spell's staging (after <see cref="Prepare"/>): cast from 'from' (the middle of the ring for a
         /// cinematic, else the seat) facing 'fwd' at 'aim' (the target, or the middle of the side an area spell hits).
-        /// 'style' is CardDatabase.CineStyle; 'body' the caster's size (big monsters cast from higher). Times: in (vanish
-        /// and appear), gather (charging before the cast sound), cast (the cast sound's length: it ends on the release),
-        /// unleash (from the release to the end of the afterglow), strike (into the unleash, when the finisher hits), out
-        /// (back to the seat).
+        /// 'style' is CardDatabase.CineStyle and 'beats' CardDatabase.CineBeats; 'body' the caster's size (big monsters cast
+        /// from higher). Times: in (vanish and appear), gather (charging before the cast sound), cast (the cast sound's
+        /// length: it ends on the release), unleash (the beats after the cast, shared out by CardDatabase.Plan*), expend
+        /// (how long its blades, traps and shields take to go, between the display and the attack), out (back to the seat).
         /// </summary>
-        public void Begin(Vector3 from, Vector3 fwd, Vector3 aim, int school, int style, int pips, bool aoe, float body, string caster, string spell,
-                          float inSec, float gatherSec, float castSec, float unleashSec, float strikeSec, float outSec)
+        public void Begin(Vector3 from, Vector3 fwd, Vector3 aim, int school, int style, int beats, int pips, bool aoe, float body, string caster, string spell,
+                          float inSec, float gatherSec, float castSec, float unleashSec, float expendSec, float outSec)
         {
             _from = from;
             _ground = from.y;
@@ -404,6 +412,10 @@ namespace WizardsVRC
             _shape = (style >> 20) & 3;
             _flip = ((style >> 22) & 1) != 0 ? -1f : 1f;
             _height = (style >> 23) & 3;
+            _arrive = beats & 15;
+            _show = (beats >> 4) & 15;
+            _leave = (beats >> 8) & 15;
+            _friendly = (beats & CardDatabase.BEATS_FRIENDLY) != 0;
 
             // How much power the charge shows.
             _tier = !_cine ? 1 : _pips >= 7 ? 4 : _pips >= 5 ? 3 : _pips >= 3 ? 2 : 1;
@@ -417,11 +429,10 @@ namespace WizardsVRC
             _tCast = inSec;
             _tSound = inSec + Mathf.Max(0f, gatherSec);
             _tUnl = _tSound + Mathf.Max(0.1f, castSec);
-            _tAfter = _tUnl + Mathf.Max(0.5f, unleashSec);
-            _tStrike = Mathf.Min(_tAfter - 0.1f, _tUnl + Mathf.Max(0.05f, strikeSec));
+            _tAfter = _tUnl + Mathf.Max(0.5f, unleashSec) + Mathf.Max(0f, expendSec);
             _tBack = _tAfter + outSec * 0.5f;
             _tEnd = _tAfter + outSec;
-            PlanVolleys(unleashSec);
+            PlanBeats(unleashSec, Mathf.Max(0f, expendSec));
 
             _t0 = Time.time;
             _cue = 0;
@@ -437,6 +448,13 @@ namespace WizardsVRC
             _vortexAcc = 0f;
             _skyAcc = 0f;
             _moteAcc = 0f;
+            _arrAcc = 0f;
+            _showAcc = 0f;
+            _exitAcc = 0f;
+            _arrCue = 0;
+            _showCue = 0;
+            _showBeats = 0;
+            _exitCue = 0;
             _runeAngle = 0f;
             _rimAngle = 0f;
             _nextBeat = _tCast + 0.5f;
@@ -456,36 +474,42 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// Lays the unleash out by the staging formula (the same on every client): the surge, the form, then the waves and
-        /// the finisher sharing what's left before the hit, the finisher's slot half as long again as a wave's. Each volley
-        /// gathers for the first part of its slot and flies for the rest (no longer than its delivery's own flight).
+        /// Lays the beats after the cast out by the staging formula (the same on every client): arrival, display, the
+        /// expending, attack, result, exit. The attack is the spell's volleys: a wave first for a spell of 5 pips or more,
+        /// then the finisher, whose slot is longer; each gathers for the first part of its slot and flies for the rest
+        /// (no longer than its delivery's own flight), and the finisher's hit ends the attack. A cast with no staging (a
+        /// minion's) is one volley, timed by its delivery.
         /// </summary>
-        private void PlanVolleys(float unleash)
+        private void PlanBeats(float unleash, float expend)
         {
             int waves = 0;
-            _tForm = _tUnl;
-            _tBar = _tUnl;
             if (_cine && cardDatabase != null)
             {
-                float form = _tUnl + cardDatabase.PlanSurge(unleash);
-                float bar = form + cardDatabase.PlanForm(unleash);
-                if (bar < _tStrike - 0.5f)
-                {
-                    _tForm = form;
-                    _tBar = bar;
-                    waves = Mathf.Clamp(cardDatabase.PlanWaves(unleash), 0, MAX_VOLLEYS - 1);
-                }
+                _tDisp = _tUnl + cardDatabase.PlanArrival(unleash);
+                _tExp = _tDisp + cardDatabase.PlanDisplay(unleash);
+                _tBar = _tExp + expend;
+                _tStrike = _tBar + Mathf.Max(0.4f, cardDatabase.PlanAttack(unleash));
+                _tExit = Mathf.Min(_tAfter - 0.05f, _tStrike + cardDatabase.PlanResult(unleash));
+                waves = Mathf.Clamp(cardDatabase.PlanWaves(_pips), 0, MAX_VOLLEYS - 1);
             }
-            float unit = (_tStrike - _tBar) / (waves + 1.5f);
-            // Which of the delivery's four preludes come first is the spell's own.
+            else
+            {
+                _tDisp = _tUnl;
+                _tExp = _tUnl;
+                _tBar = _tUnl;
+                _tStrike = Mathf.Min(_tAfter - 0.1f, _tUnl + DeliveryFlight(_delivery));
+                _tExit = _tAfter;
+            }
+            float unit = (_tStrike - _tBar) / (waves + 1.6f);
+            // Which of the delivery's four preludes comes first is the spell's own.
             int turn = (_count + _shape + _height + (_flip < 0f ? 1 : 0)) & 3;
             for (int k = 0; k < waves; k++)
             {
                 float start = _tBar + k * unit;
                 float end = start + unit;
-                float hit = end - Mathf.Min(0.45f, unit * 0.2f);
+                float hit = end - Mathf.Min(0.3f, unit * 0.2f);
                 int d = Prelude(_delivery, k + turn);
-                float flight = Mathf.Min(DeliveryFlight(d) * 0.9f, (hit - start) * 0.75f);
+                float flight = Mathf.Min(DeliveryFlight(d) * 0.8f, (hit - start) * 0.8f);
                 _vStart[k] = start;
                 _vFly[k] = hit - flight;
                 _vHit[k] = hit;
@@ -493,7 +517,7 @@ namespace WizardsVRC
                 _vDel[k] = d;
             }
             float fStart = _tBar + waves * unit;
-            float fFlight = _cine ? Mathf.Min(DeliveryFlight(_delivery), (_tStrike - fStart) * 0.75f) : _tStrike - fStart;
+            float fFlight = _cine ? Mathf.Min(DeliveryFlight(_delivery), (_tStrike - fStart) * 0.8f) : _tStrike - fStart;
             _vStart[waves] = fStart;
             _vFly[waves] = _tStrike - fFlight;
             _vHit[waves] = _tStrike;
@@ -593,6 +617,9 @@ namespace WizardsVRC
             AnimateCharge(t, dt);
             AnimateStage(t);
             AnimatePulses(t);
+            AnimateArrival(t, dt);
+            AnimateDisplay(t, dt);
+            AnimateExit(t, dt);
             AnimateCore(t, dt);
             AnimateHeads(t, dt);
             AnimateCarrier(t);
@@ -894,8 +921,8 @@ namespace WizardsVRC
             }
             Vector3 first = many ? HitFor(0) : _hit;
             if (_tier >= 2) Shock(new Vector3(first.x, _aim.y + 0.12f, first.z), 14 + 5 * _pips, 0.35f + 0.25f * _vSize);
-            SoundAt(impactSound, first, 0.45f + 0.3f * _vSize);
-            if (_owner != null) _owner.CineFlinch();
+            SoundAt(_friendly ? whooshSound : impactSound, first, _friendly ? 0.4f : 0.45f + 0.3f * _vSize);
+            if (_owner != null && !_friendly) _owner.CineFlinch();
         }
 
         /// <summary>A ring of light spreading from a point on the floor ('size' across at its widest, gone after 'len' seconds).</summary>
@@ -939,9 +966,294 @@ namespace WizardsVRC
             shockwave.Emit(count);
         }
 
+        // ------------------------------------------------------------------ arrival, display, exit: each spell's own
+
+        /// <summary>Where the spell's subject belongs: the core's place over the caster, or the spot its creature stands on.</summary>
+        private Vector3 SubjectHome()
+        {
+            return _creature ? _summonAt : _corePos;
+        }
+
         /// <summary>
-        /// The gathered power over the caster: it forms after the surge and swells through the barrage (each wave shed
-        /// from it knocks it back a little), then swells hard and shudders before the finisher and goes into it: thrown,
+        /// Where the subject is 'k' of the way through its arrival, the spell's own way: up out of the rune, down out of
+        /// the sky, out through a gate behind it; or (drawn in from all round, wound up out of sparks) where it belongs.
+        /// </summary>
+        private Vector3 ArrivePos(Vector3 home, float k)
+        {
+            float e = 1f - (1f - k) * (1f - k);
+            if (_arrive == CardDatabase.ARRIVE_ERUPT) return new Vector3(home.x, Mathf.Lerp(_ground - (_creature ? 1.6f * _body : 0.3f), home.y, e), home.z);
+            if (_arrive == CardDatabase.ARRIVE_DESCEND) return home + Vector3.up * ((1f - k) * (1f - k) * (_creature ? 7f : 6f));
+            if (_arrive == CardDatabase.ARRIVE_RIFT) return home - _fwd * ((1f - e) * 1.4f);
+            return home;
+        }
+
+        /// <summary>
+        /// The arrival (from the release to the display): the particles of the spell's own way of arriving, round its
+        /// subject (the core, or its creature). ERUPT: a geyser of sparks out of the rune. DESCEND: streaks of light
+        /// pouring down ahead of it, a burst as it lands. CONVERGE: sparks streaking in from all round, knotting together.
+        /// RIFT: a gate opening behind it, sparks trailing off it as it comes through. KINDLE: sparks winding up from the
+        /// floor in a spiral that tightens on it.
+        /// </summary>
+        private void AnimateArrival(float t, float dt)
+        {
+            if (!_cine || t < _tUnl) return;
+            if (t >= _tDisp)
+            {
+                // The gate shuts behind it.
+                if (_arrive == CardDatabase.ARRIVE_RIFT && _arrCue < 2)
+                {
+                    _arrCue = 2;
+                    if (portals != null && portals.Length > 0 && portals[0] != null) portals[0].gameObject.SetActive(false);
+                }
+                return;
+            }
+            float k = Mathf.Clamp01((t - _tUnl) / Mathf.Max(0.05f, _tDisp - _tUnl));
+            Vector3 home = SubjectHome();
+            Vector3 mid = _creature ? Vector3.up * (1.0f * _body) : Vector3.zero;
+            Vector3 at = ArrivePos(home, k) + mid;
+            Vector3 floor = new Vector3(home.x, _ground + 0.12f, home.z);
+            int n;
+            if (_arrive == CardDatabase.ARRIVE_ERUPT)
+            {
+                if (_arrCue == 0) { _arrCue = 1; Shock(floor, 24 + 6 * _pips, 0.5f); }
+                if (embers != null)
+                {
+                    embers.transform.position = floor;
+                    embers.transform.localScale = Vector3.one * (_scale * 0.7f);
+                    _arrAcc += dt * (70f + 22f * _pips);
+                    n = (int)_arrAcc;
+                    if (n > 0) { embers.Emit(n); _arrAcc -= n; }
+                }
+            }
+            else if (_arrive == CardDatabase.ARRIVE_DESCEND)
+            {
+                if (skyfall != null)
+                {
+                    skyfall.transform.position = home + mid + Vector3.up * 7f;
+                    skyfall.transform.localScale = Vector3.one * (0.35f * _scale);
+                    _arrAcc += dt * (80f + 22f * _pips);
+                    n = (int)_arrAcc;
+                    if (n > 0) { skyfall.Emit(n); _arrAcc -= n; }
+                }
+                if (_arrCue == 0 && k >= 0.85f)
+                {
+                    _arrCue = 1;
+                    Burst(portalBurst, at, 30 + 8 * _pips);
+                    if (_creature) Shock(floor, 26, 0.5f);
+                }
+            }
+            else if (_arrive == CardDatabase.ARRIVE_CONVERGE)
+            {
+                if (coreMotes != null)
+                {
+                    coreMotes.transform.position = at;
+                    coreMotes.transform.localScale = Vector3.one * (1.6f + 0.2f * _pips);
+                    _arrAcc += dt * (100f + 28f * _pips);
+                    n = (int)_arrAcc;
+                    if (n > 0) { coreMotes.Emit(n); _arrAcc -= n; }
+                }
+                if (_arrCue == 0 && k >= 0.9f) { _arrCue = 1; Burst(portalBurst, at, 24 + 6 * _pips); }
+            }
+            else if (_arrive == CardDatabase.ARRIVE_RIFT)
+            {
+                Vector3 gate = home + mid - _fwd * 1.4f;
+                if (portals != null && portals.Length > 0 && portals[0] != null)
+                {
+                    Transform g = portals[0];
+                    float open = Mathf.Min(Ease(k / 0.3f), 1f - Ease((k - 0.75f) / 0.25f));
+                    float gs = (1.4f + 0.12f * _pips) * (_creature ? Mathf.Max(1f, _body) * 1.5f : 1f) * open;
+                    g.SetPositionAndRotation(gate, Quaternion.FromToRotation(Vector3.up, _fwd));
+                    g.localScale = new Vector3(Mathf.Max(0.01f, gs), 1f, Mathf.Max(0.01f, gs));
+                    if (!g.gameObject.activeSelf) g.gameObject.SetActive(true);
+                }
+                if (_arrCue == 0) { _arrCue = 1; Burst(portalBurst, gate, 20 + 5 * _pips); }
+                _arrAcc += dt * (50f + 14f * _pips);
+                n = (int)_arrAcc;
+                if (n > 0) { Burst(rimSparks, at, n); _arrAcc -= n; }
+            }
+            else
+            {
+                // KINDLE
+                if (vortex != null)
+                {
+                    vortex.transform.position = floor;
+                    vortex.transform.localScale = Vector3.one * (0.6f * _scale);
+                    _arrAcc += dt * (80f + 22f * _pips);
+                    n = (int)_arrAcc;
+                    if (n > 0) { vortex.Emit(n); _arrAcc -= n; }
+                }
+                _showAcc += dt * 60f;
+                while (_showAcc >= 1f)
+                {
+                    _showAcc -= 1f;
+                    for (int w = 0; w < 2; w++)
+                    {
+                        float ang = (t * 720f * _flip + w * 180f) * Mathf.Deg2Rad;
+                        float r = (1f - k) * 1.2f + 0.15f;
+                        Vector3 p = new Vector3(home.x, Mathf.Lerp(_ground + 0.1f, at.y, k), home.z) + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r;
+                        Burst(rimSparks, p, 1);
+                    }
+                }
+                if (_arrCue == 0 && k >= 0.9f) { _arrCue = 1; Burst(portalBurst, at, 20 + 6 * _pips); }
+            }
+        }
+
+        /// <summary>
+        /// The display (after the arrival; what it leaves stays up while the blades, traps and shields go, until the
+        /// attack): the spell's own way of showing off, round its subject. A creature rears as it begins. FLARE: three
+        /// pulses, each throwing a ring of sparks. HALO: rings spin up round it with sparks circling it (the rings are
+        /// AnimateCharge's). CROWN: a crown of bolts fans out behind the caster, one after another, and hangs there.
+        /// STORM: it crackles, and sparks jump from the floor all round. ASCEND: a column of light through it
+        /// (AnimateCharge's) and sparks spiralling up.
+        /// </summary>
+        private void AnimateDisplay(float t, float dt)
+        {
+            if (!_cine || t < _tDisp || t >= _tBar) return;
+            bool showing = t < _tExp;
+            float k = Mathf.Clamp01((t - _tDisp) / Mathf.Max(0.05f, _tExp - _tDisp));
+            Vector3 at = Focus();
+            if (_showCue == 0)
+            {
+                _showCue = 1;
+                if (_carrier != null && _carrierAnim != null) _carrierAnim.SetTrigger("Cast");
+            }
+            int n;
+            if (_show == CardDatabase.SHOW_FLARE)
+            {
+                int due = Mathf.Min(3, 1 + (int)(k * 3f));
+                if (showing && _showBeats < due)
+                {
+                    _showBeats++;
+                    _kickAt = t;
+                    Shock(at, 20 + 6 * _pips, 0.3f + 0.12f * _showBeats);
+                    Burst(portalBurst, at, 10 + 3 * _pips);
+                    SoundAt(releaseSound, at, 0.3f);
+                }
+            }
+            else if (_show == CardDatabase.SHOW_HALO)
+            {
+                _showAcc += dt * (40f + 10f * _pips) * (showing ? 1f : 0.4f);
+                n = (int)_showAcc;
+                _showAcc -= n;
+                for (int w = 0; w < n; w++)
+                {
+                    float ang = (t * 420f * _flip + w * 120f) * Mathf.Deg2Rad;
+                    float r = (0.9f + 0.08f * _pips) * Mathf.Max(1f, _body * 0.8f);
+                    Burst(rimSparks, at + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r, 1);
+                }
+            }
+            else if (_show == CardDatabase.SHOW_CROWN)
+            {
+                if (heads == null) return;
+                int crown = Mathf.Min(5, heads.Length);
+                int up = showing ? Mathf.Min(crown, 1 + (int)(k * crown)) : crown;
+                for (int i = 0; i < up; i++)
+                {
+                    Transform h = heads[i];
+                    if (h == null) continue;
+                    float a = (i - (crown - 1) * 0.5f) * 26f * Mathf.Deg2Rad;
+                    Vector3 off = _right * (Mathf.Sin(a) * 1.7f * _body) + Vector3.up * (Mathf.Cos(a) * 1.1f * _body);
+                    Vector3 p = _from + Vector3.up * (1.7f * _body) - _fwd * (0.5f * _body) + off + Vector3.up * (0.05f * Mathf.Sin(t * 4f + i));
+                    if (!h.gameObject.activeSelf)
+                    {
+                        h.position = p;
+                        float hs = 0.5f + 0.05f * _pips;
+                        h.localScale = new Vector3(hs, hs, hs);
+                        ShowShape(i, _shape);
+                        h.gameObject.SetActive(true);
+                        Burst(portalBurst, p, 6 + _pips);
+                    }
+                    h.position = p;
+                    h.rotation = Quaternion.LookRotation(off.normalized + _fwd * 0.2f);
+                }
+            }
+            else if (_show == CardDatabase.SHOW_STORM)
+            {
+                if (showing && t >= _nextArc)
+                {
+                    _nextArc = t + 0.09f;
+                    _arcFlash = t;
+                    if (arcs != null)
+                    {
+                        arcs.transform.position = at;
+                        arcs.transform.localScale = Vector3.one * _scale;
+                        arcs.Emit(5 + _tier);
+                    }
+                    float ang = Random.value * 6.283f;
+                    float r = 1.2f + Random.value * 1.8f;
+                    Burst(impactBurst, _from + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * r + Vector3.up * 0.1f, 4);
+                }
+            }
+            else if (showing && vortex != null)
+            {
+                // ASCEND
+                vortex.transform.position = new Vector3(at.x, _ground + 0.1f, at.z);
+                vortex.transform.localScale = Vector3.one * (0.55f * _scale);
+                _showAcc += dt * (70f + 20f * _pips);
+                n = (int)_showAcc;
+                if (n > 0) { vortex.Emit(n); _showAcc -= n; }
+            }
+        }
+
+        /// <summary>
+        /// The exit (after the result): the spell's own way of leaving. FADE: embers drift up off the caster as the rune
+        /// closes. SCATTER: what's left is blown apart, a ring of sparks from the caster and one from the hit. ASCEND: a
+        /// column of sparks winds up into the sky from where it hit. SINK: sparks all round the rune's rim as it shuts
+        /// (AnimateRune closes it early). ECHO: a ring of sparks from the hit, then one from the caster.
+        /// </summary>
+        private void AnimateExit(float t, float dt)
+        {
+            if (!_cine || t < _tExit || t >= _tAfter) return;
+            float k = Mathf.Clamp01((t - _tExit) / Mathf.Max(0.05f, _tAfter - _tExit));
+            Vector3 hitFloor = _impactAt + Vector3.up * 0.12f;
+            Vector3 castFloor = _from + Vector3.up * 0.12f;
+            int n;
+            if (_exitCue == 0)
+            {
+                _exitCue = 1;
+                if (_leave == CardDatabase.EXIT_SCATTER)
+                {
+                    Shock(castFloor, 30 + 6 * _pips, 0.6f);
+                    Shock(hitFloor, 30 + 6 * _pips, 0.6f);
+                    Burst(portalBurst, _impactAt + Vector3.up, 30);
+                }
+                else if (_leave == CardDatabase.EXIT_ECHO) Shock(hitFloor, 26 + 5 * _pips, 0.5f);
+                else if (_leave == CardDatabase.EXIT_SINK)
+                {
+                    for (int w = 0; w < 14; w++)
+                    {
+                        float ang = w * 25.7f * Mathf.Deg2Rad;
+                        Burst(rimSparks, castFloor + (_right * Mathf.Cos(ang) + _fwd * Mathf.Sin(ang)) * (1.2f * _scale), 2);
+                    }
+                }
+            }
+            if (_leave == CardDatabase.EXIT_ECHO && _exitCue == 1 && k >= 0.45f)
+            {
+                _exitCue = 2;
+                Shock(castFloor, 26 + 5 * _pips, 0.5f);
+            }
+            if (_leave == CardDatabase.EXIT_ASCEND && vortex != null)
+            {
+                vortex.transform.position = hitFloor;
+                vortex.transform.localScale = Vector3.one * (0.5f * _scale);
+                _exitAcc += dt * (70f + 18f * _pips) * (1f - k);
+                n = (int)_exitAcc;
+                if (n > 0) { vortex.Emit(n); _exitAcc -= n; }
+            }
+            if (_leave == CardDatabase.EXIT_FADE && embers != null)
+            {
+                embers.transform.position = castFloor;
+                embers.transform.localScale = Vector3.one * (_scale * 0.8f);
+                _exitAcc += dt * (26f + 8f * _pips) * (1f - k);
+                n = (int)_exitAcc;
+                if (n > 0) { embers.Emit(n); _exitAcc -= n; }
+            }
+        }
+
+        /// <summary>
+        /// The gathered power over the caster (the subject of a spell with no creature). It arrives the spell's own way
+        /// (ArrivePos), grows through the display, holds while the blades, traps and shields go, and is shed from in the
+        /// attack: a wave knocks it back; then it swells hard and shudders before the finisher and goes into it: thrown,
         /// driven into the floor (a runner, a wave), flung up into the sky (a rain), or held as the mouth of a beam.
         /// </summary>
         private void AnimateCore(float t, float dt)
@@ -950,19 +1262,28 @@ namespace WizardsVRC
             int last = _vCount - 1;
             bool beamCore = _delivery == CardDatabase.CINE_BEAM;
             float gone = beamCore ? _vEnd[last] : _vFly[last] + 0.16f;
-            bool show = _cine && !_creature && t >= _tForm && t < gone;
+            bool show = _cine && !_creature && t >= _tUnl && t < gone;
             if (powerCore.gameObject.activeSelf != show) powerCore.gameObject.SetActive(show);
             if (!show) return;
             float full = (0.5f + 0.13f * _pips) * Mathf.Max(1f, _body * 0.8f);
             float fStart = _vStart[last];
-            // It forms to a little over half, then grows to full by the time the finisher's slot opens.
-            float grow = 0.55f * Ease((t - _tForm) / Mathf.Max(0.2f, _tBar - _tForm));
-            if (t > _tBar) grow = Mathf.Lerp(0.55f, 1f, Mathf.Clamp01((t - _tBar) / Mathf.Max(0.3f, fStart - _tBar)));
-            // Each wave shed from it knocks it back; it recovers.
+            // Over half by the end of its arrival, nearly full by the end of its display, full as the finisher gathers.
+            float arr = Mathf.Clamp01((t - _tUnl) / Mathf.Max(0.05f, _tDisp - _tUnl));
+            float grow = 0.6f * Ease(arr);
+            if (t > _tDisp) grow = Mathf.Lerp(0.6f, 0.9f, Ease((t - _tDisp) / Mathf.Max(0.05f, _tExp - _tDisp)));
+            if (t > _tBar) grow = Mathf.Lerp(0.9f, 1f, Mathf.Clamp01((t - _tBar) / Mathf.Max(0.2f, fStart - _tBar)));
+            // A wave shed from it knocks it back; it recovers.
             float knock = 1f;
             if (_v >= 0 && _v < last && _vFlown) knock = 1f - 0.28f * Mathf.Exp(-(t - _vFly[_v]) * 5f);
             float swell = 1f, fade = 1f;
-            Vector3 pos = _corePos;
+            Vector3 pos = ArrivePos(_corePos, arr);
+            // A FLARE display pulses it; an ASCEND one lifts it and sets it down again.
+            if (t >= _tDisp && t < _tExp)
+            {
+                float sk = (t - _tDisp) / Mathf.Max(0.05f, _tExp - _tDisp);
+                if (_show == CardDatabase.SHOW_FLARE) swell = 1f + 0.22f * Mathf.Abs(Mathf.Sin(sk * Mathf.PI * 3f));
+                else if (_show == CardDatabase.SHOW_ASCEND) pos += Vector3.up * (0.7f * Mathf.Sin(sk * Mathf.PI));
+            }
             if (t >= fStart)
             {
                 float fly = _vFly[last];
@@ -979,8 +1300,8 @@ namespace WizardsVRC
             powerCore.position = pos + Vector3.up * (0.06f * Mathf.Sin(t * 2.3f));
             powerCore.localScale = Vector3.one * Mathf.Max(0.01f, s);
             powerCore.rotation = Quaternion.Euler(t * 40f, t * 70f * _flip, 0f);
-            // Sparks are drawn into it: more as it grows, a rush as the finisher gathers.
-            if (coreMotes != null && fade > 0.5f)
+            // Sparks are drawn into it from its display on: more as it grows, a rush as the finisher gathers.
+            if (coreMotes != null && fade > 0.5f && t >= _tDisp)
             {
                 coreMotes.transform.position = pos;
                 coreMotes.transform.localScale = Vector3.one * (0.6f + 0.5f * full * grow);
@@ -1303,9 +1624,10 @@ namespace WizardsVRC
         }
 
         /// <summary>
-        /// A summoned creature: it arrives beside the caster out of a burst as the power takes shape and rears, roars with
-        /// each wave (FlyVolley), then rides the finisher's first bolt (flying or running the route), strikes, is thrown
-        /// back and breaks up. One that pours out a beam stands before the caster for the whole of it.
+        /// A summoned creature (the subject of a creature spell): it arrives beside the caster the spell's own way
+        /// (ArrivePos), rears for its display (AnimateDisplay), roars as a wave goes (FlyVolley), then rides the finisher's
+        /// first bolt (flying or running the route), strikes, is thrown back and breaks up. One that pours out a beam
+        /// stands before the caster for the whole of it.
         /// </summary>
         private void AnimateCarrier(float t)
         {
@@ -1317,24 +1639,19 @@ namespace WizardsVRC
                                            _delivery == CardDatabase.CINE_WAVE || _delivery == CardDatabase.CINE_BOOMERANG || _delivery == CardDatabase.CINE_BEAM);
             Vector3 p;
             Vector3 face = _fwd;
-            float scale = Ease((t - _tForm) / 0.45f);
-            if (t < _tForm)
+            // It grows as it arrives (quicker when it has somewhere to come from).
+            float arr = Mathf.Clamp01((t - _tUnl) / Mathf.Max(0.05f, _tDisp - _tUnl));
+            bool travels = _arrive == CardDatabase.ARRIVE_ERUPT || _arrive == CardDatabase.ARRIVE_DESCEND || _arrive == CardDatabase.ARRIVE_RIFT;
+            float scale = _cine ? Ease(arr * (travels ? 2.5f : 1.2f)) : Ease((t - _tUnl) / 0.45f);
+            if (beamStand || t < fly)
             {
-                // Not here yet.
-                p = _summonAt + Vector3.down * 2f;
-                scale = 0f;
-            }
-            else if (beamStand || t < fly)
-            {
-                p = _summonAt;
+                p = _cine ? ArrivePos(_summonAt, arr) : _summonAt;
                 if (_carrierFlyer) p += Vector3.up * (0.9f + 0.12f * Mathf.Sin(t * 3f));
                 if (beamStand && t > _vEnd[last] - 0.4f) scale *= 1f - Ease((t - (_vEnd[last] - 0.4f)) / 0.35f);
                 if (_carrierCue == 0)
                 {
                     _carrierCue = 1;
-                    Burst(portalBurst, _summonAt + Vector3.up * 0.8f, 45);
-                    Shock(_summonAt + Vector3.up * 0.12f, 30, 0.5f);
-                    if (_carrierAnim != null) _carrierAnim.SetTrigger("Cast");
+                    Burst(portalBurst, p + Vector3.up * 0.8f, 30);
                 }
                 if (beamStand && _carrierCue == 1 && t >= fly)
                 {
@@ -1403,7 +1720,8 @@ namespace WizardsVRC
 
         private void AnimatePortals(float t)
         {
-            if (portals == null) return;
+            // (Before the attack a portal can only be the gate a RIFT arrival comes through: AnimateArrival's.)
+            if (portals == null || t < _tBar) return;
             for (int i = 0; i < portals.Length && i < 2; i++)
             {
                 Transform p = portals[i];
@@ -1514,7 +1832,7 @@ namespace WizardsVRC
             if (_cine)
             {
                 if (_tier >= 2) Shock(_impactAt + Vector3.up * 0.12f, 30 + 20 * _tier, (0.6f + 0.3f * _tier) * Mathf.Max(1f, _tScale * 0.8f));
-                if (_tier >= 3 && arcs != null)
+                if (_tier >= 3 && arcs != null && !_friendly)
                 {
                     arcs.transform.position = at;
                     arcs.transform.localScale = Vector3.one * big;
@@ -1527,7 +1845,9 @@ namespace WizardsVRC
                     skyfall.Emit(140);
                 }
             }
-            Sound(_pips >= 4 && impactBigSound != null ? impactBigSound : impactSound, at);
+            // A spell that helps lands with a rush of air, not a boom (the heal's own sound comes with its number).
+            if (_friendly) SoundAt(whooshSound, at, 0.8f);
+            else Sound(_pips >= 4 && impactBigSound != null ? impactBigSound : impactSound, at);
         }
 
         /// <summary>How big the impact is: the spell's pips and the target's size (not the caster's: a huge boss's spell still lands on a wizard-sized target).</summary>
@@ -1665,7 +1985,10 @@ namespace WizardsVRC
         {
             if (runeCircle == null || !runeCircle.gameObject.activeSelf) return;
             float open = Ease((t - _tCast) / 0.45f);
-            float close = 1f - Ease((t - _tAfter + 0.35f) / 0.35f);
+            // It closes as the unleash ends; a SCATTER or SINK exit shuts it as the exit begins.
+            bool early = _cine && (_leave == CardDatabase.EXIT_SCATTER || _leave == CardDatabase.EXIT_SINK);
+            float shut = early ? Mathf.Max(0.15f, (_tAfter - _tExit) * 0.6f) : 0.35f;
+            float close = 1f - Ease((t - (early ? _tExit : _tAfter - shut)) / shut);
             float jump = 0.08f * Mathf.Exp(-Mathf.Max(0f, t - _flareAt) * 6f);
             float s = 2.6f * _scale * Mathf.Min(open, close) * (1f + 0.03f * Mathf.Sin(t * 14f) + jump);
             runeCircle.localScale = new Vector3(Mathf.Max(0.01f, s), Mathf.Max(0.01f, s), Mathf.Max(0.01f, s));
@@ -1711,7 +2034,17 @@ namespace WizardsVRC
                     Transform g = gyroRings[i];
                     if (g == null) continue;
                     bool on = (_charge == CardDatabase.CHARGE_GYRO || _tier >= 4) && t >= _tCast && t < _tUnl + 0.3f;
-                    if (g.gameObject.activeSelf != on) g.gameObject.SetActive(on);
+                    // A HALO display: the same rings spin up round the spell's subject, and stay until the attack.
+                    bool halo = _cine && _show == CardDatabase.SHOW_HALO && t >= _tDisp && t < _tBar + 0.25f;
+                    if (g.gameObject.activeSelf != (on || halo)) g.gameObject.SetActive(on || halo);
+                    if (halo)
+                    {
+                        float hs = (1.3f + 0.1f * _pips) * Mathf.Max(1f, _body * 0.8f) * Ease((t - _tDisp) / 0.35f) * (1f - Ease((t - _tBar) / 0.25f));
+                        g.position = Focus();
+                        g.rotation = i == 0 ? Quaternion.Euler(70f, t * 420f * _flip, 0f) : Quaternion.Euler(-55f, -t * 340f * _flip, 35f);
+                        g.localScale = new Vector3(Mathf.Max(0.01f, hs), 1f, Mathf.Max(0.01f, hs));
+                        continue;
+                    }
                     if (!on) continue;
                     float s = (1.5f + 0.12f * _pips) * _body * Ease((t - _tCast) / 0.4f) * (1f - Ease((t - _tUnl) / 0.3f)) * (1f - 0.25f * crush);
                     float turn = 0.6f + 1.2f * build;
@@ -1749,8 +2082,20 @@ namespace WizardsVRC
                 bool column = _charge == CardDatabase.CHARGE_COLUMN;
                 float t0 = _tCast + (_tUnl - _tCast) * (column ? 0.3f : 0.55f);
                 bool on = (column || _tier >= 3) && t >= t0 && t < _tUnl + 0.45f;
-                if (castPillar.gameObject.activeSelf != on) castPillar.gameObject.SetActive(on);
-                if (on)
+                // An ASCEND display: a column of light through the spell's subject.
+                bool ascend = _cine && _show == CardDatabase.SHOW_ASCEND && t >= _tDisp && t < _tExp + 0.3f;
+                if (castPillar.gameObject.activeSelf != (on || ascend)) castPillar.gameObject.SetActive(on || ascend);
+                if (ascend)
+                {
+                    Vector3 under = Focus();
+                    float rise = Ease((t - _tDisp) / 0.3f);
+                    float thin = 1f - Ease((t - _tExp) / 0.3f);
+                    float aw = (0.8f + 0.1f * _pips) * thin * (1f + 0.08f * Mathf.Sin(t * 22f));
+                    castPillar.position = new Vector3(under.x, _ground, under.z);
+                    castPillar.localScale = new Vector3(Mathf.Max(0.01f, aw), Mathf.Max(0.01f, rise * (5f + 0.8f * _pips)), Mathf.Max(0.01f, aw));
+                    castPillar.rotation = Quaternion.Euler(0f, t * 90f, 0f);
+                }
+                else if (on)
                 {
                     float grow = Ease((t - t0) / 0.5f);
                     float fade = 1f - Ease((t - _tUnl) / 0.45f);
@@ -1930,9 +2275,11 @@ namespace WizardsVRC
             if (!cutscenePlayer.IsFilming()) { _filmOn = false; return; }
             _camShake = 0f;
             if (t < _tUnl) ChargeShot(t);
-            else if (t < _tForm) SurgeShot(t);
-            else if (t < _tBar) FormShot(t);
+            else if (t < _tDisp) ArrivalShot(t);
+            else if (t < _tExp) DisplayShot(t);
+            else if (t < _tBar) ExpendShot(t);
             else VolleyShot(t);
+            if (_friendly) _camShake *= 0.15f;
             Vector3 pos = _camPos;
             if (_camShake > 0.0001f) pos += new Vector3(Mathf.Sin(t * 71f), Mathf.Sin(t * 53f + 1.3f), Mathf.Sin(t * 61f + 2.1f)) * _camShake;
             Vector3 d = _camLook - pos;
@@ -1981,27 +2328,44 @@ namespace WizardsVRC
             if (_tier >= 3) _camShake = 0.012f * (_tier - 2) * w * w;
         }
 
-        /// <summary>The surge: close on the caster as it bursts out of them, thrown back by it.</summary>
-        private void SurgeShot(float t)
+        /// <summary>The arrival: close on the caster as it bursts out of them, thrown back by it and turning up to what arrives.</summary>
+        private void ArrivalShot(float t)
         {
             Vector3 up = Vector3.up;
             float bodyK = Mathf.Max(1f, _body * 0.9f);
-            float k = Mathf.Clamp01((t - _tUnl) / Mathf.Max(0.05f, _tForm - _tUnl));
+            float k = Mathf.Clamp01((t - _tUnl) / Mathf.Max(0.05f, _tDisp - _tUnl));
             float e = 1f - (1f - k) * (1f - k);
-            _camPos = _from + _fwd * ((2.0f + 2.6f * e) * bodyK) + _right * (0.9f * _flip * bodyK) + up * ((0.7f + 0.8f * e) * _body);
-            _camLook = _from + up * (1.35f * _body);
+            _camPos = _from + _fwd * ((2.0f + 2.4f * e) * bodyK) + _right * (0.9f * _flip * bodyK) + up * ((0.7f + 0.7f * e) * _body);
+            _camLook = Vector3.Lerp(_from + up * (1.35f * _body), ArrivePos(SubjectHome(), k) + (_creature ? up * (1.0f * _body) : Vector3.zero), 0.55f * e);
             _camShake = 0.03f * (1f + 0.5f * _tier) * Mathf.Exp(-(t - _tUnl) * 5f);
         }
 
-        /// <summary>The power takes shape: round the caster and up to it.</summary>
-        private void FormShot(float t)
+        /// <summary>The display: round the caster and up to the spell's subject as it shows off.</summary>
+        private void DisplayShot(float t)
         {
             Vector3 up = Vector3.up;
             float bodyK = Mathf.Max(1f, _body * 0.9f);
-            float k = Mathf.Clamp01((t - _tForm) / Mathf.Max(0.05f, _tBar - _tForm));
+            float k = Mathf.Clamp01((t - _tDisp) / Mathf.Max(0.05f, _tExp - _tDisp));
             Vector3 round = Quaternion.Euler(0f, (120f - 75f * Ease(k)) * _flip, 0f) * (_fwd * (3.8f * bodyK));
             _camPos = _from + round + up * ((1.0f + 1.4f * k) * _body);
             _camLook = Vector3.Lerp(_from + up * (1.3f * _body), Focus(), 0.4f + 0.6f * k);
+        }
+
+        /// <summary>
+        /// The blades, traps and shields going: from the side, back far enough to hold the caster's seat (their blades
+        /// circle it) and the target (its traps and shields), drifting in.
+        /// </summary>
+        private void ExpendShot(float t)
+        {
+            Vector3 up = Vector3.up;
+            float k = Mathf.Clamp01((t - _tExp) / Mathf.Max(0.05f, _tBar - _tExp));
+            Vector3 mid = (_seatPos + _aim) * 0.5f;
+            Vector3 along = _aim - _seatPos;
+            along.y = 0f;
+            float span = along.magnitude;
+            Vector3 side = span > 0.5f ? Vector3.Cross(up, along / span) * _flip : _right * _flip;
+            _camPos = mid + side * (4.5f + span * 0.75f - 0.8f * k) + up * (2.6f + span * 0.12f);
+            _camLook = mid + up * 1.3f;
         }
 
         /// <summary>The volley whose slot it is: it gathers, it flies, it lands; after the finisher's hit, the wide turn.</summary>
@@ -2083,7 +2447,8 @@ namespace WizardsVRC
                 return;
             }
             float r = t - hit;
-            float hold = final ? Mathf.Clamp((_tAfter - _tStrike) * 0.55f, 0.5f, 1.4f) : 100f;
+            // The result: the film holds on the target until the exit.
+            float hold = final ? Mathf.Max(0.3f, _tExit - _tStrike) : 100f;
             if (r < hold)
             {
                 // It lands: on the target, shaken (a wave's lightly).
