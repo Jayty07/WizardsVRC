@@ -32,6 +32,12 @@ namespace WizardsVRC
             Say(hitClip);
         }
 
+        /// <summary>A flinch without the voice (a spell's waves landing before its finisher).</summary>
+        public void Flinch()
+        {
+            if (animator != null) animator.SetTrigger("Hit");
+        }
+
         public void Die()
         {
             if (animator != null) animator.SetTrigger("Die");

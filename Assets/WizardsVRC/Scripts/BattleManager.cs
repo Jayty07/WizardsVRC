@@ -101,15 +101,21 @@ namespace WizardsVRC
         [Tooltip("After a fizzle cuts off, this long before the next caster.")]
         public float fizzleAfterSeconds = 1.2f;
 
-        [Header("Spell cinematics (every attack spell: see FLAG_CINE and SpellCinematic)")]
-        [Tooltip("Fading to black, being taken to the middle of the ring and fading back in, before the wind-up.")]
+        [Header("Spell cinematics (every attack spell: see FLAG_CINE, SpellCinematic and SPELL_ANIMATIONS.md)")]
+        [Tooltip("Fading to black, being taken to the middle of the ring and fading back in, before the charge.")]
         public float cineInSeconds = 0.9f;
         [Tooltip("Fading out, back to the seat and fading in again, after the spell has landed.")]
         public float cineOutSeconds = 0.8f;
-        [Tooltip("How long the shots of the spell landing hold after its effect, plus this much more per pip.")]
-        public float cineAfterSeconds = 1.0f;
-        public float cineAfterPerPip = 0.25f;
-        [Tooltip("A monster's attack spell (no cinematic): how long it settles after its release, before the next caster.")]
+        [Tooltip("A wizard's or a boss's attack spell unleashes for this long at 1 pip...")]
+        public float unleashMinSeconds = 5f;
+        [Tooltip("...and this long at 7 pips (evenly in between).")]
+        public float unleashMaxSeconds = 20f;
+        [Tooltip("Any other monster's attack spell: shorter, so their turns don't drag (1 pip, 7 pips).")]
+        public float monsterUnleashMinSeconds = 3.5f;
+        public float monsterUnleashMaxSeconds = 10f;
+        [Tooltip("A wizard or a boss gathers power this much longer per pip over the first, before the cast sound begins.")]
+        public float gatherPerPip = 0.5f;
+        [Tooltip("A summoned minion's attack spell (cast from its seat, no cinematic): how long it settles after its release.")]
         public float plainAfterSeconds = 0.4f;
 
         [Header("Cast patterns (CastPattern): a spell under 100% accuracy is cast by drawing its rune")]
@@ -319,9 +325,9 @@ namespace WizardsVRC
             // An attack spell plays its own choreography (SpellCinematic): a wizard's as a cinematic, a monster's from its seat.
             if (cardDatabase.CineStyle(card) != 0)
             {
-                float release = cardDatabase.CineRelease(card);
-                if (IsCineAct(i)) return cineInSeconds + wind + release + CineAfter(card) + cineOutSeconds;
-                return wind + release + plainAfterSeconds;
+                // The staging formula: in, the charge (gather + the cast sound), the unleash, out.
+                if (IsCineAct(i)) return cineInSeconds + CineGather(i) + wind + CineUnleash(i) + cineOutSeconds;
+                return wind + cardDatabase.CineRelease(card) + plainAfterSeconds;
             }
             float anim = cardDatabase.AnimSeconds(card);
             return wind + (anim > 0f ? anim : impactSeconds);
@@ -330,8 +336,21 @@ namespace WizardsVRC
         /// <summary>An attack spell that plays as a cinematic (see FLAG_CINE).</summary>
         public bool IsCineAct(int i) { return i >= 0 && i < actCount && (actFlags[i] & FLAG_CINE) != 0 && IsCastAct(i); }
 
-        /// <summary>How long the shots of a cinematic spell hold after it lands (longer for bigger spells).</summary>
-        public float CineAfter(int cardId) { return cineAfterSeconds + cineAfterPerPip * Mathf.Clamp(cardDatabase.GetPipCost(cardId), 0, 14); }
+        /// <summary>Who gets the full show (5 to 20 seconds of unleash, and the gather): wizards and bosses.</summary>
+        public bool FullShow(int s) { return IsPlayerSeat(s) || cardDatabase.IsBossMonster(MonsterAt(s)); }
+
+        /// <summary>Seconds the cinematic attack spell at act index i unleashes for (the same on every client).</summary>
+        public float CineUnleash(int i)
+        {
+            bool full = FullShow(actActor[i]);
+            return cardDatabase.CineUnleash(actCard[i], full ? unleashMinSeconds : monsterUnleashMinSeconds, full ? unleashMaxSeconds : monsterUnleashMaxSeconds);
+        }
+
+        /// <summary>Seconds its caster gathers power in the middle of the ring before the cast sound begins.</summary>
+        public float CineGather(int i)
+        {
+            return FullShow(actActor[i]) ? gatherPerPip * (cardDatabase.CinePower(actCard[i]) - 1) : 0f;
+        }
 
         /// <summary>
         /// Chance (0-100) a spell fizzles for this caster: the card's accuracy with their bonuses and Focus, and a cast

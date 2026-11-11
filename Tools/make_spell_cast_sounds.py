@@ -14,6 +14,10 @@ bells, choir and reverb as the quest sounds (make_quest_sounds.py).
     Pattern_Shot.wav     a rune-shot from the Dominion sidearm: a crack, a short punch and a brass ping (0.6 s)
     Pattern_Beat.wav     the Conductor's Baton's metronome: one dry wooden click (0.2 s)
     Pattern_Wisp.wav     the Wisp Lantern's wisp setting off: a soft breathy glide up (0.8 s)
+    Spell_Charge.wav     a big spell charging: a hum that climbs and swells for 7 s over a quickening pulse, a rising
+                         rush of air and a gathering shimmer, cut off at its height (SpellCinematic plays its last few
+                         seconds so that it ends on the release)
+    Spell_Surge.wav      the release of a big spell: a double boom and a rush of air blown outward, a low bell (1.9 s)
 
     python3 Tools/make_spell_cast_sounds.py Assets/WizardsVRC/Audio/Cast      (needs numpy and scipy)
 """
@@ -78,6 +82,24 @@ def rumble(t, start, dur, amp):
     env = np.minimum(1, tt / 0.05) * np.exp(-tt * 1.6)
     s[m] = lfilter(b, a, noise) * env * amp * 6
     return s
+
+
+def write_cut(path, out, gain=1.0):
+    """Like q.write, but it ends where it ends: no tail and no fade but a few milliseconds against a click."""
+    import wave
+    out = q.reverb(out, 0.25, 0.9)
+    hp_b, hp_a = butter(2, 60 / (SR / 2), btype='high')
+    out = lfilter(hp_b, hp_a, out)
+    out = out / (np.max(np.abs(out)) * 1.1) * gain
+    fade = int(0.012 * SR)
+    out[-fade:] *= np.linspace(1, 0, fade)
+    out[:fade] *= np.linspace(0, 1, fade)
+    with wave.open(path, 'wb') as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(SR)
+        w.writeframes((out * 32767).astype(np.int16).tobytes())
+    print('wrote', path)
 
 
 def main(folder):
@@ -179,6 +201,39 @@ def main(folder):
     t = q.timeline(T)
     out = sweep_noise(t, 0.0, 0.6, 500, 3500, 0.18, shape=1.6) + q.celesta(t, n('A6'), 0.3, 0.45, 0.1, decay=6)
     q.write(os.path.join(folder, 'Pattern_Wisp.wav'), out, T, wet=0.3, size=0.8, gain=0.55)
+
+    # A big spell charging: everything climbs to the last instant, then stops dead (the release sound takes over).
+    T = 7.0
+    t = q.timeline(T)
+    k = t / T                                   # 0 at the start, 1 on the release
+    swell = k ** 1.6
+    # The hum: a low tone gliding up a fifth, with a fifth and an octave over it, beating slowly.
+    f = 73.4 * (1.5 ** k)
+    phase = 2 * np.pi * np.cumsum(f) / SR
+    hum = np.sin(phase) + 0.5 * np.sin(phase * 1.5) + 0.35 * np.sin(phase * 2.0 + 0.4 * np.sin(2 * np.pi * 0.7 * t))
+    hum += 0.25 * np.sin(phase * 3.0) * k + 0.18 * np.sin(phase * 4.0) * k * k
+    # The pulse: a heartbeat that quickens from one a second to three (the rings beating out from the caster).
+    rate = 1.05 + 2.1 * k
+    beat = 0.5 + 0.5 * np.cos(2 * np.pi * np.cumsum(rate) / SR)
+    out = hum * swell * (0.55 + 0.45 * beat ** 3) * 0.5
+    # A rush of air rising with it, and a second, higher one in the last three seconds.
+    out += sweep_noise(t, 0.0, T * 2.0, 180, 5200, 0.34, shape=1.0)[:len(t)] * swell * 1.4
+    out += sweep_noise(t, 4.0, 6.0, 900, 9000, 0.22, shape=1.0)[:len(t)] * np.clip((t - 4.0) / 3.0, 0, 1) ** 2 * 1.6
+    # The shimmer gathering over the last half, and a choir holding under it.
+    out += q.shimmer_swell(t, 3.2, 7.6, 0.2, 2200, 9000) * np.clip((t - 3.2) / 3.8, 0, 1) ** 1.5
+    out += q.choir(t, [n('D3'), n('A3'), n('D4')], 1.5, 11.0, 0.24, swell=0.5) * swell
+    # The last third of a second: everything is drawn in.
+    out += sweep_noise(t, 6.55, 0.9, 700, 9500, 0.45, shape=2.2)[:len(t)]
+    write_cut(os.path.join(folder, 'Spell_Charge.wav'), out, gain=0.9)
+
+    # The release of a big spell: a double boom, the air blown outward, a low bell under it.
+    T = 2.0
+    t = q.timeline(T)
+    out = boom(t, 0.0, 1.5, 150, 42, 1.0, decay=2.6) + boom(t, 0.07, 1.3, 96, 34, 0.7, decay=3.0)
+    out += crack(t, 0.0, 0.55, dur=0.3) + rumble(t, 0.0, 1.6, 0.4)
+    out += sweep_noise(t, 0.0, 1.0, 7500, 260, 0.5, shape=0.7) + sweep_noise(t, 0.05, 1.3, 2400, 180, 0.25, shape=0.9)
+    out += q.bell(t, n('D3'), 0.03, 1.7, 0.22, decay=1.6) + q.sparkles(t, 0.05, 0.9, 18, 0.04, lo=2500, hi=8000, rise=-0.8)
+    q.write(os.path.join(folder, 'Spell_Surge.wav'), out, T, wet=0.32, size=1.1, gain=0.95)
 
 
 if __name__ == '__main__':

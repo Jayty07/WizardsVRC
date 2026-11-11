@@ -466,6 +466,8 @@ namespace WizardsVRC
         private bool _animImpact;
         private int _fxMode;
         private float _fxStart, _fxStrike, _fxSeconds;
+        // The styled step's unleash length and when its hit lands (seconds from the release): the staging formula.
+        private float _stepUnleash, _stepStrike;
         private Vector3 _fxFrom, _fxTo, _fxAreaPos;
         private Transform _fxSummon, _fxBolt, _fxArea;
         // The creature's beats (PlaySpellAnimation / AnimateCreature): the circle it rises from, its pillar of light, the
@@ -2188,23 +2190,29 @@ namespace WizardsVRC
             if (body != null && !body.gameObject.activeInHierarchy) body = null;
             bool creature = cardDatabase.AnimMode(card) == 1 && _stepAnim != null;
             float targetScale = target >= 0 && target < BattleManager.SLOTS && target != actor ? SeatScale(target) : 1f;
+            // The staging formula (SPELL_ANIMATIONS.md): in, the charge (a gather for wizards and bosses, then the cast
+            // sound), the unleash (its length from the spell's pips; the hit lands before its afterglow), out.
             float inSec = _stepCine ? manager.cineInSeconds : 0f;
-            float after = _stepCine ? manager.CineAfter(card) : manager.plainAfterSeconds;
             float outSec = _stepCine ? manager.cineOutSeconds : 0f;
+            float gather = _stepCine ? manager.CineGather(_stepStart) : 0f;
+            _stepUnleash = _stepCine ? manager.CineUnleash(_stepStart) : cardDatabase.CineRelease(card) + manager.plainAfterSeconds;
+            _stepStrike = _stepCine ? cardDatabase.PlanStrike(_stepUnleash) : cardDatabase.CineStrike(card);
             spellCinematic.Prepare(this, me, watch, _stepCine, seats[actor], body, creature, targetScale);
-            // An area spell: every living combatant on the side it hits, so its bolts and bursts land on each of them.
+            // An area spell: everyone still standing on the side it hits as it's cast (health as shown: the round's
+            // results are already in, and this spell may be what fells them), so its bolts and bursts land on each of them.
             if (cardDatabase.IsAoe(card) && target >= 0 && target < BattleManager.SLOTS && target != actor)
             {
                 int side = manager.SideOf(target) * BattleManager.SIDE;
                 int n = 0;
                 for (int s = side; s < side + BattleManager.SIDE && n < _aoeTargets.Length; s++)
-                    if (manager.Occupied(s) && manager.Alive(s) && s < seats.Length) _aoeTargets[n++] = TargetPoint(s);
+                    if (manager.Occupied(s) && _shownHp[s] > 0 && s < seats.Length) _aoeTargets[n++] = TargetPoint(s);
                 spellCinematic.SetTargets(_aoeTargets, n);
             }
             spellCinematic.Begin(from, fwd, aim, school, cardDatabase.CineStyle(card), cardDatabase.GetPipCost(card),
                 cardDatabase.IsAoe(card), SeatScale(actor), manager.SlotName(actor), cardDatabase.GetName(card),
-                inSec, manager.CastSeconds(school), cardDatabase.CineStrike(card), cardDatabase.CineRelease(card), after, outSec);
-            if (inSec > 0f) SendCustomEventDelayedSeconds(nameof(_StyledWindUp), inSec);
+                inSec, gather, manager.CastSeconds(school), _stepUnleash, _stepStrike, outSec);
+            // The symbol and the cast sound start once the gather is done, so they end on the release.
+            if (inSec + gather > 0f) SendCustomEventDelayedSeconds(nameof(_StyledWindUp), inSec + gather);
             else _StyledWindUp();
             SendCustomEventDelayedSeconds(nameof(_PlayStep), manager.StepSeconds(_stepStart));
         }
@@ -2235,7 +2243,7 @@ namespace WizardsVRC
             Vector3 sum = Vector3.zero;
             int n = 0;
             for (int s = side; s < side + BattleManager.SIDE; s++)
-                if (manager.Occupied(s) && manager.Alive(s) && s < seats.Length) { sum += seats[s].position; n++; }
+                if (manager.Occupied(s) && _shownHp[s] > 0 && s < seats.Length) { sum += seats[s].position; n++; }
             return n > 0 ? sum / n : seats[target].position;
         }
 
@@ -2264,14 +2272,39 @@ namespace WizardsVRC
                 PlaySpellAnimation(_stepAnim, _castFrom, _castTo);
                 if (mode == 1)
                 {
+                    // The creature is the rig's for the whole unleash: it arrives, roars through the waves, and strikes.
                     _fxDriven = true;
-                    _fxSeconds = cardDatabase.CineRelease(_stepCard) + 0.1f;
+                    _fxSeconds = _stepUnleash + 0.1f;
                     if (_fxCircle != null) _fxCircle.gameObject.SetActive(false);
                     if (_fxArea != null) _fxArea.gameObject.SetActive(false);
                     spellCinematic.Carry(_fxSummon, _fxRigAnim, _fxKind == RIG_FLYER);
                 }
             }
-            SendCustomEventDelayedSeconds(nameof(_StyledStrike), Mathf.Max(0.05f, cardDatabase.CineStrike(_stepCard)));
+            SendCustomEventDelayedSeconds(nameof(_StyledStrike), Mathf.Max(0.05f, _stepStrike));
+        }
+
+        /// <summary>
+        /// SpellCinematic: one of the spell's waves has landed (before the finisher, no damage yet): the monsters it's
+        /// aimed at flinch.
+        /// </summary>
+        public void CineFlinch()
+        {
+            if (!_playing || !_stepStyled || manager.phase != BattleManager.PHASE_PLAYBACK) return;
+            int target = _stepTarget;
+            if (target < 0 || target >= BattleManager.SLOTS || target == _stepActor) return;
+            if (cardDatabase.IsAoe(_stepCard))
+            {
+                int side = manager.SideOf(target) * BattleManager.SIDE;
+                for (int s = side; s < side + BattleManager.SIDE; s++)
+                {
+                    if (!manager.Occupied(s) || _shownHp[s] <= 0) continue;
+                    MonsterRig r = RigOf(s);
+                    if (r != null) r.Flinch();
+                }
+                return;
+            }
+            MonsterRig rig = RigOf(target);
+            if (rig != null && _shownHp[target] > 0) rig.Flinch();
         }
 
         /// <summary>The attack spell hits: its shields / blades / traps move in, then the results land.</summary>

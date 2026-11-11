@@ -73,7 +73,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
 | `Assets/WizardsVRC/Scripts/CastPattern.cs`, `PatternWand.cs` | Drawing a spell's rune before it's sent (spells under 100% accuracy): the board of points along the school's symbol, the hip wand in VR (a local pickup; `PatternWand` relays its grab, drop and the sidearm's trigger), numbered points on desktop, the four casting styles (sabre, baton, lantern, sidearm), the quality that cuts the fizzle chance |
-| `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell's own choreography (delivery, impact, wind-up, film style, bolts) on one shared rig, a creature riding the path; a wizard's attack spell as a cinematic (iris fade, taken to the middle of the ring, first-person wind-up, filmed release and hit on the cutscene screen, back to the seat) |
+| `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell, staged by the formula in `SPELL_ANIMATIONS.md` on one shared rig: the caster is taken to the middle of the ring, charges (four tiers by pip cost), and unleashes the spell for 5 to 20 seconds (surge, form, waves, finisher, afterglow) with its own recipe (delivery, impact, flourish, film style, bolts), a creature riding the finisher; filmed on the cutscene screen |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
 | `Assets/WizardsVRC/Scripts/RestoreOrb.cs` | Floating red / blue orb that drifts round the area on a wandering loop (server-clock timed, so everyone sees it in the same place): walk into it to restore health / mana (local; respawns after 30 s) |
 | `Assets/WizardsVRC/Scripts/MusicDirector.cs` | Local background music: picks the combat, character creation or hub track from what you're doing and where you are, crossfades between them, scales by the Music setting, and credits what's playing ("WildStar OST - Character Creation") over the HUD, on the map and on the title stage |
@@ -512,6 +512,27 @@ generated into `Assets/WizardsVRC/Generated/Rigs` on every rebuild (one prefab p
 shields, blades, traps and charms spiral up round the target. The effect lands on the strike. A prefab in
 `SpellAnimations/<id>.prefab` or `<Spell Name>.prefab` still replaces a spell's animation.
 
+**Attack spells are staged by one formula** (`SPELL_ANIMATIONS.md`, which also sets out the Wizard101 research behind
+it). The caster stands in the middle of the ring and **charges**, then **unleashes** the spell, and both grow with its
+pip cost:
+
+- **The charge** lasts the school's cast sound plus half a second per pip over the first (3 s at 1 pip, 6 s at 7), and
+  what it's made of changes with the spell's power. Tier 1 (1-2 pips): the rune on the floor, the spell's flourish, the
+  light building. Tier 2 (3-4): grit lifts off the floor, sparks race round the rune's rim, a quickening heartbeat of
+  rings, a rising hum. Tier 3 (5-6): everything but the magic goes dark (`Shaders/DuskVeil.shader`), sparks spiral up
+  round the caster, power crackles out of them, a column of light, and it's all drawn in just before it goes. Tier 4
+  (7): the school's rune opens in the sky and pours light down on them.
+- **The unleash** lasts 5 s at 1 pip and 2.5 s more per pip, 20 s at 7, in five acts: the **surge** (a shock off the
+  caster along the floor), the **form** (a glowing core gathers over the caster, or a creature spell's creature arrives
+  and rears), the **barrage** (0 to 4 waves shed from the core, lighter cousins of the spell's own delivery, each
+  heavier than the last, each making the target flinch), the **finisher** (the core goes into the spell's own delivery
+  at full size; its hit is where the damage lands, on every target at once for an area spell) and a short **afterglow**.
+- Wizards and bosses get the full length. Other monsters unleash for 3.5 to 10 s with no gather, so their turns stay
+  brisk; a summoned minion casts from its seat with no staging.
+
+`Tools/spell_staging_table.py` prints what each pip cost gets. Sounds: `Spell_Charge` and `Spell_Surge`
+(`Tools/make_spell_cast_sounds.py`).
+
 **Every attack spell moves its own way** (`SpellCinematic`, recipes in `Editor/WizardsVRCSceneBuilder.SpellStyles.cs`,
 packed into `CardDatabase.cineStyles`). Each recipe picks:
 
@@ -526,8 +547,8 @@ packed into `CardDatabase.cineStyles`). Each recipe picks:
   from behind the target), and the bolts' **count, shape** (orb, shard, disc), **handedness** and **arc height**.
 
 No two attack spells share both a delivery and an impact: the build logs an error if two do, and an attack spell missing
-from the table gets the first free pair. A creature spell sends its creature along the path (it grows out of the
-caster's hand, flies or runs the route, strikes, is thrown back and breaks up); walkers and beasts keep to the ground on
+from the table gets the first free pair. A creature spell sends its creature along the finisher's path (it arrives
+beside the caster, roars with each wave, flies or runs the route, strikes, is thrown back and breaks up); walkers and beasts keep to the ground on
 lances, zigzags, runners, waves, boomerangs and beams, and leap meteors or go through portals. Everything scales with the
 spell's pips: the rune on the floor, the bursts, the light, the rings, the shake. A monster casting an attack spell plays
 the same choreography from its seat. Each school's starting spell is now cast from the wand rather than summoned:
@@ -630,18 +651,20 @@ data in `Assets/WizardsVRC/WorldData` and versioned in git. See **[WORLD_BUILDIN
   `Pattern_Slash`, `Pattern_Shot`, `Pattern_Beat` and `Pattern_Wisp`.
 - **A wizard's attack spell is a cinematic** (`BattleManager.FLAG_CINE` on its first act, so every client times it the
   same): your view irises shut in your school's colour (`Shaders/SpellFade.shader`), you vanish from your seat in a burst
-  and appear in the middle of the ring facing your target, and it opens again. You cast in first person: the symbol is
-  drawn in the air before you while your school's rune draws itself on the floor and the wind-up flourish plays. As the
-  spell is let go the cutscene screen (the one NPC cutscenes play on) cuts to film: a shot of you letting go (the film
-  camera sees your own avatar through its mirror copy), then the spell's flight, a close, shaken shot of the hit, and a
-  wide shot turning round the ring while it settles (longer for more pips; Skip closes the screen). Then the view shuts,
+  and appear in the middle of the ring facing your target, and it opens again. You charge in first person: the symbol is
+  drawn in the air before you while your school's rune draws itself on the floor, the flourish plays and whatever your
+  spell's power adds builds round you. As the spell is let go the cutscene screen (the one NPC cutscenes play on) cuts
+  to film (the film camera sees your own avatar through its mirror copy): the surge, the power taking shape over you,
+  each wave from over your shoulder to its landing, the finisher shot the spell's own way with a close, shaken shot of
+  the hit, and a wide shot turning round the ring while it settles (Skip closes the screen). Then the view shuts,
   you're back in your seat, and it opens. Everyone else in the fight sees you go to the middle and cast from there, and
-  their cutscene screen films it too (a circling shot from the wind-up on). **Monsters' attack spells are cinematics as
+  their cutscene screen films it too (from the start of the charge). **Monsters' attack spells are cinematics as
   well:** the monster walks to the middle of the ring, casts from there and goes back to its seat, filmed for everyone
   in the fight. Every spell flies **from the middle of the ring to its target's seat** and lands on the target's front
-  (a creature pulls up just short of it), its path and impact scaled to that distance, so nothing overshoots. Timings:
-  `cineInSeconds`, `cineOutSeconds`, `cineAfterSeconds` + `cineAfterPerPip`; each delivery has its own strike and release
-  times (`CardDatabase.CineStrike / CineRelease`). Sounds: `Audio/Cast/Spell_*.wav`.
+  (a creature pulls up just short of it), its path and impact scaled to that distance, so nothing overshoots. Timings
+  follow the staging formula (`SPELL_ANIMATIONS.md`): `cineInSeconds`, `gatherPerPip`, the cast sound,
+  `unleashMinSeconds` to `unleashMaxSeconds` (`monsterUnleashMinSeconds` to `monsterUnleashMaxSeconds` for monsters that
+  aren't bosses) and `cineOutSeconds`; the acts inside the unleash are `CardDatabase.Plan*`. Sounds: `Audio/Cast/Spell_*.wav`.
 - **A fizzle** plays the cast as normal for its first 2 seconds (`BattleManager.fizzleCutSeconds`), then the cast sound
   cuts off, the fizzle sound plays (`Audio/Cast/FX_Fizzle.wav`, `Tools/make_fizzle_sound.py`), and the symbol sputters,
   greys and sags away in a puff of smoke.

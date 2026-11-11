@@ -440,6 +440,42 @@ namespace WizardsVRC
             return d >= 0 && d < _cineReleases.Length ? _cineReleases[d] : 1.4f;
         }
 
+        /// <summary>A delivery's own flight: seconds from leaving the caster to hitting.</summary>
+        public float DeliveryFlight(int delivery) { return delivery >= 0 && delivery < _cineStrikes.Length ? _cineStrikes[delivery] : 1f; }
+
+        /// <summary>How long a delivery carries on after it hits (a beam holds, the rest of a rain falls).</summary>
+        public float DeliveryTail(int delivery)
+        {
+            return delivery >= 0 && delivery < _cineStrikes.Length && delivery < _cineReleases.Length ? Mathf.Max(0.3f, _cineReleases[delivery] - _cineStrikes[delivery]) : 0.6f;
+        }
+
+        // ------------------------------------------------------------------ the staging formula (SPELL_ANIMATIONS.md)
+        //
+        // An attack spell's power is its pip cost, 1 to 7. Its caster charges in the middle of the ring, then unleashes it:
+        //   charge   = gather (0.5 s per pip over the first) + the school's cast sound
+        //   unleash  = 5 s at 1 pip, 2.5 s more per pip, 20 s at 7 (other lengths for lesser monsters: BattleManager)
+        // and everything inside the unleash follows from its length alone, so every client lays it out the same:
+        //   surge (the release) -> form (the power takes shape) -> waves (the barrage) -> the finisher (the hit) -> afterglow
+
+        /// <summary>An attack spell's power: its pip cost, 1 to 7.</summary>
+        public int CinePower(int cardId) { return Mathf.Clamp(GetPipCost(cardId), 1, 7); }
+
+        /// <summary>Seconds the spell takes to unleash, from 'min' at 1 pip to 'max' at 7.</summary>
+        public float CineUnleash(int cardId, float min, float max) { return Mathf.Lerp(min, max, (CinePower(cardId) - 1) / 6f); }
+
+        /// <summary>Power steps of an unleash: 0 at 5 s, 6 at 20 s (under 0 for a lesser monster's quick one).</summary>
+        public float PlanSteps(float unleash) { return (unleash - 5f) / 2.5f; }
+        /// <summary>The release: the shock off the caster.</summary>
+        public float PlanSurge(float unleash) { return Mathf.Max(0.3f, 0.5f + 0.15f * PlanSteps(unleash)); }
+        /// <summary>The power takes its shape over the caster (a creature spell's creature arrives).</summary>
+        public float PlanForm(float unleash) { return Mathf.Max(0.3f, 0.6f + 0.3f * PlanSteps(unleash)); }
+        /// <summary>After the hit: it settles, briefly.</summary>
+        public float PlanAfterglow(float unleash) { return Mathf.Max(0.7f, 1f + 0.2f * PlanSteps(unleash)); }
+        /// <summary>Waves before the finisher: four for every five pips over the first (0, 1, 2, 2, 3, 4, 4).</summary>
+        public int PlanWaves(float unleash) { return Mathf.Clamp(Mathf.RoundToInt(Mathf.Max(0f, PlanSteps(unleash)) * 0.8f), 0, 4); }
+        /// <summary>Seconds from the release to the finisher's hit, when the spell's results land.</summary>
+        public float PlanStrike(float unleash) { return unleash - PlanAfterglow(unleash); }
+
         public GameObject GetAnimation(int cardId)
         {
             int i = IndexOf(cardId);

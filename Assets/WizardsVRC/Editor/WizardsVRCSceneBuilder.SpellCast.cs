@@ -17,14 +17,17 @@ namespace WizardsVRC.EditorTools
     ///   CastPattern     the rune board that opens for a spell under 100% accuracy (points along the school's symbol, a
     ///                   faint and a bright copy of the symbol, numbered buttons for desktop, a timer, Cancel) and the
     ///                   casting wand that waits at your hip in VR (a local pickup; PatternWand passes on its events)
-    ///   SpellCinematic  the rig every attack spell's choreography plays on: the rune on the floor, the wind-up's
-    ///                   streams, rings, embers, spiral and column, the bolts in three shapes with their trails, the beam,
-    ///                   two portals, bursts, shards, a flash, shock rings, a column on the target, spikes, the rune stamp,
-    ///                   embers and a light, all re-coloured for the school at runtime; and the fade sphere for the caster
+    ///   SpellCinematic  the rig every attack spell's staging plays on (SPELL_ANIMATIONS.md): the rune on the floor, the
+    ///                   charge's streams, rings, embers, spiral and column, and what bigger spells add (grit lifting off
+    ///                   the floor, sparks round the rune's rim, crackling arcs, a spiral of sparks, the dark, the rune in
+    ///                   the sky and the light pouring from it); the power core; the bolts in three shapes with their
+    ///                   trails, the beam, two portals, a ring of sparks along the floor, bursts, shards, a flash, shock
+    ///                   rings, a column on the target, spikes, the rune stamp, embers and a light, all re-coloured for
+    ///                   the school at runtime; and the fade sphere for the caster
     ///
     /// The rune and stamp use the drawn-symbol shader and data maps (Tools/make_glyph_draw.py); rings use
     /// Textures/SpellRing.png (Tools/make_spell_ring.py); the sounds are Audio/Cast/Pattern_*.wav and Spell_*.wav
-    /// (Tools/make_spell_cast_sounds.py).
+    /// (Tools/make_spell_cast_sounds.py); the dark is Shaders/DuskVeil.shader.
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
@@ -48,6 +51,8 @@ namespace WizardsVRC.EditorTools
             {
                 c.castPattern = pattern;
                 c.spellCinematic = cine;
+                // The staging formula's numbers (CardDatabase.Plan*) are the same for every circle.
+                if (cine.cardDatabase == null) cine.cardDatabase = c.cardDatabase;
             }
             if (book != null) book.castPattern = pattern;
             ExtraBehaviours.Add(pattern);
@@ -466,6 +471,84 @@ namespace WizardsVRC.EditorTools
             cine.gyroRings = new[] { Ring(rig, "GyroRingA", ring0, rings), Ring(rig, "GyroRingB", ring0, rings) };
             cine.portalBurst = CinePS(rig, "PortalBurst", spark0, sparks, 0.6f, 1.0f, 1.5f, 4.5f, 0.08f, 0.22f, -0.2f, ParticleSystemShapeType.Sphere, 0.5f, 500);
 
+            // ---- what a bigger spell's charge adds (tier 2: 3+ pips, tier 3: 5+, tier 4: 7)
+            // Grit and motes lifting off the floor: a disc on the floor that emits upward.
+            var debris = CinePS(rig, "ChargeDebris", spark0, sparks, 1.6f, 2.6f, 0.3f, 1.1f, 0.05f, 0.13f, -0.12f, ParticleSystemShapeType.Cone, 2.6f, 500);
+            var debrisShape = debris.shape;
+            debrisShape.angle = 4f;
+            debris.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            cine.debris = debris;
+            // Sparks dropped at points racing round the rune's rim.
+            cine.rimSparks = CinePS(rig, "RimSparks", spark0, sparks, 0.35f, 0.6f, 0.2f, 0.9f, 0.07f, 0.16f, -0.15f, ParticleSystemShapeType.Sphere, 0.1f, 500);
+            // Power crackling out of the caster: fast, short-lived streaks in every direction.
+            var arcs = CinePS(rig, "ChargeArcs", spark0, sparks, 0.12f, 0.24f, 9f, 17f, 0.05f, 0.1f, 0f, ParticleSystemShapeType.Sphere, 0.25f, 300);
+            var arcRenderer = arcs.GetComponent<ParticleSystemRenderer>();
+            arcRenderer.renderMode = ParticleSystemRenderMode.Stretch;
+            arcRenderer.lengthScale = 5f;
+            arcRenderer.velocityScale = 0.07f;
+            cine.arcs = arcs;
+            // Sparks spiralling up round the caster: born on a ring on the floor, they climb, circle and close in.
+            var vortex = CinePS(rig, "ChargeVortex", spark0, sparks, 1.4f, 2.2f, 0f, 0f, 0.06f, 0.15f, 0f, ParticleSystemShapeType.Circle, 1.9f, 600);
+            var vortexShape = vortex.shape;
+            vortexShape.radiusThickness = 0.15f;
+            vortex.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            var swirl = vortex.velocityOverLifetime;
+            swirl.enabled = true;
+            swirl.space = ParticleSystemSimulationSpace.World;
+            swirl.x = new ParticleSystem.MinMaxCurve(0f);
+            swirl.y = new ParticleSystem.MinMaxCurve(1.9f);
+            swirl.z = new ParticleSystem.MinMaxCurve(0f);
+            swirl.orbitalX = new ParticleSystem.MinMaxCurve(0f);
+            swirl.orbitalY = new ParticleSystem.MinMaxCurve(2.6f);
+            swirl.orbitalZ = new ParticleSystem.MinMaxCurve(0f);
+            swirl.radial = new ParticleSystem.MinMaxCurve(-0.35f);
+            cine.vortex = vortex;
+            // Light pouring down from the rune in the sky: a disc overhead that emits downward, in streaks.
+            var skyfall = CinePS(rig, "Skyfall", spark0, sparks, 0.7f, 1.0f, 8f, 12f, 0.07f, 0.16f, 0.4f, ParticleSystemShapeType.Cone, 3.2f, 600);
+            var skyfallShape = skyfall.shape;
+            skyfallShape.angle = 2f;
+            skyfall.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var skyfallRenderer = skyfall.GetComponent<ParticleSystemRenderer>();
+            skyfallRenderer.renderMode = ParticleSystemRenderMode.Stretch;
+            skyfallRenderer.lengthScale = 4f;
+            skyfallRenderer.velocityScale = 0.05f;
+            cine.skyfall = skyfall;
+            // The dark: a sphere 60 m across round the ring (WizardsVRC/DuskVeil), everything but the magic dimmed inside it.
+            var dusk = new GameObject("DuskDome");
+            dusk.transform.SetParent(rig, false);
+            dusk.transform.localScale = Vector3.one * 60f;
+            dusk.AddComponent<MeshFilter>().sharedMesh = InsideSphereMesh();
+            var duskR = dusk.AddComponent<MeshRenderer>();
+            duskR.sharedMaterial = DuskVeilMat();
+            duskR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            duskR.receiveShadows = false;
+            dusk.SetActive(false);
+            cine.duskDome = dusk.transform;
+            cine.duskRenderer = duskR;
+            // The school's rune in the sky (the same drawn-symbol quad as the one on the floor, seen from underneath).
+            var sky = Child(rig, "SkySigil", Vector3.zero);
+            cine.skySigilRenderer = FlatQuad(sky, "Rune", 1f, GlyphQuadMat("SpellCineSkySigil"), null);
+            cine.skySigil = sky;
+            sky.gameObject.SetActive(false);
+
+            // ---- the unleash: a ring of sparks racing out along the floor, and the power core over the caster
+            var shock = CinePS(rig, "Shockwave", spark0, sparks, 0.6f, 0.9f, 7f, 10f, 0.12f, 0.3f, 0f, ParticleSystemShapeType.Circle, 0.4f, 600);
+            var shockShape = shock.shape;
+            shockShape.radiusThickness = 0f;
+            shock.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            cine.shockwave = shock;
+            var core = Child(rig, "PowerCore", Vector3.zero);
+            var coreOrb = Shape(core, "Orb", BlobMesh(), Vector3.zero, Vector3.one, cores[0], false, Quaternion.identity);
+            coreOrb.isStatic = false;
+            coreOrb.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            coreR.Add(coreOrb.GetComponent<Renderer>());
+            var coreHalo = CinePS(core, "Halo", glow0, glows, 0.25f, 0.4f, 0f, 0f, 1.7f, 2.3f, 0f, ParticleSystemShapeType.Sphere, 0.01f, 60);
+            var coreHaloEmission = coreHalo.emission;
+            coreHaloEmission.rateOverTime = 30f;
+            core.gameObject.SetActive(false);
+            cine.powerCore = core;
+            cine.coreMotes = CinePS(rig, "CoreMotes", spark0, sparks, 0.4f, 0.55f, -3.6f, -2.8f, 0.06f, 0.15f, 0f, ParticleSystemShapeType.Sphere, 1.6f, 500);
+
             // ---- release
             var release = CinePS(rig, "ReleaseBurst", glow0, glows, 0.3f, 0.5f, 3.5f, 7f, 0.12f, 0.35f, 0f, ParticleSystemShapeType.Cone, 0.08f, 300);
             var rshape = release.shape;
@@ -579,10 +662,40 @@ namespace WizardsVRC.EditorTools
             cine.releaseSound = CastClip("Spell_Release");
             cine.impactSound = CastClip("Spell_Impact");
             cine.impactBigSound = CastClip("Spell_ImpactBig");
+            cine.surgeSound = CastClip("Spell_Surge");
+            // The hum of the charge has a source of its own (it's started part-way in, and cut off on the release).
+            var hum = Child(rig, "ChargeHum", Vector3.zero).gameObject.AddComponent<AudioSource>();
+            hum.playOnAwake = false;
+            hum.loop = false;
+            hum.spatialBlend = 0.75f;
+            hum.minDistance = 6f;
+            hum.maxDistance = 50f;
+            hum.rolloffMode = AudioRolloffMode.Linear;
+            cine.chargeAudio = hum;
+            cine.chargeSound = CastClip("Spell_Charge");
 
             // Nothing in the rig is static or casts shadows.
             foreach (Transform t in rig.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = false;
             return cine;
+        }
+
+        /// <summary>The dark for a big spell's charge (WizardsVRC/DuskVeil): clear until SpellCinematic drives its colour's alpha.</summary>
+        private static Material DuskVeilMat()
+        {
+            Directory.CreateDirectory(MaterialsDir);
+            string path = MaterialsDir + "/SpellDuskVeil.mat";
+            var shader = Shader.Find("WizardsVRC/DuskVeil");
+            if (shader == null) Debug.LogError("[WizardsVRC] Shader WizardsVRC/DuskVeil is missing; big spells won't darken the ring as they charge.");
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader ?? Shader.Find("Sprites/Default"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            if (shader != null) mat.shader = shader;
+            mat.SetColor("_Color", new Color(0f, 0f, 0f, 0f));
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         private static Material SpellFadeMat()
