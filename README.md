@@ -73,6 +73,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/BattleManager.cs` | Networked combat referee (object owner): arena queue countdown, boss + scaled minions, pips + power pips, accuracy, critical/block, school weakness/resist, wards/empower, monster AI, mid-fight joining, flee, round resolution |
 | `Assets/WizardsVRC/Scripts/BattleClient.cs` | Local combat view: teleport/immobilize, 7-card hand from Deck 1, targeting, potions, flee, mana cost, round playback, rewards/defeat |
 | `Assets/WizardsVRC/Scripts/CastPattern.cs`, `PatternWand.cs` | Drawing a spell's rune before it's sent (spells under 100% accuracy): the board of points along the school's symbol, the hip wand in VR (a local pickup; `PatternWand` relays its grab, drop and the sidearm's trigger), numbered points on desktop, the four casting styles (sabre, baton, lantern, sidearm), the quality that cuts the fizzle chance |
+| `Assets/WizardsVRC/Scripts/Cutscene.cs`, `CutscenePlayer.cs` | Story scenes ([CUTSCENES.md](CUTSCENES.md)): every conversation is filmed for the player alone by a director, on a letterboxed screen with a talk window (name plate, typed lines, Auto, Skip, questions with answers). The cast are the bodies in the world plus stand-ins for those who belong elsewhere; they turn to each other and act each line out, you are in the shots, and the camera cuts with the lines (wide, waist-up, over the shoulder, close), each shot worked out from where everyone stands and checked for a clear view. The same screen plays spell films |
 | `Assets/WizardsVRC/Scripts/SpellCinematic.cs` | Every attack spell, heal and dispel, staged by the formula in `SPELL_ANIMATIONS.md` on one shared rig, in six beats (cast, arrival, display, attack, result, exit): the caster is taken to the middle of the ring and charges (four tiers by pip cost), then the spell plays its own recipe (flourish, arrival, display, delivery, impact, exit, film style, bolts), a creature riding the attack; filmed on the cutscene screen. It also stages and films Sunfire Wyrm's own dragon (`SunfireWyrm.cs`) |
 | `Assets/WizardsVRC/Scripts/SunfireWyrm.cs` | Sunfire Wyrm's dragon and the whole of its flight (a spell with staging of its own): out of the caster, three twirls round them, at rest behind them, through its targets, round, and its fire; it lays its curve out for each cast and places its head and 24 body segments along it every frame, shedding flames all the while |
 | `Assets/WizardsVRC/Scripts/BattleQueuePad.cs` | Trigger zone that joins/leaves a battle queue: the boss arena teleporter pad, and the duelling circle (keeps whoever stands inside queued) |
@@ -314,6 +315,22 @@ and opens the World 2 arch in the portal room.
 **Levelling** gets slower as you go: XP to the next level is `100 x level + 10 x level^2` (Lv 1 → 2 takes 110, Lv 10 → 11
 takes 2,000, Lv 30 → 31 takes 12,000). The level cap is **50** (`CharacterData.MAX_LEVEL`).
 
+## Story scenes
+
+Talking to anyone plays a scene built the way a story scene is staged in a role-playing game, for you alone: the
+screen opens in front of you, letterboxed, and a director films whoever you clicked, anyone else in the scene (as
+themselves if they stand nearby, as stand-ins brought on beside them if they belong elsewhere) and your own avatar.
+Speakers turn to whoever they are speaking to and act the line out; the camera opens wide, goes in to the speaker,
+cuts over shoulders and comes in close, every shot worked out from where everyone really stands and checked for a
+clear view. Lines type into a talk window under the speaker's name plate; click the picture (or Space) to go on, or
+leave **Auto** on. A scene can also wait, fade, show a title card, cut away, have someone gesture, turn, walk on or
+leave, and ask you a question whose answer changes the lines that follow.
+
+Every existing conversation gets this from its plain lines. The scenes that matter most are directed row by row
+(tags like `[bow, close, to Ozza]`, directions like `@cast`, `@shot`, `@choice`): how to write them, the house style
+the director follows otherwise, and a model that storyboards a scene without Unity (`Tools/cutscene_model.py`) are in
+[CUTSCENES.md](CUTSCENES.md).
+
 ## Getting about
 
 There are no portals between the castle and the streets: you walk through tunnels into the mountains round the castle and
@@ -482,8 +499,10 @@ Every borough has its own layout:
 
 Ten storylines (with Under Everything 130-132 in town, **The Parley** 153-156, Odd Jobs 162-164 and Lucky Streak
 165-166) lead to the finale, *Ante Up* and *All In* (160-161): every gang storming the casino together. **The Parley** is
-where the kobolds wise up: the gang bosses, called to a moot, argue it out in scenes with several voices (lines written
-`Name|words`, `!Name|words` for an enemy) until they shake on it. Monsters are ids 60-88: kobold gang toughs and the
+where the kobolds wise up: the gang bosses, called to a moot, argue it out in directed scenes with several voices (lines
+written `Name|words`, `!Name|words` for an enemy, with stage directions: the four bosses stand in round the Deepwarden,
+each turns on whoever spoke last, and the wizard is asked what they found; see [CUTSCENES.md](CUTSCENES.md)) until they
+shake on it. Monsters are ids 60-88: kobold gang toughs and the
 Dominion's Tech-school troops; items are 200-263 (`Tools/make_items.py`).
 
 - **Bosses who speak first:** a zone encounter with **Intro Lines** plays a cutscene as you walk up to its ring, or for a

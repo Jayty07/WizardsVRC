@@ -385,6 +385,8 @@ namespace WizardsVRC.EditorTools
                 if (f != null && f.FieldType == typeof(UiAudio)) f.SetValue(b, uiAudio);
             }
             ((CutscenePlayer)cutscenes[0]).uiAudio = uiAudio;
+            // The HUD steps aside while a scene plays (it would hang in front of you in the film).
+            hud.cutscenes = (CutscenePlayer)cutscenes[0];
             // Drawing a spell's rune to cast it, and every attack spell's choreography and cinematic (WizardsVRCSceneBuilder.SpellCast.cs).
             Lap("interface sounds and discovery");
             BuildSpellCasting(encounters, (CutscenePlayer)cutscenes[0], book);
@@ -411,6 +413,9 @@ namespace WizardsVRC.EditorTools
             // Clicking an NPC (Talk, a professor's menu, the Headmaster) makes its body nod and gesture.
             int talkers = WireTalkGestures(scene);
             Debug.Log("[WizardsVRC] NPCs: " + talkers + " talk to you with a gesture.");
+            // Every scene's cast: the bodies that play it where they stand, and stand-ins for those who belong elsewhere
+            // (WizardsVRCSceneBuilder.Cutscenes.cs).
+            WireCutsceneCasts();
             foreach (var b in toSync)
             {
                 UdonSharpEditorUtility.CopyProxyToUdon(b);
@@ -2300,7 +2305,7 @@ namespace WizardsVRC.EditorTools
             new Color(0.35f, 0.3f, 0.4f), new Color(0.95f, 0.8f, 0.25f), new Color(0.85f, 0.6f, 0.4f),
         };
 
-        /// <summary>The film camera and the in-front-of-player video screen NPC cutscenes play on, and the intro flow.</summary>
+        /// <summary>The film camera and the screen in front of the player that story scenes (and spell films) play on, and the intro flow.</summary>
         private static UdonSharpBehaviour[] BuildCutscenes(Transform systems, CharacterSelectUI selectUI, Interior interior)
         {
             var player = UdonSharpUndo.AddComponent<CutscenePlayer>(Child(systems, "CutscenePlayer", Vector3.zero).gameObject);
@@ -2323,81 +2328,17 @@ namespace WizardsVRC.EditorTools
             cam.farClipPlane = 200f;
             cam.enabled = false;
 
-            var screenGo = new GameObject("CutsceneScreen", typeof(RectTransform));
-            MakeWorldCanvas(screenGo, new Vector2(1600, 1100), Vector3.zero, 0.001f);
-            RectTransform root = (RectTransform)screenGo.transform;
-            Panel(root, "Frame", Vector2.zero, new Vector2(1600, 1100), new Color(0.05f, 0.04f, 0.08f, 0.95f));
-            var filmGo = new GameObject("Film", typeof(RectTransform), typeof(RawImage));
-            filmGo.transform.SetParent(root, false);
-            var filmRect = (RectTransform)filmGo.transform;
-            filmRect.anchoredPosition = new Vector2(0, 90);
-            filmRect.sizeDelta = new Vector2(1560, 878);
-            var filmImage = filmGo.GetComponent<RawImage>();
-            filmImage.texture = rt;
-            filmImage.raycastTarget = false;
-            Panel(root, "SubtitleBand", new Vector2(0, -250), new Vector2(1560, 200), new Color(0, 0, 0, 0.7f));
-            // Who's speaking: a medallion with their initial, its rim blue (ally), yellow (neutral) or red (hostile),
-            // and their name in the same colour (WizardsVRCSceneBuilder.UiStyle.cs has the art).
-            UiImage(root, "PortraitBack", new Vector2(-660, -250), new Vector2(170, 170), "PortraitBack", Color.white, 2.6f).preserveAspect = true;
-            player.portraitRing = UiImage(root, "PortraitRing", new Vector2(-660, -250), new Vector2(170, 170), "PortraitNeutral", Color.white, 2.6f);
-            player.portraitRing.preserveAspect = true;
-            player.portraitRings = new[] { UiSprite("PortraitAlly"), UiSprite("PortraitNeutral"), UiSprite("PortraitHostile") };
-            player.portraitInitial = Label(root, "PortraitInitial", new Vector2(-660, -250), new Vector2(170, 170), "", 84, TextAnchor.MiddleCenter);
-            player.portraitInitial.gameObject.AddComponent<Outline>().effectColor = Color.black;
-            player.stanceColors = new[] { new Color(0.5f, 0.75f, 1f), new Color(1f, 0.85f, 0.35f), new Color(1f, 0.45f, 0.4f) };
-            player.speakerLabel = Label(root, "Speaker", new Vector2(90, -180), new Vector2(1320, 50), "", 34, TextAnchor.MiddleLeft);
-            player.speakerLabel.color = new Color(1f, 0.85f, 0.4f);
-            player.subtitleLabel = Label(root, "Subtitle", new Vector2(90, -270), new Vector2(1320, 130), "", 32, TextAnchor.UpperLeft);
-            ApplyCombatFont(player.portraitInitial.transform);
-            UdonBehaviour target = UdonSharpEditorUtility.GetBackingUdonBehaviour(player);
-            player.nextButton = Button(root, "Next", new Vector2(-170, -475), new Vector2(280, 80), "Next (Space)", new Color(0.3f, 0.35f, 0.55f), target, "Next");
-            player.skipButton = Button(root, "Skip", new Vector2(170, -475), new Vector2(280, 80), "Skip", new Color(0.5f, 0.25f, 0.25f), target, "Skip");
-            var voice = screenGo.AddComponent<AudioSource>();
-            voice.playOnAwake = false;
-            voice.spatialBlend = 0f;
-            player.voiceSource = voice;
+            // The screen (letterbox, talk window, questions, Auto and Skip), the dark that falls round you while a scene
+            // plays and what the camera draws: WizardsVRCSceneBuilder.Cutscenes.cs.
+            BuildCutsceneScreen(player, rt);
+            BuildCutsceneVeil(player, systems);
             player.filmCamera = cam;
-            player.screenRoot = screenGo;
-            // The screen is only switched on for the local player, so nobody else ever sees it. It also goes on its own
-            // layer (Walkthrough: still clickable, no collisions) that the film camera doesn't render, together with
-            // the player avatars, so neither shows up in the shots.
-            int screenLayer = LayerMask.NameToLayer("Walkthrough");
-            if (screenLayer < 0) screenLayer = 17;
-            foreach (Transform t in screenGo.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = screenLayer;
-            int hidden = 1 << screenLayer;
-            foreach (string layerName in new[] { "Player", "PlayerLocal", "MirrorReflection" })
-            {
-                int l = LayerMask.NameToLayer(layerName);
-                if (l >= 0) hidden |= 1 << l;
-            }
-            cam.cullingMask = ~hidden;
-            // A spell's film (SpellCinematic) shows the players, your own avatar too (its MirrorReflection copy, with a head).
-            int filmHidden = 1 << screenLayer;
-            int localLayer = LayerMask.NameToLayer("PlayerLocal");
-            if (localLayer >= 0) filmHidden |= 1 << localLayer;
-            player.filmCullingMask = ~filmHidden;
-            screenGo.SetActive(false);
+            SetFilmMasks(player, cam);
 
             // The opening for new characters (the awakening, the Headmaster's visions, the creator) is built in
             // WizardsVRCSceneBuilder.Awakening.cs and wired to the flow there.
             flow.selectUI = selectUI;
             return new UdonSharpBehaviour[] { player, flow };
-        }
-
-        private static Cutscene MakeCutscene(Transform parent, string name, string speaker, string[] lines, string voicePrefix, Transform[] shots)
-        {
-            var cs = UdonSharpUndo.AddComponent<Cutscene>(Child(parent, name, Vector3.zero).gameObject);
-            cs.cutsceneId = voicePrefix;
-            cs.lines = lines;
-            cs.speakers = new string[lines.Length];
-            cs.voices = new AudioClip[lines.Length];
-            for (int i = 0; i < lines.Length; i++)
-            {
-                cs.speakers[i] = speaker;
-                cs.voices[i] = AssetDatabase.LoadAssetAtPath<AudioClip>(VoiceDir + "/" + voicePrefix + "_" + i.ToString("00") + ".wav");
-            }
-            cs.shots = shots;
-            return cs;
         }
 
         private static Transform Shot(Transform parent, string name, Vector3 localPos, Vector3 localLookAt)

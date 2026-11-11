@@ -1601,6 +1601,40 @@ namespace WizardsVRC.EditorTools.WorldData
             return step;
         }
 
+        /// <summary>
+        /// A scene's rows with their stage directions taken off (CUTSCENES.md): no "@..." rows, no rows that follow one
+        /// answer to a question ("1> ..."), no [tags] before a line's words. What is left is the plain dialogue the scene
+        /// had before it was directed, which is how an upgrade tells an unedited scene from one you have rewritten.
+        /// </summary>
+        public static string[] Undirected(string[] rows)
+        {
+            var plain = new List<string>();
+            if (rows == null) return plain.ToArray();
+            foreach (string raw in rows)
+            {
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+                string row = raw.Trim();
+                if (row.StartsWith("@")) continue;
+                if (row.Length > 2 && row[0] >= '1' && row[0] <= '3' && row[1] == '>') continue;
+                string who = "";
+                int bar = row.IndexOf('|');
+                if (bar > 0 && bar < 64)
+                {
+                    who = row.Substring(0, bar + 1);
+                    row = row.Substring(bar + 1);
+                }
+                string words = row.TrimStart();
+                while (words.StartsWith("["))
+                {
+                    int end = words.IndexOf(']');
+                    if (end < 0) break;
+                    words = words.Substring(end + 1).TrimStart();
+                }
+                plain.Add(who + words);
+            }
+            return plain.ToArray();
+        }
+
         private static QuestStepEntry Talk(string npc, string objective, string guide, params string[] dialogue)
         {
             return new QuestStepEntry { kind = QuestStepKind.Talk, npc = npc, objective = objective, guideLabel = guide, dialogue = dialogue, count = 1 };

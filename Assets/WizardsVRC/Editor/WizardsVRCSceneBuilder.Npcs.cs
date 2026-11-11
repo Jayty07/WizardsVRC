@@ -96,6 +96,7 @@ namespace WizardsVRC.EditorTools
         {
             _npcControllers.Clear();
             _wingMesh = null;
+            ResetCutscenes();   // the bodies' register and the stand-ins made from it (WizardsVRCSceneBuilder.Cutscenes.cs)
             if (AssetDatabase.IsValidFolder(NpcDir)) AssetDatabase.DeleteAsset(NpcDir);
         }
 
@@ -171,8 +172,11 @@ namespace WizardsVRC.EditorTools
         /// <summary>
         /// Builds an NPC from its look, facing local -Z at pos: the jointed model, its name and hint tags above its head and a
         /// click box. 'top' is how tall it stands (hat included), 'faceY' the height of its face, both in its parent's space.
+        /// The body is registered under its title, so story scenes can cast it (WizardsVRCSceneBuilder.Cutscenes.cs).
+        /// 'standIn': a copy for those scenes to bring on somewhere else: no tags, no click box, not registered.
         /// </summary>
-        private static Transform NpcModel(Transform parent, string name, Vector3 pos, float yaw, NpcLook L, string title, string hint, out float top, out float faceY)
+        private static Transform NpcModel(Transform parent, string name, Vector3 pos, float yaw, NpcLook L, string title, string hint, out float top, out float faceY,
+            bool standIn = false)
         {
             var root = Child(parent, name, pos);
             root.localRotation = Quaternion.Euler(0, yaw, 0);
@@ -386,7 +390,7 @@ namespace WizardsVRC.EditorTools
             foreach (var r in model.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             var anim = model.gameObject.AddComponent<Animator>();
-            anim.runtimeAnimatorController = NpcController(L.ghost ? 3 : (L.idle >= 0 ? L.idle : Mathf.Abs(name.GetHashCode()) % 3));
+            anim.runtimeAnimatorController = NpcController(L.ghost ? 3 : (L.idle >= 0 ? L.idle : Mathf.Abs(name.GetHashCode()) % 3), L.build == NpcBuild.Elder);
             anim.applyRootMotion = false;
             anim.cullingMode = AnimatorCullingMode.CullCompletely;
 
@@ -395,11 +399,14 @@ namespace WizardsVRC.EditorTools
             if (L.build == NpcBuild.Elder) headTop -= 0.06f;
             top = headTop * B.scale + (L.ghost ? 0.15f : 0f) + L.stand;
             faceY = (1.05f + neckAt.y + 0.25f * B.head) * B.scale + (L.ghost ? 0.15f : 0f) + L.stand;
-            NameTag(root, "NameTag", new Vector3(0, top + 0.4f, 0), title);
-            HintTag(root, "TalkHint", new Vector3(0, top + 0.08f, 0), hint);
+            if (standIn) return root;
+            // (The tags float over their head for your own eyes only: story scenes and spell films are shot without them.)
+            OffCamera(NameTag(root, "NameTag", new Vector3(0, top + 0.4f, 0), title));
+            OffCamera(HintTag(root, "TalkHint", new Vector3(0, top + 0.08f, 0), hint));
             var box = root.gameObject.AddComponent<BoxCollider>();
             box.center = new Vector3(0, top * 0.5f, 0);
             box.size = new Vector3(Mathf.Max(1.1f, w * 2.2f * B.scale), top, Mathf.Max(1.1f, d * 2.6f * B.scale));
+            RegisterNpcBody(title, name, root, L, faceY);
             return root;
         }
 
@@ -1332,39 +1339,98 @@ namespace WizardsVRC.EditorTools
 
         // ================================================================== animation
 
-        /// <summary>
-        /// The NPC Animator: one of three idles (0-2) or the ghost's float (3), and a "Talk" trigger (a nod, an open hand)
-        /// from any state that goes back to idle. Shared by every NPC with that idle.
-        /// </summary>
-        private static RuntimeAnimatorController NpcController(int idle)
+        /// <summary>The emotes a story scene can ask of a body (CutscenePlayer.EmoteTrigger): its Animator has a trigger and a state for each.</summary>
+        private static readonly string[] NpcEmoteNames = { "Talk", "Nod", "Shake", "Think", "Point", "Bow", "Surprise", "Cheer", "Laugh", "Angry", "Shrug", "Wave", "Sad" };
+        private static readonly int[] NpcEmoteIds =
         {
-            string key = "Npc_Idle" + idle;
+            Cutscene.EMOTE_TALK, Cutscene.EMOTE_NOD, Cutscene.EMOTE_SHAKE, Cutscene.EMOTE_THINK, Cutscene.EMOTE_POINT, Cutscene.EMOTE_BOW,
+            Cutscene.EMOTE_SURPRISE, Cutscene.EMOTE_CHEER, Cutscene.EMOTE_LAUGH, Cutscene.EMOTE_ANGRY, Cutscene.EMOTE_SHRUG, Cutscene.EMOTE_WAVE, Cutscene.EMOTE_SAD,
+        };
+
+        /// <summary>
+        /// How a body holds itself at rest, which every gesture starts from and comes back to: the height of its hips, and
+        /// the lean of its hips, spine, head and arms (degrees). Upright for most; an elder stoops; the slouched idle is
+        /// hunched right over with its head thrust forward; a ghost hangs a little higher.
+        /// </summary>
+        private struct NpcRest { public float y, hips, spine, head, arm, armOut; }
+
+        private static NpcRest NpcRestPose(int idle, bool elder)
+        {
+            var r = new NpcRest { y = 1.05f };
+            if (idle == 4) { r.y = 1.02f; r.hips = -4f; r.spine = -18f; r.head = 14f; r.arm = 24f; r.armOut = 4f; }
+            else
+            {
+                if (idle == 3) r.y = 1.12f;
+                if (elder) r.spine = -11f;   // (their neck's answering tilt isn't animated, so it stays as built)
+            }
+            return r;
+        }
+
+        /// <summary>
+        /// The NPC Animator, shared by every NPC with that idle (an elder's stoop has its own, so their gestures start from it):
+        ///   - Idle: one of three idles (0-2), the ghost's float (3) or the slouch (4).
+        ///   - Attend: while a story scene has them (the "Scene" bool): breathing, their head still, eyes on whoever they
+        ///     were turned to, instead of glancing about.
+        ///   - A trigger and a state for each emote (NpcEmoteNames), from any state, going back to Attend or Idle: "Talk"
+        ///     (a nod and an open hand) when you click them, the rest as a scene's lines call for them.
+        /// </summary>
+        private static RuntimeAnimatorController NpcController(int idle, bool elder = false)
+        {
+            if (idle == 4) elder = false;   // the slouch sets its own spine
+            string key = "Npc_Idle" + idle + (elder ? "_Elder" : "");
             RuntimeAnimatorController rc;
             if (_npcControllers.TryGetValue(key, out rc)) return rc;
             Directory.CreateDirectory(NpcDir);
             var ctrl = AnimatorController.CreateAnimatorControllerAtPath(NpcDir + "/" + key + ".controller");
-            AnimationClip idleClip = NpcIdleClip(idle), talk = NpcTalkClip(idle == 4);
-            // Both set every joint either moves (Talk's first keys are the rest pose), so an NPC switched off mid-gesture
-            // (its area culled) doesn't come back with its arm stuck up.
-            CompleteClips(new[] { idleClip, talk }, new[] { 1, 0 });
-            AssetDatabase.AddObjectToAsset(idleClip, ctrl);
-            AssetDatabase.AddObjectToAsset(talk, ctrl);
-            ctrl.AddParameter("Talk", AnimatorControllerParameterType.Trigger);
+            NpcRest rest = NpcRestPose(idle, elder);
+            string tag = idle == 4 ? "Slouched" : (idle == 3 ? "Ghost" : (elder ? "Elder" : ""));
+            var clips = new List<AnimationClip>();
+            foreach (int emote in NpcEmoteIds) clips.Add(NpcEmoteClip(emote, rest, tag, idle == 4));
+            AnimationClip attend = NpcAttendClip(idle, rest, tag), idleClip = NpcIdleClip(idle);
+            clips.Add(attend);
+            clips.Add(idleClip);
+            // Every clip sets every joint any of them moves (a gesture's first keys are the rest pose), so an NPC switched
+            // off mid-gesture (its area culled) doesn't come back with its arm stuck up.
+            var order = new int[clips.Count];
+            for (int i = 0; i < order.Length; i++) order[i] = i;
+            CompleteClips(clips.ToArray(), order);
+            foreach (var clip in clips) AssetDatabase.AddObjectToAsset(clip, ctrl);
+            ctrl.AddParameter("Scene", AnimatorControllerParameterType.Bool);
+            foreach (string emote in NpcEmoteNames) ctrl.AddParameter(emote, AnimatorControllerParameterType.Trigger);
             var sm = ctrl.layers[0].stateMachine;
             var idleState = sm.AddState("Idle");
             idleState.motion = idleClip;
-            var talkState = sm.AddState("Talk");
-            talkState.motion = talk;
+            var attendState = sm.AddState("Attend");
+            attendState.motion = attend;
             sm.defaultState = idleState;
-            var t = sm.AddAnyStateTransition(talkState);
-            t.AddCondition(AnimatorConditionMode.If, 0, "Talk");
-            t.duration = 0.15f;
-            t.hasExitTime = false;
-            t.canTransitionToSelf = false;
-            var back = talkState.AddTransition(idleState);
-            back.hasExitTime = true;
-            back.exitTime = 0.95f;
-            back.duration = 0.3f;
+            var listen = idleState.AddTransition(attendState);
+            listen.AddCondition(AnimatorConditionMode.If, 0, "Scene");
+            listen.hasExitTime = false;
+            listen.duration = 0.35f;
+            var relax = attendState.AddTransition(idleState);
+            relax.AddCondition(AnimatorConditionMode.IfNot, 0, "Scene");
+            relax.hasExitTime = false;
+            relax.duration = 0.5f;
+            for (int e = 0; e < NpcEmoteNames.Length; e++)
+            {
+                var state = sm.AddState(NpcEmoteNames[e]);
+                state.motion = clips[e];
+                var t = sm.AddAnyStateTransition(state);
+                t.AddCondition(AnimatorConditionMode.If, 0, NpcEmoteNames[e]);
+                t.duration = 0.15f;
+                t.hasExitTime = false;
+                t.canTransitionToSelf = false;
+                var back = state.AddTransition(idleState);
+                back.AddCondition(AnimatorConditionMode.IfNot, 0, "Scene");
+                back.hasExitTime = true;
+                back.exitTime = 0.95f;
+                back.duration = 0.3f;
+                var stay = state.AddTransition(attendState);
+                stay.AddCondition(AnimatorConditionMode.If, 0, "Scene");
+                stay.hasExitTime = true;
+                stay.exitTime = 0.95f;
+                stay.duration = 0.3f;
+            }
             EditorUtility.SetDirty(ctrl);
             _npcControllers[key] = ctrl;
             return ctrl;
@@ -1434,23 +1500,143 @@ namespace WizardsVRC.EditorTools
             return c;
         }
 
-        /// <summary>The "Talk" gesture: a nod and an open hand. Slouched, the same gesture from the hunch (it never straightens).</summary>
-        private static AnimationClip NpcTalkClip(bool slouched = false)
+        /// <summary>
+        /// While a story scene has them: breathing, the head still and level (CutscenePlayer turns the whole body to
+        /// whoever they speak or listen to), the arms barely stirring. A ghost goes on floating.
+        /// </summary>
+        private static AnimationClip NpcAttendClip(int idle, NpcRest R, string tag)
         {
-            var c = NewClip(slouched ? "NpcTalkSlouched" : "NpcTalk", false);
-            float hx = slouched ? 14f : 0f, ax = slouched ? 24f : 0f;
-            Keys(c, NpcHead, "rotx", 0, hx, 0.25f, hx + 9, 0.5f, hx, 0.8f, hx + 7, 1.1f, hx, 2.2f, hx);
-            Keys(c, NpcHead, "roty", 0, 0, 2.2f, 0);
-            // An open hand: the left arm comes up and out, then settles.
-            Keys(c, NpcArmL, "rotx", 0, ax, 0.45f, ax + 50, 1.3f, ax + 44, 2.2f, ax);
-            Keys(c, NpcArmL, "rotz", 0, slouched ? 4f : 0f, 0.45f, 18, 1.3f, 14, 2.2f, slouched ? 4f : 0f);
-            Keys(c, "Hips", "posy", 0, slouched ? 1.02f : 1.05f, 2.2f, slouched ? 1.02f : 1.05f);
-            if (slouched)
+            var c = NewClip("NpcAttend" + tag, true);
+            Wave(c, "Hips", "posy", 4f, 1, R.y, idle == 3 ? 0.08f : 0.006f);
+            Wave(c, "Hips/Spine", "scaley", 4f, 1, 1f, 0.014f);
+            Wave(c, NpcHead, "rotx", 4f, 1, R.head, 1.2f, 0.25f);
+            Keys(c, NpcHead, "roty", 0, 0, 4f, 0);
+            Wave(c, NpcArmL, "rotz", 4f, 1, R.armOut, 1.5f);
+            Wave(c, NpcArmR, "rotz", 4f, 1, -R.armOut, -1.5f, 0.5f);
+            Wave(c, "Hips/Tail", "roty", 4f, 1, 0f, 6f);
+            return c;
+        }
+
+        /// <summary>
+        /// One emote, from the rest pose and back to it. The joints turn the way the idles do: a head or spine leans
+        /// forward with a negative x and back with a positive one, an arm lifts forward with a positive x, the left arm
+        /// swings out with a positive z and the right with a negative one. Gestures are made with the left arm (the right
+        /// usually holds a staff, which swings with it) and only the shoulders: the elbows keep the bend they were built
+        /// with, which differs from body to body.
+        /// </summary>
+        private static AnimationClip NpcEmoteClip(int emote, NpcRest R, string tag, bool slouched)
+        {
+            float y = R.y, sx = R.spine, hx = R.head, ax = R.arm, lz = R.armOut, rz = -R.armOut;
+            const string Spine = "Hips/Spine";
+            AnimationClip c;
+            switch (emote)
             {
-                Keys(c, "Hips", "rotx", 0, -4f, 2.2f, -4f);
-                Keys(c, "Hips/Spine", "rotx", 0, -18f, 0.45f, -14f, 1.3f, -15f, 2.2f, -18f);
-                Keys(c, "Hips/Spine/Neck", "rotx", 0, 8f, 2.2f, 8f);
-                Keys(c, NpcArmR, "rotx", 0, ax, 2.2f, ax);
+                case Cutscene.EMOTE_NOD:   // yes: two dips of the head
+                    c = NewClip("NpcNod" + tag, false);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.22f, hx - 15, 0.5f, hx - 2, 0.78f, hx - 11, 1.15f, hx, 1.5f, hx);
+                    Keys(c, Spine, "rotx", 0, sx, 0.3f, sx - 3, 0.9f, sx - 2, 1.5f, sx);
+                    break;
+                case Cutscene.EMOTE_SHAKE:   // no: the head goes side to side, chin down
+                    c = NewClip("NpcShake" + tag, false);
+                    Keys(c, NpcHead, "roty", 0, 0, 0.2f, 19, 0.5f, -19, 0.8f, 15, 1.1f, -10, 1.4f, 0, 1.7f, 0);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.25f, hx - 5, 1.3f, hx - 5, 1.7f, hx);
+                    break;
+                case Cutscene.EMOTE_THINK:   // a tilt of the head, eyes off to one side, a hand half lifted
+                    c = NewClip("NpcThink" + tag, false);
+                    Keys(c, NpcHead, "rotz", 0, 0, 0.5f, 10, 2.1f, 10, 2.8f, 0);
+                    Keys(c, NpcHead, "roty", 0, 0, 0.5f, -15, 1.3f, -12, 2.1f, -15, 2.8f, 0);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.5f, hx - 7, 2.1f, hx - 5, 2.8f, hx);
+                    Keys(c, NpcArmL, "rotx", 0, ax, 0.6f, ax + 34, 2.0f, ax + 30, 2.8f, ax);
+                    Keys(c, NpcArmL, "rotz", 0, lz, 0.6f, lz - 6, 2.0f, lz - 6, 2.8f, lz);
+                    Keys(c, Spine, "rotz", 0, 0, 0.6f, 2.5f, 2.1f, 2.5f, 2.8f, 0);
+                    break;
+                case Cutscene.EMOTE_POINT:   // the left arm straight out ahead, that shoulder leading
+                    c = NewClip("NpcPoint" + tag, false);
+                    Keys(c, NpcArmL, "rotx", 0, ax, 0.35f, 86, 0.55f, 78, 1.5f, 80, 2.2f, ax);
+                    Keys(c, NpcArmL, "rotz", 0, lz, 0.35f, lz + 6, 1.5f, lz + 6, 2.2f, lz);
+                    Keys(c, Spine, "roty", 0, 0, 0.4f, 9, 1.5f, 9, 2.2f, 0);
+                    Keys(c, NpcHead, "roty", 0, 0, 0.4f, -6, 1.5f, -6, 2.2f, 0);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.4f, hx + 4, 1.5f, hx + 4, 2.2f, hx);
+                    break;
+                case Cutscene.EMOTE_BOW:   // from the waist, the arms left hanging
+                    c = NewClip("NpcBow" + tag, false);
+                    Keys(c, Spine, "rotx", 0, sx, 0.6f, sx - 34, 1.5f, sx - 34, 2.3f, sx, 2.6f, sx);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.6f, hx - 14, 1.5f, hx - 14, 2.3f, hx, 2.6f, hx);
+                    Keys(c, NpcArmL, "rotx", 0, ax, 0.6f, ax + 26, 1.5f, ax + 26, 2.3f, ax, 2.6f, ax);
+                    Keys(c, NpcArmR, "rotx", 0, ax, 0.6f, ax + 26, 1.5f, ax + 26, 2.3f, ax, 2.6f, ax);
+                    break;
+                case Cutscene.EMOTE_SURPRISE:   // starts back: a hop, head up, arms flung wide
+                    c = NewClip("NpcSurprise" + tag, false);
+                    Keys(c, Spine, "rotx", 0, sx, 0.12f, sx + 9, 0.6f, sx + 7, 1.2f, sx, 1.5f, sx);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.12f, hx + 10, 0.6f, hx + 8, 1.2f, hx, 1.5f, hx);
+                    Keys(c, "Hips", "posy", 0, y, 0.1f, y + 0.05f, 0.25f, y, 1.5f, y);
+                    Keys(c, NpcArmL, "rotz", 0, lz, 0.12f, lz + 34, 0.6f, lz + 28, 1.2f, lz, 1.5f, lz);
+                    Keys(c, NpcArmL, "rotx", 0, ax, 0.12f, ax + 22, 0.6f, ax + 18, 1.2f, ax, 1.5f, ax);
+                    Keys(c, NpcArmR, "rotz", 0, rz, 0.12f, rz - 20, 0.6f, rz - 16, 1.2f, rz, 1.5f, rz);
+                    break;
+                case Cutscene.EMOTE_CHEER:   // the left arm punched up twice, a hop with each
+                    c = NewClip("NpcCheer" + tag, false);
+                    Keys(c, NpcArmL, "rotx", 0, ax, 0.25f, 158, 0.55f, 128, 0.85f, 160, 1.2f, 130, 1.5f, 150, 2.0f, ax);
+                    Keys(c, NpcArmL, "rotz", 0, lz, 0.25f, lz + 12, 1.5f, lz + 12, 2.0f, lz);
+                    Keys(c, NpcArmR, "rotx", 0, ax, 0.25f, ax + 30, 1.5f, ax + 26, 2.0f, ax);
+                    Keys(c, "Hips", "posy", 0, y, 0.25f, y + 0.06f, 0.55f, y, 0.85f, y + 0.06f, 1.2f, y, 2.0f, y);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.25f, hx + 10, 1.5f, hx + 8, 2.0f, hx);
+                    break;
+                case Cutscene.EMOTE_LAUGH:   // head thrown back, the shoulders shaking
+                    c = NewClip("NpcLaugh" + tag, false);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.2f, hx + 14, 0.45f, hx + 8, 0.7f, hx + 14, 0.95f, hx + 8, 1.2f, hx + 13, 1.5f, hx + 6, 2.0f, hx);
+                    Keys(c, Spine, "rotx", 0, sx, 0.2f, sx + 6, 1.4f, sx + 5, 2.0f, sx);
+                    Keys(c, Spine, "scaley", 0, 1, 0.2f, 1.03f, 0.45f, 0.99f, 0.7f, 1.03f, 0.95f, 0.99f, 1.2f, 1.03f, 1.5f, 1, 2.0f, 1);
+                    Keys(c, NpcArmL, "rotz", 0, lz, 0.3f, lz + 10, 1.4f, lz + 10, 2.0f, lz);
+                    Keys(c, NpcArmR, "rotz", 0, rz, 0.3f, rz - 8, 1.4f, rz - 8, 2.0f, rz);
+                    break;
+                case Cutscene.EMOTE_ANGRY:   // leaning in, a fist shaken
+                    c = NewClip("NpcAngry" + tag, false);
+                    Keys(c, Spine, "rotx", 0, sx, 0.2f, sx - 11, 1.4f, sx - 10, 1.9f, sx);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.2f, hx - 7, 1.4f, hx - 7, 1.9f, hx);
+                    Keys(c, NpcArmL, "rotx", 0, ax, 0.22f, ax + 62, 0.38f, ax + 46, 0.54f, ax + 64, 0.7f, ax + 46, 0.86f, ax + 64, 1.02f, ax + 48, 1.3f, ax + 58, 1.9f, ax);
+                    Keys(c, NpcArmL, "rotz", 0, lz, 0.22f, lz + 14, 1.3f, lz + 14, 1.9f, lz);
+                    Keys(c, NpcArmR, "rotz", 0, rz, 0.22f, rz - 10, 1.3f, rz - 10, 1.9f, rz);
+                    break;
+                case Cutscene.EMOTE_SHRUG:   // both arms out and up a little, the head to one side
+                    c = NewClip("NpcShrug" + tag, false);
+                    Keys(c, NpcArmL, "rotz", 0, lz, 0.3f, lz + 30, 1.0f, lz + 28, 1.8f, lz);
+                    Keys(c, NpcArmR, "rotz", 0, rz, 0.3f, rz - 26, 1.0f, rz - 24, 1.8f, rz);
+                    Keys(c, NpcArmL, "rotx", 0, ax, 0.3f, ax + 22, 1.0f, ax + 20, 1.8f, ax);
+                    Keys(c, NpcArmR, "rotx", 0, ax, 0.3f, ax + 16, 1.0f, ax + 14, 1.8f, ax);
+                    Keys(c, NpcHead, "rotz", 0, 0, 0.3f, 9, 1.0f, 9, 1.8f, 0);
+                    Keys(c, Spine, "scaley", 0, 1, 0.3f, 1.035f, 1.0f, 1.03f, 1.8f, 1);
+                    break;
+                case Cutscene.EMOTE_WAVE:   // the left arm up and out, waved from the shoulder
+                    c = NewClip("NpcWave" + tag, false);
+                    Keys(c, NpcArmL, "rotz", 0, lz, 0.35f, 128, 0.6f, 108, 0.85f, 130, 1.1f, 108, 1.35f, 130, 1.6f, 112, 2.2f, lz);
+                    Keys(c, NpcArmL, "rotx", 0, ax, 0.35f, 18, 1.6f, 18, 2.2f, ax);
+                    Keys(c, NpcHead, "rotz", 0, 0, 0.35f, -6, 1.6f, -6, 2.2f, 0);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.35f, hx + 5, 1.6f, hx + 5, 2.2f, hx);
+                    break;
+                case Cutscene.EMOTE_SAD:   // the head sinks and stays down a while
+                    c = NewClip("NpcSad" + tag, false);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.7f, hx - 20, 2.1f, hx - 18, 3.0f, hx);
+                    Keys(c, NpcHead, "roty", 0, 0, 0.7f, -7, 2.1f, -7, 3.0f, 0);
+                    Keys(c, Spine, "rotx", 0, sx, 0.7f, sx - 7, 2.1f, sx - 7, 3.0f, sx);
+                    Keys(c, Spine, "scaley", 0, 1, 0.7f, 0.975f, 2.1f, 0.975f, 3.0f, 1);
+                    break;
+                default:   // Talk: a lift of the head and an open hand. Slouched, the same from the hunch (it never straightens).
+                    c = NewClip("NpcTalk" + tag, false);
+                    Keys(c, NpcHead, "rotx", 0, hx, 0.25f, hx + 9, 0.5f, hx, 0.8f, hx + 7, 1.1f, hx, 2.2f, hx);
+                    Keys(c, NpcHead, "roty", 0, 0, 2.2f, 0);
+                    // An open hand: the left arm comes up and out, then settles.
+                    Keys(c, NpcArmL, "rotx", 0, ax, 0.45f, ax + 50, 1.3f, ax + 44, 2.2f, ax);
+                    Keys(c, NpcArmL, "rotz", 0, lz, 0.45f, 18, 1.3f, 14, 2.2f, lz);
+                    Keys(c, "Hips", "posy", 0, y, 2.2f, y);
+                    if (slouched)
+                    {
+                        Keys(c, "Hips", "rotx", 0, R.hips, 2.2f, R.hips);
+                        Keys(c, Spine, "rotx", 0, sx, 0.45f, sx + 4, 1.3f, sx + 3, 2.2f, sx);
+                        Keys(c, "Hips/Spine/Neck", "rotx", 0, 8f, 2.2f, 8f);
+                        Keys(c, NpcArmR, "rotx", 0, ax, 2.2f, ax);
+                    }
+                    break;
             }
             return c;
         }

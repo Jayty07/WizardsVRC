@@ -904,6 +904,8 @@ namespace WizardsVRC.EditorTools
             qn.npcId = id;
             qn.markerNew = MarkerTag(t, "QuestMarkerNew", new Vector3(0, npcTop + 1.2f, 0), "!");
             qn.markerTalk = MarkerTag(t, "QuestMarkerTalk", new Vector3(0, npcTop + 1.2f, 0), "?");
+            OffCamera(qn.markerNew);   // like the name tags: for your own eyes, not the films
+            OffCamera(qn.markerTalk);
             if (qn.markerNew != null) qn.markerNew.SetActive(false);
             if (qn.markerTalk != null) qn.markerTalk.SetActive(false);
             qn.showFromQuest = npc.showFromQuest;

@@ -58,6 +58,8 @@ namespace WizardsVRC
         [Tooltip("How quickly it turns to follow your head (it always keeps up with walking and running).")]
         public float followSpeed = 14f;
         public bool hudEnabled = true;
+        [Tooltip("The HUD is put away (shrunk to nothing) while a story scene plays: it would hang in front of you in the picture.")]
+        public CutscenePlayer cutscenes;
 
         [Header("VR")]
         [Tooltip("In VR the HUD sits lower and nearer the middle of your view than on a screen (where the lenses are sharp), turned to face your eyes.")]
@@ -156,6 +158,9 @@ namespace WizardsVRC
                 tr.SetPositionAndRotation(pos, look.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(look, rot * Vector3.up) : rot);
                 tr.localScale = _baseScale * vrScale;
             }
+
+            // Put away while a story scene plays (it still keeps count: the bars are right when it comes back).
+            if (cutscenes != null && cutscenes.IsPlaying()) tr.localScale = Vector3.zero;
 
             if (Time.time >= _nextRefresh)
             {

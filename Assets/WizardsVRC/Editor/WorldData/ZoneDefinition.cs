@@ -356,7 +356,7 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("Facing in degrees (0 = north/up the map). -1 = face the nearest road.")]
         public float facing = -1f;
         [TextArea(1, 4)]
-        [Tooltip("What they say when no quest needs them, one line per row.")]
+        [Tooltip("What they say when no quest needs them, one line per row (rows can also be stage directions: see CUTSCENES.md).")]
         public string[] defaultDialogue = new[] { "Hello there, young wizard." };
         [Tooltip("Optional voice clips: Audio/Voice/<prefix>_00.wav, _01... (blank = none).")]
         public string voicePrefix = "";
@@ -434,7 +434,8 @@ namespace WizardsVRC.EditorTools.WorldData
                  "monsters join a fight of the group's nearby with a free seat, or start another at the nearest free ring.")]
         [Range(1, 4)] public int maxFights = 2;
         [Tooltip("Optional: a cutscene that plays when you walk up to this fight's ring (bosses). One line each; \"Name|words\" is spoken " +
-                 "by Name, \"!Name|words\" by an enemy (red); a line without a name is the first monster's.")]
+                 "by Name, \"!Name|words\" by an enemy (red); a line without a name is the first monster's. It plays on its two placed " +
+                 "shots; of the stage directions in CUTSCENES.md, waits, fades, cards and questions work here.")]
         [TextArea(1, 3)] public string[] introLines;
         [Tooltip("Fought somewhere of its own instead of at its ring: Rooftop = on the roof of the building round the ring (World 3's casino), " +
                  "high over the city. Its ring (inside a dungeon) becomes the lift up; win and you come back down beside it. Blank = at its ring.")]

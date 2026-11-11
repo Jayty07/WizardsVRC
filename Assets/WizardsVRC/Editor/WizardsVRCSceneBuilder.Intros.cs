@@ -8,23 +8,27 @@ namespace WizardsVRC.EditorTools
 {
     /// <summary>
     /// Scenes with more than one voice, and bosses who speak before the fight.
-    ///   - Dialogue lines written "Name|words" are spoken by Name, "!Name|words" by an enemy (red rim); the camera cuts to
-    ///     that character when they're one of the zone's NPCs, else stays on the scene's own shots (SpeakerLines).
+    ///   - Dialogue lines written "Name|words" are spoken by Name, "!Name|words" by an enemy (red rim). Where the scene's
+    ///     own character has a body the director films it with its whole cast (WizardsVRCSceneBuilder.Cutscenes.cs);
+    ///     a scene on placed shots cuts to a named speaker's own shot when they're one of the zone's NPCs (SpeakerLines).
     ///   - A zone encounter with Intro Lines gets a cutscene that plays when you walk up to its ring (EncounterIntro):
     ///     a wide shot of the ring from the way you came, then close on the boss.
     /// </summary>
     public static partial class WizardsVRCSceneBuilder
     {
         /// <summary>
-        /// Splits "Name|words" lines into per-line speakers, stances and shots. 'shots' are the scene's own (a wide shot, then
-        /// a close one); a named speaker who is a zone NPC gets their own close shot.
+        /// The placed shots of a scene with more than one voice, a beat each: 'shots' are the scene's own (a wide shot,
+        /// then a close one); a named speaker who is a zone NPC gets their own close shot. (The lines themselves were
+        /// split into speakers, stances and directions when the scene was made: WizardsVRCSceneBuilder.Cutscenes.cs.)
+        /// A scene the director films only falls back on these where it can't find a clear view.
         /// </summary>
         private static void SpeakerLines(Cutscene cs, string defaultSpeaker, Transform[] shots, WorldBuild wb)
         {
-            if (cs == null || cs.lines == null) return;
+            if (cs == null || cs.lines == null || shots == null || shots.Length == 0) return;
             int n = cs.lines.Length;
             bool any = false;
-            foreach (var l in cs.lines) if (l != null && l.IndexOf('|') > 0) any = true;
+            for (int i = 0; i < n; i++)
+                if (cs.KindAt(i) == Cutscene.BEAT_SAY && cs.SpeakerAt(i) != defaultSpeaker) any = true;
             if (!any) return;
             var byName = new Dictionary<string, Transform[]>();
             if (wb != null)
@@ -33,32 +37,23 @@ namespace WizardsVRC.EditorTools
                     Transform[] s;
                     if (kv.Value != null && wb.npcShots.TryGetValue(kv.Key, out s) && s != null && s.Length > 0) byName[kv.Value] = s;
                 }
-            var speakers = new string[n];
-            var stances = new int[n];
-            var perLine = new Transform[n];
+            var perBeat = new Transform[n];
+            Transform shot = shots[0];
+            bool first = true;
             for (int i = 0; i < n; i++)
             {
-                string line = cs.lines[i] ?? "";
-                string who = defaultSpeaker;
-                bool hostile = false;
-                int bar = line.IndexOf('|');
-                if (bar > 0 && bar < 64)
+                if (cs.KindAt(i) == Cutscene.BEAT_SAY)
                 {
-                    who = line.Substring(0, bar).Trim();
-                    line = line.Substring(bar + 1).Trim();
-                    if (who.StartsWith("!")) { hostile = true; who = who.Substring(1).Trim(); }
+                    string who = cs.SpeakerAt(i);
+                    Transform[] own;
+                    if (who != defaultSpeaker && byName.TryGetValue(who, out own)) shot = own[Mathf.Min(1, own.Length - 1)];
+                    else shot = shots[first ? 0 : shots.Length - 1];
+                    first = false;
                 }
-                cs.lines[i] = line;
-                speakers[i] = who;
-                stances[i] = hostile ? Cutscene.STANCE_HOSTILE
-                    : who.StartsWith("Professor") || who.StartsWith("Headmaster") ? Cutscene.STANCE_ALLY : Cutscene.STANCE_NEUTRAL;
-                Transform[] own;
-                if (who != defaultSpeaker && byName.TryGetValue(who, out own)) perLine[i] = own[Mathf.Min(1, own.Length - 1)];
-                else if (shots != null && shots.Length > 0) perLine[i] = shots[Mathf.Clamp(i == 0 ? 0 : shots.Length - 1, 0, shots.Length - 1)];
+                // (A wait, a card or a cutaway stays on the shot before it.)
+                perBeat[i] = shot;
             }
-            cs.speakers = speakers;
-            cs.stances = stances;
-            if (shots != null && shots.Length > 0) cs.shots = perLine;
+            cs.shots = perBeat;
         }
 
         /// <summary>A boss's walk-up cutscene from its encounter's Intro Lines (null when it has none).</summary>

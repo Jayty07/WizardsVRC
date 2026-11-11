@@ -72,7 +72,7 @@ namespace WizardsVRC.EditorTools.WorldData
         }
 
         /// <summary>Bumped when the defaults gain content that older folders should receive once (see Upgrade).</summary>
-        public const int CurrentVersion = 33;
+        public const int CurrentVersion = 34;
         public const string VersionPath = Folder + "/WorldDataVersion.txt";
 
         /// <summary>
@@ -205,6 +205,54 @@ namespace WizardsVRC.EditorTools.WorldData
             if (from < 31) UpgradeTo31();
             if (from < 32) UpgradeTo32();
             if (from < 33) UpgradeTo33();
+            if (from < 34) UpgradeTo34();
+        }
+
+        /// <summary>
+        /// v34: story scenes are directed (CUTSCENES.md). World 3's parley (the Moot, the Assayer, the silence and the
+        /// handshake: quests 154-156), the gangs at the casino door (160) and the finale's last scene (161) gain their
+        /// stage directions: a cast standing round the Deepwarden, who each line is said to, cutaways, pauses, a title
+        /// card, one question for the player. A Talk step takes them only where its lines are still the old defaults
+        /// (the new rows with their directions and tags taken off: WorldDefaults.Undirected); edited scenes are left alone.
+        /// </summary>
+        private static void UpgradeTo34()
+        {
+            var fresh = new Dictionary<int, QuestEntry>();
+            foreach (System.Action<Questline> fill in new System.Action<Questline>[] { WorldDefaults.FillParley, WorldDefaults.FillWorld3Finale })
+            {
+                var ql = ScriptableObject.CreateInstance<Questline>();
+                fill(ql);
+                foreach (var q in ql.quests) if (q != null) fresh[q.saveId] = q;
+            }
+            int n = 0;
+            foreach (var ql in FindAll<Questline>())
+            {
+                if (ql == null || ql.quests == null) continue;
+                bool dirty = false;
+                foreach (var q in ql.quests)
+                {
+                    QuestEntry d;
+                    if (q == null || q.steps == null || !fresh.TryGetValue(q.saveId, out d)) continue;
+                    for (int i = 0; i < q.steps.Count && i < d.steps.Count; i++)
+                    {
+                        QuestStepEntry st = q.steps[i], ds = d.steps[i];
+                        if (st == null || ds == null || st.dialogue == null || ds.dialogue == null || st.npc != ds.npc) continue;
+                        if (SameRows(st.dialogue, ds.dialogue) || !SameRows(st.dialogue, WorldDefaults.Undirected(ds.dialogue))) continue;
+                        st.dialogue = (string[])ds.dialogue.Clone();
+                        dirty = true;
+                        n++;
+                    }
+                }
+                if (dirty) EditorUtility.SetDirty(ql);
+            }
+            if (n > 0) Debug.Log("[WizardsVRC] Upgraded world data (v34): " + n + " of Bigdig's story scenes are directed (see CUTSCENES.md).");
+        }
+
+        private static bool SameRows(string[] a, string[] b)
+        {
+            if (a == null || b == null || a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+            return true;
         }
 
         /// <summary>World 3's town and boroughs (world data v28).</summary>

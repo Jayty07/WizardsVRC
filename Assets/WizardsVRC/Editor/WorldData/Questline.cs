@@ -62,7 +62,8 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("NPC that offers the quest when it doesn't start automatically (zone NPC key, Headmaster, OwnProfessor or a school name).")]
         public string giverNpc = "";
         [TextArea(1, 4)]
-        [Tooltip("What the giver says when offering the quest, one line per row (optional; blank = their default lines).")]
+        [Tooltip("What the giver says when offering the quest, one line per row (optional; blank = their default lines). " +
+                 "Rows can also be stage directions and lines for other characters: see CUTSCENES.md.")]
         public string[] offerDialogue = new string[0];
         [Tooltip("Optional voice clips for the offer dialogue: Audio/Voice/<prefix>_00.wav, _01...")]
         public string offerVoicePrefix = "";
@@ -103,7 +104,9 @@ namespace WizardsVRC.EditorTools.WorldData
         [Tooltip("Name the guide arrow shows (blank = picked for you).")]
         public string guideLabel = "";
         [TextArea(1, 4)]
-        [Tooltip("Talk steps: what the NPC says when you hand this step in, one line per row (blank = their default lines).")]
+        [Tooltip("Talk steps: the scene that plays when you hand this step in, one row per line (blank = their default lines). " +
+                 "A row is a line of theirs, \"Name|words\" for someone else in the scene, or a stage direction " +
+                 "(@cast, @shot, @emote, @wait, @fade, @card, @choice...), with [tags] for how a line is acted and framed: see CUTSCENES.md.")]
         public string[] dialogue = new string[0];
         [Tooltip("Optional voice clips for the dialogue: Audio/Voice/<prefix>_00.wav, _01... (blank = none).")]
         public string voicePrefix = "";
