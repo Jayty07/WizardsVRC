@@ -156,6 +156,8 @@ namespace WizardsVRC.EditorTools
                     mat.SetColor("_HorizonColor", a.zone.fogColor);
                     mat.SetColor("_BottomColor", new Color(0.03f, 0.025f, 0.03f));
                 }
+                // World 1: a great pixel-art sun and solar winds across the whole sky (WizardsVRCSceneBuilder.Sun.cs).
+                SetSkySun(mat, a, cave);
                 EditorUtility.SetDirty(mat);
                 a.sky = mat;
             }

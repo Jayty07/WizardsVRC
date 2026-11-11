@@ -109,7 +109,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.SpellCast.cs` | Builds the rune board and casting wand, the choreography rig (rune, rings, column, bolts, beam, portals, bursts, spikes, stamp, light) re-coloured per school at runtime, the battle aura (two flame-shaped shells wearing `Shaders/AuraFlame.shader`, its flames and wind streaks), and the fade sphere; ring art by `Tools/make_spell_ring.py`, sounds by `Tools/make_spell_cast_sounds.py` |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.TavernHall.cs` | The Crystal Tap's hall (after the Aureion Collegium concept), a radial tower round the crystal: the **core** (a round bar ring round the fountain with stools, taps, bottles and kegs; a lounge ring of couches, armchairs and tables on a round velvet rug; the **theatre**, a four-sided screen hung under the crystal with the tavern's `TavernJukebox` and its controls on a lectern in the entrance hall), open up to the oculus; **seven school wedges** behind stone arches with lanterns (Ice's crystal study, Fire's hearth lounge, Balance's concord with the mirror toggle `LocalToggle`, Myth's archive, Death's reliquary, Life's garden, Storm's arcane lounge), each with couches by its arch, and the entrance hall in the eighth; a **gallery** over the wedges reached by a **double stair** to a landing at the Balance arch, with a railing and the school banners on the wall over the rooms; **ten rooms** off it, each with a bed, a desk and chair, a window with sunlight streaming in and its **own screen and video player** (loads only while you're near, heard only in the room, Stop button); a ring chandelier, and **sunbeams** through the roof and windows (`Tools/make_light_shaft.py`) |
 | `Assets/WizardsVRC/Editor/WizardsVRCSceneBuilder.Terrain.cs` | Zone ground from the map + **height map**, as merged per-chunk meshes: every cell a column to its height with stone walls down to lower neighbours, cobbles / lawns / pond beds, optional **rounded corners** (outer corners cut, inner corners filled, path-lawn corners curved), kerbs, copings, iron **railings** (drops, ponds, stair handrails, optional path edges), stairs with stringers, water, waterfalls |
-| `Assets/WizardsVRC/Shaders/PSXSkyline.shader` | Skybox: gradient sky plus a pixel-art skyline strip round the horizon (the other areas where they lie, far isles, sea, clouds), 15-bit dithered |
+| `Assets/WizardsVRC/Shaders/PSXSkyline.shader` | Skybox: gradient sky plus a pixel-art skyline strip round the horizon (the other areas where they lie, far isles, sea, clouds), 15-bit dithered; in World 1 also the pixel-art sun and solar winds (`PSX_SUN`; builder `WizardsVRCSceneBuilder.Sun.cs`, numpy preview `Tools/preview_sun_sky.py`) |
 | `Assets/WizardsVRC/Shaders/PSXSurf.shader` | Surf on a ring round an island: churning foam at the rocks and breaking wave lines rolling in |
 | `Assets/WizardsVRC/Shaders/PSXEyelids.shader` | The opening's eyelids, on an inside-out sphere that follows your head: lids closing from top and bottom, vignette, dream tint and white flash |
 | `Tools/make_intro_audio.py` | Generates the opening's placeholder sounds in `Audio/Intro` (drone, wordless whispers, war drums, vision flash, heartbeat). Replace any with a real recording of the same name |
@@ -335,6 +335,34 @@ the zone's island on the world map. Teleporting to it is free and works from any
 and in. You have one mark per character; it stays where it is until you mark somewhere else, and it's saved with the
 character. A mark whose spot no longer exists (the street was rebuilt) is dropped when you try to go to it, and you stay
 where you are.
+
+## The sun and the solar winds (World 1)
+
+Every World 1 sky (the castle and its six streets) has a great stylized sun, with winds of light streaming from it
+across the whole sky. It is all pixel art, drawn by the skybox itself (`Shaders/PSXSkyline.shader`, `PSX_SUN` keyword):
+every shape is worked out at the middle of a "sky pixel" the same size as the skyline strip's (about 5.7 to the degree),
+so its edges are stair-stepped and stay put in the sky as you turn your head; the soft parts are cut to three flat steps
+with a 4x4 ordered dither laid on those same pixels; and it all moves in steps, 12 a second, like a sprite. The skyline's
+clouds, islands and castle are drawn in front of it.
+
+- **The sun**, its disc about 8 degrees across and its rays reaching 13 degrees out from its middle: a white-hot disc with a paler rim, a shaded
+  crescent and a pulsing eight-pointed star in its face; a plain ring and a ring of rune marks turning the other way;
+  sixteen rays, long and short by turns, turning slowly, their lengths rippling round; needles of light flickering
+  between them; a glow that breathes; a ring of light that leaves it every five seconds and thins as it spreads; six
+  little diamonds going round it on a dotted path; and stars twinkling in its light.
+- **The winds:** nine great ribbons leave the sun and wander across the sky to the far side, with gusts of brightness
+  running out along them, finer streaks between, thin bright filaments in dashes that run outward, and motes with tails
+  riding out like shooting stars. Gold by the sun, through rose, to aqua on the far side.
+- **Where it stands:** the bearing the scene's light comes from (so the lit sides of walls face it), 30 degrees up, in
+  every World 1 sky.
+- **Each area's light:** the sun's and winds' colours lean towards that area's horizon colour and wash out under an
+  overcast sky: a peach sunset sun over the castle, gold over Sunpetal Gardens, rose over Lantern Row, pale silver
+  through the grey at the docks, an ember over Kiln Street, green-gold over the grove, lilac over the Hollow Keep. Each
+  zone's **Sun Strength** (Zone > Sky) turns it down or off for that zone.
+
+Builder: `WizardsVRCSceneBuilder.Sun.cs`. `Tools/preview_sun_sky.py` is the same maths in numpy: it writes pictures of
+the sun, the far sky, the whole dome and each area's colours, for trying a change without Unity (keep it in step with
+the shader). Worlds 2 and 3 are untouched.
 
 ## The Starfall Ward
 

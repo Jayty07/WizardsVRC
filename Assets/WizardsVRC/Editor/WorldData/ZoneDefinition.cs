@@ -243,6 +243,9 @@ namespace WizardsVRC.EditorTools.WorldData
         public Color skyHorizonColor = new Color(1f, 0.68f, 0.52f);
         [Tooltip("Fog colour while you're in this zone.")]
         public Color fogColor = new Color(0.9f, 0.66f, 0.68f);
+        [Tooltip("World 1 only: how much of the great sun and its solar winds this zone's sky shows (0 = none, 1 = all of it). " +
+                 "Their colours follow the sky's horizon colour above.")]
+        [Range(0f, 1f)] public float sunStrength = 1f;
         [Tooltip("How far from the castle this zone lies, in metres, along the line of its tunnel. Each area's skyline shows " +
                  "the others where they lie (the castle, the other streets), so it decides how big and hazy it looks.")]
         [Range(400f, 4000f)] public float horizonDistance = 1100f;

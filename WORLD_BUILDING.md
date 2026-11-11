@@ -288,6 +288,11 @@ behind its mountains. A mostly green map is drawn as a garden isle (giant flower
 a town (lit windows, a lantern tower). Far islands, the sea and clouds fill the rest. Each zone's **Sky Top / Horizon
 Colour** and **Fog Colour** are swapped in as you arrive (Lantern Row is at dusk, Sunpetal Gardens in morning light).
 
+**World 1's sun.** Every World 1 zone's sky has the great pixel-art sun and its solar winds (README, *The sun and the
+solar winds*). You don't place it: it stands where the scene's light comes from, and takes its colours from the zone's
+**Sky Horizon Colour** (a warm horizon gives a golden sun, a grey one a pale silver sun, a violet one a lilac sun).
+**Sun Strength** (Zone > Sky) turns it down for a zone, or off at 0. Zones in other worlds don't have it.
+
 Round the castle the sea rolls with long swells and whitecaps (`Materials/PSX_SeaSwell`) and surf breaks against the
 island (`PSXSurf` shader, `Materials/PSX_Surf`).
 
