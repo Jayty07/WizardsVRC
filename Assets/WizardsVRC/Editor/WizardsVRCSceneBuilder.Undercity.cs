@@ -72,6 +72,7 @@ namespace WizardsVRC.EditorTools
             {
                 // Hemmed in on every side (deep inside a block): only its roofline shows, so just the mass and a roof.
                 float hm = Mathf.Lerp(z.buildingHeight.x, z.buildingHeight.y, h1Hash) * 0.55f + 4f + h2Hash * 3f + (edge ? 5f : 0f);
+                NoteHouse(r, Vector2Int.zero, hm, HousePlain);
                 Block(parent, "Back", c + Vector3.up * (hm / 2f), new Vector3(sx, hm, sz), wall);
                 Deco(parent, PrimitiveType.Cube, "BackRoof", c + Vector3.up * (hm + 0.15f), new Vector3(sx + 0.3f, 0.3f, sz + 0.3f), roof, Quaternion.identity, false);
                 return;
@@ -86,6 +87,7 @@ namespace WizardsVRC.EditorTools
 
             // Shopfront storey.
             float h1 = Mathf.Lerp(z.buildingHeight.x, z.buildingHeight.y, h1Hash) * 0.55f + (edge ? 2f : 0f);
+            NoteHouse(r, fd, h1, HouseShopfront);
             Block(parent, "Shop", c + up * (h1 / 2f), new Vector3(sx, h1, sz), wall);
             // Upper storey, overhanging the street on struts.
             float h2 = 3.5f + h2Hash * 2.5f + (edge ? 3f : 0f);
@@ -126,6 +128,7 @@ namespace WizardsVRC.EditorTools
                 Shape(parent, "StackBand", CylMesh(), roofSpot + up * (sh * 0.7f), new Vector3(1.25f, 0.15f, 1.25f), brass, false, Quaternion.identity);
                 Shape(parent, "StackEmber", CylMesh(), roofSpot + up * (sh + 0.05f), new Vector3(0.9f, 0.06f, 0.9f), PMat("FireboxGlow", new Color(1f, 0.5f, 0.2f), 1f, new Color(1f, 0.4f, 0.1f)),
                     false, Quaternion.identity);
+                _stackTops.Add(roofSpot + up * (sh + 0.3f));
             }
             else
             {

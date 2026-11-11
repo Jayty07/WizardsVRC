@@ -231,6 +231,10 @@ namespace WizardsVRC.EditorTools.WorldData
         public Vector2 buildingHeight = new Vector2(7f, 14f);
         [Tooltip("Decorative street lamps along the roads (0 = none, 1 = lots).")]
         [Range(0f, 1f)] public float lampDensity = 0.25f;
+        [Tooltip("Street dressing: the foliage, rounded props (barrels, jars, planters, carts, wells...) and drifting particles (smoke, " +
+                 "leaves, butterflies, mist, dust...) the builder scatters to make the street feel lived in. 0 = none, 1 = the usual amount, " +
+                 "2 = twice as thick. It never stands in the way of NPCs, quest points, stairs, tunnels or duel rings.")]
+        [Range(0f, 2f)] public float streetDressing = 1f;
 
         [Header("Sky")]
         [Tooltip("Sky colour overhead in this zone.")]

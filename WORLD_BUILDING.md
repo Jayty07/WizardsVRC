@@ -342,8 +342,32 @@ Every zone is culled on each player's own client automatically, so you don't hav
   own Animation component (shared clips in `Animations/Float`), set to stop while off screen; classroom motes pause off
   screen too, and the hearth fire only flickers while you're within 35 m of it.
 
+- **Street dressing merges and culls like everything else.** The foliage, props and particles the builder scatters
+  along a street (see below) are static pieces on shared materials: merged per 32 m chunk, hidden beyond Detail
+  Distance, their particle emitters paused off screen and culled in chunks of their own.
+
 Tips: keep zones at least 100 m apart in height (the checks enforce it), lower Detail Distance for dense mazes, and
 lower `Lamp Density` if a zone has lots of lamps. The rebuild log says how many props were chunked per zone.
+
+### Street dressing (foliage, props, particles)
+
+You don't place these: every rebuild scatters them for you, the same way each time, to suit the zone's Texture Style.
+What you control is the zone's **Street Dressing** (under *Look*): 0 leaves the street bare, 1 is the usual amount, 2
+is twice as thick. The log line `dressed with N props and plants` says what a zone got.
+
+What the map gives it to work with:
+
+| On the map | What grows or gathers there |
+| --- | --- |
+| `#` next to road or lawn | Props against the wall, things on its face (ivy, lanterns, flower boxes under windows), a bigger piece where two walls meet in a corner, a string of lanterns or pennants where two buildings face each other across one or two cells |
+| `,` lawn | Grass tufts, flowers, bushes, rocks; a flower border where it meets a path |
+| `^` tree | A fuller crown, roots, plants round the trunk, leaves or petals drifting down |
+| `=` low wall | Rounded mounds and planting along the top, greenery spilling down the side, props at its foot |
+| `~` water | Reeds and rocks at the banks, lily pads, mist; mooring posts, fenders and buoys at the docks |
+
+So to make a corner feel busier, give it walls to lean things on: a courtyard of `#` round a patch of `,` with a `^`
+fills up on its own. It never puts anything on or beside `S`, an NPC, a point or a landmark, on stairs, on a doorstep or
+in a dungeon, and near a ring spot it sticks to low greenery and the walls, so you don't need to leave room for it.
 
 ### Items (World 1)
 

@@ -91,6 +91,7 @@ inspected via **VRChat SDK > ClientSim > Player Data** (exact menu may differ by
 | `Assets/WizardsVRC/Scripts/QuestNpc.cs` | Zone NPC: click to talk, floating ! / ? quest markers |
 | `Assets/WizardsVRC/Shaders/PSX.shader` | The world's main shader, styled on PS1 platformers like Spyro: Gouraud lighting per vertex (sun, sky/ground ambient and the four nearest point lights, which the builder makes per-vertex), shadowed sides tinted a cool purple-blue, "hand-painted" vertex colour variation, a little extra saturation, vertex snapping (**WizardsVRC > PSX Shake**: Off / Subtle / Classic PS1 / Strong; players can turn the wobble off for themselves in the book's Settings), partly affine textures, per-vertex fog and 15-bit colour with ordered dither. Each material's *PlayStation 1* and *Spyro style colour* settings can be tuned in the inspector |
 | `Tools/make_school_textures.py` | The classrooms' PS1 textures (`Textures/School`): a swallowtail banner and a medallion carpet with each school's symbol, an aisle runner per school, desk wood. The carpets and runners are 5 cm boxes on the floor, side by side, so nothing flickers |
+| `Tools/make_street_fx.py` | The sprites for the streets' drifting particles (`Textures/StreetFx`): leaf, petal, smoke puff, butterfly (two frames), bubble and drip, all white so each street tints them |
 | `Tools/make_street_textures.py` | The 64x64 PS1-style ground, wall, building, roof, hedge and tree textures (`Textures/Terrain`, `Textures/Street`), plus metal plates, sand, woven cloth, stage velvet and a chalkboard; each zone's *Texture Style* picks a set, its colours tint them. Plain PSX materials named for stone, wood, metal, cloth, sand, snow and so on wear these automatically (`AutoTexture` in `WizardsVRCSceneBuilder.Castle.cs`, laid out in world space); glowing ones keep the fine speckle |
 | `Assets/WizardsVRC/Scripts/CosmeticsDatabase.cs`, `PlayerCosmetics.cs`, `WardrobePages.cs`, `ShopPages.cs`, `StarshardStore.cs` | Titles, auras, spell skins and elixirs; showing what each player wears to everyone; the book's Wardrobe and Starshard Shop tabs; the optional VRChat Creator Economy products. See *Shops, Starshards, titles and auras* |
 | `Assets/WizardsVRC/Scripts/GoldShop.cs`, `ItemTooltip.cs` | The castle's gold shops (click a shop's counter) and the hover tooltips on items, gear slots, spell cards and shop rows (gear shows the worn piece beside it) |
@@ -607,6 +608,39 @@ Every street in Worlds 1-3 follows the checklist in the *WizardsVRC Level Design
   from the entrance. The dungeon streets (the Hollow Keep, Copperbottom Mine, Lonesome Bend, the Deep Seams, Highroller
   Heights) end at their dungeon's sigil instead.
 - Every side branch ends in something: a quest NPC or object, a minor boss or a treasure cache.
+
+## Street dressing
+
+Every street and town built from a map gets a last layer that makes it look lived in, laid by
+`WizardsVRCSceneBuilder.Dressing.cs` at the end of `BuildZone` (pieces and kits in `...DressingProps.cs`, particles in
+`...DressingFx.cs`). It is seeded by the zone's key, so a rebuild looks the same each time.
+
+- **Against the walls:** each street's own kit of rounded props. Barrels, planters, sacks and woodpiles in Lantern Row;
+  topiary, beehives and sunflowers in Sunpetal Gardens; rope coils, net floats and fish baskets at the docks; glazed
+  jars, coal heaps and braziers in Kiln Street; rubble, candles and stone orbs in the keep; clay jars, cactus,
+  tumbleweeds and wagon wheels in Dustwind; ore piles, crystals and stalagmites down the mine; oil drums, pressure
+  tanks, steam vents, cogs and glowing toadstools in Bigdig. Bigger pieces (a handcart, a well, a kiln, an upturned
+  boat, an ore cart, a boiler) go in the corners between two walls.
+- **On the walls:** ivy, flower boxes under the windows, hanging baskets, round lanterns, life rings and nets, jar
+  shelves, strings of peppers, crystals in the rock, brass gauges, pipe runs and bracket fungus.
+- **Greenery:** grass tufts, flower clumps, bushes, toadstool rings and rocks on the lawns; flower borders along the
+  paths; extra lumps on every tree's crown with roots and underplanting at its foot; rounded mounds along the hedge
+  tops; reeds, lily pads, mooring posts, fenders and buoys on the water.
+- **Across the street:** strings of paper lanterns, flower garlands, pennants or neon bulbs between buildings that face
+  each other over a narrow street.
+- **In the air:** chimney smoke, moths round the lamps, falling leaves and petals, butterflies, fireflies, pollen, sea
+  mist, glints on water, soot and embers, wisps and ground fog, blowing sand, sifting dust and drips, stack smoke,
+  steam, sparks, spores and bubbles. Sprites from `Tools/make_street_fx.py` (`Textures/StreetFx`).
+
+It keeps out of the way: nothing on or beside the entrance, NPCs, quest points, landmarks, stairs, doorsteps, tunnels
+or the tower sigil, nothing inside dungeons, and nothing where something already stands (it measures what has been
+built). Within a duel ring's reach of a ring spot it only places low greenery and things on the walls. Larger props are
+solid (a simple box or capsule); greenery and small things are not.
+
+It is cheap to draw: the pieces are static and share a small set of materials, so the last pass merges them into a few
+meshes per 32 m chunk, and all but the biggest stop drawing beyond the zone's Detail Distance. Each emitter holds a few
+dozen particles at most, pauses off screen and is culled by distance in chunks. Each zone's **Street Dressing** setting
+(under *Look*) scales the lot: 0 is none, 1 the usual amount, 2 twice as thick.
 
 ## Building zones, monsters and quests
 

@@ -29,6 +29,7 @@ namespace WizardsVRC.EditorTools
             {
                 // Bare rock, lumpy on top, with timber props where it meets a passage.
                 float h = 8f + hash * 5f + (edge ? 6f : 0f);
+                NoteHouse(r, Vector2Int.zero, h, HousePlain);
                 Block(parent, "RockMass", c + new Vector3(0, h / 2f, 0), new Vector3(sx, h, sz), wall);
                 Deco(parent, PrimitiveType.Sphere, "RockTop", c + new Vector3(0, h, 0), new Vector3(sx * 0.9f, 3f + hash * 3f, sz * 0.9f), wall,
                     Quaternion.Euler(0, hash * 90f, 0), false);
@@ -61,6 +62,7 @@ namespace WizardsVRC.EditorTools
             {
                 // Adobe: thick walls, a flat roof behind a low parapet, roof beams poking out, small deep windows.
                 float h = 4.5f + hash * 2.5f + (edge ? 3f : 0f);
+                NoteHouse(r, fd, h, HousePlain);
                 Block(parent, "Adobe", c + new Vector3(0, h / 2f, 0), new Vector3(sx, h, sz), wall);
                 Deco(parent, PrimitiveType.Cube, "Parapet", c + new Vector3(0, h + 0.35f, 0), new Vector3(sx + 0.3f, 0.7f, sz + 0.3f), wall, Quaternion.identity, false);
                 Deco(parent, PrimitiveType.Cube, "RoofTop", c + new Vector3(0, h + 0.5f, 0), new Vector3(sx - 0.6f, 0.5f, sz - 0.6f), roof, Quaternion.identity, false);
@@ -84,6 +86,7 @@ namespace WizardsVRC.EditorTools
             // Boomtown: a two-storey board building with a gable roof hidden behind a tall square false front, and a
             // covered boardwalk porch along the front.
             float bh = 5.5f + hash * 3f + (edge ? 3f : 0f);
+            NoteHouse(r, fd, bh, HousePorch);
             Block(parent, "Building", c + new Vector3(0, bh / 2f, 0), new Vector3(sx, bh, sz), wall);
             bool ridgeAlongDepth = true;
             Vector3 ridgeSize = ridgeAlongDepth ? new Vector3(width * 0.55f, 1.6f, depth) : new Vector3(width, 1.6f, depth * 0.55f);

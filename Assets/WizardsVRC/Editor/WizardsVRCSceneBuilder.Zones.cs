@@ -265,6 +265,7 @@ namespace WizardsVRC.EditorTools
             string k = z.zoneKey;
             var root = new GameObject("Zone_" + k).transform;
             root.position = ZoneRootPos(z);   // its own height, or its place in an open world
+            ResetDressingNotes();   // what the houses, chimneys and lamps tell the street dressing (WizardsVRCSceneBuilder.Dressing.cs)
             AmbientBed(root, AmbientFor(z));   // WizardsVRCSceneBuilder.Ambience.cs
             wb.zoneRoots.Add(root.gameObject);
             float cs = g.cell;
@@ -558,6 +559,10 @@ namespace WizardsVRC.EditorTools
             if (town != null) orbSeeds.AddRange(town.orbs);   // a town's painted orbs went to its layout, like the hub's
             BuildWanderingOrbs(root, g, z.zoneKey, orbSeeds, orbsPerKind, playerState, wb.orbs, wb);
 
+            // Foliage, rounded props and drifting particles, so the street feels lived in (WizardsVRCSceneBuilder.Dressing.cs).
+            // Last of all the scenery: it works round whatever has been built by now.
+            DressStreet(root, layout, g, z, start, stairCells, noHouse, ringCells, towerSite, glow, roof);
+
             // Culling: small props drop out with distance; the whole zone is off for anyone not in it.
             AddDistanceCulling(root, z.detailDistance);
             ClearTunnelPaths(root);
@@ -772,6 +777,7 @@ namespace WizardsVRC.EditorTools
             bool edge = r.xMin == 0 || r.yMin == 0 || r.xMax == g.width || r.yMax == g.height;
             float h = Mathf.Lerp(z.buildingHeight.x, z.buildingHeight.y, g.Hash(r.xMin, r.yMin, 1)) + (edge ? 4f : 0f);
             float sx = r.width * cs, sz = r.height * cs;
+            NoteHouse(r, Vector2Int.zero, h, HouseWindows);
             Block(parent, "House", c + new Vector3(0, h / 2f, 0), new Vector3(sx, h, sz), wall);
             Deco(parent, PrimitiveType.Cube, "Roof", c + new Vector3(0, h + 0.3f, 0), new Vector3(sx + 1f, 0.6f, sz + 1f), roof, Quaternion.identity, false);
             if (g.Hash(r.xMin, r.yMin, 2) > 0.45f)
@@ -781,7 +787,10 @@ namespace WizardsVRC.EditorTools
                     roof, Quaternion.identity, false);
             }
             if (g.Hash(r.xMin, r.yMin, 3) > 0.6f)
+            {
                 Deco(parent, PrimitiveType.Cube, "Chimney", c + new Vector3(sx * 0.25f, h + 1.6f, -sz * 0.2f), new Vector3(0.9f, 2.4f, 0.9f), wall, Quaternion.identity, false);
+                _chimneyTops.Add(c + new Vector3(sx * 0.25f, h + 2.8f, -sz * 0.2f));
+            }
 
             // Glowing windows on faces that look onto a road.
             for (int y = r.yMin; y < r.yMax; y++)
@@ -826,6 +835,7 @@ namespace WizardsVRC.EditorTools
                         Vector3 p = g.Local(x, y) + ZoneGrid.ToLocalDir(d) * (g.cell * 0.4f);
                         Deco(parent, PrimitiveType.Cylinder, "LampPost", p + new Vector3(0, 1.7f, 0), new Vector3(0.18f, 1.7f, 0.18f), post, Quaternion.identity, false);
                         Deco(parent, PrimitiveType.Cube, "LampGlow", p + new Vector3(0, 3.6f, 0), new Vector3(0.55f, 0.6f, 0.55f), glow, Quaternion.identity, false);
+                        _lampTops.Add(p + new Vector3(0, 3.6f, 0));
                         count++;
                         break;
                     }
