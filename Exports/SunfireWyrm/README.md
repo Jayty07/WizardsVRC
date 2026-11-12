@@ -55,10 +55,12 @@ The fire it sheds, its breath and its roar are particle systems and sounds in th
 
 - **Unity**: drop `SunfireWyrm.fbx` and `WyrmSkin.png` into Assets together. The mesh, the skeleton and the four
   takes should come in as one model with four clips; tick Loop Time on `Fly` and `Idle`, and set the skin's Filter
-  Mode to Point (Compression: None). If the material comes in without its picture, drag `WyrmSkin` onto it. Inside the
-  WizardsVRC project you do not need a file at all: the menu **WizardsVRC > Export > Sunfire Wyrm Rig (prefab)** saves
-  the same rig (no animations, no script) as `Assets/WizardsVRC/Generated/Wyrm/SunfireWyrmRig.prefab`, built from the
-  meshes the project already has.
+  Mode to Point (Compression: None). If the material comes in without its picture, drag `WyrmSkin` onto it. In the
+  `Spell` clip the dragon flies a long way from where it is laid out, so tick **Update When Offscreen** on its
+  Skinned Mesh Renderer (or enlarge its bounds): otherwise Unity stops drawing it when the laid-out shape leaves the
+  view. Inside the WizardsVRC project you do not need a file at all: the menu **WizardsVRC > Export > Sunfire Wyrm
+  Rig (prefab)** saves the same rig (no animations, no script) as
+  `Assets/WizardsVRC/Generated/Wyrm/SunfireWyrmRig.prefab`, built from the meshes the project already has.
 - **Blender**: File > Import > glTF 2.0, with the `.glb`. It arrives as an armature with the mesh on it and the four
   clips as actions. To make your own flight, put a Spline IK on the `Body` chain and draw the curve. (Blender should
   read the `.fbx` as well, but prefer the `.glb` there: it keeps every rotation whole and carries its skin inside.)
