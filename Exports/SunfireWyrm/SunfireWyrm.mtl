@@ -1,0 +1,9 @@
+# The Sunfire Wyrm's skin: one 64 x 64 sheet of pixel art (keep its filter on nearest / point).
+newmtl WyrmSkin
+Ka 0.2 0.2 0.2
+Kd 1 1 1
+Ks 0 0 0
+Ke 0.1 0.035 0.01
+d 1
+illum 1
+map_Kd WyrmSkin.png

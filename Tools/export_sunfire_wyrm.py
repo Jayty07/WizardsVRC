@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The Sunfire Wyrm's dragon as a rig to use anywhere: one glTF 2.0 binary (.glb) with the model, its skin, a skeleton
-and four animations. Blender, Godot, Unreal, three.js and Unity (with a glTF importer) all read it.
+and four animations. Blender, Godot, Unreal, three.js and Unity (with a glTF importer) all read it; for programs that
+want an FBX or an OBJ, Tools/convert_sunfire_wyrm.py makes those from this file.
 
     python3 Tools/export_sunfire_wyrm.py              writes Exports/SunfireWyrm/SunfireWyrm.glb and WyrmSkin.png
     python3 Tools/export_sunfire_wyrm.py check        reads the file back, skins it by hand and compares every frame of

@@ -1,18 +1,33 @@
 # The Sunfire Wyrm's dragon, as a rig
 
-`SunfireWyrm.glb` is the dragon from the Sunfire Wyrm spell as one file to use anywhere: the model, its skin, a
-skeleton and four animations, in glTF 2.0 (binary). `WyrmSkin.png` is the same 64 x 64 skin on its own (it is also
-inside the `.glb`). Original art, made for WizardsVRC.
+The dragon from the Sunfire Wyrm spell as files to use anywhere. Original art, made for WizardsVRC.
 
-It is written by `python3 Tools/export_sunfire_wyrm.py` from the game's own meshes and flight, so it is the dragon
-the game has, not a copy drawn again. `python3 Tools/export_sunfire_wyrm.py check` reads the file back, skins it
-by hand and compares every clip with the game's dragon (they agree to under a thousandth of a millimetre). It has
-not been opened in Blender or Unity from here: if an importer objects to anything, that is worth knowing.
+| File | What it holds |
+|---|---|
+| `SunfireWyrm.glb` | glTF 2.0 (binary): the model, its skin, a skeleton and four animations, all in the one file |
+| `SunfireWyrm.fbx` | FBX 7.4 (binary): the same model, skeleton, skin weights and four animations (as takes). Its skin is `WyrmSkin.png`, beside it |
+| `SunfireWyrm.obj` + `SunfireWyrm.mtl` | The model alone, laid out straight. OBJ holds no bones and no animation; each bone's part is a group (`Head`, `Jaw`, `Body_00` ... `Body_23`). Its skin is `WyrmSkin.png` |
+| `SunfireWyrm_Reared.obj` | The model alone in its card's pose: reared out of a coil, jaws open |
+| `WyrmSkin.png` | The 64 x 64 skin. Keep it in the same folder as the `.fbx` and the `.obj`s (the `.glb` carries its own copy) |
+
+The `.glb` is written by `python3 Tools/export_sunfire_wyrm.py` from the game's own meshes and flight, so it is the
+dragon the game has, not a copy drawn again; `python3 Tools/convert_sunfire_wyrm.py` writes the `.fbx` and the `.obj`s
+from the `.glb`. Each tool has a `check` that reads its files back: the `.glb` is skinned by hand and compared with the
+game's dragon on every frame of every clip, and the `.fbx` and `.obj`s are compared with the `.glb` the same way.
+They agree to a hundredth of a millimetre.
+
+**None of these has been opened in Blender, Unity or Maya from here.** There is no FBX library on the machine that
+made them, so the `.fbx` is written by hand (`Tools/fbx_binary.py`) in the layout Blender's exporter uses. That
+writer gives a real Blender-exported FBX back byte for byte, and every kind of record in the dragon's file has the
+shape it has in real FBX files, except the animation curves, which no file to hand had. If an importer objects to
+anything, that is worth knowing.
 
 ## What is in it
 
-- **Model**: one skinned mesh, 2,392 triangles, flat-shaded (PS1 style), one material. 1 unit = 1 metre; laid out straight the
-  dragon is 11.6 m from its nose to the tip of its tail flame and 1.3 m across its legs, facing +Z, +Y up. The skin is pixel art: keep its filter on **nearest / point**.
+- **Model**: one skinned mesh, 2,392 triangles, flat-shaded (PS1 style), one material. Laid out straight the
+  dragon is 11.6 m from its nose to the tip of its tail flame and 1.3 m across its legs, facing +Z, +Y up. The `.glb`
+  and the `.obj`s are in metres; the `.fbx` is in centimetres, FBX's usual unit (the file says so, and importers
+  convert). The skin is pixel art: keep its filter on **nearest / point**.
 - **Skeleton** (51 bones; every vertex rides exactly one):
 
   | Bone | What it moves |
@@ -38,15 +53,22 @@ The fire it sheds, its breath and its roar are particle systems and sounds in th
 
 ## Using it
 
-- **Blender**: File > Import > glTF 2.0. It comes in as an armature with the mesh on it and the four clips as
-  actions. To make your own flight, put a Spline IK on the `Body` chain and draw the curve. Export to FBX from there
-  if another program wants FBX.
-- **Unity**: Unity does not read glTF by itself. Either add the **glTFast** package (Package Manager > Add package by
-  name > `com.unity.cloud.gltfast`) and drop the `.glb` into Assets, or bring it through Blender as an FBX. Set the
-  skin's Filter Mode to Point. Inside the WizardsVRC project you do not need the file at all: the menu
-  **WizardsVRC > Export > Sunfire Wyrm Rig (prefab)** saves the same rig (no animations, no script) as
-  `Assets/WizardsVRC/Generated/Wyrm/SunfireWyrmRig.prefab`, built from the meshes the project already has.
-- **Godot, Unreal, three.js and the rest**: import the `.glb` as it is.
+- **Unity**: drop `SunfireWyrm.fbx` and `WyrmSkin.png` into Assets together. The mesh, the skeleton and the four
+  takes should come in as one model with four clips; tick Loop Time on `Fly` and `Idle`, and set the skin's Filter
+  Mode to Point (Compression: None). If the material comes in without its picture, drag `WyrmSkin` onto it. Inside the
+  WizardsVRC project you do not need a file at all: the menu **WizardsVRC > Export > Sunfire Wyrm Rig (prefab)** saves
+  the same rig (no animations, no script) as `Assets/WizardsVRC/Generated/Wyrm/SunfireWyrmRig.prefab`, built from the
+  meshes the project already has.
+- **Blender**: File > Import > glTF 2.0, with the `.glb`. It arrives as an armature with the mesh on it and the four
+  clips as actions. To make your own flight, put a Spline IK on the `Body` chain and draw the curve. (Blender should
+  read the `.fbx` as well, but prefer the `.glb` there: it keeps every rotation whole and carries its skin inside.)
+- **Maya, 3ds Max, MotionBuilder, Unreal**: import the `.fbx`.
+- **Godot, three.js and the rest**: import the `.glb` as it is.
+- **Anything that only takes a still model** (a slicer, a sculpting or painting program): the `.obj`s.
 
-glTF is right-handed and Unity is left-handed, so the model is mirrored in X on the way out and comes back the right
-way round in any importer that follows the standard.
+Unity is left-handed; glTF, FBX and OBJ are right-handed. So the model is mirrored in X on the way out and comes back
+the right way round in any importer that follows the standard.
+
+In the `.fbx` a rotation is three angles where the `.glb` has a quaternion. Every frame is the same pose in both. A
+program that blends the angles between two frames, rather than sampling the frames, can be a few degrees out for
+that instant where the dragon whips round in the `Spell` clip (ten at the worst).
